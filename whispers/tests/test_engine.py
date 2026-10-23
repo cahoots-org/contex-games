@@ -7,29 +7,29 @@ from types import SimpleNamespace
 
 import pytest
 
-from examples.rumor_mill import engine as engine_mod
-from examples.rumor_mill.actions import ANSWER, IGNORE, SPEAK, WARN
-from examples.rumor_mill.calibration import Baselines
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import Match
-from examples.rumor_mill.decide import Decision, _state
-from examples.rumor_mill.engine import Engine
-from examples.rumor_mill.feed import Feed
-from examples.rumor_mill.game import Game
-from examples.rumor_mill.lineage import Ids, Lineage
-from examples.rumor_mill.mind import Mind, mind_project, said_project
-from examples.rumor_mill.models import Utterance, Villager
-from examples.rumor_mill.overhear import Overhear
-from examples.rumor_mill.player import Player
-from examples.rumor_mill.players import Players
-from examples.rumor_mill.rumors import Rumors
-from examples.rumor_mill.scenes import SCENE_SPEECH
-from examples.rumor_mill.tests.helpers import (
+from examples.whispers import engine as engine_mod
+from examples.whispers.actions import ANSWER, IGNORE, SPEAK, WARN
+from examples.whispers.calibration import Baselines
+from examples.whispers.config import Config
+from examples.whispers.contex_client import Match
+from examples.whispers.decide import Decision, _state
+from examples.whispers.engine import Engine
+from examples.whispers.feed import Feed
+from examples.whispers.game import Game
+from examples.whispers.lineage import Ids, Lineage
+from examples.whispers.mind import Mind, mind_project, said_project
+from examples.whispers.models import Utterance, Villager
+from examples.whispers.overhear import Overhear
+from examples.whispers.player import Player
+from examples.whispers.players import Players
+from examples.whispers.rumors import Rumors
+from examples.whispers.scenes import SCENE_SPEECH
+from examples.whispers.tests.helpers import (
     PID, TIMEOUT, Always, FakeMind, StubBaselines, StubClient, StubContex, make, stub_player, wait_for,
 )
-from examples.rumor_mill.town import NEWCOMER, Town
-from examples.rumor_mill.usage import CountingJev, Usage
-from examples.rumor_mill.writer import Writer
+from examples.whispers.town import NEWCOMER, Town
+from examples.whispers.usage import CountingJev, Usage
+from examples.whispers.writer import Writer
 
 SETTLE = 0.1
 

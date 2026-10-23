@@ -1,7 +1,7 @@
 import pytest
 
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.pressure import Pressure
+from examples.whispers.config import Config
+from examples.whispers.pressure import Pressure
 
 
 def test_pressure_adds_up_and_credits_the_largest_share():

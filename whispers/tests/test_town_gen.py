@@ -3,11 +3,11 @@ import random
 
 import pytest
 
-from examples.rumor_mill.town_gen import (
+from examples.whispers.town_gen import (
     MAX_FAILED_BATCHES, SeedMismatch, generate_newcomer, generate_villagers, load_or_generate,
     wire_relationships, world_path,
 )
-from examples.rumor_mill.models import Villager
+from examples.whispers.models import Villager
 
 
 def entry(i):
@@ -160,7 +160,7 @@ async def test_seed_of_another_size_is_rejected(tmp_path):
     await load_or_generate(str(path), StubWriter(fenced(10)), 10, random.Random(1))
 
     with pytest.raises(SeedMismatch, match=f"{path} has 10 villagers but population is 20; "
-                       "delete it or set RUMOR_MILL_POPULATION=10"):
+                       "delete it or set WHISPERS_POPULATION=10"):
         await load_or_generate(str(path), StubWriter(fenced(10)), 20, random.Random(1))
 
 
@@ -293,4 +293,4 @@ async def test_a_new_world_is_saved_in_a_folder_of_its_own(tmp_path, monkeypatch
     monkeypatch.chdir(tmp_path)
     path = world_path("abc123")
     await load_or_generate(path, FreshBatches(10), 10, random.Random(1))
-    assert (tmp_path / "rumor_mill_worlds" / "abc123.json").exists()
+    assert (tmp_path / "whispers_worlds" / "abc123.json").exists()

@@ -2,8 +2,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.usage import CountingJev, Usage
+from examples.whispers.config import Config
+from examples.whispers.usage import CountingJev, Usage
 
 
 def test_cost_uses_configured_prices():

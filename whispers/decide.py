@@ -6,13 +6,13 @@ from dataclasses import dataclass, field
 
 from typesafe_sdk import Choice, Score
 
-from examples.rumor_mill.actions import (
+from examples.whispers.actions import (
     ACTION_NOT_FOR, ACTIONS, ANSWER, IGNORE, JOIN_GROUP, MOVE, STYLED, STYLES, TARGET_KIND,
     available_actions,
 )
-from examples.rumor_mill.contex_client import Match
-from examples.rumor_mill.models import Group, Villager
-from examples.rumor_mill.town import PLACES
+from examples.whispers.contex_client import Match
+from examples.whispers.models import Group, Villager
+from examples.whispers.town import PLACES
 
 log = logging.getLogger(__name__)
 

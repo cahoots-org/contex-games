@@ -2,12 +2,12 @@ import re
 
 import pytest
 
-from examples.rumor_mill.decide import Decision
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.models import Villager
-from examples.rumor_mill.usage import Usage
-from examples.rumor_mill.tests.helpers import StubClient
-from examples.rumor_mill.writer import SAY_MAX_TOKENS, WHISPER_FRAMING, Writer, first_line
+from examples.whispers.decide import Decision
+from examples.whispers.config import Config
+from examples.whispers.models import Villager
+from examples.whispers.usage import Usage
+from examples.whispers.tests.helpers import StubClient
+from examples.whispers.writer import SAY_MAX_TOKENS, WHISPER_FRAMING, Writer, first_line
 
 
 def villager():

@@ -1,12 +1,12 @@
 from pathlib import Path
 
-from examples.rumor_mill.feed import REPLAY_EVENTS, Feed
-from examples.rumor_mill.goals import Goal, Trophy
-from examples.rumor_mill.lineage import Lineage
-from examples.rumor_mill.models import Utterance, Villager
-from examples.rumor_mill.scenes import Scene
-from examples.rumor_mill.tests.helpers import PID
-from examples.rumor_mill.town import Town
+from examples.whispers.feed import REPLAY_EVENTS, Feed
+from examples.whispers.goals import Goal, Trophy
+from examples.whispers.lineage import Lineage
+from examples.whispers.models import Utterance, Villager
+from examples.whispers.scenes import Scene
+from examples.whispers.tests.helpers import PID
+from examples.whispers.town import Town
 
 
 def make():

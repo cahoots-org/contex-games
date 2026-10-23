@@ -3,8 +3,8 @@
 import itertools
 import logging
 
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import ContexClient
+from examples.whispers.config import Config
+from examples.whispers.contex_client import ContexClient
 
 log = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class Hints:
 
     def project(self, player: str) -> str:
         """The player's hints project."""
-        return f"rumor-mill:{self.config.session}:hints:{player}"
+        return f"whispers:{self.config.session}:hints:{player}"
 
     async def add(self, player: str, villager_id: str, line: str) -> None:
         """Keep a hint line the villager gave the player; a failure is logged."""

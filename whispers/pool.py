@@ -9,8 +9,8 @@ import tempfile
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 
-from examples.rumor_mill.believability import MIDDLING
-from examples.rumor_mill.models import Villager
+from examples.whispers.believability import MIDDLING
+from examples.whispers.models import Villager
 
 log = logging.getLogger(__name__)
 

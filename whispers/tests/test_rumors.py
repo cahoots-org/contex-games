@@ -6,17 +6,17 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from examples.rumor_mill import rumors as rumors_mod
-from examples.rumor_mill.calibration import Baselines
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import ContexClient, Match
-from examples.rumor_mill.feed import Event
-from examples.rumor_mill.models import Utterance
-from examples.rumor_mill.rumors import TARGET_STATES, Rumors
-from examples.rumor_mill.scenes import Scene
-from examples.rumor_mill.tests.helpers import PID, StubBaselines, StubContex
+from examples.whispers import rumors as rumors_mod
+from examples.whispers.calibration import Baselines
+from examples.whispers.config import Config
+from examples.whispers.contex_client import ContexClient, Match
+from examples.whispers.feed import Event
+from examples.whispers.models import Utterance
+from examples.whispers.rumors import TARGET_STATES, Rumors
+from examples.whispers.scenes import Scene
+from examples.whispers.tests.helpers import PID, StubBaselines, StubContex
 
-URL = os.environ.get("RUMOR_MILL_CONTEX_URL")
+URL = os.environ.get("WHISPERS_CONTEX_URL")
 AT = datetime(2026, 10, 21, 12, 0, tzinfo=UTC)
 
 
@@ -35,7 +35,7 @@ async def make(results=None, error=None, day=100.0):
 async def test_add_publishes_the_words_only():
     _, contex = await make()
     assert contex.published == [
-        ("rumor-mill:s1:rumors", "rumor:w-1", {"id": "w-1", "text": "the miller waters his flour"}),
+        ("whispers:s1:rumors", "rumor:w-1", {"id": "w-1", "text": "the miller waters his flour"}),
     ]
 
 
@@ -50,7 +50,7 @@ async def test_on_topic_clears_the_whisper_baseline_plus_margin():
     assert not await rumors.on_topic("w-1", "near")
     assert not await rumors.on_topic("w-1", "other")
     project, _, kwargs = contex.queries[0]
-    assert project == "rumor-mill:s1:rumors" and kwargs["threshold"] == 0
+    assert project == "whispers:s1:rumors" and kwargs["threshold"] == 0
     assert kwargs["since"] == (AT - timedelta(seconds=5)).isoformat()
 
 
@@ -171,7 +171,7 @@ async def test_a_reply_joins_its_conversation_card():
     assert await rumors.on_topic("w-2", "close")
 
 
-@pytest.mark.skipif(not URL, reason="RUMOR_MILL_CONTEX_URL not set")
+@pytest.mark.skipif(not URL, reason="WHISPERS_CONTEX_URL not set")
 @pytest.mark.asyncio
 async def test_live_paraphrase_stays_on_topic_and_a_reply_does_not(tmp_path, caplog):
     cfg = Config(contex_url=URL, session=f"rumor-{uuid.uuid4().hex[:8]}", seed_path=str(tmp_path / "seed.json"))
@@ -192,7 +192,7 @@ async def test_a_topic_is_checked_but_never_shown():
     rumors, contex = await make({"close": [Match("rumor:u-5", {}, 0.53)]})
     await rumors.add_topic("u-5", "the baker skims the till", AT)
     assert await rumors.on_topic("u-5", "close")
-    assert contex.published[-1] == ("rumor-mill:s1:rumors", "rumor:u-5", {"id": "u-5", "text": "the baker skims the till"})
+    assert contex.published[-1] == ("whispers:s1:rumors", "rumor:u-5", {"id": "u-5", "text": "the baker skims the till"})
     assert [c["uid"] for c in rumors.cards(PID)] == ["w-1"]
 
 

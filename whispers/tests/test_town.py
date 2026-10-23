@@ -1,7 +1,7 @@
 import pytest
 
-from examples.rumor_mill.models import Utterance, Villager
-from examples.rumor_mill.town import Town
+from examples.whispers.models import Utterance, Villager
+from examples.whispers.town import Town
 
 
 def v(vid, name):

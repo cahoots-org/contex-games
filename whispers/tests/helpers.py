@@ -1,23 +1,23 @@
-"""Test doubles and helpers shared by the Rumor Mill tests."""
+"""Test doubles and helpers shared by the Whispers tests."""
 
 import asyncio
 import random
 from types import SimpleNamespace
 
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import Match
-from examples.rumor_mill.facts import Facts
-from examples.rumor_mill.feed import Feed
-from examples.rumor_mill.goal_maker import GoalMaker
-from examples.rumor_mill.hints import Hints
-from examples.rumor_mill.lineage import Ids, Lineage
-from examples.rumor_mill.models import Villager
-from examples.rumor_mill.overhear import Overhear
-from examples.rumor_mill.player import Player
-from examples.rumor_mill.pool import DEFAULT_ACCUSATIONS, DEFAULT_CLAIMS, Entry, Pool
-from examples.rumor_mill.rapport import Rapport
-from examples.rumor_mill.suspicion import Suspicion
-from examples.rumor_mill.town import Town
+from examples.whispers.config import Config
+from examples.whispers.contex_client import Match
+from examples.whispers.facts import Facts
+from examples.whispers.feed import Feed
+from examples.whispers.goal_maker import GoalMaker
+from examples.whispers.hints import Hints
+from examples.whispers.lineage import Ids, Lineage
+from examples.whispers.models import Villager
+from examples.whispers.overhear import Overhear
+from examples.whispers.player import Player
+from examples.whispers.pool import DEFAULT_ACCUSATIONS, DEFAULT_CLAIMS, Entry, Pool
+from examples.whispers.rapport import Rapport
+from examples.whispers.suspicion import Suspicion
+from examples.whispers.town import Town
 
 PID = "p-1"
 TIMEOUT = 2.0

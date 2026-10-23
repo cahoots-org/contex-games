@@ -1,9 +1,9 @@
 import pytest
 
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.models import Villager
-from examples.rumor_mill.suspicion import Suspicion, influence
-from examples.rumor_mill.town import Town
+from examples.whispers.config import Config
+from examples.whispers.models import Villager
+from examples.whispers.suspicion import Suspicion, influence
+from examples.whispers.town import Town
 
 P = "p-1"
 

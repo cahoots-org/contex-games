@@ -1,6 +1,6 @@
 """How taken each villager is with each player's rumors, and with the player."""
 
-from examples.rumor_mill.config import Config
+from examples.whispers.config import Config
 
 
 def _clamp(value: float) -> float:

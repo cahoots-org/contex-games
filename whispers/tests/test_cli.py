@@ -3,19 +3,19 @@ from types import SimpleNamespace
 
 import pytest
 
-from examples.rumor_mill import cli
-from examples.rumor_mill.cli import Command, parse_command
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.feed import Feed
-from examples.rumor_mill.game import Summary
-from examples.rumor_mill.goals import Goal, Trophy
-from examples.rumor_mill.lineage import Ids, Lineage
-from examples.rumor_mill.models import Villager
-from examples.rumor_mill.player import Player, Refusal
-from examples.rumor_mill.players import Players
-from examples.rumor_mill.suspicion import Suspicion
-from examples.rumor_mill.tests.helpers import PID
-from examples.rumor_mill.town import Town
+from examples.whispers import cli
+from examples.whispers.cli import Command, parse_command
+from examples.whispers.config import Config
+from examples.whispers.feed import Feed
+from examples.whispers.game import Summary
+from examples.whispers.goals import Goal, Trophy
+from examples.whispers.lineage import Ids, Lineage
+from examples.whispers.models import Villager
+from examples.whispers.player import Player, Refusal
+from examples.whispers.players import Players
+from examples.whispers.suspicion import Suspicion
+from examples.whispers.tests.helpers import PID
+from examples.whispers.town import Town
 
 
 def test_parse_command_forms():

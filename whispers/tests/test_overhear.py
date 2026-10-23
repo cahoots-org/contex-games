@@ -5,17 +5,17 @@ import uuid
 
 import pytest
 
-from examples.rumor_mill.actions import CONFRONT, DENY, RETELL, SPEAK, WARN
-from examples.rumor_mill.calibration import Baselines
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import ContexClient, Match
-from examples.rumor_mill.goals import Goal
-from examples.rumor_mill.models import Utterance
-from examples.rumor_mill.overhear import Overhear
-from examples.rumor_mill.tests.helpers import Always, StubBaselines, StubContex
-from examples.rumor_mill.town import NEWCOMER
+from examples.whispers.actions import CONFRONT, DENY, RETELL, SPEAK, WARN
+from examples.whispers.calibration import Baselines
+from examples.whispers.config import Config
+from examples.whispers.contex_client import ContexClient, Match
+from examples.whispers.goals import Goal
+from examples.whispers.models import Utterance
+from examples.whispers.overhear import Overhear
+from examples.whispers.tests.helpers import Always, StubBaselines, StubContex
+from examples.whispers.town import NEWCOMER
 
-URL = os.environ.get("RUMOR_MILL_CONTEX_URL")
+URL = os.environ.get("WHISPERS_CONTEX_URL")
 
 
 def belief(gid, claim):
@@ -46,7 +46,7 @@ async def make(results=None, error=None, rate=0.0, goals=(WELL,), roll=0.99):
 async def test_publishes_only_goals_with_evidence():
     _, contex = await make(goals=(WELL, GOALS["bare"]))
     assert contex.published == [
-        ("rumor-mill:s1:goals", "goal:well-cursed", {"id": "well-cursed", "text": "the well is cursed"}),
+        ("whispers:s1:goals", "goal:well-cursed", {"id": "well-cursed", "text": "the well is cursed"}),
     ]
 
 
@@ -99,7 +99,7 @@ async def test_goal_relevant_kept():
     overhear, contex = await make(results)
     assert await overhear.keep(line("the well water tastes of brimstone"), "tavern", goals=["well-cursed"]) == "goal"
     assert await overhear.keep(line("the well is deep"), "tavern", goals=["well-cursed"]) is None
-    assert contex.queries[0] == ("rumor-mill:s1:goals", "the well water tastes of brimstone", {"top_k": 1, "threshold": 0})
+    assert contex.queries[0] == ("whispers:s1:goals", "the well water tastes of brimstone", {"top_k": 1, "threshold": 0})
 
 
 @pytest.mark.asyncio
@@ -127,7 +127,7 @@ async def test_random_rate():
     assert 0.1 < kept.count("random") / len(kept) < 0.15
 
 
-@pytest.mark.skipif(not URL, reason="RUMOR_MILL_CONTEX_URL not set")
+@pytest.mark.skipif(not URL, reason="WHISPERS_CONTEX_URL not set")
 @pytest.mark.asyncio
 async def test_live_goal_relevance(tmp_path):
     cfg = Config(contex_url=URL, session=f"rumor-{uuid.uuid4().hex[:8]}", seed_path=str(tmp_path / "seed.json"),
@@ -161,7 +161,7 @@ async def test_claims_are_the_goals_whose_evidence_the_words_match_best_first():
     overhear = Overhear(contex, StubBaselines(0.5), Config(session="s1"), Always(0.99))
     await overhear.publish([GOALS["tavern-ghost"], WELL, GOALS["dragon"]])
     assert await overhear.claims("spooky water") == ["tavern-ghost", "well-cursed"]
-    assert contex.queries == [("rumor-mill:s1:goals", "spooky water", {"top_k": 3, "threshold": 0})]
+    assert contex.queries == [("whispers:s1:goals", "spooky water", {"top_k": 3, "threshold": 0})]
 
 
 @pytest.mark.asyncio

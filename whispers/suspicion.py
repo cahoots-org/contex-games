@@ -4,9 +4,9 @@ from collections import defaultdict
 from collections.abc import Collection
 from dataclasses import dataclass
 
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.models import Villager
-from examples.rumor_mill.town import Town
+from examples.whispers.config import Config
+from examples.whispers.models import Villager
+from examples.whispers.town import Town
 
 # Occupation substring (lowercase) to how much that villager's suspicion counts.
 WEIGHTS = {"mayor": 3.0, "priest": 2.0, "innkeeper": 2.0, "constable": 2.0, "reeve": 2.0,

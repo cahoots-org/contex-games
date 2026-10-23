@@ -1,6 +1,6 @@
-from examples.rumor_mill import facts
-from examples.rumor_mill.facts import Facts
-from examples.rumor_mill.models import Utterance
+from examples.whispers import facts
+from examples.whispers.facts import Facts
+from examples.whispers.models import Utterance
 
 
 def test_recent_lists_lines_said_at_a_place_since_a_time(monkeypatch):

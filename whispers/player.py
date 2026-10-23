@@ -9,16 +9,16 @@ from datetime import UTC, datetime, timedelta
 
 from typesafe_sdk import Noul
 
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import Match
-from examples.rumor_mill.game import Game, Summary
-from examples.rumor_mill.goals import Goal
-from examples.rumor_mill.lineage import Ids, Lineage
-from examples.rumor_mill.mind import mind_project
-from examples.rumor_mill.overhear import audible
-from examples.rumor_mill.models import Utterance, Villager
-from examples.rumor_mill.town import NEWCOMER, PLACES, START_PLACE, Town, neighbours
-from examples.rumor_mill.usage import charging
+from examples.whispers.config import Config
+from examples.whispers.contex_client import Match
+from examples.whispers.game import Game, Summary
+from examples.whispers.goals import Goal
+from examples.whispers.lineage import Ids, Lineage
+from examples.whispers.mind import mind_project
+from examples.whispers.overhear import audible
+from examples.whispers.models import Utterance, Villager
+from examples.whispers.town import NEWCOMER, PLACES, START_PLACE, Town, neighbours
+from examples.whispers.usage import charging
 
 log = logging.getLogger(__name__)
 

@@ -1,18 +1,18 @@
 import pytest
 
-from examples.rumor_mill.actions import (
+from examples.whispers.actions import (
     ANSWER, CONFRONT, FOUND_GROUP, JOIN_GROUP, LEAVE_TOWN, MOVE, PREACH, RETELL, SPEAK, WARN,
 )
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import Match
-from examples.rumor_mill.decide import Decision
-from examples.rumor_mill.effects import act
-from examples.rumor_mill.facts import Facts
-from examples.rumor_mill.lineage import Ids, Lineage
-from examples.rumor_mill.models import Utterance, Villager
-from examples.rumor_mill.tests.helpers import PID, StubClient
-from examples.rumor_mill.town import NEWCOMER, Town
-from examples.rumor_mill.writer import Writer
+from examples.whispers.config import Config
+from examples.whispers.contex_client import Match
+from examples.whispers.decide import Decision
+from examples.whispers.effects import act
+from examples.whispers.facts import Facts
+from examples.whispers.lineage import Ids, Lineage
+from examples.whispers.models import Utterance, Villager
+from examples.whispers.tests.helpers import PID, StubClient
+from examples.whispers.town import NEWCOMER, Town
+from examples.whispers.writer import Writer
 
 
 class StubWriter:

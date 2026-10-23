@@ -1,11 +1,11 @@
 import re
 from pathlib import Path
 
-from examples.rumor_mill.feed import Feed
-from examples.rumor_mill.lineage import Lineage
-from examples.rumor_mill.notes import RANK, Notes
-from examples.rumor_mill.tests.helpers import PID
-from examples.rumor_mill.town import Town
+from examples.whispers.feed import Feed
+from examples.whispers.lineage import Lineage
+from examples.whispers.notes import RANK, Notes
+from examples.whispers.tests.helpers import PID
+from examples.whispers.town import Town
 
 
 def make():

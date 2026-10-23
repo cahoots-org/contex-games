@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
-<title>Rumor Mill</title>
+<title>Whispers</title>
 <link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -535,7 +535,7 @@ button.goal-text:focus-visible { outline: 2px solid var(--accent); outline-offse
 <body>
 <div class="app" id="app" data-tab="hear">
   <header>
-    <h1>Rumor Mill</h1>
+    <h1>Whispers</h1>
     <div class="hud">
       <p class="heat" id="heat" aria-live="polite"></p>
       <button class="linkish" id="trophies-toggle" type="button" aria-expanded="false" aria-controls="trophies">Trophies (0)</button>
@@ -713,9 +713,9 @@ const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)");
 // What the feed's arrow keys move between; the feed itself is one tab stop.
 const ROVE = ".fold-more, .fold-talk, .trophy-open, .chat-open";
 let talkLines = 0;
-const OPEN_KEY = "rumor-mill-open-place";
-const SORT_KEY = "rumor-mill-sort";
-const TAB_KEY = "rumor-mill-tab";
+const OPEN_KEY = "whispers-open-place";
+const SORT_KEY = "whispers-sort";
+const TAB_KEY = "whispers-tab";
 const FACES_SHOWN = 11;
 // The open rumor, whose touch the village panel shows.
 let selectedRumor = null;

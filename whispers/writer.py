@@ -4,10 +4,10 @@ import json
 import re
 from collections.abc import Sequence
 
-from examples.rumor_mill.actions import STYLES
-from examples.rumor_mill.decide import Decision
-from examples.rumor_mill.models import Villager
-from examples.rumor_mill.usage import charged_to
+from examples.whispers.actions import STYLES
+from examples.whispers.decide import Decision
+from examples.whispers.models import Villager
+from examples.whispers.usage import charged_to
 
 SAY_MAX_TOKENS = 80
 TURN_AWAY_MAX_TOKENS = 60

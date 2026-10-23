@@ -7,9 +7,9 @@ import logging
 import os
 import tempfile
 
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import ContexClient
-from examples.rumor_mill.models import Utterance
+from examples.whispers.config import Config
+from examples.whispers.contex_client import ContexClient
+from examples.whispers.models import Utterance
 
 log = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ FINGERPRINT = hashlib.sha256(
 
 
 # Baselines depend only on a need's words, so every village shares one cache.
-BASELINES_PATH = "rumor_mill_baselines.json"
+BASELINES_PATH = "whispers_baselines.json"
 
 
 class Baselines:
@@ -128,7 +128,7 @@ class Baselines:
 
     @property
     def _project(self) -> str:
-        return f"rumor-mill:{self.config.session}:calibration"
+        return f"whispers:{self.config.session}:calibration"
 
     async def _publish(self) -> None:
         """Publish the calibration sentences once per session; callers hold the lock."""

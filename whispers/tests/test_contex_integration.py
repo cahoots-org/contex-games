@@ -5,30 +5,30 @@ from datetime import UTC, datetime
 
 import pytest
 
-from examples.rumor_mill import engine as engine_mod
-from examples.rumor_mill.actions import IGNORE
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import ContexClient
-from examples.rumor_mill.decide import Decision
-from examples.rumor_mill.engine import Engine
-from examples.rumor_mill.feed import Feed
-from examples.rumor_mill.lineage import Ids, Lineage
-from examples.rumor_mill.mind import Mind, mind_project, said_project
-from examples.rumor_mill.models import Utterance, Villager
-from examples.rumor_mill.player import Player
-from examples.rumor_mill.suspicion import Suspicion
-from examples.rumor_mill.tests.helpers import PID, FakeEngine, StubBaselines
-from examples.rumor_mill.town import Town
+from examples.whispers import engine as engine_mod
+from examples.whispers.actions import IGNORE
+from examples.whispers.config import Config
+from examples.whispers.contex_client import ContexClient
+from examples.whispers.decide import Decision
+from examples.whispers.engine import Engine
+from examples.whispers.feed import Feed
+from examples.whispers.lineage import Ids, Lineage
+from examples.whispers.mind import Mind, mind_project, said_project
+from examples.whispers.models import Utterance, Villager
+from examples.whispers.player import Player
+from examples.whispers.suspicion import Suspicion
+from examples.whispers.tests.helpers import PID, FakeEngine, StubBaselines
+from examples.whispers.town import Town
 
-URL = os.environ.get("RUMOR_MILL_CONTEX_URL")
+URL = os.environ.get("WHISPERS_CONTEX_URL")
 pytestmark = [
-    pytest.mark.skipif(not URL, reason="RUMOR_MILL_CONTEX_URL not set"),
+    pytest.mark.skipif(not URL, reason="WHISPERS_CONTEX_URL not set"),
     pytest.mark.asyncio,
 ]
 
 
 def project() -> str:
-    return f"rumor-mill:test-{uuid.uuid4().hex[:8]}:mind:x"
+    return f"whispers:test-{uuid.uuid4().hex[:8]}:mind:x"
 
 
 async def poll_for(client, uri, key, tries=20):

@@ -7,13 +7,13 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from examples.rumor_mill.calibration import Baselines
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import ContexClient
-from examples.rumor_mill.feed import Event
-from examples.rumor_mill.models import Utterance
-from examples.rumor_mill.overhear import Overhear
-from examples.rumor_mill.scenes import Scene
+from examples.whispers.calibration import Baselines
+from examples.whispers.config import Config
+from examples.whispers.contex_client import ContexClient
+from examples.whispers.feed import Event
+from examples.whispers.models import Utterance
+from examples.whispers.overhear import Overhear
+from examples.whispers.scenes import Scene
 
 log = logging.getLogger(__name__)
 
@@ -93,7 +93,7 @@ class Rumors:
         self.baselines = baselines
         self.config = config
         self.overhear = overhear
-        self.project = f"rumor-mill:{config.session}:rumors"
+        self.project = f"whispers:{config.session}:rumors"
         self._cards: dict[str, Card] = {}
 
     async def add(

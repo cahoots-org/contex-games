@@ -1,5 +1,5 @@
-from examples.rumor_mill.lineage import Ids, Lineage
-from examples.rumor_mill.tests.helpers import PID
+from examples.whispers.lineage import Ids, Lineage
+from examples.whispers.tests.helpers import PID
 
 
 def test_root_follows_parents():

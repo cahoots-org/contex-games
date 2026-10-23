@@ -4,11 +4,11 @@ import os
 
 import pytest
 
-from examples.rumor_mill.calibration import CALIBRATION, FALLBACK_BASELINE, Baselines
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import ContexClient, Match
+from examples.whispers.calibration import CALIBRATION, FALLBACK_BASELINE, Baselines
+from examples.whispers.config import Config
+from examples.whispers.contex_client import ContexClient, Match
 
-URL = os.environ.get("RUMOR_MILL_CONTEX_URL")
+URL = os.environ.get("WHISPERS_CONTEX_URL")
 
 
 class FakeContex:
@@ -39,10 +39,10 @@ async def test_baseline_is_mean_of_calibration_scores(tmp_path):
     baselines = Baselines(contex, config(tmp_path))
     await baselines.load(["my bread is stale"])
     assert baselines.get("my bread is stale") == pytest.approx(0.75)
-    assert contex.queries == [("rumor-mill:s1:calibration", "my bread is stale", len(CALIBRATION), 0)]
+    assert contex.queries == [("whispers:s1:calibration", "my bread is stale", len(CALIBRATION), 0)]
     assert len(contex.published) == len(CALIBRATION)
     project, key, data = contex.published[0]
-    assert (project, key) == ("rumor-mill:s1:calibration", "cal:0")
+    assert (project, key) == ("whispers:s1:calibration", "cal:0")
     assert data["text"] == f"A newcomer whispered to you: {CALIBRATION[0]}"
     assert data["id"] == "cal-0"
 
@@ -153,7 +153,7 @@ def test_threshold_adds_margin(tmp_path):
 
 
 def test_every_village_shares_one_baselines_cache_by_default():
-    assert Baselines(FakeContex(), Config(seed_path="rumor_mill_worlds/a.json")).path == "rumor_mill_baselines.json"
+    assert Baselines(FakeContex(), Config(seed_path="whispers_worlds/a.json")).path == "whispers_baselines.json"
 
 
 def test_explicit_calibration_path_wins(tmp_path):
@@ -177,7 +177,7 @@ def test_default_margin_lets_the_playtest_tavern_whisper_reach_the_cellar(tmp_pa
     assert baselines.matches("cellar", 0.799)
 
 
-@pytest.mark.skipif(not URL, reason="RUMOR_MILL_CONTEX_URL not set")
+@pytest.mark.skipif(not URL, reason="WHISPERS_CONTEX_URL not set")
 @pytest.mark.asyncio
 async def test_live_calibration_writes_cache(tmp_path):
     cfg = Config(contex_url=URL, session=f"cal-{os.urandom(4).hex()}", calibration_path=str(tmp_path / "baselines.json"))

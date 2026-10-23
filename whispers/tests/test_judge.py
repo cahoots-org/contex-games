@@ -5,24 +5,24 @@ from types import SimpleNamespace
 
 import pytest
 
-from examples.rumor_mill import goal_maker as goal_maker_mod
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import Match
-from examples.rumor_mill.game import Game
-from examples.rumor_mill.feed import Feed
-from examples.rumor_mill.goals import Goal, Trophy, needed, void_reason, world_goal
-from examples.rumor_mill.judge import Judge
-from examples.rumor_mill.engine import Engine
-from examples.rumor_mill.lineage import Ids, Lineage
-from examples.rumor_mill.mind import mind_project
-from examples.rumor_mill.facts import Facts
-from examples.rumor_mill.models import Utterance, Villager
-from examples.rumor_mill.overhear import Overhear
-from examples.rumor_mill.players import Players
-from examples.rumor_mill.pool import Entry, Pool
-from examples.rumor_mill.tests.helpers import PID, goal_maker, wait_for
-from examples.rumor_mill.tests.helpers import StubContex as OverhearContex
-from examples.rumor_mill.town import Town
+from examples.whispers import goal_maker as goal_maker_mod
+from examples.whispers.config import Config
+from examples.whispers.contex_client import Match
+from examples.whispers.game import Game
+from examples.whispers.feed import Feed
+from examples.whispers.goals import Goal, Trophy, needed, void_reason, world_goal
+from examples.whispers.judge import Judge
+from examples.whispers.engine import Engine
+from examples.whispers.lineage import Ids, Lineage
+from examples.whispers.mind import mind_project
+from examples.whispers.facts import Facts
+from examples.whispers.models import Utterance, Villager
+from examples.whispers.overhear import Overhear
+from examples.whispers.players import Players
+from examples.whispers.pool import Entry, Pool
+from examples.whispers.tests.helpers import PID, goal_maker, wait_for
+from examples.whispers.tests.helpers import StubContex as OverhearContex
+from examples.whispers.town import Town
 
 CONFIG = Config(day_seconds=0.01, judge_every_days=1.0)
 BELIEF = Goal("g", "cat is a spy", "belief", ("cat spy",), "Does it believe?", 0.5, hold_checks=2)

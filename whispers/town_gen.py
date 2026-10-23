@@ -6,8 +6,8 @@ import random
 import re
 from dataclasses import asdict
 
-from examples.rumor_mill.models import Villager
-from examples.rumor_mill.writer import Writer, extract_json
+from examples.whispers.models import Villager
+from examples.whispers.writer import Writer, extract_json
 
 BATCH = 10
 MAX_FAILED_BATCHES = 5
@@ -106,7 +106,7 @@ NEWCOMER_TRIES = 3
 
 
 # Where new villages are saved, one file per world.
-WORLDS_DIR = "rumor_mill_worlds"
+WORLDS_DIR = "whispers_worlds"
 
 
 def world_path(session: str) -> str:
@@ -222,7 +222,7 @@ async def load_or_generate(
         if len(villagers) != count:
             raise SeedMismatch(
                 f"{path} has {len(villagers)} villagers but population is {count}; "
-                f"delete it or set RUMOR_MILL_POPULATION={len(villagers)}"
+                f"delete it or set WHISPERS_POPULATION={len(villagers)}"
             )
         return villagers
     villagers = await generate_villagers(writer, count, rng)

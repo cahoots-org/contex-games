@@ -1,4 +1,4 @@
-"""Play the Rumor Mill: python -m examples.rumor_mill [--web]"""
+"""Play Whispers: python -m examples.whispers [--web]"""
 
 import argparse
 import asyncio
@@ -12,30 +12,30 @@ import typesafe_sdk
 import uvicorn
 from dotenv import load_dotenv
 
-from examples.rumor_mill.calibration import Baselines
-from examples.rumor_mill.cli import repl, until_over
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import ContexClient
-from examples.rumor_mill.engine import Engine
-from examples.rumor_mill.facts import Facts
-from examples.rumor_mill.feed import Feed, terminal
-from examples.rumor_mill.game import Game
-from examples.rumor_mill.believability import Believability
-from examples.rumor_mill.goal_maker import GoalMaker
-from examples.rumor_mill.judge import Judge
-from examples.rumor_mill.lineage import Ids, Lineage
-from examples.rumor_mill.overhear import Overhear
-from examples.rumor_mill.player import Player
-from examples.rumor_mill.pool import load_pool
-from examples.rumor_mill.players import LOCAL_OWNER, Players, new_player_id
-from examples.rumor_mill.population import Replenisher
-from examples.rumor_mill.routine import Routine
-from examples.rumor_mill.rumors import Rumors
-from examples.rumor_mill.town import GATE, PLACES, Town
-from examples.rumor_mill.town_gen import SeedMismatch, load_or_generate, world_path
-from examples.rumor_mill.usage import CountingJev, Usage
-from examples.rumor_mill.web import create_app
-from examples.rumor_mill.writer import Writer
+from examples.whispers.calibration import Baselines
+from examples.whispers.cli import repl, until_over
+from examples.whispers.config import Config
+from examples.whispers.contex_client import ContexClient
+from examples.whispers.engine import Engine
+from examples.whispers.facts import Facts
+from examples.whispers.feed import Feed, terminal
+from examples.whispers.game import Game
+from examples.whispers.believability import Believability
+from examples.whispers.goal_maker import GoalMaker
+from examples.whispers.judge import Judge
+from examples.whispers.lineage import Ids, Lineage
+from examples.whispers.overhear import Overhear
+from examples.whispers.player import Player
+from examples.whispers.pool import load_pool
+from examples.whispers.players import LOCAL_OWNER, Players, new_player_id
+from examples.whispers.population import Replenisher
+from examples.whispers.routine import Routine
+from examples.whispers.rumors import Rumors
+from examples.whispers.town import GATE, PLACES, Town
+from examples.whispers.town_gen import SeedMismatch, load_or_generate, world_path
+from examples.whispers.usage import CountingJev, Usage
+from examples.whispers.web import create_app
+from examples.whispers.writer import Writer
 
 
 async def play(web: bool) -> None:
@@ -46,7 +46,7 @@ async def play(web: bool) -> None:
     seed = config.seed_path or world_path(config.session)
     villagers = await load_or_generate(seed, writer, config.population, rng)
     if not config.seed_path:
-        print(f"A new village, saved as {seed}. Set RUMOR_MILL_SEED_PATH={seed} to play it again.")
+        print(f"A new village, saved as {seed}. Set WHISPERS_SEED_PATH={seed} to play it again.")
     town, lineage, ids = Town(), Lineage(), Ids()
     feed = Feed(lineage, town, out=None)
     game = Game(config.memory_moves, config.day_seconds)
@@ -101,7 +101,7 @@ async def play(web: bool) -> None:
                 server = uvicorn.Server(uvicorn.Config(
                     app, host="127.0.0.1", port=config.web_port, log_level="warning", timeout_graceful_shutdown=1,
                 ))
-                print(f"Rumor Mill is running at http://127.0.0.1:{config.web_port} (Ctrl-C to stop)")
+                print(f"Whispers is running at http://127.0.0.1:{config.web_port} (Ctrl-C to stop)")
                 await server.serve()
             else:
                 player = join(LOCAL_OWNER)
@@ -122,7 +122,7 @@ async def play(web: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="python -m examples.rumor_mill")
+    parser = argparse.ArgumentParser(prog="python -m examples.whispers")
     parser.add_argument("--web", action="store_true", help="play in the browser instead of the terminal")
     args = parser.parse_args()
     load_dotenv()

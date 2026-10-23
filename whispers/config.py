@@ -1,4 +1,4 @@
-"""Rumor Mill settings, overridable through RUMOR_MILL_* environment variables."""
+"""Whispers settings, overridable through WHISPERS_* environment variables."""
 
 import os
 import uuid
@@ -51,10 +51,10 @@ class Config:
     talk_turns: int = 3
     # How long a villager stays put for a player at their place who has an open exchange with them and stopped talking and typing.
     talk_hold_seconds: float = 60.0
-    # Where need baselines are cached; empty means rumor_mill_baselines.json, shared by every village.
+    # Where need baselines are cached; empty means whispers_baselines.json, shared by every village.
     calibration_path: str = ""
     haiku_model: str = "claude-haiku-5-5"
-    # A saved village to play again; empty means a new village, saved under rumor_mill_worlds/.
+    # A saved village to play again; empty means a new village, saved under whispers_worlds/.
     seed_path: str = ""
     web_port: int = 8765
     # Estimated list prices in dollars per million tokens.
@@ -116,7 +116,7 @@ class Config:
     def from_env(cls) -> "Config":
         values = {}
         for f in fields(cls):
-            raw = os.environ.get(f"RUMOR_MILL_{f.name.upper()}")
+            raw = os.environ.get(f"WHISPERS_{f.name.upper()}")
             if f.name == "contex_url" and raw is None:
                 raw = os.environ.get("CONTEX_MCP_URL")
             if raw is None:

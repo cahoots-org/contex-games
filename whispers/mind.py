@@ -5,24 +5,24 @@ from contextlib import aclosing
 from collections.abc import AsyncIterator
 from dataclasses import replace
 
-from examples.rumor_mill.calibration import Baselines
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import Bundle, ContexClient, Match, SubscriptionGone, new_matches
-from examples.rumor_mill.models import Villager
+from examples.whispers.calibration import Baselines
+from examples.whispers.config import Config
+from examples.whispers.contex_client import Bundle, ContexClient, Match, SubscriptionGone, new_matches
+from examples.whispers.models import Villager
 
 REOPEN_PAUSE_SECONDS = 1
 
 
 def mind_project(session: str, villager_id: str) -> str:
-    return f"rumor-mill:{session}:mind:{villager_id}"
+    return f"whispers:{session}:mind:{villager_id}"
 
 
 def said_project(session: str, villager_id: str) -> str:
-    return f"rumor-mill:{session}:said:{villager_id}"
+    return f"whispers:{session}:said:{villager_id}"
 
 
 def group_project(session: str, gid: str) -> str:
-    return f"rumor-mill:{session}:group:{gid}"
+    return f"whispers:{session}:group:{gid}"
 
 
 class Mind:

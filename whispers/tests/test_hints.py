@@ -2,10 +2,10 @@ import logging
 
 import pytest
 
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import Match
-from examples.rumor_mill.hints import HINT_TOP_K, Hints
-from examples.rumor_mill.tests.helpers import StubContex
+from examples.whispers.config import Config
+from examples.whispers.contex_client import Match
+from examples.whispers.hints import HINT_TOP_K, Hints
+from examples.whispers.tests.helpers import StubContex
 
 DRAFT = "the vines are failing"
 
@@ -21,8 +21,8 @@ async def test_add_publishes_to_the_players_own_project():
     hints, contex, config = make()
     await hints.add("p-1", "v1", "The vines worry me.")
     s = config.session
-    assert contex.published[0] == (f"rumor-mill:{s}:hints:p-1", "hint:1", {"id": "v1", "text": "The vines worry me."})
-    assert hints.project("p-2") == f"rumor-mill:{s}:hints:p-2"
+    assert contex.published[0] == (f"whispers:{s}:hints:p-1", "hint:1", {"id": "v1", "text": "The vines worry me."})
+    assert hints.project("p-2") == f"whispers:{s}:hints:p-2"
 
 
 @pytest.mark.asyncio

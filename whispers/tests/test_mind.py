@@ -2,12 +2,12 @@ import asyncio
 
 import pytest
 
-from examples.rumor_mill import mind as mind_mod
-from examples.rumor_mill.calibration import Baselines
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import Match, SubscriptionGone
-from examples.rumor_mill.mind import Mind, mind_project
-from examples.rumor_mill.models import Villager
+from examples.whispers import mind as mind_mod
+from examples.whispers.calibration import Baselines
+from examples.whispers.config import Config
+from examples.whispers.contex_client import Match, SubscriptionGone
+from examples.whispers.mind import Mind, mind_project
+from examples.whispers.models import Villager
 
 CONFIG = Config(day_seconds=100, memory_days=2, match_margin=0.05)
 

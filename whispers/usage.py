@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 
-from examples.rumor_mill.config import Config
+from examples.whispers.config import Config
 
 PROVIDERS = ("haiku", "jev")
 

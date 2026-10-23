@@ -5,14 +5,14 @@ import random
 
 import pytest
 
-from examples.rumor_mill import population as population_mod
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.lineage import Ids, Lineage
-from examples.rumor_mill.models import Villager
-from examples.rumor_mill.players import Players
-from examples.rumor_mill.population import Replenisher
-from examples.rumor_mill.tests.helpers import stub_player
-from examples.rumor_mill.town import GATE, START_PLACE, Town
+from examples.whispers import population as population_mod
+from examples.whispers.config import Config
+from examples.whispers.lineage import Ids, Lineage
+from examples.whispers.models import Villager
+from examples.whispers.players import Players
+from examples.whispers.population import Replenisher
+from examples.whispers.tests.helpers import stub_player
+from examples.whispers.town import GATE, START_PLACE, Town
 
 TIMEOUT = 2.0
 SETTLE = 0.15

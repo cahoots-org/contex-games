@@ -3,8 +3,8 @@
 import secrets
 from collections.abc import Iterator
 
-from examples.rumor_mill.goals import Trophy
-from examples.rumor_mill.player import Player
+from examples.whispers.goals import Trophy
+from examples.whispers.player import Player
 
 # The one person playing in the terminal.
 LOCAL_OWNER = "local"

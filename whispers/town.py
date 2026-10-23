@@ -2,7 +2,7 @@
 
 import re
 
-from examples.rumor_mill.models import Group, Villager
+from examples.whispers.models import Group, Villager
 
 PLACES = ("square", "tavern", "market", "well", "mill", "chapel", "gate")
 START_PLACE = "square"

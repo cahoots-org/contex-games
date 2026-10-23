@@ -4,11 +4,11 @@ import random
 import time
 from dataclasses import dataclass, field
 
-from examples.rumor_mill.actions import CONFRONT, DENY, RETELL, SPEAK, WARN
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.models import Utterance
-from examples.rumor_mill.overhear import HEATED_ACTIONS, HEATED_STYLES, LIVELY_STYLES
-from examples.rumor_mill.town import Town
+from examples.whispers.actions import CONFRONT, DENY, RETELL, SPEAK, WARN
+from examples.whispers.config import Config
+from examples.whispers.models import Utterance
+from examples.whispers.overhear import HEATED_ACTIONS, HEATED_STYLES, LIVELY_STYLES
+from examples.whispers.town import Town
 
 # Speech that keeps a scene going.
 SCENE_SPEECH = (RETELL, DENY, CONFRONT, WARN, SPEAK)

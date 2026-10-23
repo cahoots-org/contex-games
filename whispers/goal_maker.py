@@ -9,16 +9,16 @@ from dataclasses import dataclass, replace
 
 from typesafe_sdk import Choice
 
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.decide import MAX_OPTIONS
-from examples.rumor_mill.game import PHASES
-from examples.rumor_mill.goals import BANDS, MIN_CIRCLE, Goal, world_goal
-from examples.rumor_mill.lineage import Ids
-from examples.rumor_mill.models import Group, Villager
-from examples.rumor_mill.pool import Entry, Pool
-from examples.rumor_mill.routine import ROUTINE_PLACES
-from examples.rumor_mill.town import START_PLACE, Town
-from examples.rumor_mill.usage import charging
+from examples.whispers.config import Config
+from examples.whispers.decide import MAX_OPTIONS
+from examples.whispers.game import PHASES
+from examples.whispers.goals import BANDS, MIN_CIRCLE, Goal, world_goal
+from examples.whispers.lineage import Ids
+from examples.whispers.models import Group, Villager
+from examples.whispers.pool import Entry, Pool
+from examples.whispers.routine import ROUTINE_PLACES
+from examples.whispers.town import START_PLACE, Town
+from examples.whispers.usage import charging
 
 log = logging.getLogger(__name__)
 

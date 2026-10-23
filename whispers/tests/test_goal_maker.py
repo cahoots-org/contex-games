@@ -5,13 +5,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from examples.rumor_mill import goal_maker as goal_maker_mod
-from examples.rumor_mill.goals import BANDS, WORLD_FRACTION
-from examples.rumor_mill.lineage import Ids
-from examples.rumor_mill.models import Villager
-from examples.rumor_mill.pool import Entry, Pool
-from examples.rumor_mill.tests.helpers import StubBaselines, StubRoutine, goal_maker
-from examples.rumor_mill.town import Town
+from examples.whispers import goal_maker as goal_maker_mod
+from examples.whispers.goals import BANDS, WORLD_FRACTION
+from examples.whispers.lineage import Ids
+from examples.whispers.models import Villager
+from examples.whispers.pool import Entry, Pool
+from examples.whispers.tests.helpers import StubBaselines, StubRoutine, goal_maker
+from examples.whispers.town import Town
 
 AGNES = Villager("v1", "Agnes Thatch", "weaver", "nosy", "Hob let his pigs into her garden", [], {})
 HOB = Villager("v2", "Hob Miller", "miller", "gruff", "", [], {})

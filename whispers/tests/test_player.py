@@ -7,23 +7,23 @@ import time
 from dataclasses import replace
 from datetime import datetime
 
-from examples.rumor_mill.contex_client import Match
-from examples.rumor_mill.game import Game, Summary
-from examples.rumor_mill.goals import Goal
-from examples.rumor_mill.models import Utterance, Villager
-from examples.rumor_mill.actions import SPEAK, WARN
-from examples.rumor_mill.player import ALREADY_LISTENING, GAME_OVER, MAX_WHISPER_CHARS, Player, Refusal, echoes
-from examples.rumor_mill.mind import mind_project
-from examples.rumor_mill.notes import Notes
-from examples.rumor_mill.players import Players
-from examples.rumor_mill.rumors import Rumors
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.rapport import interest_words
-from examples.rumor_mill.tests.helpers import PID, TIMEOUT, StubBaselines, StubClient, StubContex, wait_for
-from examples.rumor_mill.tests.helpers import make_player as make
-from examples.rumor_mill.town import NEWCOMER
-from examples.rumor_mill.usage import Usage, charged_to
-from examples.rumor_mill.writer import Writer
+from examples.whispers.contex_client import Match
+from examples.whispers.game import Game, Summary
+from examples.whispers.goals import Goal
+from examples.whispers.models import Utterance, Villager
+from examples.whispers.actions import SPEAK, WARN
+from examples.whispers.player import ALREADY_LISTENING, GAME_OVER, MAX_WHISPER_CHARS, Player, Refusal, echoes
+from examples.whispers.mind import mind_project
+from examples.whispers.notes import Notes
+from examples.whispers.players import Players
+from examples.whispers.rumors import Rumors
+from examples.whispers.config import Config
+from examples.whispers.rapport import interest_words
+from examples.whispers.tests.helpers import PID, TIMEOUT, StubBaselines, StubClient, StubContex, wait_for
+from examples.whispers.tests.helpers import make_player as make
+from examples.whispers.town import NEWCOMER
+from examples.whispers.usage import Usage, charged_to
+from examples.whispers.writer import Writer
 
 
 @pytest.mark.asyncio

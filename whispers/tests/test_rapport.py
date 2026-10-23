@@ -1,7 +1,7 @@
 import pytest
 
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.rapport import Rapport, interest_words, rapport_words, taken_words
+from examples.whispers.config import Config
+from examples.whispers.rapport import Rapport, interest_words, rapport_words, taken_words
 
 
 def test_interest_is_kept_per_rumor():

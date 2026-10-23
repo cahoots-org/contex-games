@@ -5,25 +5,25 @@ from types import SimpleNamespace
 
 import pytest
 
-from examples.rumor_mill import engine as engine_mod
-from examples.rumor_mill import game as game_mod
-from examples.rumor_mill.actions import CONFRONT, FOUND_GROUP, IGNORE, LEAVE_TOWN, MOVE
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import Match
-from examples.rumor_mill.decide import Decision
-from examples.rumor_mill.engine import Engine
-from examples.rumor_mill.feed import Feed
-from examples.rumor_mill.game import MEMORY_PLAYERS, Game, Summary
-from examples.rumor_mill.goals import Goal
-from examples.rumor_mill.judge import Judge
-from examples.rumor_mill.lineage import Ids, Lineage
-from examples.rumor_mill.models import Utterance
-from examples.rumor_mill.player import Player
-from examples.rumor_mill.players import Players
-from examples.rumor_mill.tests.helpers import PID, FakeMind, StubClient, goal_maker, make, make_player, wait_for
-from examples.rumor_mill.town import PLACES, Town
-from examples.rumor_mill.usage import Usage
-from examples.rumor_mill.writer import Writer
+from examples.whispers import engine as engine_mod
+from examples.whispers import game as game_mod
+from examples.whispers.actions import CONFRONT, FOUND_GROUP, IGNORE, LEAVE_TOWN, MOVE
+from examples.whispers.config import Config
+from examples.whispers.contex_client import Match
+from examples.whispers.decide import Decision
+from examples.whispers.engine import Engine
+from examples.whispers.feed import Feed
+from examples.whispers.game import MEMORY_PLAYERS, Game, Summary
+from examples.whispers.goals import Goal
+from examples.whispers.judge import Judge
+from examples.whispers.lineage import Ids, Lineage
+from examples.whispers.models import Utterance
+from examples.whispers.player import Player
+from examples.whispers.players import Players
+from examples.whispers.tests.helpers import PID, FakeMind, StubClient, goal_maker, make, make_player, wait_for
+from examples.whispers.town import PLACES, Town
+from examples.whispers.usage import Usage
+from examples.whispers.writer import Writer
 
 GOALS = [("cat is a spy", 40)]
 MEETING = "The village meets in the square and runs the newcomer out of town."

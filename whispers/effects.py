@@ -5,17 +5,17 @@ import random
 from collections.abc import Sequence
 from typing import Protocol
 
-from examples.rumor_mill.actions import (
+from examples.whispers.actions import (
     ANSWER, CONFRONT, DENY, FOUND_GROUP, IGNORE, JOIN_GROUP, LEAVE_GROUP, LEAVE_TOWN, MOVE,
     PREACH, RETELL, SPEAK, WARN,
 )
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.decide import Decision
-from examples.rumor_mill.facts import Facts
-from examples.rumor_mill.lineage import Ids, Lineage
-from examples.rumor_mill.models import Group, Utterance, Villager
-from examples.rumor_mill.town import Town, neighbours
-from examples.rumor_mill.writer import Writer
+from examples.whispers.config import Config
+from examples.whispers.decide import Decision
+from examples.whispers.facts import Facts
+from examples.whispers.lineage import Ids, Lineage
+from examples.whispers.models import Group, Utterance, Villager
+from examples.whispers.town import Town, neighbours
+from examples.whispers.writer import Writer
 
 log = logging.getLogger(__name__)
 

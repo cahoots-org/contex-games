@@ -3,8 +3,8 @@ import json
 
 import pytest
 
-from examples.rumor_mill.models import Villager
-from examples.rumor_mill.pool import DEFAULT_ACCUSATIONS, DEFAULT_CLAIMS, Entry, clean, load_pool
+from examples.whispers.models import Villager
+from examples.whispers.pool import DEFAULT_ACCUSATIONS, DEFAULT_CLAIMS, Entry, clean, load_pool
 
 
 class CountingBelief:

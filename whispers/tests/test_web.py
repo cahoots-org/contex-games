@@ -11,23 +11,23 @@ import pytest
 from fastapi import WebSocketDisconnect
 from fastapi.testclient import TestClient
 
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import Match
-from examples.rumor_mill.feed import REPLAY_EVENTS, Feed
-from examples.rumor_mill.game import Game, Summary
-from examples.rumor_mill.goals import Goal, Trophy, world_goal
-from examples.rumor_mill.lineage import Ids, Lineage
-from examples.rumor_mill.models import Utterance, Villager
-from examples.rumor_mill.player import MAX_WHISPER_CHARS, Player
-from examples.rumor_mill.players import RUN_OUT_LOCKOUT_SECONDS, Players, new_player_id
-from examples.rumor_mill.rumors import TARGET_STATES, Rumors
-from examples.rumor_mill.scenes import Scene
-from examples.rumor_mill.suspicion import HEAT_LINES, Suspicion
-from examples.rumor_mill.town import PLACES, Town
-from examples.rumor_mill.tests import helpers
-from examples.rumor_mill.usage import Usage
-from examples.rumor_mill import web
-from examples.rumor_mill.web import create_app
+from examples.whispers.config import Config
+from examples.whispers.contex_client import Match
+from examples.whispers.feed import REPLAY_EVENTS, Feed
+from examples.whispers.game import Game, Summary
+from examples.whispers.goals import Goal, Trophy, world_goal
+from examples.whispers.lineage import Ids, Lineage
+from examples.whispers.models import Utterance, Villager
+from examples.whispers.player import MAX_WHISPER_CHARS, Player
+from examples.whispers.players import RUN_OUT_LOCKOUT_SECONDS, Players, new_player_id
+from examples.whispers.rumors import TARGET_STATES, Rumors
+from examples.whispers.scenes import Scene
+from examples.whispers.suspicion import HEAT_LINES, Suspicion
+from examples.whispers.town import PLACES, Town
+from examples.whispers.tests import helpers
+from examples.whispers.usage import Usage
+from examples.whispers import web
+from examples.whispers.web import create_app
 
 PORT = 8765
 BASE = f"http://127.0.0.1:{PORT}"
@@ -163,7 +163,7 @@ def test_hints_endpoint_marks_villagers_by_earned_hints(game):
 
 def test_page_is_served(game):
     response = game.client.get("/")
-    assert response.status_code == 200 and "Rumor Mill" in response.text
+    assert response.status_code == 200 and "Whispers" in response.text
 
 
 def test_page_has_the_trophy_case_and_world_goal(game):

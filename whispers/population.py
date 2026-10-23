@@ -4,11 +4,11 @@ import asyncio
 import logging
 import random
 
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.models import Utterance
-from examples.rumor_mill.town import GATE, START_PLACE, Town
-from examples.rumor_mill.town_gen import generate_newcomer
-from examples.rumor_mill.writer import Writer
+from examples.whispers.config import Config
+from examples.whispers.models import Utterance
+from examples.whispers.town import GATE, START_PLACE, Town
+from examples.whispers.town_gen import generate_newcomer
+from examples.whispers.writer import Writer
 
 log = logging.getLogger(__name__)
 

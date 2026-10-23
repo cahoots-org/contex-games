@@ -6,13 +6,13 @@ from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from examples.rumor_mill.game import Summary
-from examples.rumor_mill.goals import Goal, Trophy, claim, goal_targets
-from examples.rumor_mill.lineage import Lineage
-from examples.rumor_mill.models import Utterance
-from examples.rumor_mill.scenes import Scene
-from examples.rumor_mill.suspicion import HEAT_LINES
-from examples.rumor_mill.town import NEWCOMER, Town
+from examples.whispers.game import Summary
+from examples.whispers.goals import Goal, Trophy, claim, goal_targets
+from examples.whispers.lineage import Lineage
+from examples.whispers.models import Utterance
+from examples.whispers.scenes import Scene
+from examples.whispers.suspicion import HEAT_LINES
+from examples.whispers.town import NEWCOMER, Town
 
 REPLAY_EVENTS = 500
 LISTENING = ("checking", "busy", "heard")

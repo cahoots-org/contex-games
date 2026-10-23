@@ -4,13 +4,13 @@ import logging
 import random
 from collections.abc import Collection
 
-from examples.rumor_mill.actions import CONFRONT, DENY, PREACH, RETELL, SPEAK
-from examples.rumor_mill.calibration import Baselines
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import ContexClient
-from examples.rumor_mill.goals import Goal
-from examples.rumor_mill.models import Utterance
-from examples.rumor_mill.town import NEWCOMER
+from examples.whispers.actions import CONFRONT, DENY, PREACH, RETELL, SPEAK
+from examples.whispers.calibration import Baselines
+from examples.whispers.config import Config
+from examples.whispers.contex_client import ContexClient
+from examples.whispers.goals import Goal
+from examples.whispers.models import Utterance
+from examples.whispers.town import NEWCOMER
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class Overhear:
         self.baselines = baselines
         self.config = config
         self.rng = rng
-        self.project = f"rumor-mill:{config.session}:goals"
+        self.project = f"whispers:{config.session}:goals"
         self._evidence: dict[str, str] = {}
 
     async def publish(self, goals: list[Goal]) -> None:

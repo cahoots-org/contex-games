@@ -15,17 +15,17 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from starlette.datastructures import Headers
 from starlette.websockets import WebSocketClose
 
-from examples.rumor_mill.feed import Event, Feed
-from examples.rumor_mill.game import Game
-from examples.rumor_mill.goals import Goal, claim, goal_counts, goal_targets
-from examples.rumor_mill.hints import Hints
-from examples.rumor_mill.notes import Notes
-from examples.rumor_mill.player import MAX_WHISPER_CHARS, Player, Refusal
-from examples.rumor_mill.players import RUN_OUT_LOCKOUT_SECONDS, Players, new_owner_id
-from examples.rumor_mill.rumors import Rumors
-from examples.rumor_mill.suspicion import HEAT_LINES, Suspicion, influence
-from examples.rumor_mill.town import PLACES, Town
-from examples.rumor_mill.usage import Usage, charging
+from examples.whispers.feed import Event, Feed
+from examples.whispers.game import Game
+from examples.whispers.goals import Goal, claim, goal_counts, goal_targets
+from examples.whispers.hints import Hints
+from examples.whispers.notes import Notes
+from examples.whispers.player import MAX_WHISPER_CHARS, Player, Refusal
+from examples.whispers.players import RUN_OUT_LOCKOUT_SECONDS, Players, new_owner_id
+from examples.whispers.rumors import Rumors
+from examples.whispers.suspicion import HEAT_LINES, Suspicion, influence
+from examples.whispers.town import PLACES, Town
+from examples.whispers.usage import Usage, charging
 
 log = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ BAD_WHISPER = 'Send JSON like {"name": "Marta", "text": "the miller waters his f
 BAD_WALK = 'Send JSON like {"place": "tavern"}.'
 BAD_SWAP = 'Send JSON like {"goal_id": "g1"}.'
 BAD_ASK = 'Send JSON like {"villager_id": "v1", "topic": "the mill"}.'
-COOKIE = "rumor_mill_player"
+COOKIE = "whispers_player"
 COOKIE_SECONDS = 365 * 24 * 3600
 RELOAD = "Reload the page to join the village."
 TALLY_KEYS = ("uid", "heard", "frontier", "stopped", "touched", "goals")

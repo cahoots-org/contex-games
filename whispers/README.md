@@ -1,4 +1,4 @@
-# Rumor Mill
+# Whispers
 
 A gossip game you play in the terminal or a browser. A village of 50 villagers runs on Contex. You are the
 newcomer, and all you can do is whisper. You get three goals, such as "a third
@@ -37,14 +37,14 @@ cores for a few seconds each time. Without the override, forgetting is trimmed
 whenever a villager takes a turn and every 300 seconds otherwise.
 
 ```bash
-docker compose -f docker-compose.yml -f examples/rumor_mill/compose.sweep.yaml up
+docker compose -f docker-compose.yml -f examples/whispers/compose.sweep.yaml up
 ```
 
 Install the game's dependencies (Python 3.12) and set the two API keys, either
 exported or in a `.env` file (the game reads the nearest one; exported values win):
 
 ```bash
-pip install -r examples/rumor_mill/requirements.txt
+pip install -r examples/whispers/requirements.txt
 export ANTHROPIC_API_KEY=...
 export TYPESAFE_API_KEY=...
 ```
@@ -52,24 +52,24 @@ export TYPESAFE_API_KEY=...
 Run it from the repo root:
 
 ```bash
-python -m examples.rumor_mill
+python -m examples.whispers
 ```
 
 To play in a browser instead, add `--web` and open the address it prints,
-`http://127.0.0.1:8765` unless `RUMOR_MILL_WEB_PORT` says otherwise:
+`http://127.0.0.1:8765` unless `WHISPERS_WEB_PORT` says otherwise:
 
 ```bash
-python -m examples.rumor_mill --web
+python -m examples.whispers --web
 ```
 
 Each run asks Haiku for a new village in batches of 10, every villager with a
-first name of their own, and saves it as `rumor_mill_worlds/<session>.json`;
-the game prints the path. Set `RUMOR_MILL_SEED_PATH` to that file to play the
+first name of their own, and saves it as `whispers_worlds/<session>.json`;
+the game prints the path. Set `WHISPERS_SEED_PATH` to that file to play the
 same village again (the model can't reproduce a village from a seed, so the
 file is the record). Most villagers are good-natured; about one in five is sour
 and holds a grudge, and those are the village's skeptics, quick to doubt or mock
-a rumor. If a saved village's size differs from `RUMOR_MILL_POPULATION` the game
-exits and says so. Each run starts with empty minds unless you set `RUMOR_MILL_SESSION`.
+a rumor. If a saved village's size differs from `WHISPERS_POPULATION` the game
+exits and says so. Each run starts with empty minds unless you set `WHISPERS_SESSION`.
 
 On the machine this was tuned on, a 100-villager game took 5.5 seconds to
 start from the seed file, and the game process used 125 MB of memory and
@@ -83,7 +83,7 @@ The embedding model gives almost any two village sentences a similarity
 between about 0.72 and 0.82, related or not, and each need sits at its own
 level within that band. So each need gets a baseline: its mean similarity to
 20 ordinary sentences (weather, chores, prices, a lost goat) that concern no
-one. A line matches a need when it scores at least `RUMOR_MILL_MATCH_MARGIN`
+one. A line matches a need when it scores at least `WHISPERS_MATCH_MARGIN`
 (0.015) above that need's baseline. Each need's subscription uses that
 threshold, so Contex pushes only real matches.
 
@@ -93,11 +93,11 @@ at once whether it landed. A whisper that lands joins the villager's next turn
 even if the push is slow.
 
 The first run computes the baselines and writes them to
-`rumor_mill_baselines.json`, shared by every village; for 400 needs that took 5.4 seconds on
+`whispers_baselines.json`, shared by every village; for 400 needs that took 5.4 seconds on
 the machine this was tuned on. Later runs read the file. Baselines are kept by
 need text and by the exact payload the calibration sentences were published
 in, and are recomputed when either changes. They depend on Contex's embedding
-model, so delete `rumor_mill_baselines.json` after changing it.
+model, so delete `whispers_baselines.json` after changing it.
 
 Contex embeds every field of what is published, including the data key, so
 the game publishes only an utterance's id and its sentence. The key alone
@@ -319,10 +319,10 @@ whispers and a three-reply conversation, under $0.004.
 
 | Variable | Default (dollars per million tokens) |
 |---|---|
-| `RUMOR_MILL_HAIKU_INPUT_PER_MTOK` | `0.1` |
-| `RUMOR_MILL_HAIKU_OUTPUT_PER_MTOK` | `0.5` |
-| `RUMOR_MILL_JEV_INPUT_PER_MTOK` | `0.04` |
-| `RUMOR_MILL_JEV_OUTPUT_PER_MTOK` | `0.0` |
+| `WHISPERS_HAIKU_INPUT_PER_MTOK` | `0.1` |
+| `WHISPERS_HAIKU_OUTPUT_PER_MTOK` | `0.5` |
+| `WHISPERS_JEV_INPUT_PER_MTOK` | `0.04` |
+| `WHISPERS_JEV_OUTPUT_PER_MTOK` | `0.0` |
 
 ## Settings
 
@@ -330,39 +330,39 @@ Every field of `Config` can be set with an environment variable.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `RUMOR_MILL_CONTEX_URL` (or `CONTEX_MCP_URL`) | `http://localhost:8001/mcp` | Contex MCP endpoint |
-| `RUMOR_MILL_SESSION` | random per run | prefix for this run's Contex projects |
-| `RUMOR_MILL_POPULATION` | `50` | village size; newcomers arrive to keep it there |
-| `RUMOR_MILL_DAY_SECONDS` | `120` | length of a game day |
-| `RUMOR_MILL_MEMORY_DAYS` | `2` | how many days a villager remembers what they heard |
-| `RUMOR_MILL_MATCH_MARGIN` | `0.015` | how far above a need's score against ordinary village talk a whisper must score to match that need |
-| `RUMOR_MILL_TOP_K` | `5` | memories kept per need |
-| `RUMOR_MILL_CALIBRATION_PATH` | `rumor_mill_baselines.json` | where need baselines are cached |
-| `RUMOR_MILL_ON_TOPIC_MARGIN` | `0.035` | how far above a whisper's score against ordinary village talk a retelling must score to stay on its rumor card |
-| `RUMOR_MILL_FATIGUE_PER_HOP` | `0.003` | extra clearance over a need's threshold each retelling hop needs before it wakes a listener |
-| `RUMOR_MILL_OVERHEARD_MARGIN` | `0.01` | extra clearance a line said to the room needs over one told to the listener |
-| `RUMOR_MILL_OVERHEAR_RATE` | `0.125` | share of ordinary talk at your place that you overhear |
-| `RUMOR_MILL_LIVELY_RATE` | `0.4` | share of lively talk at your place that you overhear |
-| `RUMOR_MILL_SAID_FLOOR` | `0.8` | how similar a villager's earlier line must be to what you say to them for them to recall it |
-| `RUMOR_MILL_TALK_TURNS` | `3` | most times a villager answers you in one conversation |
-| `RUMOR_MILL_COOLDOWN_SECONDS` | `30` | least time between a villager's turns |
-| `RUMOR_MILL_CHECK_LOOKBACK_SECONDS` | `5` | how far before a whisper the check that it landed looks, to absorb clock skew with Contex |
-| `RUMOR_MILL_ARRIVAL_DELAY_SECONDS` | `60` | wait after a departure before newcomers arrive |
-| `RUMOR_MILL_JUDGE_EVERY_DAYS` | `1` | days between goal checks |
-| `RUMOR_MILL_JUDGE_CONCURRENCY` | `10` | goal-check calls in flight |
-| `RUMOR_MILL_TURN_CONCURRENCY` | `20` | villager turns in flight |
-| `RUMOR_MILL_RENEW_SECONDS` | `1200` | read quiet villagers' subscriptions this often so they don't expire |
-| `RUMOR_MILL_HAIKU_MODEL` | `claude-haiku-5-5` | model for speech and village generation |
-| `RUMOR_MILL_SEED_PATH` | empty: a new village | a saved village to play again |
-| `RUMOR_MILL_WEB_PORT` | `8765` | port for `--web` |
-| `RUMOR_MILL_SUSPICION_WHISPER_BUMP` | `0.12` | suspicion a whisper adds to the villager you whisper to |
-| `RUMOR_MILL_SUSPICION_HEAR_MAX` | `0.25` | most suspicion one rumor about the newcomer can add |
-| `RUMOR_MILL_SUSPICION_DECAY_PER_DAY` | `0.05` | suspicion each villager loses per game day |
-| `RUMOR_MILL_WARN_THRESHOLD` | `0.3` | suspicion at which a villager may warn others |
-| `RUMOR_MILL_REFUSE_THRESHOLD` | `0.7` | suspicion at which a villager turns you away |
-| `RUMOR_MILL_RUN_OUT_LEVEL` | `0.08` | village mood at which the run-out checks start counting |
-| `RUMOR_MILL_RUN_OUT_CHECKS` | `3` | checks in a row at that level before you are run out |
-| `RUMOR_MILL_SUSPICION_CHECK_DAYS` | `0.25` | game days between mood checks |
+| `WHISPERS_CONTEX_URL` (or `CONTEX_MCP_URL`) | `http://localhost:8001/mcp` | Contex MCP endpoint |
+| `WHISPERS_SESSION` | random per run | prefix for this run's Contex projects |
+| `WHISPERS_POPULATION` | `50` | village size; newcomers arrive to keep it there |
+| `WHISPERS_DAY_SECONDS` | `120` | length of a game day |
+| `WHISPERS_MEMORY_DAYS` | `2` | how many days a villager remembers what they heard |
+| `WHISPERS_MATCH_MARGIN` | `0.015` | how far above a need's score against ordinary village talk a whisper must score to match that need |
+| `WHISPERS_TOP_K` | `5` | memories kept per need |
+| `WHISPERS_CALIBRATION_PATH` | `whispers_baselines.json` | where need baselines are cached |
+| `WHISPERS_ON_TOPIC_MARGIN` | `0.035` | how far above a whisper's score against ordinary village talk a retelling must score to stay on its rumor card |
+| `WHISPERS_FATIGUE_PER_HOP` | `0.003` | extra clearance over a need's threshold each retelling hop needs before it wakes a listener |
+| `WHISPERS_OVERHEARD_MARGIN` | `0.01` | extra clearance a line said to the room needs over one told to the listener |
+| `WHISPERS_OVERHEAR_RATE` | `0.125` | share of ordinary talk at your place that you overhear |
+| `WHISPERS_LIVELY_RATE` | `0.4` | share of lively talk at your place that you overhear |
+| `WHISPERS_SAID_FLOOR` | `0.8` | how similar a villager's earlier line must be to what you say to them for them to recall it |
+| `WHISPERS_TALK_TURNS` | `3` | most times a villager answers you in one conversation |
+| `WHISPERS_COOLDOWN_SECONDS` | `30` | least time between a villager's turns |
+| `WHISPERS_CHECK_LOOKBACK_SECONDS` | `5` | how far before a whisper the check that it landed looks, to absorb clock skew with Contex |
+| `WHISPERS_ARRIVAL_DELAY_SECONDS` | `60` | wait after a departure before newcomers arrive |
+| `WHISPERS_JUDGE_EVERY_DAYS` | `1` | days between goal checks |
+| `WHISPERS_JUDGE_CONCURRENCY` | `10` | goal-check calls in flight |
+| `WHISPERS_TURN_CONCURRENCY` | `20` | villager turns in flight |
+| `WHISPERS_RENEW_SECONDS` | `1200` | read quiet villagers' subscriptions this often so they don't expire |
+| `WHISPERS_HAIKU_MODEL` | `claude-haiku-5-5` | model for speech and village generation |
+| `WHISPERS_SEED_PATH` | empty: a new village | a saved village to play again |
+| `WHISPERS_WEB_PORT` | `8765` | port for `--web` |
+| `WHISPERS_SUSPICION_WHISPER_BUMP` | `0.12` | suspicion a whisper adds to the villager you whisper to |
+| `WHISPERS_SUSPICION_HEAR_MAX` | `0.25` | most suspicion one rumor about the newcomer can add |
+| `WHISPERS_SUSPICION_DECAY_PER_DAY` | `0.05` | suspicion each villager loses per game day |
+| `WHISPERS_WARN_THRESHOLD` | `0.3` | suspicion at which a villager may warn others |
+| `WHISPERS_REFUSE_THRESHOLD` | `0.7` | suspicion at which a villager turns you away |
+| `WHISPERS_RUN_OUT_LEVEL` | `0.08` | village mood at which the run-out checks start counting |
+| `WHISPERS_RUN_OUT_CHECKS` | `3` | checks in a row at that level before you are run out |
+| `WHISPERS_SUSPICION_CHECK_DAYS` | `0.25` | game days between mood checks |
 
 `MATCH_MARGIN` matters most; see [How a whisper lands](#how-a-whisper-lands). Lower it and villagers react to more of what they hear; raise it and the village goes quiet.
 
@@ -395,8 +395,8 @@ of 30, eight well-aimed whispers reached watched.
 
 ```bash
 pip install -r requirements-dev.txt
-pytest examples/rumor_mill
-RUMOR_MILL_CONTEX_URL=http://localhost:8001/mcp pytest examples/rumor_mill
+pytest examples/whispers
+WHISPERS_CONTEX_URL=http://localhost:8001/mcp pytest examples/whispers
 ```
 
 The second run adds the tests that need a live Contex.

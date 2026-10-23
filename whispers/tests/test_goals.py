@@ -1,4 +1,4 @@
-from examples.rumor_mill.goals import WORLD_FRACTION, Goal, Trophy, claim, goal_targets, trophy_line, world_goal
+from examples.whispers.goals import WORLD_FRACTION, Goal, Trophy, claim, goal_targets, trophy_line, world_goal
 
 
 def test_world_goal_raises_the_bar_on_a_claim():

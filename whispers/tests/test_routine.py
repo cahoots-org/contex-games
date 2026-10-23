@@ -4,10 +4,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.models import Villager
-from examples.rumor_mill.routine import LEISURE_INSTRUCTIONS, WORK_INSTRUCTIONS, Routine
-from examples.rumor_mill.town import GATE, PLACES
+from examples.whispers.config import Config
+from examples.whispers.models import Villager
+from examples.whispers.routine import LEISURE_INSTRUCTIONS, WORK_INSTRUCTIONS, Routine
+from examples.whispers.town import GATE, PLACES
 
 CONFIG = Config()
 

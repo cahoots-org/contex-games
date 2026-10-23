@@ -6,10 +6,10 @@ from collections.abc import Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
-from examples.rumor_mill.player import Player, Refusal
-from examples.rumor_mill.players import Players
-from examples.rumor_mill.suspicion import HEAT_LINES, Suspicion
-from examples.rumor_mill.town import Town
+from examples.whispers.player import Player, Refusal
+from examples.whispers.players import Players
+from examples.whispers.suspicion import HEAT_LINES, Suspicion
+from examples.whispers.town import Town
 
 HELP = (
     "Whisper by typing a name, a colon, and the rumor, e.g. Marta: the miller waters his flour\n"

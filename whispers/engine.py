@@ -9,32 +9,32 @@ from contextlib import aclosing, suppress
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
-from examples.rumor_mill.actions import ANSWER, LEAVE_TOWN, MOVE, WARN
-from examples.rumor_mill.calibration import Baselines
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import ContexClient, Match
-from examples.rumor_mill.decide import Decision, TurnView, decide
-from examples.rumor_mill.effects import act
-from examples.rumor_mill.facts import Facts
-from examples.rumor_mill.feed import MOMENTS
-from examples.rumor_mill.game import PHASES, Game, Summary
-from examples.rumor_mill.goals import Goal, audience_of
-from examples.rumor_mill.hints import Hints
-from examples.rumor_mill.lineage import Ids, Lineage
-from examples.rumor_mill.mind import Mind, group_project, mind_project, said_project
-from examples.rumor_mill.models import Group, Utterance, Villager
-from examples.rumor_mill.overhear import Overhear
-from examples.rumor_mill.player import Player
-from examples.rumor_mill.players import Players
-from examples.rumor_mill.pressure import Pressure
-from examples.rumor_mill.rapport import Rapport, taken_words
-from examples.rumor_mill.routine import Routine
-from examples.rumor_mill.rumors import Rumors
-from examples.rumor_mill.scenes import SCENE_SPEECH, Scene, Scenes
-from examples.rumor_mill.suspicion import Suspicion, influence
-from examples.rumor_mill.town import START_PLACE, Town
-from examples.rumor_mill.usage import charging
-from examples.rumor_mill.writer import WHISPER_FRAMING, Writer
+from examples.whispers.actions import ANSWER, LEAVE_TOWN, MOVE, WARN
+from examples.whispers.calibration import Baselines
+from examples.whispers.config import Config
+from examples.whispers.contex_client import ContexClient, Match
+from examples.whispers.decide import Decision, TurnView, decide
+from examples.whispers.effects import act
+from examples.whispers.facts import Facts
+from examples.whispers.feed import MOMENTS
+from examples.whispers.game import PHASES, Game, Summary
+from examples.whispers.goals import Goal, audience_of
+from examples.whispers.hints import Hints
+from examples.whispers.lineage import Ids, Lineage
+from examples.whispers.mind import Mind, group_project, mind_project, said_project
+from examples.whispers.models import Group, Utterance, Villager
+from examples.whispers.overhear import Overhear
+from examples.whispers.player import Player
+from examples.whispers.players import Players
+from examples.whispers.pressure import Pressure
+from examples.whispers.rapport import Rapport, taken_words
+from examples.whispers.routine import Routine
+from examples.whispers.rumors import Rumors
+from examples.whispers.scenes import SCENE_SPEECH, Scene, Scenes
+from examples.whispers.suspicion import Suspicion, influence
+from examples.whispers.town import START_PLACE, Town
+from examples.whispers.usage import charging
+from examples.whispers.writer import WHISPER_FRAMING, Writer
 
 log = logging.getLogger(__name__)
 

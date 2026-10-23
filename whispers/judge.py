@@ -7,21 +7,21 @@ from collections import Counter
 
 from typesafe_sdk import Noul
 
-from examples.rumor_mill.actions import CONFRONT, FOUND_GROUP, JOIN_GROUP, LEAVE_TOWN
-from examples.rumor_mill.config import Config
-from examples.rumor_mill.contex_client import ContexClient, Match
-from examples.rumor_mill.facts import Facts
-from examples.rumor_mill.game import Game
-from examples.rumor_mill.goal_maker import GoalMaker, names
-from examples.rumor_mill.goals import (
+from examples.whispers.actions import CONFRONT, FOUND_GROUP, JOIN_GROUP, LEAVE_TOWN
+from examples.whispers.config import Config
+from examples.whispers.contex_client import ContexClient, Match
+from examples.whispers.facts import Facts
+from examples.whispers.game import Game
+from examples.whispers.goal_maker import GoalMaker, names
+from examples.whispers.goals import (
     Goal, Trophy, audience_of, claim, goal_counts, needed, trophy_line, void_reason,
 )
-from examples.rumor_mill.lineage import Lineage
-from examples.rumor_mill.mind import mind_project
-from examples.rumor_mill.models import Villager
-from examples.rumor_mill.player import Player
-from examples.rumor_mill.players import Players
-from examples.rumor_mill.town import Town
+from examples.whispers.lineage import Lineage
+from examples.whispers.mind import mind_project
+from examples.whispers.models import Villager
+from examples.whispers.player import Player
+from examples.whispers.players import Players
+from examples.whispers.town import Town
 
 log = logging.getLogger(__name__)
 

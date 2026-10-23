@@ -2,7 +2,7 @@
 
 import time
 
-from examples.rumor_mill.models import Utterance
+from examples.whispers.models import Utterance
 
 # How many recent utterances are kept.
 KEPT_FACTS = 5000
