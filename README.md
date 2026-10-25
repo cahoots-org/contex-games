@@ -5,8 +5,7 @@ Games built on [Contex](https://github.com/cahoots-org/contex), the MCP-native c
 | Game | What it is |
 |---|---|
 | [Whispers](whispers/README.md) | A gossip game: you whisper to villagers and win by spreading rumors until the village matches your goals. Live at [whispers.usecontex.com](https://whispers.usecontex.com). |
-
-Sleuth, a small-town deduction game on the same engine, is being designed in [docs/superpowers/specs](docs/superpowers/specs).
+| [Sleuth](sleuth/README.md) | A small-town deduction game on the Whispers engine, in progress: petty crimes happen live, and you work out who did it. |
 
 ## Running a game
 

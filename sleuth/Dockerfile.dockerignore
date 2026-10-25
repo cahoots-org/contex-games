@@ -1,0 +1,6 @@
+*
+!sleuth
+sleuth/tests
+sleuth/Dockerfile*
+sleuth/railway.json
+**/__pycache__
