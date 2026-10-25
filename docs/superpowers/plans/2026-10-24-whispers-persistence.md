@@ -10,8 +10,8 @@
 
 ## Global Constraints
 
-- **Code:** `examples/whispers`, Python 3.12, stdlib `json` only (no pickle, no new dependencies).
-- **Tests:** `/private/tmp/claude-501/-Users-robmiller-Projects-contex/dc5af79c-d8f0-4711-83c2-3ccea8efac2d/scratchpad/venv-web/bin/python -m pytest examples/whispers/tests -q -p no:cacheprovider`. Lint: `ruff check examples/whispers`. Use fake clocks, never real sleeps.
+- **Code:** `whispers`, Python 3.12, stdlib `json` only (no pickle, no new dependencies).
+- **Tests:** `/private/tmp/claude-501/-Users-robmiller-Projects-contex/dc5af79c-d8f0-4711-83c2-3ccea8efac2d/scratchpad/venv-web/bin/python -m pytest whispers/tests -q -p no:cacheprovider`. Lint: `ruff check whispers`. Use fake clocks, never real sleeps.
 - **Commits:** small and CI-green, only your own files. Each ends with:
   ```
   Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -36,13 +36,13 @@
 
 ### Task 1: Keep the village (step 1)
 
-**Files:** `config.py`, `__main__.py`, `calibration.py` (baselines path under `data_dir`), `town_gen.py` (`world_path` under `data_dir`), `Dockerfile` plus a new `examples/whispers/entrypoint.sh`, `README.md` (the Hosting section), and tests.
+**Files:** `config.py`, `__main__.py`, `calibration.py` (baselines path under `data_dir`), `town_gen.py` (`world_path` under `data_dir`), `Dockerfile` plus a new `whispers/entrypoint.sh`, `README.md` (the Hosting section), and tests.
 
 - [ ] `world_path(session)` and the baselines path live under `data_dir`.
 - [ ] With `WHISPERS_SESSION` set and no `WHISPERS_SEED_PATH`, the village file is `world_path(session)`. If it exists it is loaded; otherwise it is generated and saved there (the existing `load_or_generate`).
 - [ ] `entrypoint.sh` runs as root:
   - if `/data` exists, `chown -R whispers:whispers /data`;
-  - then `exec setpriv --reuid=whispers --regid=whispers --init-groups python -m examples.whispers --web`.
+  - then `exec setpriv --reuid=whispers --regid=whispers --init-groups python -m whispers --web`.
 
   The Dockerfile copies it, uses it as the ENTRYPOINT/CMD, and drops the `USER` line (the entrypoint drops privileges instead). Check that `setpriv` exists in python:3.12-slim (util-linux).
 - [ ] **README:**
