@@ -7,15 +7,15 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from examples.whispers import rumors as rumors_mod
-from examples.whispers.calibration import Baselines
-from examples.whispers.config import Config
-from examples.whispers.contex_client import ContexClient, Match
-from examples.whispers.feed import Event
-from examples.whispers.models import Utterance
-from examples.whispers.rumors import TARGET_STATES, Rumors
-from examples.whispers.scenes import Scene
-from examples.whispers.tests.helpers import PID, StubBaselines, StubContex
+from whispers import rumors as rumors_mod
+from whispers.calibration import Baselines
+from whispers.config import Config
+from whispers.contex_client import ContexClient, Match
+from whispers.feed import Event
+from whispers.models import Utterance
+from whispers.rumors import TARGET_STATES, Rumors
+from whispers.scenes import Scene
+from whispers.tests.helpers import PID, StubBaselines, StubContex
 
 URL = os.environ.get("WHISPERS_CONTEX_URL")
 AT = datetime(2026, 10, 21, 12, 0, tzinfo=UTC)

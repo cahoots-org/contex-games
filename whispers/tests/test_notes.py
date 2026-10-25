@@ -1,11 +1,11 @@
 import re
 from pathlib import Path
 
-from examples.whispers.feed import Feed
-from examples.whispers.lineage import Lineage
-from examples.whispers.notes import RANK, Notes
-from examples.whispers.tests.helpers import PID
-from examples.whispers.town import Town
+from whispers.feed import Feed
+from whispers.lineage import Lineage
+from whispers.notes import RANK, Notes
+from whispers.tests.helpers import PID
+from whispers.town import Town
 
 
 def make():

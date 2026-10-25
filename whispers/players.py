@@ -4,9 +4,9 @@ import secrets
 import time
 from collections.abc import Callable, Iterator
 
-from examples.whispers.goals import Trophy, trophy_from_state
-from examples.whispers.player import Player
-from examples.whispers.usage import Usage
+from whispers.goals import Trophy, trophy_from_state
+from whispers.player import Player
+from whispers.usage import Usage
 
 # The one person playing in the terminal.
 LOCAL_OWNER = "local"

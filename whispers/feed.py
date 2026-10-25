@@ -5,13 +5,13 @@ from collections import deque
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 
-from examples.whispers.game import Summary
-from examples.whispers.goals import Goal, Trophy, claim, goal_targets
-from examples.whispers.lineage import Lineage
-from examples.whispers.models import Utterance
-from examples.whispers.scenes import Scene
-from examples.whispers.suspicion import HEAT_LINES
-from examples.whispers.town import NEWCOMER, Town
+from whispers.game import Summary
+from whispers.goals import Goal, Trophy, claim, goal_targets
+from whispers.lineage import Lineage
+from whispers.models import Utterance
+from whispers.scenes import Scene
+from whispers.suspicion import HEAT_LINES
+from whispers.town import NEWCOMER, Town
 
 REPLAY_EVENTS = 500
 LISTENING = ("checking", "busy", "heard")

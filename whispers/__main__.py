@@ -1,4 +1,4 @@
-"""Play Whispers: python -m examples.whispers [--web]"""
+"""Play Whispers: python -m whispers [--web]"""
 
 import argparse
 import asyncio
@@ -13,31 +13,31 @@ import typesafe_sdk
 import uvicorn
 from dotenv import load_dotenv
 
-from examples.whispers.calibration import Baselines
-from examples.whispers.cli import repl, until_over
-from examples.whispers.config import Config
-from examples.whispers.contex_client import ContexClient
-from examples.whispers.engine import Engine
-from examples.whispers.facts import Facts
-from examples.whispers.feed import Feed, terminal
-from examples.whispers.game import Game
-from examples.whispers.believability import Believability
-from examples.whispers.goal_maker import GoalMaker
-from examples.whispers.judge import Judge
-from examples.whispers.lineage import Ids, Lineage
-from examples.whispers.overhear import Overhear
-from examples.whispers.persist import components, resume_game, save_every, save_quietly, set_aside, state_path, stop
-from examples.whispers.player import Player
-from examples.whispers.pool import load_pool
-from examples.whispers.players import LOCAL_OWNER, Players, new_player_id
-from examples.whispers.population import Replenisher
-from examples.whispers.routine import Routine
-from examples.whispers.rumors import Rumors
-from examples.whispers.town import GATE, PLACES, Town
-from examples.whispers.town_gen import SeedMismatch, load_or_generate, world_path
-from examples.whispers.usage import CountingJev, Usage
-from examples.whispers.web import create_app
-from examples.whispers.writer import Writer
+from whispers.calibration import Baselines
+from whispers.cli import repl, until_over
+from whispers.config import Config
+from whispers.contex_client import ContexClient
+from whispers.engine import Engine
+from whispers.facts import Facts
+from whispers.feed import Feed, terminal
+from whispers.game import Game
+from whispers.believability import Believability
+from whispers.goal_maker import GoalMaker
+from whispers.judge import Judge
+from whispers.lineage import Ids, Lineage
+from whispers.overhear import Overhear
+from whispers.persist import components, resume_game, save_every, save_quietly, set_aside, state_path, stop
+from whispers.player import Player
+from whispers.pool import load_pool
+from whispers.players import LOCAL_OWNER, Players, new_player_id
+from whispers.population import Replenisher
+from whispers.routine import Routine
+from whispers.rumors import Rumors
+from whispers.town import GATE, PLACES, Town
+from whispers.town_gen import SeedMismatch, load_or_generate, world_path
+from whispers.usage import CountingJev, Usage
+from whispers.web import create_app
+from whispers.writer import Writer
 
 
 async def play(web: bool) -> None:
@@ -160,12 +160,12 @@ async def play(web: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="python -m examples.whispers")
+    parser = argparse.ArgumentParser(prog="python -m whispers")
     parser.add_argument("--web", action="store_true", help="play in the browser instead of the terminal")
     args = parser.parse_args()
     load_dotenv()
     logging.basicConfig(level=logging.WARNING)
-    logging.getLogger("examples.whispers.engine").setLevel(logging.INFO)
+    logging.getLogger("whispers.engine").setLevel(logging.INFO)
     sys.stdout.reconfigure(line_buffering=True)
     try:
         asyncio.run(play(args.web))

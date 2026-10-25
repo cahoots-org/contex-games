@@ -1,8 +1,8 @@
 import json
 import pytest
 
-from examples.whispers.config import Config
-from examples.whispers.rapport import Rapport, interest_words, rapport_words, taken_words
+from whispers.config import Config
+from whispers.rapport import Rapport, interest_words, rapport_words, taken_words
 
 
 def test_interest_is_kept_per_rumor():

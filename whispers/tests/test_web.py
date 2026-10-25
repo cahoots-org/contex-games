@@ -12,23 +12,23 @@ import pytest
 from fastapi import FastAPI, WebSocketDisconnect
 from fastapi.testclient import TestClient
 
-from examples.whispers.config import Config
-from examples.whispers.contex_client import Match
-from examples.whispers.feed import REPLAY_EVENTS, Feed
-from examples.whispers.game import Game, Summary
-from examples.whispers.goals import Goal, Trophy, world_goal
-from examples.whispers.lineage import Ids, Lineage
-from examples.whispers.models import Utterance, Villager
-from examples.whispers.player import MAX_WHISPER_CHARS, Player
-from examples.whispers.players import RUN_OUT_LOCKOUT_SECONDS, Players, new_player_id
-from examples.whispers.rumors import TARGET_STATES, Rumors
-from examples.whispers.scenes import Scene
-from examples.whispers.suspicion import HEAT_LINES, Suspicion
-from examples.whispers.town import PLACES, Town
-from examples.whispers.tests import helpers
-from examples.whispers.usage import Usage
-from examples.whispers import web
-from examples.whispers.web import create_app
+from whispers.config import Config
+from whispers.contex_client import Match
+from whispers.feed import REPLAY_EVENTS, Feed
+from whispers.game import Game, Summary
+from whispers.goals import Goal, Trophy, world_goal
+from whispers.lineage import Ids, Lineage
+from whispers.models import Utterance, Villager
+from whispers.player import MAX_WHISPER_CHARS, Player
+from whispers.players import RUN_OUT_LOCKOUT_SECONDS, Players, new_player_id
+from whispers.rumors import TARGET_STATES, Rumors
+from whispers.scenes import Scene
+from whispers.suspicion import HEAT_LINES, Suspicion
+from whispers.town import PLACES, Town
+from whispers.tests import helpers
+from whispers.usage import Usage
+from whispers import web
+from whispers.web import create_app
 
 PORT = 8765
 BASE = f"http://127.0.0.1:{PORT}"

@@ -8,29 +8,29 @@ from types import SimpleNamespace
 
 import pytest
 
-from examples.whispers import engine as engine_mod
-from examples.whispers.actions import ANSWER, IGNORE, SPEAK, WARN
-from examples.whispers.calibration import Baselines
-from examples.whispers.config import Config
-from examples.whispers.contex_client import Match
-from examples.whispers.decide import Decision, _state
-from examples.whispers.engine import Engine
-from examples.whispers.feed import Feed
-from examples.whispers.game import Game
-from examples.whispers.lineage import Ids, Lineage
-from examples.whispers.mind import Mind, mind_project, said_project
-from examples.whispers.models import Utterance, Villager
-from examples.whispers.overhear import Overhear
-from examples.whispers.player import Player
-from examples.whispers.players import Players
-from examples.whispers.rumors import Rumors
-from examples.whispers.scenes import SCENE_SPEECH
-from examples.whispers.tests.helpers import (
+from whispers import engine as engine_mod
+from whispers.actions import ANSWER, IGNORE, SPEAK, WARN
+from whispers.calibration import Baselines
+from whispers.config import Config
+from whispers.contex_client import Match
+from whispers.decide import Decision, _state
+from whispers.engine import Engine
+from whispers.feed import Feed
+from whispers.game import Game
+from whispers.lineage import Ids, Lineage
+from whispers.mind import Mind, mind_project, said_project
+from whispers.models import Utterance, Villager
+from whispers.overhear import Overhear
+from whispers.player import Player
+from whispers.players import Players
+from whispers.rumors import Rumors
+from whispers.scenes import SCENE_SPEECH
+from whispers.tests.helpers import (
     PID, TIMEOUT, Always, FakeMind, StubBaselines, StubClient, StubContex, make, stub_player, wait_for,
 )
-from examples.whispers.town import NEWCOMER, Town
-from examples.whispers.usage import CountingJev, Usage
-from examples.whispers.writer import Writer
+from whispers.town import NEWCOMER, Town
+from whispers.usage import CountingJev, Usage
+from whispers.writer import Writer
 
 SETTLE = 0.1
 

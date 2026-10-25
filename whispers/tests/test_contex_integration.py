@@ -5,20 +5,20 @@ from datetime import UTC, datetime
 
 import pytest
 
-from examples.whispers import engine as engine_mod
-from examples.whispers.actions import IGNORE
-from examples.whispers.config import Config
-from examples.whispers.contex_client import ContexClient
-from examples.whispers.decide import Decision
-from examples.whispers.engine import Engine
-from examples.whispers.feed import Feed
-from examples.whispers.lineage import Ids, Lineage
-from examples.whispers.mind import Mind, mind_project, said_project
-from examples.whispers.models import Utterance, Villager
-from examples.whispers.player import Player
-from examples.whispers.suspicion import Suspicion
-from examples.whispers.tests.helpers import PID, FakeEngine, StubBaselines, stub_player
-from examples.whispers.town import Town
+from whispers import engine as engine_mod
+from whispers.actions import IGNORE
+from whispers.config import Config
+from whispers.contex_client import ContexClient
+from whispers.decide import Decision
+from whispers.engine import Engine
+from whispers.feed import Feed
+from whispers.lineage import Ids, Lineage
+from whispers.mind import Mind, mind_project, said_project
+from whispers.models import Utterance, Villager
+from whispers.player import Player
+from whispers.suspicion import Suspicion
+from whispers.tests.helpers import PID, FakeEngine, StubBaselines, stub_player
+from whispers.town import Town
 
 URL = os.environ.get("WHISPERS_CONTEX_URL")
 pytestmark = [

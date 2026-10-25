@@ -5,15 +5,15 @@ import uuid
 
 import pytest
 
-from examples.whispers.actions import CONFRONT, DENY, RETELL, SPEAK, WARN
-from examples.whispers.calibration import Baselines
-from examples.whispers.config import Config
-from examples.whispers.contex_client import ContexClient, Match
-from examples.whispers.goals import Goal
-from examples.whispers.models import Utterance
-from examples.whispers.overhear import Overhear
-from examples.whispers.tests.helpers import Always, StubBaselines, StubContex
-from examples.whispers.town import NEWCOMER
+from whispers.actions import CONFRONT, DENY, RETELL, SPEAK, WARN
+from whispers.calibration import Baselines
+from whispers.config import Config
+from whispers.contex_client import ContexClient, Match
+from whispers.goals import Goal
+from whispers.models import Utterance
+from whispers.overhear import Overhear
+from whispers.tests.helpers import Always, StubBaselines, StubContex
+from whispers.town import NEWCOMER
 
 URL = os.environ.get("WHISPERS_CONTEX_URL")
 

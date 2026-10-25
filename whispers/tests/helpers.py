@@ -4,20 +4,20 @@ import asyncio
 import random
 from types import SimpleNamespace
 
-from examples.whispers.config import Config
-from examples.whispers.contex_client import Match
-from examples.whispers.facts import Facts
-from examples.whispers.feed import Feed
-from examples.whispers.goal_maker import GoalMaker
-from examples.whispers.hints import Hints
-from examples.whispers.lineage import Ids, Lineage
-from examples.whispers.models import Villager
-from examples.whispers.overhear import Overhear
-from examples.whispers.player import Player
-from examples.whispers.pool import DEFAULT_ACCUSATIONS, DEFAULT_CLAIMS, Entry, Pool
-from examples.whispers.rapport import Rapport
-from examples.whispers.suspicion import Suspicion
-from examples.whispers.town import Town
+from whispers.config import Config
+from whispers.contex_client import Match
+from whispers.facts import Facts
+from whispers.feed import Feed
+from whispers.goal_maker import GoalMaker
+from whispers.hints import Hints
+from whispers.lineage import Ids, Lineage
+from whispers.models import Villager
+from whispers.overhear import Overhear
+from whispers.player import Player
+from whispers.pool import DEFAULT_ACCUSATIONS, DEFAULT_CLAIMS, Entry, Pool
+from whispers.rapport import Rapport
+from whispers.suspicion import Suspicion
+from whispers.town import Town
 
 PID = "p-1"
 TIMEOUT = 2.0

@@ -4,9 +4,9 @@ import os
 
 import pytest
 
-from examples.whispers.calibration import CALIBRATION, FALLBACK_BASELINE, Baselines
-from examples.whispers.config import Config
-from examples.whispers.contex_client import ContexClient, Match
+from whispers.calibration import CALIBRATION, FALLBACK_BASELINE, Baselines
+from whispers.config import Config
+from whispers.contex_client import ContexClient, Match
 
 URL = os.environ.get("WHISPERS_CONTEX_URL")
 

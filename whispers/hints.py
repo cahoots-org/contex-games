@@ -2,8 +2,8 @@
 
 import logging
 
-from examples.whispers.config import Config
-from examples.whispers.contex_client import ContexClient
+from whispers.config import Config
+from whispers.contex_client import ContexClient
 
 log = logging.getLogger(__name__)
 

@@ -1,5 +1,5 @@
 # Shortens Contex's forgetting sweep so quiet villagers lose old memories sooner; applies to the whole server.
-# Use: docker compose -f docker-compose.yml -f examples/whispers/compose.sweep.yaml up
+# Use, from a Contex checkout: docker compose -f docker-compose.yml -f ../contex-games/whispers/compose.sweep.yaml up
 services:
   contex:
     environment:

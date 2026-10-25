@@ -1,8 +1,8 @@
 import json
 import pytest
 
-from examples.whispers.config import Config
-from examples.whispers.pressure import Pressure
+from whispers.config import Config
+from whispers.pressure import Pressure
 
 
 def test_pressure_adds_up_and_credits_the_largest_share():

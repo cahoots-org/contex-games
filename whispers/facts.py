@@ -3,7 +3,7 @@
 import time
 from dataclasses import asdict
 
-from examples.whispers.models import Utterance
+from whispers.models import Utterance
 
 # How many recent utterances are kept.
 KEPT_FACTS = 5000

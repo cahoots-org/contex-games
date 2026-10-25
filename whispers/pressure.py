@@ -1,6 +1,6 @@
 """How close each villager is to leaving town, and which player pushed them."""
 
-from examples.whispers.config import Config
+from whispers.config import Config
 
 
 class Pressure:

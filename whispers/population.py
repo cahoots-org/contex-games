@@ -4,11 +4,11 @@ import asyncio
 import logging
 import random
 
-from examples.whispers.config import Config
-from examples.whispers.models import Utterance
-from examples.whispers.town import GATE, START_PLACE, Town
-from examples.whispers.town_gen import generate_newcomer
-from examples.whispers.writer import Writer
+from whispers.config import Config
+from whispers.models import Utterance
+from whispers.town import GATE, START_PLACE, Town
+from whispers.town_gen import generate_newcomer
+from whispers.writer import Writer
 
 log = logging.getLogger(__name__)
 

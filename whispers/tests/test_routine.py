@@ -4,10 +4,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from examples.whispers.config import Config
-from examples.whispers.models import Villager
-from examples.whispers.routine import LEISURE_INSTRUCTIONS, WORK_INSTRUCTIONS, Routine
-from examples.whispers.town import GATE, PLACES
+from whispers.config import Config
+from whispers.models import Villager
+from whispers.routine import LEISURE_INSTRUCTIONS, WORK_INSTRUCTIONS, Routine
+from whispers.town import GATE, PLACES
 
 CONFIG = Config()
 

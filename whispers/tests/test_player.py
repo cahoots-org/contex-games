@@ -8,24 +8,24 @@ import time
 from dataclasses import replace
 from datetime import datetime
 
-from examples.whispers.contex_client import Match
-from examples.whispers.game import Game, Summary
-from examples.whispers.goals import Goal, Trophy
-from examples.whispers.lineage import Ids
-from examples.whispers.models import Utterance, Villager
-from examples.whispers.actions import SPEAK, WARN
-from examples.whispers.player import ALREADY_LISTENING, GAME_OVER, MAX_WHISPER_CHARS, Player, Refusal, echoes
-from examples.whispers.mind import mind_project
-from examples.whispers.notes import Notes
-from examples.whispers.players import Players
-from examples.whispers.rumors import Rumors
-from examples.whispers.config import Config
-from examples.whispers.rapport import interest_words
-from examples.whispers.tests.helpers import PID, TIMEOUT, StubBaselines, StubClient, StubContex, wait_for
-from examples.whispers.tests.helpers import make_player as make
-from examples.whispers.town import NEWCOMER
-from examples.whispers.usage import Usage, charged_to
-from examples.whispers.writer import Writer
+from whispers.contex_client import Match
+from whispers.game import Game, Summary
+from whispers.goals import Goal, Trophy
+from whispers.lineage import Ids
+from whispers.models import Utterance, Villager
+from whispers.actions import SPEAK, WARN
+from whispers.player import ALREADY_LISTENING, GAME_OVER, MAX_WHISPER_CHARS, Player, Refusal, echoes
+from whispers.mind import mind_project
+from whispers.notes import Notes
+from whispers.players import Players
+from whispers.rumors import Rumors
+from whispers.config import Config
+from whispers.rapport import interest_words
+from whispers.tests.helpers import PID, TIMEOUT, StubBaselines, StubClient, StubContex, wait_for
+from whispers.tests.helpers import make_player as make
+from whispers.town import NEWCOMER
+from whispers.usage import Usage, charged_to
+from whispers.writer import Writer
 
 
 @pytest.mark.asyncio

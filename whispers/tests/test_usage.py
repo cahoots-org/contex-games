@@ -5,10 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from examples.whispers.config import Config
-from examples.whispers.players import Players
-from examples.whispers.tests.helpers import make_player
-from examples.whispers.usage import CountingJev, Usage
+from whispers.config import Config
+from whispers.players import Players
+from whispers.tests.helpers import make_player
+from whispers.usage import CountingJev, Usage
 
 
 def test_cost_uses_configured_prices():

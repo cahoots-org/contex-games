@@ -1,6 +1,6 @@
 """A player's notes: what each villager has shown the player, built from feed events."""
 
-from examples.whispers.feed import Event, Feed
+from whispers.feed import Event, Feed
 
 # Lowest to highest; a note only moves up, except that wary overrides anything.
 RANK = ("none", "listening", "brushed_off", "answered", "kept", "wary", "took_the_bait")

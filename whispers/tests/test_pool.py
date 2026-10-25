@@ -3,8 +3,8 @@ import json
 
 import pytest
 
-from examples.whispers.models import Villager
-from examples.whispers.pool import DEFAULT_ACCUSATIONS, DEFAULT_CLAIMS, Entry, clean, load_pool
+from whispers.models import Villager
+from whispers.pool import DEFAULT_ACCUSATIONS, DEFAULT_CLAIMS, Entry, clean, load_pool
 
 
 class CountingBelief:

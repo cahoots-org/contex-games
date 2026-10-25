@@ -7,13 +7,13 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta
 
-from examples.whispers.calibration import Baselines
-from examples.whispers.config import Config
-from examples.whispers.contex_client import ContexClient
-from examples.whispers.feed import Event
-from examples.whispers.models import Utterance
-from examples.whispers.overhear import Overhear
-from examples.whispers.scenes import Scene
+from whispers.calibration import Baselines
+from whispers.config import Config
+from whispers.contex_client import ContexClient
+from whispers.feed import Event
+from whispers.models import Utterance
+from whispers.overhear import Overhear
+from whispers.scenes import Scene
 
 log = logging.getLogger(__name__)
 

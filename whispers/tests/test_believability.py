@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from examples.whispers.believability import Believability
+from whispers.believability import Believability
 
 
 class ScoreJev:

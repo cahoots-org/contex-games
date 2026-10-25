@@ -8,9 +8,9 @@ import tempfile
 
 from typesafe_sdk import Choice
 
-from examples.whispers.config import Config
-from examples.whispers.models import Villager
-from examples.whispers.town import GATE, PLACES
+from whispers.config import Config
+from whispers.models import Villager
+from whispers.town import GATE, PLACES
 
 log = logging.getLogger(__name__)
 

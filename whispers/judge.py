@@ -8,21 +8,21 @@ from dataclasses import asdict
 
 from typesafe_sdk import Noul
 
-from examples.whispers.actions import CONFRONT, FOUND_GROUP, JOIN_GROUP, LEAVE_TOWN
-from examples.whispers.config import Config
-from examples.whispers.contex_client import ContexClient, Match
-from examples.whispers.facts import Facts
-from examples.whispers.game import Game
-from examples.whispers.goal_maker import GoalMaker, names
-from examples.whispers.goals import (
+from whispers.actions import CONFRONT, FOUND_GROUP, JOIN_GROUP, LEAVE_TOWN
+from whispers.config import Config
+from whispers.contex_client import ContexClient, Match
+from whispers.facts import Facts
+from whispers.game import Game
+from whispers.goal_maker import GoalMaker, names
+from whispers.goals import (
     Goal, Trophy, audience_of, claim, goal_counts, goal_from_state, needed, trophy_line, void_reason,
 )
-from examples.whispers.lineage import Lineage
-from examples.whispers.mind import mind_project
-from examples.whispers.models import Villager
-from examples.whispers.player import Player
-from examples.whispers.players import Players
-from examples.whispers.town import Town
+from whispers.lineage import Lineage
+from whispers.mind import mind_project
+from whispers.models import Villager
+from whispers.player import Player
+from whispers.players import Players
+from whispers.town import Town
 
 log = logging.getLogger(__name__)
 

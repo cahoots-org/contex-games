@@ -5,8 +5,8 @@ from contextlib import asynccontextmanager
 import anyio
 import pytest
 
-from examples.whispers import contex_client
-from examples.whispers.contex_client import ContexClient, Match, new_matches
+from whispers import contex_client
+from whispers.contex_client import ContexClient, Match, new_matches
 
 
 def test_new_matches_dedupes_across_needs_and_skips_seen():

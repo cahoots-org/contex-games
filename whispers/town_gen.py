@@ -6,8 +6,8 @@ import random
 import re
 from dataclasses import asdict
 
-from examples.whispers.models import Villager
-from examples.whispers.writer import Writer, extract_json
+from whispers.models import Villager
+from whispers.writer import Writer, extract_json
 
 BATCH = 10
 MAX_FAILED_BATCHES = 5

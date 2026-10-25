@@ -1,18 +1,18 @@
 import pytest
 
-from examples.whispers.actions import (
+from whispers.actions import (
     ANSWER, CONFRONT, FOUND_GROUP, JOIN_GROUP, LEAVE_TOWN, MOVE, PREACH, RETELL, SPEAK, WARN,
 )
-from examples.whispers.config import Config
-from examples.whispers.contex_client import Match
-from examples.whispers.decide import Decision
-from examples.whispers.effects import act
-from examples.whispers.facts import Facts
-from examples.whispers.lineage import Ids, Lineage
-from examples.whispers.models import Utterance, Villager
-from examples.whispers.tests.helpers import PID, StubClient
-from examples.whispers.town import NEWCOMER, Town
-from examples.whispers.writer import Writer
+from whispers.config import Config
+from whispers.contex_client import Match
+from whispers.decide import Decision
+from whispers.effects import act
+from whispers.facts import Facts
+from whispers.lineage import Ids, Lineage
+from whispers.models import Utterance, Villager
+from whispers.tests.helpers import PID, StubClient
+from whispers.town import NEWCOMER, Town
+from whispers.writer import Writer
 
 
 class StubWriter:

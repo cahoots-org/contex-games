@@ -2,12 +2,12 @@ import random
 
 import pytest
 
-from examples.whispers.actions import CONFRONT, MOVE, RETELL, SPEAK
-from examples.whispers.config import Config
-from examples.whispers.models import Utterance
-from examples.whispers.scenes import MAX_PEOPLE, Scenes, heat
-from examples.whispers.tests.helpers import Always, make
-from examples.whispers.town import Town
+from whispers.actions import CONFRONT, MOVE, RETELL, SPEAK
+from whispers.config import Config
+from whispers.models import Utterance
+from whispers.scenes import MAX_PEOPLE, Scenes, heat
+from whispers.tests.helpers import Always, make
+from whispers.town import Town
 
 
 def town_with(*ids, place="tavern"):

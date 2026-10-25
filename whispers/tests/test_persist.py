@@ -8,29 +8,29 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from examples.whispers import engine as engine_mod
-from examples.whispers import persist, web
-from examples.whispers.actions import IGNORE
-from examples.whispers.config import Config
-from examples.whispers.contex_client import Match
-from examples.whispers.decide import Decision
-from examples.whispers.engine import Engine
-from examples.whispers.facts import Facts
-from examples.whispers.feed import Feed
-from examples.whispers.game import Game
-from examples.whispers.goals import Trophy
-from examples.whispers.judge import Judge
-from examples.whispers.lineage import Ids, Lineage
-from examples.whispers.models import Utterance, Villager
-from examples.whispers.overhear import Overhear
-from examples.whispers.persist import components, load_game, restore_game, resume_game, save_every, save_game, state_path, stop
-from examples.whispers.player import Player
-from examples.whispers.players import Players
-from examples.whispers.rumors import Rumors
-from examples.whispers.tests.helpers import Always, FakeMind, StubBaselines, StubContex, goal_maker, wait_for
-from examples.whispers.town import Town
-from examples.whispers.usage import Usage
-from examples.whispers.web import create_app
+from whispers import engine as engine_mod
+from whispers import persist, web
+from whispers.actions import IGNORE
+from whispers.config import Config
+from whispers.contex_client import Match
+from whispers.decide import Decision
+from whispers.engine import Engine
+from whispers.facts import Facts
+from whispers.feed import Feed
+from whispers.game import Game
+from whispers.goals import Trophy
+from whispers.judge import Judge
+from whispers.lineage import Ids, Lineage
+from whispers.models import Utterance, Villager
+from whispers.overhear import Overhear
+from whispers.persist import components, load_game, restore_game, resume_game, save_every, save_game, state_path, stop
+from whispers.player import Player
+from whispers.players import Players
+from whispers.rumors import Rumors
+from whispers.tests.helpers import Always, FakeMind, StubBaselines, StubContex, goal_maker, wait_for
+from whispers.town import Town
+from whispers.usage import Usage
+from whispers.web import create_app
 
 SESSION = "s1"
 NOW = 1_800_000_000.0
@@ -199,7 +199,7 @@ def test_a_save_that_cannot_be_used_is_logged_and_set_aside(tmp_path, caplog, mo
         os.makedirs(os.path.dirname(path))
         with open(path, "w") as f:
             f.write(content)
-    with caplog.at_level(logging.INFO, logger="examples.whispers.persist"):
+    with caplog.at_level(logging.INFO, logger="whispers.persist"):
         assert load_game(path, SESSION) is None
     assert "starting fresh" in caplog.text
     assert not os.path.exists(path)

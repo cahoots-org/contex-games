@@ -3,19 +3,19 @@ from types import SimpleNamespace
 
 import pytest
 
-from examples.whispers import cli
-from examples.whispers.cli import Command, parse_command
-from examples.whispers.config import Config
-from examples.whispers.feed import Feed
-from examples.whispers.game import Summary
-from examples.whispers.goals import Goal, Trophy
-from examples.whispers.lineage import Ids, Lineage
-from examples.whispers.models import Villager
-from examples.whispers.player import Player, Refusal
-from examples.whispers.players import Players
-from examples.whispers.suspicion import Suspicion
-from examples.whispers.tests.helpers import PID
-from examples.whispers.town import Town
+from whispers import cli
+from whispers.cli import Command, parse_command
+from whispers.config import Config
+from whispers.feed import Feed
+from whispers.game import Summary
+from whispers.goals import Goal, Trophy
+from whispers.lineage import Ids, Lineage
+from whispers.models import Villager
+from whispers.player import Player, Refusal
+from whispers.players import Players
+from whispers.suspicion import Suspicion
+from whispers.tests.helpers import PID
+from whispers.town import Town
 
 
 def test_parse_command_forms():

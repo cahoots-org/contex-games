@@ -15,17 +15,17 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from starlette.datastructures import Headers
 from starlette.websockets import WebSocketClose
 
-from examples.whispers.feed import RESTING, Event, Feed
-from examples.whispers.game import Game
-from examples.whispers.goals import Goal, claim, goal_counts, goal_targets
-from examples.whispers.hints import Hints
-from examples.whispers.notes import Notes
-from examples.whispers.player import MAX_WHISPER_CHARS, Player, Refusal
-from examples.whispers.players import RUN_OUT_LOCKOUT_SECONDS, Players, new_owner_id
-from examples.whispers.rumors import Rumors
-from examples.whispers.suspicion import HEAT_LINES, Suspicion, influence
-from examples.whispers.town import PLACES, Town
-from examples.whispers.usage import Usage, charging
+from whispers.feed import RESTING, Event, Feed
+from whispers.game import Game
+from whispers.goals import Goal, claim, goal_counts, goal_targets
+from whispers.hints import Hints
+from whispers.notes import Notes
+from whispers.player import MAX_WHISPER_CHARS, Player, Refusal
+from whispers.players import RUN_OUT_LOCKOUT_SECONDS, Players, new_owner_id
+from whispers.rumors import Rumors
+from whispers.suspicion import HEAT_LINES, Suspicion, influence
+from whispers.town import PLACES, Town
+from whispers.usage import Usage, charging
 
 log = logging.getLogger(__name__)
 

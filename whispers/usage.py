@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import UTC, date, datetime
 
-from examples.whispers.config import Config
+from whispers.config import Config
 
 PROVIDERS = ("haiku", "jev")
 

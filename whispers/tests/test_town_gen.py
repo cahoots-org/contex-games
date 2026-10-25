@@ -4,11 +4,11 @@ import random
 
 import pytest
 
-from examples.whispers.town_gen import (
+from whispers.town_gen import (
     MAX_FAILED_BATCHES, SeedMismatch, generate_newcomer, generate_villagers, load_or_generate,
     wire_relationships, world_path,
 )
-from examples.whispers.models import Villager
+from whispers.models import Villager
 
 
 def entry(i):

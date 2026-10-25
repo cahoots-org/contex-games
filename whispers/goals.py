@@ -4,8 +4,8 @@ import math
 from dataclasses import dataclass, replace
 from typing import Literal
 
-from examples.whispers.models import Villager
-from examples.whispers.town import Town
+from whispers.models import Villager
+from whispers.town import Town
 
 
 @dataclass(frozen=True)

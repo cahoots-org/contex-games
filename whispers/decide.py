@@ -6,13 +6,13 @@ from dataclasses import dataclass, field
 
 from typesafe_sdk import Choice, Score
 
-from examples.whispers.actions import (
+from whispers.actions import (
     ACTION_NOT_FOR, ACTIONS, ANSWER, IGNORE, JOIN_GROUP, MOVE, STYLED, STYLES, TARGET_KIND,
     available_actions,
 )
-from examples.whispers.contex_client import Match
-from examples.whispers.models import Group, Villager
-from examples.whispers.town import PLACES
+from whispers.contex_client import Match
+from whispers.models import Group, Villager
+from whispers.town import PLACES
 
 log = logging.getLogger(__name__)
 

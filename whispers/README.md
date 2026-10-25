@@ -34,17 +34,18 @@ Optionally, start Contex with a 60-second reconcile sweep so quiet minds forget
 sooner. The setting applies to the whole Contex server, and each sweep costs a
 CPU burst: at a 30-second sweep with 100 villagers, the server used 4 to 5 CPU
 cores for a few seconds each time. Without the override, forgetting is trimmed
-whenever a villager takes a turn and every 300 seconds otherwise.
+whenever a villager takes a turn and every 300 seconds otherwise. From a
+[Contex](https://github.com/cahoots-org/contex) checkout with this repo beside it:
 
 ```bash
-docker compose -f docker-compose.yml -f examples/whispers/compose.sweep.yaml up
+docker compose -f docker-compose.yml -f ../contex-games/whispers/compose.sweep.yaml up
 ```
 
 Install the game's dependencies (Python 3.12) and set the two API keys, either
 exported or in a `.env` file (the game reads the nearest one; exported values win):
 
 ```bash
-pip install -r examples/whispers/requirements.txt
+pip install -r whispers/requirements.txt
 export ANTHROPIC_API_KEY=...
 export TYPESAFE_API_KEY=...
 ```
@@ -52,14 +53,14 @@ export TYPESAFE_API_KEY=...
 Run it from the repo root:
 
 ```bash
-python -m examples.whispers
+python -m whispers
 ```
 
 To play in a browser instead, add `--web` and open the address it prints,
 `http://127.0.0.1:8765` unless `WHISPERS_WEB_PORT` says otherwise:
 
 ```bash
-python -m examples.whispers --web
+python -m whispers --web
 ```
 
 Each run asks Haiku for a new village in batches of 10, every villager with a
@@ -326,9 +327,9 @@ whispers and a three-reply conversation, under $0.004.
 
 ## Hosting
 
-`examples/whispers/Dockerfile` builds the web game from the repo root. On
+`whispers/Dockerfile` builds the web game from the repo root. On
 Railway, create a service from this repo and set its Dockerfile path to
-`examples/whispers/Dockerfile`, its health check to `/healthz` with a 600-second
+`whispers/Dockerfile`, its health check to `/healthz` with a 600-second
 timeout (the server starts only once the village is written), and its restart
 policy to on-failure with at most 3 retries. Then set:
 
@@ -457,8 +458,8 @@ of 30, eight well-aimed whispers reached watched.
 
 ```bash
 pip install -r requirements-dev.txt
-pytest examples/whispers
-WHISPERS_CONTEX_URL=http://localhost:8001/mcp pytest examples/whispers
+pytest whispers
+WHISPERS_CONTEX_URL=http://localhost:8001/mcp pytest whispers
 ```
 
 The second run adds the tests that need a live Contex.

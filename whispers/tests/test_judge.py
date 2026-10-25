@@ -6,25 +6,25 @@ from types import SimpleNamespace
 
 import pytest
 
-from examples.whispers import goal_maker as goal_maker_mod
-from examples.whispers.config import Config
-from examples.whispers.contex_client import Match
-from examples.whispers.game import Game
-from examples.whispers.feed import Feed
-from examples.whispers.goals import Goal, Trophy, needed, void_reason, world_goal
-from examples.whispers.judge import Judge
-from examples.whispers.engine import Engine
-from examples.whispers.lineage import Ids, Lineage
-from examples.whispers.mind import mind_project
-from examples.whispers.facts import Facts
-from examples.whispers.models import Utterance, Villager
-from examples.whispers.overhear import Overhear
-from examples.whispers.players import Players
-from examples.whispers.pool import Entry, Pool
-from examples.whispers.tests.helpers import PID, goal_maker, wait_for
-from examples.whispers.usage import Usage
-from examples.whispers.tests.helpers import StubContex as OverhearContex
-from examples.whispers.town import Town
+from whispers import goal_maker as goal_maker_mod
+from whispers.config import Config
+from whispers.contex_client import Match
+from whispers.game import Game
+from whispers.feed import Feed
+from whispers.goals import Goal, Trophy, needed, void_reason, world_goal
+from whispers.judge import Judge
+from whispers.engine import Engine
+from whispers.lineage import Ids, Lineage
+from whispers.mind import mind_project
+from whispers.facts import Facts
+from whispers.models import Utterance, Villager
+from whispers.overhear import Overhear
+from whispers.players import Players
+from whispers.pool import Entry, Pool
+from whispers.tests.helpers import PID, goal_maker, wait_for
+from whispers.usage import Usage
+from whispers.tests.helpers import StubContex as OverhearContex
+from whispers.town import Town
 
 CONFIG = Config(day_seconds=0.01, judge_every_days=1.0)
 BELIEF = Goal("g", "cat is a spy", "belief", ("cat spy",), "Does it believe?", 0.5, hold_checks=2)

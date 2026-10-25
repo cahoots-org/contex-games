@@ -2,12 +2,12 @@ import asyncio
 
 import pytest
 
-from examples.whispers import mind as mind_mod
-from examples.whispers.calibration import Baselines
-from examples.whispers.config import Config
-from examples.whispers.contex_client import Match, SubscriptionGone
-from examples.whispers.mind import Mind, mind_project
-from examples.whispers.models import Villager
+from whispers import mind as mind_mod
+from whispers.calibration import Baselines
+from whispers.config import Config
+from whispers.contex_client import Match, SubscriptionGone
+from whispers.mind import Mind, mind_project
+from whispers.models import Villager
 
 CONFIG = Config(day_seconds=100, memory_days=2, match_margin=0.05)
 

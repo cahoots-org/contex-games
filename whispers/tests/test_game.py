@@ -6,25 +6,25 @@ from types import SimpleNamespace
 
 import pytest
 
-from examples.whispers import engine as engine_mod
-from examples.whispers import game as game_mod
-from examples.whispers.actions import CONFRONT, FOUND_GROUP, IGNORE, LEAVE_TOWN, MOVE
-from examples.whispers.config import Config
-from examples.whispers.contex_client import Match
-from examples.whispers.decide import Decision
-from examples.whispers.engine import Engine
-from examples.whispers.feed import Feed
-from examples.whispers.game import MEMORY_PLAYERS, Game, Summary
-from examples.whispers.goals import Goal
-from examples.whispers.judge import Judge
-from examples.whispers.lineage import Ids, Lineage
-from examples.whispers.models import Utterance
-from examples.whispers.player import Player
-from examples.whispers.players import Players
-from examples.whispers.tests.helpers import PID, FakeMind, StubClient, goal_maker, make, make_player, wait_for
-from examples.whispers.town import PLACES, Town
-from examples.whispers.usage import Usage
-from examples.whispers.writer import Writer
+from whispers import engine as engine_mod
+from whispers import game as game_mod
+from whispers.actions import CONFRONT, FOUND_GROUP, IGNORE, LEAVE_TOWN, MOVE
+from whispers.config import Config
+from whispers.contex_client import Match
+from whispers.decide import Decision
+from whispers.engine import Engine
+from whispers.feed import Feed
+from whispers.game import MEMORY_PLAYERS, Game, Summary
+from whispers.goals import Goal
+from whispers.judge import Judge
+from whispers.lineage import Ids, Lineage
+from whispers.models import Utterance
+from whispers.player import Player
+from whispers.players import Players
+from whispers.tests.helpers import PID, FakeMind, StubClient, goal_maker, make, make_player, wait_for
+from whispers.town import PLACES, Town
+from whispers.usage import Usage
+from whispers.writer import Writer
 
 GOALS = [("cat is a spy", 40)]
 MEETING = "The village meets in the square and runs the newcomer out of town."
@@ -681,7 +681,7 @@ async def test_forced_departure_overrides_a_hold(monkeypatch, caplog):
 
 @pytest.mark.asyncio
 async def test_departure_with_no_player_pressure_credits_the_player_behind_the_last_straw(monkeypatch, caplog):
-    caplog.set_level(logging.INFO, logger="examples.whispers.engine")
+    caplog.set_level(logging.INFO, logger="whispers.engine")
     engine, _, _, reported, _ = await leaving(monkeypatch, (1.0, None))
     assert reported == [("v1", LEAVE_TOWN, None, "p-b", None)] and "turn failed" not in caplog.text
     assert "left town, credited to p-b" in caplog.text

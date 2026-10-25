@@ -4,13 +4,13 @@ import logging
 import random
 from collections.abc import Collection
 
-from examples.whispers.actions import CONFRONT, DENY, PREACH, RETELL, SPEAK
-from examples.whispers.calibration import Baselines
-from examples.whispers.config import Config
-from examples.whispers.contex_client import ContexClient
-from examples.whispers.goals import Goal
-from examples.whispers.models import Utterance
-from examples.whispers.town import NEWCOMER
+from whispers.actions import CONFRONT, DENY, PREACH, RETELL, SPEAK
+from whispers.calibration import Baselines
+from whispers.config import Config
+from whispers.contex_client import ContexClient
+from whispers.goals import Goal
+from whispers.models import Utterance
+from whispers.town import NEWCOMER
 
 log = logging.getLogger(__name__)
 

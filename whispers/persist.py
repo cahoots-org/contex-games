@@ -8,7 +8,7 @@ import re
 import time
 from collections.abc import Callable
 
-from examples.whispers.town_gen import WORLDS_DIR
+from whispers.town_gen import WORLDS_DIR
 
 log = logging.getLogger(__name__)
 

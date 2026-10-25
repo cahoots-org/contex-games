@@ -7,9 +7,9 @@ import logging
 import os
 import tempfile
 
-from examples.whispers.config import Config
-from examples.whispers.contex_client import ContexClient
-from examples.whispers.models import Utterance
+from whispers.config import Config
+from whispers.contex_client import ContexClient
+from whispers.models import Utterance
 
 log = logging.getLogger(__name__)
 

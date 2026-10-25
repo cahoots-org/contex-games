@@ -3,7 +3,7 @@
 import re
 from dataclasses import asdict
 
-from examples.whispers.models import Group, Villager
+from whispers.models import Group, Villager
 
 PLACES = ("square", "tavern", "market", "well", "mill", "chapel", "gate")
 START_PLACE = "square"

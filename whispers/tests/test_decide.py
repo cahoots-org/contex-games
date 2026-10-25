@@ -3,16 +3,16 @@ import random
 
 import pytest
 
-from examples.whispers.actions import (
+from whispers.actions import (
     ANSWER, CONFRONT, DENY, FOUND_GROUP, IGNORE, JOIN_GROUP, LEAVE_GROUP, LEAVE_TOWN, MOVE,
     PREACH, RETELL, SPEAK, WARN,
 )
-from examples.whispers.contex_client import Match
-from examples.whispers.decide import (
+from whispers.contex_client import Match
+from whispers.decide import (
     FEAR_LEVELS, GOSSIP_LEVELS, KEEN_LEVELS, STING_LEVELS, SUSPICION_LEVELS, Decision, TurnView, decide,
 )
-from examples.whispers.models import Group, Villager
-from examples.whispers.tests.helpers import StubJev
+from whispers.models import Group, Villager
+from whispers.tests.helpers import StubJev
 
 
 def villager(vid="v1", name="Ada"):

@@ -1,10 +1,10 @@
 import json
 import pytest
 
-from examples.whispers.config import Config
-from examples.whispers.models import Villager
-from examples.whispers.suspicion import Suspicion, influence
-from examples.whispers.town import Town
+from whispers.config import Config
+from whispers.models import Villager
+from whispers.suspicion import Suspicion, influence
+from whispers.town import Town
 
 P = "p-1"
 

@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.local
+.pytest_cache/
+.ruff_cache/
+
+# A game's saved villages, goal pools, places, need baselines and game state
+whispers_worlds/
+whispers_baselines.json
+whispers_seed.json*

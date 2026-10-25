@@ -1,13 +1,13 @@
 import json
 from pathlib import Path
 
-from examples.whispers.feed import REPLAY_EVENTS, Feed
-from examples.whispers.goals import Goal, Trophy
-from examples.whispers.lineage import Lineage
-from examples.whispers.models import Utterance, Villager
-from examples.whispers.scenes import Scene
-from examples.whispers.tests.helpers import PID
-from examples.whispers.town import Town
+from whispers.feed import REPLAY_EVENTS, Feed
+from whispers.goals import Goal, Trophy
+from whispers.lineage import Lineage
+from whispers.models import Utterance, Villager
+from whispers.scenes import Scene
+from whispers.tests.helpers import PID
+from whispers.town import Town
 
 
 def make():

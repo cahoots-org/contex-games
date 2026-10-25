@@ -6,14 +6,14 @@ import random
 
 import pytest
 
-from examples.whispers import population as population_mod
-from examples.whispers.config import Config
-from examples.whispers.lineage import Ids, Lineage
-from examples.whispers.models import Villager
-from examples.whispers.players import Players
-from examples.whispers.population import Replenisher
-from examples.whispers.tests.helpers import stub_player
-from examples.whispers.town import GATE, START_PLACE, Town
+from whispers import population as population_mod
+from whispers.config import Config
+from whispers.lineage import Ids, Lineage
+from whispers.models import Villager
+from whispers.players import Players
+from whispers.population import Replenisher
+from whispers.tests.helpers import stub_player
+from whispers.town import GATE, START_PLACE, Town
 
 TIMEOUT = 2.0
 SETTLE = 0.15

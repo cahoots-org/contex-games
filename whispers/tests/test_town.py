@@ -1,8 +1,8 @@
 import json
 import pytest
 
-from examples.whispers.models import Utterance, Villager
-from examples.whispers.town import Town
+from whispers.models import Utterance, Villager
+from whispers.town import Town
 
 
 def v(vid, name):

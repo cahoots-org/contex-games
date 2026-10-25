@@ -9,16 +9,16 @@ from datetime import UTC, datetime, timedelta
 
 from typesafe_sdk import Noul
 
-from examples.whispers.config import Config
-from examples.whispers.contex_client import Match
-from examples.whispers.game import Game, Summary
-from examples.whispers.goals import Goal, goal_from_state
-from examples.whispers.lineage import Ids, Lineage
-from examples.whispers.mind import mind_project
-from examples.whispers.overhear import audible
-from examples.whispers.models import Utterance, Villager
-from examples.whispers.town import NEWCOMER, PLACES, START_PLACE, Town, neighbours
-from examples.whispers.usage import charging
+from whispers.config import Config
+from whispers.contex_client import Match
+from whispers.game import Game, Summary
+from whispers.goals import Goal, goal_from_state
+from whispers.lineage import Ids, Lineage
+from whispers.mind import mind_project
+from whispers.overhear import audible
+from whispers.models import Utterance, Villager
+from whispers.town import NEWCOMER, PLACES, START_PLACE, Town, neighbours
+from whispers.usage import charging
 
 log = logging.getLogger(__name__)
 

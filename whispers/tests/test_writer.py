@@ -2,12 +2,12 @@ import re
 
 import pytest
 
-from examples.whispers.decide import Decision
-from examples.whispers.config import Config
-from examples.whispers.models import Villager
-from examples.whispers.usage import Usage
-from examples.whispers.tests.helpers import StubClient
-from examples.whispers.writer import SAY_MAX_TOKENS, WHISPER_FRAMING, Writer, first_line
+from whispers.decide import Decision
+from whispers.config import Config
+from whispers.models import Villager
+from whispers.usage import Usage
+from whispers.tests.helpers import StubClient
+from whispers.writer import SAY_MAX_TOKENS, WHISPER_FRAMING, Writer, first_line
 
 
 def villager():

@@ -1,6 +1,6 @@
 import json
-from examples.whispers.lineage import Ids, Lineage
-from examples.whispers.tests.helpers import PID
+from whispers.lineage import Ids, Lineage
+from whispers.tests.helpers import PID
 
 
 def test_root_follows_parents():

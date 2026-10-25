@@ -9,16 +9,16 @@ from dataclasses import dataclass, replace
 
 from typesafe_sdk import Choice
 
-from examples.whispers.config import Config
-from examples.whispers.decide import MAX_OPTIONS
-from examples.whispers.game import PHASES
-from examples.whispers.goals import BANDS, MIN_CIRCLE, Goal, world_goal
-from examples.whispers.lineage import Ids
-from examples.whispers.models import Group, Villager
-from examples.whispers.pool import Entry, Pool
-from examples.whispers.routine import ROUTINE_PLACES
-from examples.whispers.town import START_PLACE, Town
-from examples.whispers.usage import charging
+from whispers.config import Config
+from whispers.decide import MAX_OPTIONS
+from whispers.game import PHASES
+from whispers.goals import BANDS, MIN_CIRCLE, Goal, world_goal
+from whispers.lineage import Ids
+from whispers.models import Group, Villager
+from whispers.pool import Entry, Pool
+from whispers.routine import ROUTINE_PLACES
+from whispers.town import START_PLACE, Town
+from whispers.usage import charging
 
 log = logging.getLogger(__name__)
 

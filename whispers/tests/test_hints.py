@@ -3,10 +3,10 @@ import logging
 
 import pytest
 
-from examples.whispers.config import Config
-from examples.whispers.contex_client import Match
-from examples.whispers.hints import HINT_TOP_K, Hints
-from examples.whispers.tests.helpers import StubContex
+from whispers.config import Config
+from whispers.contex_client import Match
+from whispers.hints import HINT_TOP_K, Hints
+from whispers.tests.helpers import StubContex
 
 DRAFT = "the vines are failing"
 

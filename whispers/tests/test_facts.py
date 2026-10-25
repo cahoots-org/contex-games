@@ -1,7 +1,7 @@
 import json
-from examples.whispers import facts
-from examples.whispers.facts import Facts
-from examples.whispers.models import Utterance
+from whispers import facts
+from whispers.facts import Facts
+from whispers.models import Utterance
 
 
 def test_recent_lists_lines_said_at_a_place_since_a_time(monkeypatch):

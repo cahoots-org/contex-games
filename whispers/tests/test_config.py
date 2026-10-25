@@ -1,4 +1,4 @@
-from examples.whispers.config import Config
+from whispers.config import Config
 
 
 def test_memory_seconds():

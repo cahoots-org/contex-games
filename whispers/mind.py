@@ -5,10 +5,10 @@ from contextlib import aclosing
 from collections.abc import AsyncIterator
 from dataclasses import replace
 
-from examples.whispers.calibration import Baselines
-from examples.whispers.config import Config
-from examples.whispers.contex_client import Bundle, ContexClient, Match, SubscriptionGone, new_matches
-from examples.whispers.models import Villager
+from whispers.calibration import Baselines
+from whispers.config import Config
+from whispers.contex_client import Bundle, ContexClient, Match, SubscriptionGone, new_matches
+from whispers.models import Villager
 
 REOPEN_PAUSE_SECONDS = 1
 
