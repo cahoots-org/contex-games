@@ -10,3 +10,4 @@ __pycache__/
 whispers_worlds/
 whispers_baselines.json
 whispers_seed.json*
+.DS_Store
