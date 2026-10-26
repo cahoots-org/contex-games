@@ -640,7 +640,8 @@ def test_state_shows_the_case_without_its_culprit(game):
 def test_page_has_the_case_panel(game):
     page = game.client.get("/").text
     assert '<section class="case" id="case" hidden>' in page and "No open case" in page
-    for needle in ("Pull records here", "/api/pull", "/api/publish", 'id="culprit"', 'case "pulled"', 'case "episode"'):
+    for needle in ("Pull records here", "/api/pull", "/api/publish", 'id="culprit"', 'case "pulled"', 'case "episode"',
+                   "Search here", "/api/search", 'case "searched"', "c.place !== here"):
         assert needle in page, needle
 
 

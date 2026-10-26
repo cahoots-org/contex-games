@@ -382,6 +382,7 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
       <ol class="notebook" id="notebook" aria-label="Your notebook"></ol>
       <form class="publish" id="publish" hidden>
         <button type="button" class="linkish" id="pull">Pull records here</button>
+        <button type="button" class="linkish" id="search" hidden>Search here</button>
         <label for="culprit">Who did it</label>
         <select id="culprit"><option value="">Choose a resident</option></select>
         <button type="submit" class="primary">Publish</button>
@@ -574,6 +575,13 @@ function setCase(c) {
   $("case").dataset.private = String(Boolean(id && c.private));
   $("case").hidden = false;
   $("publish").hidden = !id;
+  setSearch();
+}
+
+// Search here shows only at the open case's crime place.
+function setSearch() {
+  const c = caseInfo[$("case").dataset.case];
+  $("search").hidden = !c || c.place !== here;
 }
 
 function sayCase(text, error = false) {
@@ -583,6 +591,11 @@ function sayCase(text, error = false) {
 
 $("pull").addEventListener("click", async () => {
   const { ok, error } = await post("/api/pull", {});
+  sayCase(ok ? "" : error, !ok);
+});
+
+$("search").addEventListener("click", async () => {
+  const { ok, error } = await post("/api/search", {});
   sayCase(ok ? "" : error, !ok);
 });
 
@@ -652,6 +665,9 @@ function render(e, fresh) {
     case "pulled":
       note(e.records);
       return line("plain", e.text, gained(e.records, "Nothing new there."));
+    case "searched":
+      note(e.records);
+      return line("plain", e.text, gained(e.records, "You found nothing."));
     case "episode":
       return e.mine ? line("loud", `You named ${e.name}, citing ${plural(e.cited, "record")}.`,
         el("p", { className: "got", textContent: e.verdict }))
@@ -1212,6 +1228,7 @@ async function post(path, body) {
 function setHere(place) {
   here = place;
   $("where").textContent = `You're ${atPlace(place)}`;
+  setSearch();
   setActions();
   setAsk();
 }
