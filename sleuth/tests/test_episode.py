@@ -46,6 +46,9 @@ def test_rejects_a_sighting_that_does_not_fit():
     assert not holds(CRIME, "v3", TRAITS, [record(traits={"height": "short"})])
 
 
-def test_holds_on_a_log_or_household_word_naming_the_culprit_at_the_scene():
+def test_holds_on_a_log_naming_the_culprit_at_the_scene():
     assert holds(CRIME, "v3", TRAITS, [record(kind="log", who="v3", traits={})])
-    assert holds(CRIME, "v3", TRAITS, [record(kind="statement", who="v3", place="oak street", traits={})])
+
+
+def test_a_housemates_asleep_statement_does_not_point_at_the_culprit():
+    assert not holds(CRIME, "v3", TRAITS, [record(kind="statement", who="v3", place="oak street", traits={})])
