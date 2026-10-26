@@ -47,19 +47,6 @@ def test_a_view_passes_only_what_its_player_sees():
     assert [e.line for e in seen] == ["mine", "everyone"]
 
 
-def test_listen_events_reach_only_the_listener_and_print_the_lines():
-    feed, lines = make()
-    said = Utterance("u-9", "v3", "Ada", "cafe", "the well is dry", None)
-    feed.on_listen("cafe", [said], 123.0, player=PID)
-    event = feed.recent[-1]
-    assert (event.kind, event.player, event.data["ended"], event.data["until"]) == ("listen", PID, False, 123.0)
-    assert event.data["lines"] == [{"speaker": "v3", "speaker_name": "Ada", "text": "the well is dry"}]
-    assert lines == ["Recently said at the cafe:\nAda: \"the well is dry\""]
-    assert not feed.sees("p-2", event)
-    feed.on_listen("gym", [], 124.0, player=PID)
-    assert lines[-1] == "Nothing has been said at the gym lately."
-    feed.on_listen_end("gym", player=PID)
-    assert (feed.recent[-1].data["ended"], feed.recent[-1].player, len(lines)) == (True, PID, 2)
 
 
 def test_an_interview_reaches_only_the_podcaster():

@@ -155,10 +155,6 @@ class FakeEngine:
         self.pressed = []
         self.delivered = []
         self.players = Players()
-        self.testimony_ids = set()
-
-    def testimony(self, uid):
-        return uid in self.testimony_ids
 
     async def deliver(self, utterance, listener_ids, addressed=False):
         self.delivered.append((utterance, listener_ids, addressed))
@@ -183,11 +179,9 @@ class StubWriter:
         return self.line
 
 
-def stub_player(pid=PID, place="cafe", listening=False):
+def stub_player(pid=PID, place="cafe"):
     """An active player standing at place."""
-    return SimpleNamespace(
-        id=pid, owner=pid, place=place, active=lambda: True, listening=lambda: listening,
-    )
+    return SimpleNamespace(id=pid, owner=pid, place=place, active=lambda: True)
 
 
 def make_player(*names, cooldown=0.0):

@@ -47,7 +47,6 @@ class Config:
     # How far news must clear a need for a villager who walks off to share it wherever their nature lets them.
     share_clearance: float = 0.02
     # How long one Listen lasts.
-    listen_seconds: float = 20.0
     # Where villages and need baselines are kept; empty means the working directory.
     data_dir: str = ""
     # How often the running game is saved, so a restart picks up where it left off.

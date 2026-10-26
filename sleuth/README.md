@@ -13,7 +13,7 @@ visible traits (height, hair, coat and so on) drawn by code from a fixed list.
 
 Residents still talk among themselves: what they hear is published into their minds in Contex, and a line that
 matches one of their needs wakes them to react. What a witness saw or a victim found passes only from mind to mind:
-neither the feed nor a look around shows it, so you learn it only by interviewing someone.
+the feed doesn't show it, so you learn it only by interviewing someone.
 
 ## Playing
 
@@ -122,7 +122,7 @@ what a woken resident does, plans routines, and routes each interview question. 
 each.
 
 Once the day's estimated spend reaches `SLEUTH_DAILY_SPEND_CAP` the town rests until midnight UTC: residents stop
-thinking, and interviews, pulls and episodes are refused. Walking and looking around still work.
+thinking, and interviews, pulls and episodes are refused. Walking still works.
 
 ## Hosting
 
@@ -159,7 +159,6 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_REPUTATION_DECAY` | `0.02` | how far regard drifts back toward 0 each part of the day |
 | `SLEUTH_GUARDED_AT` | `-0.3` | below this regard a resident won't talk to you or share records |
 | `SLEUTH_TRUSTED_AT` | `0.2` | at or above this regard a witness recalls one more of the culprit's traits |
-| `SLEUTH_LISTEN_SECONDS` | `20` | how long one look around lasts |
 | `SLEUTH_MEMORY_DAYS` | `2` | how many days a resident keeps what they heard to react to |
 | `SLEUTH_MATCH_MARGIN` | `0.015` | how far above a need's baseline a line must score to match it |
 | `SLEUTH_COOLDOWN_SECONDS` | `30` | least time between a resident's turns |

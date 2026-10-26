@@ -166,10 +166,6 @@ def test_walk_moves_the_player_and_reports_problems(game):
     assert post("/api/walk", content=b"x" * 10000).status_code == 413
 
 
-def test_listen_starts_and_a_second_is_refused(game):
-    assert game.client.post("/api/listen").json() == {"ok": True}
-    again = game.client.post("/api/listen")
-    assert again.status_code == 400 and again.json() == {"error": "You just looked around."}
 
 
 ASK = {"villager_id": "v1", "text": "Where were you last night?"}
@@ -450,7 +446,7 @@ def test_case_actions_refused_while_resting(game):
         refused = post(path, json=body)
         assert (refused.status_code, refused.json()) == (409, {"error": RESTING}), path
     assert post("/api/walk", json={"place": "library"}).json() == {"ok": True}
-    assert post("/api/listen").json() == {"ok": True}
+    assert post("/api/listen").status_code in (404, 405)
     assert game.client.get("/api/state").json()["resting"] is True
 
 

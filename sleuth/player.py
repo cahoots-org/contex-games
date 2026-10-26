@@ -1,4 +1,4 @@
-"""A player's run: walking, looking around, gathering evidence into a notebook and publishing episodes."""
+"""A player's run: walking, gathering evidence into a notebook and publishing episodes."""
 
 import asyncio
 import logging
@@ -14,7 +14,6 @@ from sleuth.cases import CaseFile
 from sleuth.config import Config
 from sleuth.decide import warmth_words
 from sleuth.episode import MAX_CITED, holds
-from sleuth.facts import audible
 from sleuth.game import Game
 from sleuth.interview import Route, exchanges, route
 from sleuth.lineage import Ids, Lineage
@@ -48,9 +47,6 @@ def analytics(event: str, **fields) -> None:
     print("analytics", event, *(f"{k}={v}" for k, v in fields.items()))
 
 
-LISTEN_OPENING = 5
-LISTEN_LOOKBACK_DAYS = 1 / 4
-ALREADY_LISTENING = "You just looked around."
 MAX_QUESTION = 300
 MESSAGES_PER_PART = 4
 # How many exchanges a thread keeps.
@@ -99,8 +95,6 @@ class Player:
         self.guide_step = 0
         self._starting = False
         self._tasks: set[asyncio.Task] = set()
-        # When the running listen ends, or None when the player is not listening.
-        self._listen_until: float | None = None
         # Each resident's conversation with the player, oldest first, and how many messages the player sent each
         # resident in which part of the day.
         self.threads: dict[str, list[dict]] = {}
@@ -113,7 +107,7 @@ class Player:
         self._active_at: float | None = None
 
     def to_state(self) -> dict:
-        """The run's durable fields as plain JSON; listens, tabs and tasks are left out."""
+        """The run's durable fields as plain JSON; tabs and tasks are left out."""
         return {
             "id": self.id, "owner": self.owner, "place": self.place, "created_at": self.created_at,
             "active_at": self._active_at, "notebook": [asdict(r) for r in self.notebook.values()],
@@ -191,40 +185,7 @@ class Player:
         self._move(place)
         return None
 
-    def listen(self) -> str | None:
-        """Show the last few lines said where the player stands this part of the day, leaving out testimony; returns
-        why it could not be done.
-
-        The player can look again after listen_seconds or once they walk.
-        """
-        self.touch()
-        if self.listening():
-            return ALREADY_LISTENING
-        now = time.time()
-        until = self._listen_until = now + self.config.listen_seconds
-        since = now - self.config.day_seconds * LISTEN_LOOKBACK_DAYS
-        heard = [u for u in self.engine.facts.recent(self.place, since) if audible(u) and not self.engine.testimony(u.id)]
-        self.feed.on_listen(self.place, heard[-LISTEN_OPENING:], until, player=self.id)
-        self._track(asyncio.create_task(self._end_listen(until)))
-        return None
-
-    def listening(self) -> bool:
-        """Whether the player is listening now."""
-        return self._listen_until is not None
-
-    async def _end_listen(self, until: float) -> None:
-        await asyncio.sleep(self.config.listen_seconds)
-        if self._listen_until == until:
-            self._stop_listening()
-
-    def _stop_listening(self) -> None:
-        if self._listen_until is None:
-            return
-        self._listen_until = None
-        self.feed.on_listen_end(self.place, player=self.id)
-
     def _move(self, place: str) -> None:
-        self._stop_listening()
         self.place = place
         self.feed.on_place(place, player=self.id)
 

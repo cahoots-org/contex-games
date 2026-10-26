@@ -310,12 +310,6 @@ class Engine:
             return None
         return self.game.now() if self.game is not None else "", when(rooted[0].crime, self._today())
 
-    def testimony(self, uid: str) -> bool:
-        """Whether the utterance descends from a witness's memory or a victim's discovery, which only an interview
-        reveals to a podcaster."""
-        rooted = self.cases.root_kind(self.lineage.root(uid)) if self.cases is not None else None
-        return rooted is not None and rooted[1] == "memory"
-
     def warn(self, vid: str, target: str) -> str | None:
         """The pressed culprit's warning about the podcaster, told to someone close, at most once a part of the day.
 

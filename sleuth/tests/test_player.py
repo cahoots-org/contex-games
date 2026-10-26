@@ -10,8 +10,7 @@ from dataclasses import replace
 from sleuth.contex_client import Match
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
-from sleuth.actions import SPEAK
-from sleuth.player import ALREADY_LISTENING, GUIDED_WRONG, MAX_QUESTION, MESSAGES_PER_PART, Player, Refusal, conveys
+from sleuth.player import GUIDED_WRONG, MAX_QUESTION, MESSAGES_PER_PART, Player, Refusal, conveys
 from sleuth.players import Players
 from sleuth.config import Config
 from sleuth.case import WHEN, Record
@@ -19,11 +18,9 @@ from sleuth.cases import CaseFile
 from sleuth.feed import Feed
 from sleuth.game import Game
 from sleuth.lineage import Lineage
-from sleuth.tests.helpers import PID, FakeEngine, StubClient, StubJev, StubRoutine, StubWriter, wait_for
+from sleuth.tests.helpers import PID, FakeEngine, StubJev, StubRoutine, StubWriter, wait_for
 from sleuth.tests.test_cases import culprit_file, make_cases
 from sleuth.tests.helpers import make_player as make
-from sleuth.town import NEWCOMER
-from sleuth.writer import Writer
 
 
 @pytest.fixture
@@ -108,75 +105,16 @@ async def test_walk_refuses_an_unknown_place_and_the_same_place():
     assert player.walk("cafe") == "You're already at the cafe."
 
 
-def square_line(uid, text, speaker="v1", place="cafe", action=SPEAK):
-    return Utterance(uid, speaker, speaker.upper(), place, text, None, action=action)
 
 
-@pytest.mark.asyncio
-async def test_listen_opens_with_the_last_five_lines_of_this_part_of_the_day(monkeypatch):
-    player, _, _, engine, _ = make("Marta")
-    with monkeypatch.context() as m:
-        m.setattr(time, "time", lambda: 1.0)
-        engine.facts.record(square_line("u-0", "long ago"))
-    for i in range(1, 7):
-        engine.facts.record(square_line(f"u-{i}", f"line {i}"))
-    engine.facts.record(square_line("t-1", "tavern talk", place="bar"))
-    engine.facts.record(square_line("n-1", "psst", speaker=NEWCOMER))
-    engine.facts.record(square_line("x-1", "beware", action="warn"))
-    assert player.listen() is None
-    event = next(e for e in player.feed.replay(PID) if e.kind == "listen")
-    assert event.player == PID and event.data["ended"] is False and event.data["place"] == "cafe"
-    assert [line["text"] for line in event.data["lines"]] == [f"line {i}" for i in range(2, 7)]
-    assert event.data["lines"][0] == {"speaker": "v1", "speaker_name": "V1", "text": "line 2"}
-    player.close()
 
 
-@pytest.mark.asyncio
-async def test_listen_leaves_out_talk_rooted_in_testimony():
-    player, _, _, engine, _ = make("Marta")
-    engine.facts.record(square_line("u-1", "grey hoodie at ten to one"))
-    engine.facts.record(square_line("u-2", "someone took a bike"))
-    engine.testimony_ids.add("u-1")
-    assert player.listen() is None
-    event = next(e for e in player.feed.replay(PID) if e.kind == "listen")
-    assert [line["text"] for line in event.data["lines"]] == ["someone took a bike"]
-    player.close()
 
 
-@pytest.mark.asyncio
-async def test_one_listen_at_a_time_and_it_ends_after_listen_seconds():
-    player, _, _, _, _ = make("Marta")
-    player.config = Config(listen_seconds=0.05)
-    assert player.listen() is None
-    assert player.listening()
-    assert player.listen() == ALREADY_LISTENING
-    await wait_for(lambda: any(e.kind == "listen" and e.data["ended"] for e in player.feed.replay(PID)))
-    assert not player.listening()
-    assert player.listen() is None
-    player.close()
 
 
-@pytest.mark.asyncio
-async def test_walking_away_stops_listening():
-    player, _, _, _, _ = make("Marta")
-    player.listen()
-    player.walk("gym")
-    *_, ended, moved = player.feed.replay(PID)
-    assert (ended.kind, ended.data["ended"], ended.data["place"]) == ("listen", True, "cafe")
-    assert (moved.kind, moved.data["place"]) == ("place", "gym")
-    assert not player.listening()
-    player.close()
 
 
-@pytest.mark.asyncio
-async def test_listen_makes_no_model_calls():
-    player, _, _, engine, _ = make("Marta")
-    client = StubClient()
-    player.writer = Writer(client, "haiku-test")
-    engine.facts.record(square_line("u-1", "the well is dry"))
-    assert player.listen() is None
-    assert client.messages.calls == []
-    player.close()
 
 
 def test_past_max_idle_runs_the_oldest_never_played_runs_go_whatever_their_age(clock):
@@ -214,7 +152,7 @@ def test_players_round_trip_as_json_with_no_sockets():
     fresh.restore(json.loads(json.dumps(players.to_state())), wire)
     assert [durable(p) for p in fresh] == [durable(p) for p in players]
     assert fresh.live("o-1") is fresh.get("p-2") and fresh.live(PID) is fresh.get(PID)
-    assert fresh.get(PID).ever_active() and not fresh.get(PID).listening()
+    assert fresh.get(PID).ever_active()
     assert not fresh.any_playing()
     fresh.get(PID).connected()
     assert fresh.any_playing()

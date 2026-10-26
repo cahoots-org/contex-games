@@ -39,8 +39,6 @@ def test_price_overrides(monkeypatch):
     assert (cfg.jev_input_per_mtok, cfg.haiku_output_per_mtok, cfg.haiku_input_per_mtok) == (0.1, 4.0, 0.1)
 
 
-def test_listen_lasts_twenty_seconds_by_default():
-    assert Config().listen_seconds == 20.0
 
 
 def test_the_address_is_the_web_host_and_railways_port_when_set(monkeypatch):

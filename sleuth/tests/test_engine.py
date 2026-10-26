@@ -558,7 +558,6 @@ async def test_talk_rooted_in_testimony_reaches_minds_but_not_the_feed(turns):
                          ["v2"])
     assert [k for k, _ in minds["v2"].heard] == ["utt:u-2"]
     assert not [e for e in feed.recent if e.kind == "post"]
-    assert engine.testimony("u-2") and not engine.testimony("u-5") and not engine.testimony("u-9")
     await engine.stop()
 
 
