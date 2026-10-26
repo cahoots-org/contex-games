@@ -1,7 +1,7 @@
 import random
 
 from sleuth.models import Villager
-from sleuth.traits import TRAITS, assign_traits, describe
+from sleuth.traits import COLOURS, TRAITS, assign_traits, describe, face
 
 
 def ring(n):
@@ -34,3 +34,10 @@ def test_assign_traits_tolerates_more_residents_than_combinations():
     vs = ring(400)
     assign_traits(vs, random.Random(1))
     assert all(set(v.traits) == set(TRAITS) for v in vs)
+
+
+def test_face_draws_hair_and_coat_from_the_traits():
+    assert all(COLOURS[x] for x in TRAITS["coat"] + TRAITS["hair"] if x != "bald")
+    bald = face({"height": "short", "hair": "bald", "coat": "grey hoodie", "car": "bicycle"})
+    assert bald == {"hair": None, "coat": COLOURS["grey hoodie"], "height": 0}
+    assert face({"height": "tall", "hair": "red-haired", "coat": "black puffer"})["hair"] == COLOURS["red-haired"]

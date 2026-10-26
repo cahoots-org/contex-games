@@ -21,6 +21,7 @@ from sleuth.models import Villager
 from sleuth.player import Player
 from sleuth.players import Players, new_player_id
 from sleuth.town import PLACES, Town
+from sleuth.traits import COLOURS
 from sleuth.tests import helpers
 from sleuth.usage import Usage
 from sleuth import web
@@ -93,6 +94,19 @@ def test_state_lists_villagers_and_replay(game):
     assert (state["time"]["day"], state["time"]["phase"]) == (1, "morning")
     assert 0 <= state["time"]["fraction"] < 0.25 and state["time"]["day_seconds"] > 0
     assert "NEED" not in game.client.get("/api/state").text
+
+
+def test_state_lists_each_villagers_looks_and_face(game):
+    game.town.get("v1").traits = {"height": "tall", "hair": "bald", "coat": "denim jacket", "car": "bicycle"}
+    marta = next(v for v in game.client.get("/api/state").json()["villagers"] if v["id"] == "v1")
+    assert marta["looks"] == "tall, bald, in a denim jacket, with a bicycle"
+    assert marta["face"] == {"hair": None, "coat": COLOURS["denim jacket"], "height": 2}
+
+
+def test_page_draws_faces_from_traits_and_lists_looks(game):
+    html = game.client.get("/").text
+    assert "v.face" in html and "CLOTHES" not in html and "HAIR" not in html
+    assert "who(v, `${v.occupation}: ${v.looks}`)" in html
 
 
 def test_inspect_card_never_includes_needs(game):

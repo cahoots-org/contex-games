@@ -12,6 +12,11 @@ TRAITS: dict[str, tuple[str, ...]] = {
     "car": ("red pickup", "white sedan", "blue hatchback", "silver minivan", "bicycle"),
 }
 PHRASES = {"height": "{}", "hair": "{}", "coat": "in a {}", "car": "with a {}"}
+COLOURS = {
+    "grey-haired": "#9a9a9a", "blond": "#e0c77a", "dark-haired": "#2b2118", "red-haired": "#b0482a", "bald": None,
+    "grey hoodie": "#8a8d91", "denim jacket": "#3d5f8a", "green raincoat": "#4f8a3e", "black puffer": "#25272b",
+    "plaid flannel": "#9a3a30",
+}
 
 
 def _look(v: Villager) -> tuple[str, ...]:
@@ -47,3 +52,10 @@ def assign_traits(villagers: list[Villager], rng: random.Random) -> None:
 def describe(traits: dict[str, str]) -> str:
     """The traits as a witness would put them, e.g. "tall, bald, in a grey hoodie, with a bicycle"."""
     return ", ".join(PHRASES[c].format(traits[c]) for c in TRAITS if c in traits)
+
+
+def face(traits: dict[str, str]) -> dict:
+    """What the page needs to draw a face that matches the traits: hair and coat colours, and height 0 to 2."""
+    height = traits.get("height")
+    return {"hair": COLOURS.get(traits.get("hair")), "coat": COLOURS.get(traits.get("coat")),
+            "height": TRAITS["height"].index(height) if height in TRAITS["height"] else 1}

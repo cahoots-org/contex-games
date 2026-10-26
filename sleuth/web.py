@@ -20,7 +20,7 @@ from sleuth.game import Game
 from sleuth.player import Player, Refusal
 from sleuth.players import Players, new_owner_id
 from sleuth.town import PLACES, Town
-from sleuth.traits import describe
+from sleuth.traits import describe, face
 from sleuth.usage import Usage
 
 log = logging.getLogger(__name__)
@@ -65,7 +65,8 @@ class Guard:
 
 def villagers(town: Town) -> list[dict]:
     return sorted(
-        ({"id": v.id, "name": v.name, "occupation": v.occupation, "place": town.place_of(v.id)} for v in town.villagers),
+        ({"id": v.id, "name": v.name, "occupation": v.occupation, "place": town.place_of(v.id),
+          "looks": describe(v.traits), "face": face(v.traits)} for v in town.villagers),
         key=lambda v: v["name"],
     )
 

@@ -384,7 +384,7 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
     <h2 id="people-heading">Village</h2>
     <div class="find">
       <label for="search" class="visually-hidden">Find a villager</label>
-      <input type="search" id="search" placeholder="Find by name, trade, or place" autocomplete="off">
+      <input type="search" id="search" placeholder="Find by name, job, looks, or place" autocomplete="off">
       <p class="find-status" id="find-status" role="status"></p>
       <p class="sort"><label for="sort">Sort</label>
         <select id="sort">
@@ -642,16 +642,9 @@ function learn(e) {
   learned = true;
 }
 
-// Pixel faces: a 12x12 head and shoulders drawn from the villager's id, with clothes by trade.
+// Pixel faces: a 12x12 head and shoulders, with hair, coat and height from the resident's traits.
 const SKIN = ["#f1d3b3", "#e2b48f", "#c98f63", "#9c6644", "#6e4630", "#f3dcc8"];
-const HAIR = ["#2b2118", "#5a3a22", "#8a5a2b", "#b88a4a", "#d9c7a3", "#9a9a9a", "#6b2f1f"];
 const TINT = ["#dfe6d6", "#e6dfd2", "#d9e0e8", "#e8dcdc", "#dde4df"];
-const CLOTHES = [
-  [/teacher|librarian|professor/i, "#4a4a5e"], [/smith|forge/i, "#5b4a3f"], [/mill/i, "#c9b98f"],
-  [/wine|vintner|merchant/i, "#7a2f3b"], [/dye/i, "#3d5f8a"], [/mayor|reeve|steward|bailiff/i, "#2f5d4a"],
-  [/thatch|carpent|joiner/i, "#8a6a3a"], [/herb|heal|apothec|midwife/i, "#5e7a3e"],
-];
-const PLAIN = ["#6b5b4a", "#4f6a5a", "#7a6250", "#5a5f7a"];
 const faces = new Map();
 
 function seeded(seed) {
@@ -660,45 +653,48 @@ function seeded(seed) {
   return () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 10000) / 10000; };
 }
 
-function drawFace(id, trade) {
+function drawFace(v) {
   const canvas = el("canvas", { width: 12, height: 12 });
   const g = canvas.getContext("2d");
-  const r = seeded(id);
+  const r = seeded(v.id);
   const pick = (list) => list[Math.floor(r() * list.length)];
-  const px = (i, j, color) => { g.fillStyle = color; g.fillRect(i, j, 1, 1); };
+  const { hair, coat, height = 1 } = v.face || {};
+  const clothes = coat || "#6b5b4a";
+  const dy = 1 - height;
+  const px = (i, j, color) => { g.fillStyle = color; g.fillRect(i, j + dy, 1, 1); };
   const rect = (i0, i1, j0, j1, color) => { for (let i = i0; i < i1; i++) for (let j = j0; j < j1; j++) px(i, j, color); };
   g.fillStyle = pick(TINT);
   g.fillRect(0, 0, 12, 12);
-  const skin = pick(SKIN), hair = pick(HAIR);
-  const clothes = (CLOTHES.find(([re]) => re.test(trade)) || [])[1] || pick(PLAIN);
-  rect(2, 10, 9, 12, clothes);
-  rect(1, 11, 11, 12, clothes);
+  const skin = pick(SKIN);
+  rect(2, 10, 9, 12 - dy, clothes);
+  rect(1, 11, 11, 12 - dy, clothes);
   rect(4, 8, 8, 9, skin);
   rect(3, 9, 3, 8, skin);
   const style = Math.floor(r() * 4);
-  rect(3, 9, 2, 3, hair);
-  rect(2, 10, 3, 4, hair);
-  if (style >= 1) { px(2, 4, hair); px(9, 4, hair); }
-  if (style >= 2) { rect(2, 3, 5, 7, hair); rect(9, 10, 5, 7, hair); }
-  if (style === 3) rect(4, 8, 1, 2, hair);
+  if (hair) {
+    rect(3, 9, 2, 3, hair);
+    rect(2, 10, 3, 4, hair);
+    if (style >= 1) { px(2, 4, hair); px(9, 4, hair); }
+    if (style >= 2) { rect(2, 3, 5, 7, hair); rect(9, 10, 5, 7, hair); }
+    if (style === 3) rect(4, 8, 1, 2, hair);
+  }
   px(4, 5, "#2a2a2a");
   px(7, 5, "#2a2a2a");
-  if (r() < 0.35) { rect(4, 8, 7, 8, hair); px(3, 6, hair); px(8, 6, hair); }
+  if (hair && r() < 0.35) { rect(4, 8, 7, 8, hair); px(3, 6, hair); px(8, 6, hair); }
   else { px(5, 7, "#a5584a"); px(6, 7, "#a5584a"); }
-  if (/smith/i.test(trade)) { px(3, 10, "#3a3a3a"); px(8, 10, "#3a3a3a"); }
   return canvas;
 }
 
-// A copy of the villager's face; each is drawn once and then copied.
-function faceFor(id, occupation) {
-  if (!faces.has(id)) faces.set(id, drawFace(id, occupation));
+// A copy of the resident's face; each is drawn once and then copied.
+function faceFor(v) {
+  if (!faces.has(v.id)) faces.set(v.id, drawFace(v));
   const canvas = el("canvas", { width: 12, height: 12, ariaHidden: "true" });
-  canvas.getContext("2d").drawImage(faces.get(id), 0, 0);
+  canvas.getContext("2d").drawImage(faces.get(v.id), 0, 0);
   return canvas;
 }
 
 function faceWith(v, big = false) {
-  return el("span", { className: big ? "face big" : "face", ariaHidden: "true" }, faceFor(v.id, v.occupation));
+  return el("span", { className: big ? "face big" : "face", ariaHidden: "true" }, faceFor(v));
 }
 
 // A smooth scroll to new lines; lines arriving mid-scroll keep following even though the feed isn't at the bottom yet.
@@ -793,7 +789,7 @@ function capital(word) {
   return `${word[0].toUpperCase()}${word.slice(1)}`;
 }
 
-// Villagers matching a search, best first: name, then trade, then place; ties keep name order.
+// Residents matching a search, best first: name, then job or looks, then place; ties keep name order.
 function matches(query) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
@@ -801,7 +797,7 @@ function matches(query) {
   for (const v of villagers) {
     const name = v.name.toLowerCase();
     const score = name.startsWith(q) || name.includes(` ${q}`) ? 4
-      : name.includes(q) ? 3 : v.occupation.toLowerCase().includes(q) ? 2 : v.place.includes(q) ? 1 : 0;
+      : name.includes(q) ? 3 : v.occupation.toLowerCase().includes(q) || v.looks.includes(q) ? 2 : v.place.includes(q) ? 1 : 0;
     if (score) scored.push([score, v]);
   }
   return scored.sort((x, y) => y[0] - x[0]).map(([, v]) => v);
@@ -846,9 +842,9 @@ $("sort").addEventListener("change", () => {
 function faceButton(v, hits) {
   return el("button", {
     type: "button", tabIndex: -1, className: hits.has(v.id) ? "pick hit" : "pick",
-    title: `${v.name}, ${v.occupation}`, dataset: { id: v.id },
+    title: `${v.name}, ${v.occupation}: ${v.looks}`, dataset: { id: v.id },
     onclick: (ev) => inspect(v.id, ev.currentTarget),
-  }, faceWith(v), el("span", { className: "visually-hidden", textContent: v.name }));
+  }, faceWith(v), el("span", { className: "visually-hidden", textContent: `${v.name}, ${v.looks}` }));
 }
 
 // Search hits come first, ahead of the cut; a phone shows everyone.
@@ -870,7 +866,7 @@ function openTile(crowd, hits) {
   const rows = el("ul", { className: "rows" }, ...list.map((v) => el("li", {}, el("button", {
     type: "button", className: "row", dataset: { id: v.id },
     ariaCurrent: String(v.id === selected), onclick: (ev) => inspect(v.id, ev.currentTarget),
-  }, faceWith(v, true), who(v, v.occupation)))));
+  }, faceWith(v, true), who(v, `${v.occupation}: ${v.looks}`)))));
   const more = el("p", { className: "scroll-more", ariaHidden: "true" });
   // Says how many rows are below the fold, so the list never looks cut off.
   const cue = () => {
@@ -883,7 +879,7 @@ function openTile(crowd, hits) {
   return el("div", {}, rows, more);
 }
 
-// Name, trade or place, and the last answer.
+// Name, a detail line, and the last answer.
 function who(v, detail) {
   const answers = noteOf(v.id);
   return el("span", { className: "who" }, el("b", { textContent: v.name }), " ", el("small", { textContent: detail }),
@@ -929,7 +925,7 @@ function renderVillagers() {
   }));
   const said = !query.trim() ? ""
     : found.length ? `${found.length} found. Best match: ${found[0].name}, at the ${found[0].place}.`
-    : "No one matches. Try part of a name or a trade.";
+    : "No one matches. Try part of a name, a job, or a look like \"red-haired\".";
   if ($("find-status").textContent !== said) $("find-status").textContent = said;
   const again = key && people.querySelector(key);
   if (again) again.focus();
