@@ -401,6 +401,27 @@ async def test_a_reply_with_no_facts_that_adds_a_name_place_time_or_look_falls_b
 
 
 @pytest.mark.asyncio
+async def test_a_reply_with_no_facts_may_echo_a_name_from_the_question_but_no_other():
+    player, file, engine, writer = interviewing()
+    writer.line = "I don't really know Hal."
+    await ask(player, "v2", "none", "What do you think of Hal?")
+    assert replies(player)[-1] == writer.line
+    await ask(player, "v2", "none", "What do you think of Dana?")
+    assert replies(player)[-1] in SHRUGS
+
+
+@pytest.mark.asyncio
+async def test_a_reply_with_facts_may_echo_a_name_from_the_question_but_no_other():
+    player, file, engine, writer = interviewing()
+    memory_of(file, player.ids)
+    writer.line = "I saw someone tall in a grey hoodie, not Hal."
+    await ask(player, "v2", "what_did_you_see", "Was Hal involved?")
+    assert replies(player)[-1] == writer.line
+    await ask(player, "v3", "what_did_you_see", "Who was it?")
+    assert replies(player)[-1] != writer.line
+
+
+@pytest.mark.asyncio
 async def test_a_failed_route_or_writer_is_still_a_shrug():
     player, file, engine, writer = interviewing()
 
@@ -563,7 +584,7 @@ async def test_a_reply_that_denies_drops_or_names_beyond_its_records_falls_back(
     player, file, _, writer = interviewing()
     memory_of(file, player.ids)
     writer.line = reply
-    await ask(player, "v2", "what_did_you_see", "Was it Fay?")
+    await ask(player, "v2", "what_did_you_see", "Who was it?")
     assert replies(player)[-1] == f"Eli Reyes says: {MEMORY}"
 
 
