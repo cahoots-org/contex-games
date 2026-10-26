@@ -5,7 +5,9 @@ import math
 from dataclasses import asdict, dataclass, field
 from random import Random
 
-from sleuth.case import CAMERA_PLACES, Crime, Record, camera_clip, logs, make_solvable, stage_crime, when, witness_memories
+from sleuth.case import (
+    CAMERA_PLACES, Crime, Record, camera_clip, discovery, logs, make_solvable, stage_crime, when, witness_memories,
+)
 from sleuth.config import Config
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
@@ -176,7 +178,8 @@ class Cases:
                             *(r.holder for r in f.records.values() if witnesses and r.kind == "memory"))}
 
     async def _finish(self, engine, case: CaseFile, finished: dict[str, list[str]], now: float) -> None:
-        """Add the phase's logs, then open the case and tell its witnesses if it is solvable, and drop it if not."""
+        """Add the phase's logs, then open the case and tell its witnesses and victim what they saw and found if it is
+        solvable, and drop it if not."""
         crime = case.crime
         case.whereabouts = dict(finished)
         for r in logs(crime, finished, self.town, self.rng, self.ids):
@@ -185,10 +188,10 @@ class Cases:
         if added is None:
             self._drop(case, now)
             return
-        for m in added:
+        for m in [*added, discovery(crime, self.town, self.rng, self.ids)]:
             case.records[m.id] = m
         for m in case.records.values():
-            if m.kind == "memory":
+            if m.kind in ("memory", "discovery"):
                 await self._remember(engine, case, m)
         case.state, case.opened = "open", now
         news = Utterance(self.ids.next("u"), "app", APP, crime.place, crime.text, None, "posted")
@@ -217,7 +220,7 @@ class Cases:
         self.files[crime.id] = CaseFile(crime, {r.id: r for r in [*records, *([clip] if clip else [])]}, "setup")
 
     async def _remember(self, engine, case: CaseFile, m: Record) -> None:
-        """Tell the witness what they saw, rooted in the case."""
+        """Tell the witness or victim what they saw or found, rooted in the case."""
         u = Utterance(self.ids.next("u"), "memory", self.town.get(m.holder).name, case.crime.place, m.text, None, "saw")
         case.roots[u.id] = "memory"
         m.utterance = u.id

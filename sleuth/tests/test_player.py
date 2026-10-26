@@ -781,3 +781,15 @@ def test_a_hedge_the_records_make_themselves_still_conveys_them():
     assert conveys("I can't say where Dana was, honestly.", [hedge])
     assert not conveys("I can't say I saw anything.", [replace(hedge, text="Eli Reyes says they were at the bar.")])
     assert not conveys("No idea, I can't say where Dana was.", [hedge])
+
+
+@pytest.mark.asyncio
+async def test_interviewing_the_victim_gives_what_they_found():
+    player, file, engine, writer = interviewing()
+    found = Record(player.ids.next("r"), file.crime.id, "discovery", "elm street", "11:58pm",
+                   "Around 11:58pm, Dana Reyes found their bike missing on Elm Street.", "v1")
+    file.records[found.id] = found
+    engine.reputation.nudge_all(PID, 1.0, ["v1"])
+    assert await player.interview("v1") is None
+    assert player.notebook[found.id] == found
+    assert found.text in writer.calls[-1][2]

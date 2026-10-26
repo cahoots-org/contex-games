@@ -11,6 +11,10 @@ from sleuth.traits import describe, figure
 TEMPLATES = {"steal": ("stole", ("bike", "tote bag", "thermos")), "vandalize": ("vandalized", ("car", "bike")),
              "sabotage": ("sabotaged", ("county fair pumpkin", "prize jam", "fair quilt")),
              "dog": ("let out", ("dog",)), "trailer": ("drove off with", ("marching band trailer",))}
+REPORTED = {"steal": "stolen", "vandalize": "vandalized", "sabotage": "sabotaged", "dog": "let out", "trailer": "taken"}
+FOUND = {"steal": "missing", "vandalize": "damaged", "sabotage": "spoiled", "dog": "loose", "trailer": "missing"}
+# How many minutes after the crime the victim finds it.
+NOTICED = (10, 45)
 PHASE_MINUTES = {"morning": (420, 720), "afternoon": (720, 1020), "evening": (1020, 1320), "night": (1320, 1740)}
 MOTIVE_WEIGHT = 3
 CAMERA_PLACES = ("grocery", "bar", "town hall", "elm street")
@@ -85,12 +89,11 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
         return None
     culprit, victim, motive = rng.choices(pairs, [1 if m == "opportunity" else MOTIVE_WEIGHT for *_, m in pairs])[0]
     template = rng.choice(list(TEMPLATES))
-    verb, items = TEMPLATES[template]
-    item = rng.choice(items)
+    item = rng.choice(TEMPLATES[template][1])
     minute = rng.randrange(*PHASE_MINUTES[phase])
     place = routine.place(victim.id, phase)
     return Crime(case_id, template, item, culprit.id, victim.id, place, day, phase, minute, motive,
-                 f"Someone {verb} {victim.name}'s {item} {at(place)} {when(phase)}.")
+                 f"{victim.name} reported their {item} {REPORTED[template]} {at(place)} {when(phase)}.")
 
 
 def record_json(r: Record, town: Town) -> dict:
@@ -133,6 +136,13 @@ def witness_memories(crime: Crime, town: Town, routine, rng: Random, ids: Ids) -
         seen = {c: culprit[c] for c in rng.sample(list(culprit), WITNESS_TRAITS)}
         memories.append(_memory(crime, w, seen, rng, ids))
     return memories
+
+
+def discovery(crime: Crime, town: Town, rng: Random, ids: Ids) -> Record:
+    """The victim finding the crime a little after it, which says nothing of who did it."""
+    clock = clock_at(min(crime.minute + rng.randint(*NOTICED), PHASE_MINUTES[crime.phase][1] - 1))
+    text = f"Around {clock}, {town.get(crime.victim).name} found their {crime.item} {FOUND[crime.template]} {at(crime.place)}."
+    return Record(ids.next("r"), crime.id, "discovery", crime.place, clock, text, crime.victim, day=crime.day)
 
 
 def camera_clip(crime: Crime, town: Town, ids: Ids, traits: tuple[str, ...] = CLIP_TRAITS) -> Record | None:

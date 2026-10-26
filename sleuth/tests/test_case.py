@@ -9,6 +9,7 @@ from sleuth.case import (
     Record,
     camera_clip,
     clock_at,
+    discovery,
     logs,
     make_solvable,
     points_at,
@@ -107,14 +108,14 @@ def test_news_names_victim_place_and_time_not_culprit():
                  if (c := stage_crime(town, routine, Random(seed), 1, "night", "case-1")).victim == "v1"
                  and c.template == "steal" and c.item == "bike")
     culprit = town.get(crime.culprit)
-    assert crime.text == "Someone stole Dana Reyes's bike on Elm Street last night." and culprit.name not in crime.text
+    assert crime.text == "Dana Reyes reported their bike stolen on Elm Street last night." and culprit.name not in crime.text
     assert isinstance(crime, Crime) and crime.id == "case-1" and crime.day == 1 and crime.owner is None
     assert 1320 <= crime.minute < 1740
 
 
 @pytest.mark.parametrize("template, text", [
-    ("dog", "Someone let out Dana Reyes's dog on Elm Street last night."),
-    ("trailer", "Someone drove off with Dana Reyes's marching band trailer on Elm Street last night."),
+    ("dog", "Dana Reyes reported their dog let out on Elm Street last night."),
+    ("trailer", "Dana Reyes reported their marching band trailer taken on Elm Street last night."),
 ])
 def test_dog_and_trailer_crimes_read_like_the_others(template, text):
     town, routine = make_town(), make_routine()
@@ -241,3 +242,16 @@ def test_make_solvable_skips_residents_who_are_already_witnesses():
     added = make_solvable(crime, [first], town, routine, Random(1), Ids())
     assert len(added) == 1 and added[0].holder not in ("v2", crime.culprit, crime.victim)
     assert suspects(crime, [first, *added], town) == {crime.culprit}
+
+
+def test_the_victim_finds_the_crime_after_it_and_names_no_one():
+    town, routine = make_town(), make_routine()
+    crime = next(c for seed in range(400)
+                 if (c := stage_crime(town, routine, Random(seed), 1, "night", "case-1")).victim == "v1"
+                 and c.template == "steal" and c.item == "bike")
+    found = discovery(crime, town, Random(0), Ids())
+    assert (found.kind, found.holder, found.case, found.place, found.day) == ("discovery", "v1", "case-1", "elm street", 1)
+    assert found.text == f"Around {found.clock}, Dana Reyes found their bike missing on Elm Street."
+    assert found.traits == {} and found.sound and not points_at(crime, crime.culprit, town.get(crime.culprit).traits, found)
+    assert crime.minute < [m for m in range(1320, 1740) if clock_at(m) == found.clock][0] < 1740
+    assert not any(v.name in found.text for v in town.villagers if v.id != "v1")

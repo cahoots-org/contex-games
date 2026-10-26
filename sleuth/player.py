@@ -262,13 +262,13 @@ class Player:
         return None
 
     async def _gather(self, file: CaseFile, villager: Villager) -> tuple[list[Record], list[str]]:
-        """What the resident can give: their memory, their claim, their housemates' whereabouts and the best hearsay
+        """What the resident can give: what they saw or found, their claim, their housemates' whereabouts and the best hearsay
         as records, and news-rooted hearsay as talk."""
         crime, vid, name = file.crime, villager.id, villager.name
-        records = [replace(r) for r in file.records.values() if r.kind == "memory" and r.holder == vid]
+        records = [replace(r) for r in file.records.values() if r.kind in ("memory", "discovery") and r.holder == vid]
         if self.engine.reputation.get(vid, self.id) >= self.config.trusted_at:
             culprit = self.town.get(crime.culprit).traits
-            records = [recall_more(crime, r, culprit) for r in records]
+            records = [recall_more(crime, r, culprit) if r.kind == "memory" else r for r in records]
 
         def statement(text: str, sound: bool, source: str | None = None, who: str | None = None) -> Record:
             return Record("", crime.id, "statement", self.place, self._clock(), text, vid, who=who, sound=sound,
