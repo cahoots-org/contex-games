@@ -64,7 +64,8 @@ RIVAL = "Another podcaster cracked the case first."
 GUIDE = (
     "This one's yours. Walk to {place} and {then}.",
     "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Ask anyone where they "
-    "were {when}, or who'd have a reason. Pull records where a place has a camera or keeps logs.",
+    "were {when}, or who'd have a reason. Pull records where a place has a camera or keeps logs, and search the "
+    "crime scene once for anything left behind.",
     "When the evidence points to one person, publish an episode. Name them and cite what backs it up.",
     "The town's open case is yours to crack too. Other podcasters are on it, and the first episode that holds up wins.",
 )
@@ -416,6 +417,7 @@ class Player:
             self.notebook[r.id] = r
         self.feed.on_searched(self.place, [record_json(r, self.town) for r in found], case_id=file.crime.id,
                               player=self.id)
+        self._guide(2)
         return None
 
     def _keepers(self) -> list[str]:

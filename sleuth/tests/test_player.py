@@ -781,7 +781,8 @@ async def test_guide_walks_a_new_player_through_interview_pull_and_publish():
     assert guides(player) == [
         "This one's yours. Walk to Elm Street and ask Eli Reyes what they saw.",
         "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Ask anyone where "
-        "they were last night, or who'd have a reason. Pull records where a place has a camera or keeps logs.",
+        "they were last night, or who'd have a reason. Pull records where a place has a camera or keeps logs, and "
+        "search the crime scene once for anything left behind.",
         "When the evidence points to one person, publish an episode. Name them and cite what backs it up.",
         "The town's open case is yours to crack too. Other podcasters are on it, and the first episode that holds up "
         "wins.",
@@ -894,3 +895,12 @@ async def test_interviewing_the_victim_gives_what_they_found():
     assert await ask(player, "v1", "what_did_you_see") is None
     assert player.notebook[found.id] == found
     assert found.text in writer.calls[-1][4]
+
+
+@pytest.mark.asyncio
+async def test_a_search_brings_the_publish_hint():
+    player, file, engine = guided()
+    await player.start()
+    await ask(player, "v2", "what_did_you_see")
+    assert player.search() is None
+    assert guides(player)[-1].startswith("When the evidence points to one person")

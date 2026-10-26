@@ -18,15 +18,16 @@ neither the feed nor a look around shows it, so you learn it only by interviewin
 ## Playing
 
 **A case.** While someone is playing and no shared case is open, a crime is staged, `crime_every_days` after the last
-shared case closed. The culprit comes from another household than the victim's. At the next part of the day the game
-checks that the evidence narrows to the culprit alone, adding a witness if that helps and dropping the case quietly if
-nothing can. A solvable case opens: its witnesses are told what they saw, and the neighborhood app posts the news. The
+shared case closed. The culprit comes from another household than the victim's, and one or two clues are left at
+the crime place. At the next part of the day the game checks that the evidence narrows to the culprit alone, adding a
+witness if that helps and dropping the case quietly if nothing can. A solvable case opens: its witnesses are told what they saw, and the neighborhood app posts the news. The
 case shows at the top of the Hear panel and goes cold after `case_days`.
 
 **Your first case.** A new podcaster gets an easy private case of their own, opened at once at a place with a
-camera: one witness, a clip showing the culprit's height, coat and hair, and no logs. Only they see its news. Short
-hints walk them through interviewing, pulling records and publishing; once it closes, by an episode or by going cold,
-they play the town's shared case like everyone else. No new private case is opened while the town is resting.
+camera: one witness, a clip showing the culprit's height, coat and hair, a clue or two at the scene, and no logs. Only
+they see its news. Short hints walk them through interviewing, pulling records, searching the scene and publishing;
+once it closes, by an episode or by going cold, they play the town's shared case like everyone else. No new private case is opened while the town is
+resting.
 
 **Evidence** is held by the game as records with ids like `r-12`; the models never invent any of it.
 
@@ -35,6 +36,7 @@ they play the town's shared case like everyone else. No new private case is open
 | memory | a witness recalls a few of the culprit's traits, never a name |
 | clip | a camera at the grocery, bar, town hall or elm street catches the culprit's height and coat at the exact minute |
 | log | a gym check-in, bar tab, grocery receipt or library checkout puts a named resident somewhere |
+| clue | left at the crime place: a boot print, coat thread or tracks showing one of the culprit's traits, or a receipt dropped by the culprit or someone who was there |
 | statement | what a resident tells you in an interview: where they or someone else were, what they heard, who'd have a reason |
 
 Statements can be lies: the culprit gives a false alibi, and a housemate may cover for them.
@@ -55,10 +57,13 @@ other line. You only hear that someone in town seems colder toward you.
 kept by the residents who work there, or for a street by those who live on it; they're shared unless every keeper
 regards you below `guarded_at`.
 
+**Search** the crime place, once per case, to find the one or two clues left there when the crime was staged.
+The solvability check counts them, so a case may need a search to crack.
+
 **Publish** an episode: choose a resident and tick between 1 and 5 notebook entries. It holds up when it names the
-culprit, every cited entry is true evidence from this case, and at least one points at the culprit: a memory or clip
-whose traits all fit them, or a log that puts them at the crime place.
-Otherwise the evidence doesn't back it. One episode per podcaster per case.
+culprit, every cited entry is true evidence from this case, and at least one points at the culprit: a memory, clip
+or trace whose traits all fit them, or a log or receipt that puts them at the crime place. Otherwise the evidence
+doesn't back it. One episode per podcaster per case.
 
 - A right episode closes the case for everyone, and every resident thinks better of you (`reputation_right`). Any
   other podcaster with evidence from that case is told another podcaster cracked it first.
@@ -71,7 +76,7 @@ of the day. A resident below `guarded_at` won't talk to you or share the records
 a new entry.
 
 Everything is done on the page: open a place's tile to walk there or look around, open a resident's card to talk with
-them, and use the case panel to pull records and publish. Click a face to see a resident's trade, looks, home and
+them, and use the case panel to pull records, search the crime place and publish. Click a face to see a resident's trade, looks, home and
 household.
 
 ## How it uses Contex
