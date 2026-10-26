@@ -107,7 +107,7 @@ h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
 .desk > * + * { margin-top: 1.5rem; }
 
 .case-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.case-actions { display: flex; align-items: center; gap: .5rem; }
+.case-actions { display: flex; align-items: center; gap: .5rem; white-space: nowrap; }
 .whose { margin: 0; font-size: .875rem; color: var(--muted); }
 .case-title { font: 500 1.9rem/1.15 var(--serif); margin: .15rem 0 .3rem; }
 .case-text { margin: 0; font: 1.05rem/1.55 var(--serif); }
@@ -347,7 +347,7 @@ select, input[type="text"], input[type="search"] {
       <div class="case-top">
         <p class="whose" id="case-whose">No open case</p>
         <span class="case-actions">
-          <button type="button" class="plain-button" id="skip" hidden>Skip to the town's case</button>
+          <button type="button" class="plain-button" id="skip" hidden>Skip this case</button>
           <button type="button" class="primary" id="publish-open" aria-expanded="false" aria-controls="publish" hidden>Publish</button>
         </span>
       </div>

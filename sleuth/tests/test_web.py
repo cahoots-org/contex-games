@@ -217,7 +217,7 @@ def test_skip_moves_a_practising_player_into_the_real_town(game):
 
 def test_the_page_offers_skip_on_the_practice_case_and_starts_clean_in_the_real_town(game):
     page = game.client.get("/").text
-    assert 'id="skip"' in page and "Skip to the town's case" in page and '"/api/skip"' in page
+    assert 'id="skip"' in page and "Skip this case" in page and '"/api/skip"' in page
     case = page[page.index("function setCase(c)"):page.index("function setResting")]
     assert '$("skip").hidden = !(open && open.private);' in case
     closed = page[page.index('case "case_closed":'):page.index('case "pulled":')]
