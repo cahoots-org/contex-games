@@ -21,24 +21,6 @@ def utt(uid):
     return Utterance(uid, "v1", "Bert", "bar", "the miller waters his flour", "w-1")
 
 
-def test_retellings_emit_nothing_and_a_whisper_prints_nothing():
-    feed, lines = make()
-    feed.on_delivery(utt("u-2"), ["v2"])
-    feed.on_delivery(utt("u-1"), ["v2"])
-    assert not feed.recent
-    whisper = Utterance("w-1", "newcomer", "A newcomer", "bar", "psst", None, "whispered to you")
-    feed.on_delivery(whisper, ["v2"])
-    assert [e.kind for e in feed.recent] == ["whisper"] and lines == []
-
-
-def test_a_whisper_event_carries_its_target():
-    feed, _ = make()
-    whisper = Utterance("w-1", "newcomer", "A newcomer", "bar", "psst", None, "whispered to you")
-    feed.on_delivery(whisper, ["v1"])
-    w, = feed.recent
-    assert (w.kind, w.data["uid"], w.data["target"], w.data["text"]) == ("whisper", "w-1", "Bert", "psst")
-
-
 def test_unrooted_announcements_reach_sinks_but_not_the_terminal():
     feed, lines = make()
     seen = []
@@ -67,93 +49,12 @@ def test_refusal_event_and_terminal_lines():
     assert second.data["line"] is None
 
 
-def test_warning_event_has_names_and_no_line_or_score():
-    feed, lines = make()
-    warning = Utterance("u-9", "v1", "Bert", "bar", "the newcomer is behind it", None, "warned", about=PID)
-    feed.on_delivery(warning, ["v2"])
-    assert lines == ["Bert warned Marta about you."]
-    (event,) = feed.recent
-    assert event.kind == "warning"
-    assert event.data == {"speaker_id": "v1", "speaker": "Bert", "target_id": "v2", "target": "Marta"}
-
-
-def test_terminal_prints_only_the_brush_off():
-    feed, lines = make()
-    feed.on_whisper_status("w-1", "v1", "Bert", "checking")
-    feed.on_whisper_status("w-1", "v1", "Bert", "busy", until=123.0)
-    feed.on_whisper_status("w-1", "v1", "Bert", "heard")
-    feed.on_whisper_status("w-1", "v1", "Bert", "brushed_off")
-    assert lines == []
-    feed.on_whisper_status("w-1", "v1", "Bert", "brushed_off", hint="Not now, the oven.")
-    feed.on_whisper_status("w-2", "v1", "Bert", "brushed_off", hint=None)
-    assert lines == ['Bert brushes you off: "Not now, the oven."', "Bert shrugs it off."]
-    busy = feed.recent[1].to_json()
-    assert busy["kind"] == "whisper_status"
-    assert {k: busy[k] for k in ("whisper_id", "villager_id", "name", "state", "until")} == {
-        "whisper_id": "w-1", "villager_id": "v1", "name": "Bert", "state": "busy", "until": 123.0,
-    }
-
-
-def test_a_resolved_whisper_never_moves_backwards():
-    feed, _ = make()
-    feed.on_whisper_status("w-1", "v1", "Bert", "kept")
-    feed.on_whisper_status("w-1", "v1", "Bert", "heard")
-    feed.on_whisper_status("w-1", "v1", "Bert", "brushed_off", hint="Not now.")
-    feed.on_whisper_status("w-1", "v1", "Bert", "not_carried")
-    assert [e.data["state"] for e in feed.recent] == ["kept"]
-
-
-def test_a_brush_off_takes_its_hint_and_can_be_upgraded():
-    feed, lines = make()
-    feed.on_whisper_status("w-1", "v1", "Bert", "brushed_off")
-    feed.on_whisper_status("w-1", "v1", "Bert", "brushed_off", hint="Not now.")
-    feed.on_whisper_status("w-1", "v1", "Bert", "took_the_bait", told=1)
-    assert [e.data["state"] for e in feed.recent] == ["brushed_off", "brushed_off", "took_the_bait"]
-    assert lines == ['Bert brushes you off: "Not now."']
-
-
-def test_an_answered_whisper_never_moves_back_to_listening_or_brushed_off():
-    feed, _ = make()
-    feed.on_whisper_status("w-1", "v1", "Bert", "answered")
-    feed.on_whisper_status("w-1", "v1", "Bert", "heard")
-    feed.on_whisper_status("w-1", "v1", "Bert", "busy", until=1.0)
-    feed.on_whisper_status("w-1", "v1", "Bert", "brushed_off", hint="Not now.")
-    feed.on_whisper_status("w-1", "v1", "Bert", "moved_on")
-    assert [e.data["state"] for e in feed.recent] == ["answered", "moved_on"]
-
-
 def test_time_lines_name_the_day_at_dawn():
     feed, lines = make()
     feed.on_time(2, "morning")
     feed.on_time(2, "evening")
     assert lines == ["Day 2 dawns over the village.", "Evening falls, and lamps are lit."]
     assert [(e.kind, e.data["day"], e.data["phase"]) for e in feed.recent] == [("time", 2, "morning"), ("time", 2, "evening")]
-
-
-def test_a_near_miss_prints_once_its_line_is_settled():
-    feed, lines = make()
-    feed.on_whisper_status("w-1", "v1", "Bert", "near_miss")
-    assert lines == []
-    feed.on_whisper_status("w-1", "v1", "Bert", "near_miss", hint="Go on.")
-    feed.on_whisper_status("w-2", "v1", "Bert", "near_miss", hint=None)
-    feed.on_whisper_status("w-3", "v1", "Bert", "answered")
-    feed.on_whisper_status("w-3", "v1", "Bert", "near_miss", hint="Late.")
-    assert lines == ['Bert leans in: "Go on."', "Bert leans in."]
-
-
-def test_events_go_to_the_player_whose_whisper_they_follow():
-    town, lineage = Town(), Lineage()
-    town.add(Villager("v1", "Bert", "baker", "calm", "none", [], {}))
-    lineage.record("w-1", None, player="p-a")
-    lineage.record("w-2", None, player="p-b")
-    lineage.record("u-2", "w-2")
-    feed = Feed(lineage, town, out=None)
-    feed.on_whisper_status("w-1", "v1", "Bert", "checking")
-    feed.on_whisper_status("w-2", "v1", "Bert", "heard")
-    feed.on_time(1, "afternoon")
-    assert [e.kind for e in feed.replay("p-a")] == ["whisper_status", "time"]
-    assert [e.kind for e in feed.replay("p-b")] == ["whisper_status", "time"]
-    assert all("player" not in e.to_json() for e in feed.recent)
 
 
 def test_a_view_passes_only_what_its_player_sees():
@@ -163,13 +64,6 @@ def test_a_view_passes_only_what_its_player_sees():
     feed.emit("system", "theirs", player="p-b")
     feed.say("everyone")
     assert [e.line for e in seen] == ["mine", "everyone"]
-
-
-def test_a_warning_reaches_only_the_player_it_is_about():
-    feed, _ = make()
-    warning = Utterance("u-9", "v1", "Bert", "bar", "the newcomer is behind it", None, "warned", about="p-a")
-    feed.on_delivery(warning, ["v2"])
-    assert [e.kind for e in feed.replay("p-a")] == ["warning"] and feed.replay("p-b") == []
 
 
 def test_listen_events_reach_only_the_listener_and_print_the_lines():
@@ -200,15 +94,12 @@ def test_an_answer_reaches_only_the_asker():
 def test_state_round_trips_as_json_and_ids_go_on_past_it():
     feed, _ = make()
     feed.say("hello")
-    feed.on_whisper_status("w-1", "v1", "Bert", "answered")
-    feed.on_whisper_status("w-2", "v2", "Marta", "heard")
-    feed.on_whisper_status("w-3", "v2", "Marta", "kept")
+    feed.say("for one", player="p-2")
     feed.close("p-2")
     fresh, _ = make()
     fresh.restore(json.loads(json.dumps(feed.to_state())))
     assert list(fresh.recent) == list(feed.recent)
-    assert (fresh._closed, fresh._resolved, fresh._answered) == (feed._closed, feed._resolved, feed._answered)
-    assert fresh._listening == feed._listening
+    assert fresh._closed == feed._closed
     assert fresh.say("next").id == feed.say("next").id
     fresh.ensure_past(40)
     assert fresh.say("later").id == 41

@@ -32,11 +32,6 @@
   --wary: #a33b3b;
   --wait: #2b5d8a;
   --kept: #5a6152;
-  --talk: #6a4c93;
-  --dock-lean: #e9cf3b;
-  --dock-said: #23302e;
-  --on-dock-said: #fff;
-  --dock-off: #8a958f;
   --sun: #e2a52a;
   --moon: #f3f1e4;
   --day-sky: #bcd8ea;
@@ -64,10 +59,6 @@
     --day-sky: #4f7896;
     --night-sky: #141c30;
     --on-mark: #1a2226;
-    --dock-lean: #f2e05a;
-    --dock-said: #eef0ea;
-    --on-dock-said: #1a2226;
-    --dock-off: #6b7a7c;
   }
 }
 * { box-sizing: border-box; }
@@ -151,9 +142,7 @@ main {
 .fold:not(.open) .fold-lines { display: none; }
 .fold-lines { list-style: none; margin: 0; padding: 0 0 .4rem 1.75rem; }
 .fold-lines > li { padding: .15rem 0; }
-.talk-line { display: flex; align-items: baseline; gap: .75rem; font-size: .875rem; }
-.fold-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.fold-talk { flex: none; }
+.talk-line { font-size: .875rem; }
 .meta { margin: 0; font-size: .875rem; color: var(--muted); }
 .fresh { animation: arrive 280ms ease-out; }
 @keyframes arrive { from { opacity: 0; transform: translateY(.4rem); } to { opacity: 1; transform: none; } }
@@ -188,35 +177,6 @@ main {
 
 .bottom { border-top: 1px solid var(--rail); background: var(--bg); }
 .composer { padding: .75rem 1.25rem 1rem; }
-.dock { display: flex; flex-wrap: wrap; gap: .5rem 1rem; list-style: none; margin: 0; padding: .6rem 1.25rem 0; }
-.dock:empty { display: none; }
-.dock-face {
-  display: grid; justify-items: center; gap: .25rem; background: none; border: 0; border-radius: 6px;
-  padding: .25rem .35rem; cursor: pointer;
-}
-.dock-pic { position: relative; line-height: 0; }
-.dock-face canvas {
-  width: 36px; height: 36px; border-radius: 7px; image-rendering: pixelated;
-  outline: 1px solid var(--face-edge); outline-offset: -1px;
-}
-.dock-face[aria-expanded="true"] canvas { outline: 2px solid var(--ink); outline-offset: 2px; }
-.dock-badge {
-  position: absolute; right: -7px; bottom: -7px; width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--bg); box-sizing: content-box;
-  display: grid; place-items: center; font: 700 10px/1 var(--ui); color: #1a2226; background: var(--dock-off);
-}
-.dock-badge[data-s="near_miss"] { background: var(--dock-lean); }
-.dock-badge[data-s="answered"] { background: var(--dock-said); color: var(--on-dock-said); }
-.dock-face small { font-size: .75rem; color: var(--muted); }
-.chat { max-width: 42rem; max-height: 12rem; overflow-y: auto; margin: .5rem 1.25rem 0; padding: .4rem 0; border-bottom: 1px solid var(--rail); }
-.chat[hidden] { display: none; }
-.chat-about { margin: 0 0 .3rem; font-size: .8rem; color: var(--muted); }
-.chat-close { display: none; }
-.chat-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
-.msg { max-width: 85%; padding: .3rem .7rem; border-radius: 10px; overflow-wrap: anywhere; }
-.msg.you { align-self: flex-end; background: var(--panel); }
-.msg.them { align-self: flex-start; border: 1px solid var(--rail); font: italic 1.05rem/1.4 var(--rumor); }
-.composer form { position: relative; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
-.composer label { font-size: .875rem; color: var(--muted); }
 input[type="text"], input[type="search"] {
   background: var(--panel);
   border: 1px solid var(--edge);
@@ -224,8 +184,6 @@ input[type="text"], input[type="search"] {
   padding: .5rem .65rem;
   min-width: 0;
 }
-#target { width: 12rem; }
-#text { flex: 1 1 16rem; font-family: var(--rumor); font-size: 1.1rem; padding: .4rem .65rem; }
 .primary {
   background: var(--accent);
   color: var(--on-accent);
@@ -236,7 +194,6 @@ input[type="text"], input[type="search"] {
   cursor: pointer;
 }
 .primary:disabled { opacity: .6; cursor: progress; }
-.over .primary:disabled { cursor: not-allowed; }
 .say-status { margin: .4rem 0 0; min-height: 1.25rem; font-size: .875rem; color: var(--muted); }
 .say-status.error { color: var(--danger); }
 .resting { margin: 0 0 .4rem; font-size: .875rem; color: var(--muted); }
@@ -249,20 +206,6 @@ aside {
 }
 h2 { font-size: 1rem; margin: 1rem 0 .5rem; }
 h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 .2rem; }
-/* A phone's sheets rise from the foot of the screen; a tap on the shade or Escape closes them. */
-.sheet {
-  position: fixed; inset: auto 0 0; width: 100%; max-width: 100%; max-height: 85dvh; margin: 0; padding: 0; overflow-y: auto;
-  background: var(--bg); color: var(--ink); border: 0; border-top: 1px solid var(--edge); border-radius: 14px 14px 0 0;
-  box-shadow: 0 -6px 24px rgb(0 0 0 / .2);
-}
-.sheet[open] { animation: rise 220ms ease-out; }
-.sheet::backdrop { background: rgb(0 0 0 / .35); }
-.sheet-body { padding: 0 1rem 1rem; }
-.sheet-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; background: var(--bg); }
-.sheet-head h2 { margin: 0; font: 500 1.25rem/1.2 var(--rumor); }
-.to-chip { display: none; }
-.sheet-close { width: 44px; height: 44px; margin-right: -.6rem; background: none; border: 0; font-size: 1.1rem; cursor: pointer; }
-@keyframes rise { from { transform: translateY(100%); } }
 .heat { margin: 0; font: italic 1rem/1.3 var(--rumor); }
 .case { flex: none; background: var(--panel); border-bottom: 1px solid var(--rail); padding: .6rem 1.25rem; }
 .case[hidden] { display: none; }
@@ -295,19 +238,9 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
 }
 .tag { margin-left: .4rem; padding: 0 .35rem; border-radius: 3px; background: var(--mark); color: var(--on-mark); font-weight: 700; }
 .glyph { color: var(--mark); font-weight: 700; margin-right: .25rem; }
-.badge[data-s="took_the_bait"] { background: var(--bait); }
-.badge[data-s="brushed_off"] { background: var(--off); }
 .badge[data-s="wary"] { background: var(--wary); }
-.badge[data-s="listening"] { background: var(--wait); font-size: 13px; letter-spacing: -1px; line-height: .5; }
-.badge[data-s="kept"] { background: var(--kept); }
-.badge[data-s="answered"] { background: var(--talk); }
 .searching .pick:not(.hit) { opacity: .35; }
 .pick.hit canvas { outline: 2px solid var(--accent); outline-offset: 1px; }
-.might > .face::before, .legend .might {
-  content: ""; position: absolute; left: -4px; top: -4px; width: 7px; height: 7px; border-radius: 50%;
-  background: var(--mark); border: 1px solid var(--ink);
-}
-.legend .might { position: static; display: inline-block; vertical-align: -.1rem; margin-right: .5rem; }
 .sort { display: flex; align-items: center; gap: .5rem; margin: .1rem 0 0; font-size: .85rem; color: var(--muted); }
 .sort select { background: var(--panel); color: var(--ink); border: 1px solid var(--edge); border-radius: 6px; padding: .2rem .4rem; }
 .rows { list-style: none; margin: .3rem 0 0; padding: 0; max-height: min(18rem, 40dvh); overflow-y: auto; }
@@ -319,7 +252,6 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
 .who { min-width: 0; font-size: .875rem; line-height: 1.35; overflow-wrap: anywhere; }
 .who small { color: var(--muted); }
 .who .st { font-size: .8rem; color: var(--muted); }
-.who .might-word { display: block; font-size: .8rem; font-style: italic; color: var(--ink); }
 .scroll-more { margin: .2rem 0 0; min-height: 1rem; font-size: .75rem; color: var(--muted); text-align: center; }
 .who .hint { display: block; font: italic .95rem/1.35 var(--rumor); color: var(--ink); }
 .legend { display: flex; flex-wrap: wrap; gap: .25rem .75rem; margin: .6rem 0 0; font-size: .75rem; color: var(--muted); }
@@ -347,15 +279,6 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
 .ask-status.error { color: var(--danger); }
 .tile-act { display: block; margin-top: .3rem; font-size: .8rem; }
 .tile-act[aria-disabled="true"] { cursor: default; text-decoration: none; }
-.suggest {
-  position: absolute; bottom: 100%; left: 0; z-index: 3; width: min(26rem, 100%); max-height: 18rem; overflow-y: auto;
-  list-style: none; margin: 0 0 .3rem; padding: .25rem; background: var(--panel);
-  border: 1px solid var(--edge); border-radius: 6px; box-shadow: 0 4px 16px rgb(0 0 0 / .15);
-}
-.suggest[hidden] { display: none; }
-.suggest li { display: flex; gap: .6rem; align-items: flex-start; padding: .3rem .4rem; border-radius: 4px; cursor: pointer; }
-.suggest li:hover, .suggest li[aria-selected="true"] { background: var(--bg); }
-.suggest li[aria-selected="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
 .usage { font-size: .75rem; color: var(--muted); }
 .usage:empty { display: none; }
 .linkish { background: none; border: 0; color: var(--muted); cursor: pointer; text-decoration: underline; padding: 0; font-size: .875rem; }
@@ -415,32 +338,7 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
   .gameover h2 { font-size: 1.25rem; }
   .gameover ul { font-size: .875rem; }
   .composer { padding: .6rem 1rem .8rem; }
-  /* The dock is a slim strip of faces; an open conversation rises over the content as a sheet. */
-  .bottom { position: relative; }
-  .dock { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: .25rem; padding: 0 1rem; }
-  .dock-face { display: flex; align-items: center; gap: .5rem; flex: none; min-height: 44px; }
-  .dock-face canvas { width: 28px; height: 28px; }
-  .dock-face small { white-space: nowrap; }
-  .chat {
-    position: absolute; left: 0; right: 0; bottom: 100%; z-index: 4; max-width: none; max-height: 60dvh; margin: 0;
-    padding: 0 1rem .75rem; background: var(--bg); border: 0; border-top: 1px solid var(--edge); border-radius: 14px 14px 0 0;
-    box-shadow: 0 -6px 24px rgb(0 0 0 / .2); animation: rise 220ms ease-out;
-  }
-  .chat-head { position: sticky; top: 0; display: flex; align-items: center; gap: .5rem; background: var(--bg); }
-  .chat-about { flex: 1; margin: 0; }
-  .chat-close { display: block; }
-  /* One row: who to whisper to as a chip, the words, and Whisper. The name search is in the To sheet. */
-  .composer form { flex-wrap: nowrap; }
-  #to-label { display: none; }
-  .to-chip { display: flex; flex: 0 1 auto; min-width: 0; max-width: 7.5rem; }
-  .to-chip button { min-height: 44px; background: var(--panel); border: 1px solid var(--edge); cursor: pointer; }
-  #to-pick { min-width: 0; padding: 0 .6rem; border-radius: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #to-clear { flex: none; width: 44px; border-left: 0; border-radius: 0 22px 22px 0; color: var(--muted); }
-  .to-chip:has(#to-clear:not([hidden])) #to-pick { padding-right: .2rem; border-right: 0; border-radius: 22px 0 0 22px; }
-  .composer .primary { flex: none; min-height: 44px; padding: .5rem .75rem; }
   .say-status:empty { min-height: 0; margin: 0; }
-  .sheet #target { width: 100%; min-height: 44px; margin-top: .25rem; }
-  .sheet .suggest { position: static; width: 100%; max-height: 50dvh; margin: .4rem 0 0; box-shadow: none; }
   .tile-act, .walk-there { min-height: 2.25rem; }
   /* The village as one row per place: name and count, the faces, and Walk or Listen. */
   #town h2 { margin: .25rem 0 .4rem; }
@@ -463,14 +361,13 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
   .tile .tile-act { grid-column: 3; grid-row: 1; margin: 0; min-height: 44px; padding: 0; font-size: .75rem; line-height: 1.15; text-align: right; }
   .tiles .pick { display: grid; place-items: center; width: 44px; height: 44px; }
   .tiles .face canvas { width: 30px; height: 30px; border-radius: 6px; }
-  #text { flex: 1 1 0; min-height: 44px; }
   .card {
     position: sticky; top: auto; bottom: 0; right: auto; width: auto; max-height: 45dvh;
     margin: 0 -1rem; border-radius: 10px 10px 0 0; border-width: 1px 0 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .fresh, .gameover, .sheet[open], .chat { animation: none; }
+  .fresh, .gameover { animation: none; }
 }
 </style>
 </head>
@@ -511,12 +408,6 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
     <span class="conn" id="conn" data-state="connecting" role="status">Connecting</span>
   </header>
 
-  <dialog class="sheet" id="to-sheet" aria-modal="true" aria-labelledby="to-sheet-title">
-    <form class="sheet-body" id="to-body" method="dialog">
-      <div class="sheet-head"><h2 id="to-sheet-title">Whisper to</h2><button class="sheet-close" type="button" aria-label="Close">✕</button></div>
-    </form>
-  </dialog>
-
   <main id="hear-panel">
     <section class="case" id="case" hidden><p id="case-text" class="none">No open case</p></section>
     <div class="stage">
@@ -528,7 +419,7 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
         </div>
       </section>
       <ol class="feed" id="feed" role="log" aria-live="off" aria-label="What the village is saying"></ol>
-      <p class="empty" id="empty">Whisper to a villager to start a rumor. Pick someone whose trade or fears fit it.</p>
+      <p class="empty" id="empty">Walk somewhere and talk to the people there.</p>
     </div>
   </main>
 
@@ -548,40 +439,18 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
     </div>
     <div class="tiles" id="people"></div>
     <p class="legend">
-      <span><span class="badge" data-s="took_the_bait" aria-hidden="true">✓</span>took the bait</span>
-      <span><span class="badge" data-s="answered" aria-hidden="true">↩</span>answered you</span>
-      <span><span class="badge" data-s="kept" aria-hidden="true">○</span>kept it quiet</span>
-      <span><span class="badge" data-s="brushed_off" aria-hidden="true">–</span>brushed you off</span>
       <span><span class="badge" data-s="wary" aria-hidden="true">!</span>wary of you</span>
-      <span><span class="badge" data-s="listening" aria-hidden="true">…</span>listening</span>
-      <span><span class="might" aria-hidden="true"></span>this might interest them</span>
     </p>
     <section class="card" id="card" role="dialog" aria-labelledby="card-title" hidden></section>
   </aside>
 
   <div class="bottom">
-    <ul class="dock" id="dock" aria-label="Talking with you"></ul>
-    <section class="chat" id="chat" aria-label="Conversation" tabindex="0" hidden>
-      <div class="chat-head"><p class="chat-about" id="chat-about"></p><button class="sheet-close chat-close" id="chat-close" type="button" aria-label="Close the conversation">✕</button></div><ol class="chat-lines" id="chat-lines"></ol></section>
     <nav class="tabs" role="tablist" aria-label="Views">
       <button type="button" role="tab" id="tab-hear" aria-controls="hear-panel" aria-selected="true">Hear</button>
       <button type="button" role="tab" id="tab-village" aria-controls="town" aria-selected="false" tabindex="-1">Village</button>
     </nav>
     <div class="composer">
       <p class="resting" id="resting" role="status" hidden></p>
-      <form id="whisper">
-        <label for="target" id="to-label">Whisper to</label>
-        <span class="to-chip">
-          <button type="button" id="to-pick" aria-haspopup="dialog" aria-controls="to-sheet">To…</button>
-          <button type="button" id="to-clear" aria-label="Clear who to whisper to" hidden>✕</button>
-        </span>
-        <input type="text" id="target" autocomplete="off" placeholder="a name or a trade" required
-          role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggest">
-        <ul class="suggest" id="suggest" role="listbox" aria-label="Villagers" hidden></ul>
-        <label for="text" class="visually-hidden">What to whisper</label>
-        <input type="text" id="text" maxlength="500" autocomplete="off" placeholder="the miller waters his flour" required>
-        <button class="primary" type="submit">Whisper</button>
-      </form>
       <p class="say-status" id="status" role="status"></p>
     </div>
   </div>
@@ -591,7 +460,6 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
 "use strict";
 const $ = (id) => document.getElementById(id);
 const feed = $("feed");
-const spoken = new Map();
 const MAX_ITEMS = 1000;
 let villagers = [];
 let villagersKey = "";
@@ -604,33 +472,17 @@ let pointing = false;
 let peopleStale = false;
 let over = false;
 let notes = {};
-let lastTarget = null;
 let cardOpener = null;
 let here = null;
 let listenUntil = null;
-// Villagers talking with you, newest last: villager id to their name, where things stand, whether
-// it is a missed whisper's exchange that ends with the part of the day, the whisper ids it holds, and its lines.
-const DOCK = { near_miss: ["…", "leaning in"], answered: ["↩", "answered"], brushed_off: ["–", "brushed you off"], busy: ["◷", "busy"] };
-const DOCK_ENDS = new Set(["kept", "took_the_bait", "warned", "moved_on", "not_carried"]);
-const dock = new Map();
-// The player's newest whisper to each villager, by villager id.
-const saidTo = new Map();
-let chatWith = null;
 const RESTING = "The village is resting for today. Come back after midnight UTC.";
-let resting = false;
 const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)");
 // What the feed's arrow keys move between; the feed itself is one tab stop.
-const ROVE = ".fold-more, .fold-talk, .chat-open";
-let talkLines = 0;
+const ROVE = ".fold-more";
 const OPEN_KEY = "sleuth-open-place";
 const SORT_KEY = "sleuth-sort";
 const TAB_KEY = "sleuth-tab";
 const FACES_SHOWN = 11;
-// Villagers whose hints match the whisper being written.
-let drafted = new Set();
-const DRAFT_MIN = 12;
-const DRAFT_WAIT = 400;
-const MIGHT = "this might interest them";
 const phone = matchMedia("(max-width: 760px)");
 
 function el(tag, { dataset, ...props } = {}, ...children) {
@@ -677,19 +529,10 @@ function foldWords(block, n) {
   return `You listen at the ${place} · ${plural(n, "line")}${ended ? " · ended" : ""}`;
 }
 
-// A Talk button that starts a whisper about an overheard line, described by the line's text at id.
-function talkButton(e, id) {
-  const talk = el("button", { type: "button", className: "linkish fold-talk", tabIndex: -1, textContent: "Talk",
-    ariaLabel: `Talk to ${e.speaker_name} about this`, onclick: () => talkAbout(e.speaker_name, e.text) });
-  talk.setAttribute("aria-describedby", id);
-  return talk;
-}
-
-// A line in a fold, with its Talk button.
+// A line in a fold.
 function addLine(block, e, fresh) {
-  const id = `talk-line-${++talkLines}`;
   block.querySelector(".fold-lines").append(el("li", { className: fresh ? "talk-line fresh" : "talk-line" },
-    el("span", { className: "fold-text", id }, el("b", { textContent: e.speaker_name }), ": ", e.text), talkButton(e, id)));
+    el("b", { textContent: e.speaker_name }), ": ", e.text));
   countFold(block);
 }
 
@@ -727,164 +570,10 @@ function endListen(block) {
   }
 }
 
-function talkAbout(name, text) {
-  if (over) return;
-  $("target").value = name;
-  $("text").value = `You said: "${text}" `;
-  draftChanged();
-  showSuggestions([]);
-  $("text").focus();
-  $("text").setSelectionRange($("text").value.length, $("text").value.length);
-  setComposer();
-}
-
-// The composer says "Talking with" while the To box names a villager in the dock.
-function talkingWith(name) {
-  return [...dock.values()].some((t) => t.name.toLowerCase() === name.trim().toLowerCase());
-}
-
-// While the village rests for the day, one line says so and the composer is locked.
+// While the village rests for the day, one line says so.
 function setResting(on) {
-  resting = on;
   $("resting").hidden = !on;
   $("resting").textContent = on ? RESTING : "";
-  for (const node of $("whisper").elements) node.disabled = over || on;
-}
-
-function setComposer() {
-  const on = talkingWith($("target").value);
-  const name = $("target").value.trim();
-  $("to-label").textContent = on ? "Talking with" : "Whisper to";
-  $("to-pick").textContent = name ? `To ${name}` : "To…";
-  $("to-clear").hidden = !name;
-  $("whisper").querySelector(".primary").textContent = on ? "Reply" : "Whisper";
-  if (!over) $("text").placeholder = on ? "Say something back" : "the miller waters his flour";
-}
-
-function dockEntry(e) {
-  if (!dock.has(e.villager_id)) {
-    const said = spoken.get(e.whisper_id)?.text;
-    dock.set(e.villager_id, { name: e.name, state: e.state, thread: false,
-      whispers: new Set(), lines: said ? [{ you: true, text: said }] : [] });
-  }
-  return dock.get(e.villager_id);
-}
-
-// Where a whisper stands moves its villager's face in the dock. Only a live answer or lean fills the To box; a
-// replayed one may have been closed since.
-function dockStatus(e, fresh) {
-  if (over) return;
-  const entry = dock.get(e.villager_id);
-  if (e.state === "near_miss" || e.state === "brushed_off") {
-    if (e.continues === false) return dockEnd(e.villager_id);
-    if (e.continues === true) {
-      const thread = dockEntry(e);
-      if (!thread.thread) thread.at = fresh ? Date.now() : e.at * 1000;
-      Object.assign(thread, { state: e.state, thread: true, whispers: new Set([e.whisper_id]) });
-    }
-    if (e.hint) dock.get(e.villager_id)?.lines.push({ you: false, text: e.hint });
-  } else if (e.state === "answered") {
-    Object.assign(dockEntry(e), { state: "answered", thread: false }).sleuth.add(e.whisper_id);
-  } else if (e.state === "busy" && entry) {
-    Object.assign(entry, { state: "busy", thread: false });
-  } else if (e.state === "heard" && entry) {
-    entry.thread = false;
-  } else if (DOCK_ENDS.has(e.state) && entry?.sleuth.has(e.whisper_id)) {
-    return dockEnd(e.villager_id);
-  } else {
-    return;
-  }
-  if (fresh && dock.has(e.villager_id) && (e.state === "answered" || e.state === "near_miss")
-    && (chatWith == null || chatWith === e.villager_id) && !$("whisper").contains(document.activeElement)) {
-    $("target").value = e.name;
-  }
-  renderDock();
-  setComposer();
-}
-
-// A reply joins its villager's lines in the dock, opening the conversation there when it comes before the answered
-// status. The feed gets a note that opens the conversation, or shows the words once it has ended.
-function dockReply(e) {
-  if (!over) {
-    dockEntry({ ...e, state: "answered", whisper_id: saidTo.get(e.villager_id) ?? e.conversation }).lines.push({ you: false, text: e.text });
-    renderDock();
-    setComposer();
-  }
-  const open = el("button", { type: "button", className: "linkish chat-open", tabIndex: -1, textContent: `${e.name} answered you`,
-    onclick: () => {
-      if (dock.has(e.villager_id)) openChat(e.villager_id);
-      else if (!open.nextSibling) open.after(`: “${e.text}”`);
-    } });
-  open.setAttribute("aria-controls", "chat");
-  return line("quiet", el("span", { ariaHidden: "true", textContent: "↩ " }), open);
-}
-
-function dockEnd(villagerId) {
-  const focused = document.activeElement?.closest?.(".dock-face")?.dataset.id === villagerId;
-  dock.delete(villagerId);
-  if (chatWith === villagerId) openChat(null);
-  renderDock();
-  setComposer();
-  if (focused) $("text").focus();
-}
-
-// A missed whisper's exchange lasts until the player goes talk_hold_seconds without whispering to that villager or
-// typing, as on the server.
-let talkHold = Infinity;
-setInterval(() => {
-  for (const [id, t] of dock) if (t.thread && Date.now() - Math.max(t.at, typedAt) >= talkHold * 1000) dockEnd(id);
-}, 1000);
-
-function renderDock() {
-  const focused = document.activeElement?.closest?.(".dock-face")?.dataset.id;
-  $("dock").replaceChildren(...[...dock].map(([id, t]) => el("li", {},
-    dockFace(id, t))));
-  if (focused) $("dock").querySelector(`[data-id="${CSS.escape(focused)}"]`)?.focus();
-  if (chatWith != null) renderChat();
-}
-
-function dockFace(id, t) {
-  const button = el("button", { type: "button", className: "dock-face", ariaExpanded: String(chatWith === id),
-    dataset: { id }, onclick: () => openChat(chatWith === id ? null : id) },
-    el("span", { className: "dock-pic" }, faceFor(id, villagers.find((v) => v.id === id)?.occupation || ""),
-      el("span", { className: "dock-badge", ariaHidden: "true", textContent: DOCK[t.state][0], dataset: { s: t.state } })),
-    el("small", { textContent: `${t.name} · ${DOCK[t.state][1]}` }));
-  button.setAttribute("aria-controls", "chat");
-  return button;
-}
-
-function openChat(villagerId) {
-  chatWith = villagerId;
-  $("chat").hidden = villagerId == null;
-  renderDock();
-  if (villagerId == null) return;
-  $("target").value = dock.get(villagerId).name;
-  $("chat").ariaLabel = `Conversation with ${dock.get(villagerId).name}`;
-  setComposer();
-  $("text").focus();
-}
-
-// Closing the sheet's conversation returns focus to its face in the dock.
-$("chat-close").addEventListener("click", () => {
-  const id = chatWith;
-  openChat(null);
-  $("dock").querySelector(`[data-id="${CSS.escape(id)}"]`)?.focus();
-});
-
-function renderChat() {
-  const t = dock.get(chatWith);
-  $("chat-about").textContent = t.name;
-  $("chat-lines").replaceChildren(...t.lines.map((line) => el("li", { className: line.you ? "msg you" : "msg them" },
-    el("span", { className: "visually-hidden", textContent: line.you ? "You: " : `${t.name}: ` }),
-    line.you ? line.text : `“${line.text}”`)));
-  $("chat").scrollTop = $("chat").scrollHeight;
-}
-
-// A lean-in or brush-off with words is speech.
-function hinted(e) {
-  if (!e.hint || (e.state !== "near_miss" && e.state !== "brushed_off")) return null;
-  const how = e.state === "near_miss" ? "leans in" : "brushes you off";
-  return line("speech", `${e.name} ${how}: “${e.hint}”`);
 }
 
 // The open case's news, or that there is none.
@@ -906,16 +595,6 @@ function render(e, fresh) {
       return line("quiet", e.text);
     case "post":
       return line("speech", el("span", { className: "tag", textContent: "App" }), " ", `${e.speaker}: “${e.text}”`);
-    case "whisper": {
-      lastTarget = e.target_id;
-      saidTo.set(e.target_id, e.uid);
-      spoken.set(e.uid, { text: e.text, speaker: "you" });
-      const talking = dock.get(e.target_id);
-      if (talking) talking.at = fresh ? Date.now() : e.at * 1000;
-      return null;
-    }
-    case "reply":
-      return dockReply(e);
     case "place":
       setHere(e.place);
       return null;
@@ -924,27 +603,15 @@ function render(e, fresh) {
     case "time":
       setClock(e);
       return null;
-    case "warning":
-      return line("loud", `${e.speaker} warned ${e.target} about you.`);
     case "refusal":
       learn(e);
-      dockEnd(e.villager_id);
       return line("loud", e.line ? `${e.name} turns away from you: “${e.line}”` : `${e.name} turns away from you.`);
-    case "stormed_off":
-      dockEnd(e.villager_id);
-      return line("speech", e.line ? `${e.name} ${e.verb}: “${e.line}”` : `${e.name} ${e.verb}.`);
-    case "denied":
-      return line("speech", e.line ? `${e.name}: “${e.line}”` : `${e.name} denies it.`);
     case "heat":
       setHeat(e.text, e.label);
       return null;
     case "gameover":
       showGameOver(e, fresh);
       return null;
-    case "whisper_status":
-      learn(e);
-      dockStatus(e, fresh);
-      return hinted(e);
     case "announcement":
       return line("quiet", e.text);
     case "system":
@@ -960,68 +627,19 @@ function render(e, fresh) {
   }
 }
 
-function secondsLeft(until) {
-  return Math.max(0, Math.ceil(until - Date.now() / 1000));
-}
-
-function waitText(until) {
-  const left = secondsLeft(until);
-  return left ? `Hears you in about ${left}s.` : "Hearing you now.";
-}
-
-// The countdown ticks out of the screen reader's hearing; it hears the wait once.
-function countdown(until, say) {
-  return [el("span", { ariaHidden: "true", dataset: { until }, textContent: say(until) }),
-    el("span", { className: "visually-hidden wait", textContent: say(until) })];
-}
-
-
-setInterval(() => {
-  for (const node of document.querySelectorAll("[data-until]")) {
-    const until = Number(node.dataset.until);
-    node.textContent = waitText(until);
-    if (secondsLeft(until)) continue;
-    delete node.dataset.until;
-    node.parentNode.querySelector(".wait").textContent = waitText(until);
-  }
-}, 1000);
-
-// The player's notes, kept by the same rule as the server's: a note only moves up, except that wary overrides anything.
-const RANK = ["none", "listening", "brushed_off", "answered", "kept", "wary", "took_the_bait"];
-const STATUS_OF = {
-  checking: "listening", busy: "listening", heard: "listening", brushed_off: "brushed_off",
-  answered: "answered", kept: "kept", moved_on: "kept", took_the_bait: "took_the_bait", warned: "wary",
-};
-const BADGES = {
-  took_the_bait: ["✓", "took the bait"],
-  answered: ["↩", "answered you"],
-  kept: ["○", "kept it quiet"],
-  brushed_off: ["–", "brushed you off"],
-  wary: ["!", "wary of you"],
-  listening: ["…", "listening"],
-};
+// The player's notes: who turned them away, and what each villager answered when asked around.
+const BADGES = { wary: ["!", "wary of you"] };
 let learned = false;
 
 function noteOf(id) {
-  return notes[id] || { status: "none", hints: [], passed: [] };
+  return notes[id] || { status: "none", hints: [] };
 }
 
-// Hints and what each villager passed on are kept once each, in order.
 function learn(e) {
-  let status = null, hint = null, passed = null;
-  if (e.kind === "refusal") status = "wary";
-  else if (e.kind === "whisper_status") {
-    status = STATUS_OF[e.state] || null;
-    hint = e.hint || null;
-    if (e.state === "took_the_bait") passed = spoken.get(e.whisper_id)?.text || null;
-  } else if (e.kind === "asked") hint = e.line || null;
-  if (!status && !hint && !passed) return;
-  const id = e.villager_id;
-  const old = noteOf(id);
-  const note = notes[id] = { status: old.status, hints: [...old.hints], passed: [...old.passed] };
-  if (status && (status === "wary" || RANK.indexOf(status) > RANK.indexOf(note.status))) note.status = status;
-  if (hint && !note.hints.includes(hint)) note.hints.push(hint);
-  if (passed && !note.passed.includes(passed)) note.passed.push(passed);
+  const old = noteOf(e.villager_id);
+  const note = notes[e.villager_id] = { status: old.status, hints: [...old.hints] };
+  if (e.kind === "refusal") note.status = "wary";
+  else if (e.line && !note.hints.includes(e.line)) note.hints.push(e.line);
   learned = true;
 }
 
@@ -1110,14 +728,6 @@ function showGameOver(summary, live) {
   panel.hidden = false;
   if (stick) feed.scrollTop = feed.scrollHeight;
   over = true;
-  $("whisper").classList.add("over");
-  for (const node of $("whisper").elements) node.disabled = true;
-  $("text").value = "";
-  draftChanged();
-  $("text").placeholder = "The game is over.";
-  dock.clear();
-  openChat(null);
-  setComposer();
   setActions();
   setAsk();
   setStatus("The game is over.");
@@ -1196,12 +806,11 @@ feed.addEventListener("keydown", (ev) => {
   }
 });
 document.addEventListener("keydown", (ev) => {
-  if (ev.key !== "Escape" || ev.defaultPrevented || document.querySelector("dialog[open]")) return;
+  if (ev.key !== "Escape" || ev.defaultPrevented) return;
   if ($("menu").classList.contains("open")) {
     setMenu(false);
     $("menu-toggle").focus();
   } else if (!$("card").hidden) closeCard();
-  else if (chatWith != null) openChat(null);
 });
 
 // The mood in full for the live region, and in a word for the phone's header.
@@ -1219,8 +828,6 @@ function setMenu(open) {
 $("menu-toggle").addEventListener("click", () => setMenu(!$("menu").classList.contains("open")));
 document.addEventListener("click", (ev) => {
   if (!ev.target.closest("#menu, #menu-toggle")) setMenu(false);
-  if (ev.target.matches("dialog.sheet")) ev.target.close();
-  else ev.target.closest(".sheet-close")?.closest("dialog")?.close();
 });
 
 function capital(word) {
@@ -1252,17 +859,16 @@ function choosePlace(place) {
   renderVillagers();
 }
 
-// The open tile: the place a search opened, else the player's choice, else where they last whispered, else the square.
+// The open tile: the place a search opened, else the player's choice, else where the player is, else the first.
 function openPlace(order) {
-  const last = villagers.find((v) => v.id === lastTarget);
-  const want = searchPlace || chosenPlace || (last && last.place) || here || "square";
+  const want = searchPlace || chosenPlace || here;
   return order.includes(want) ? want : order[0];
 }
 let chosenPlace = storedPlace();
 let searchPlace = null;
 
 // Ways to order villagers inside a tile; each falls back to name order.
-const NOTE_ORDER = ["took_the_bait", "answered", "kept", "listening", "brushed_off", "none", "wary"];
+const NOTE_ORDER = ["answered", "none", "wary"];
 const SORTS = {
   place: () => 0,
   notes: (a, b) => noteRank(a) - noteRank(b),
@@ -1271,7 +877,7 @@ const SORTS = {
 
 function noteRank(v) {
   const note = noteOf(v.id);
-  return NOTE_ORDER.indexOf(note.passed.length ? "took_the_bait" : note.status);
+  return NOTE_ORDER.indexOf(note.hints.length ? "answered" : note.status);
 }
 
 function sorted(crowd) {
@@ -1285,25 +891,17 @@ $("sort").addEventListener("change", () => {
   renderVillagers();
 });
 
-// A villager's marks in the panel: whether the draft might interest them.
-function marks(v) {
-  return { might: drafted.has(v.id), dataset: { id: v.id }, className: drafted.has(v.id) ? " might" : "" };
-}
-
 function faceButton(v, hits) {
-  const m = marks(v);
-  const said = m.might ? `, ${MIGHT}` : "";
   return el("button", {
-    type: "button", tabIndex: -1, className: `${hits.has(v.id) ? "pick hit" : "pick"}${m.className}`,
-    title: `${v.name}, ${v.occupation}${said}`, dataset: m.dataset,
+    type: "button", tabIndex: -1, className: hits.has(v.id) ? "pick hit" : "pick",
+    title: `${v.name}, ${v.occupation}`, dataset: { id: v.id },
     onclick: (ev) => inspect(v.id, ev.currentTarget),
-  }, faceWith(v), el("span", { className: "visually-hidden", textContent: knownAs(v) }),
-  said ? el("span", { className: "visually-hidden", textContent: said }) : null);
+  }, faceWith(v), el("span", { className: "visually-hidden", textContent: knownAs(v) }));
 }
 
-// Search hits and villagers the draft might interest come first, ahead of the cut; a phone shows everyone.
+// Search hits come first, ahead of the cut; a phone shows everyone.
 function closedTile(place, crowd, hits) {
-  const lead = (v) => hits.has(v.id) || drafted.has(v.id);
+  const lead = (v) => hits.has(v.id);
   const first = crowd.some(lead) ? [...crowd.filter(lead), ...crowd.filter((v) => !lead(v))] : crowd;
   const shown = phone.matches ? first : first.slice(0, FACES_SHOWN);
   const more = crowd.length - shown.length;
@@ -1317,13 +915,10 @@ function closedTile(place, crowd, hits) {
 function openTile(crowd, hits) {
   const list = hits.size ? crowd.filter((v) => hits.has(v.id)) : crowd;
   if (!list.length) return el("p", { className: "meta", textContent: hits.size ? "No one here matches." : "No one is here." });
-  const rows = el("ul", { className: "rows" }, ...list.map((v) => {
-    const m = marks(v);
-    return el("li", {}, el("button", {
-      type: "button", className: `row${m.className}`, dataset: m.dataset,
-      ariaCurrent: String(v.id === selected), onclick: (ev) => inspect(v.id, ev.currentTarget),
-    }, faceWith(v, true), who(v, v.occupation, m)));
-  }));
+  const rows = el("ul", { className: "rows" }, ...list.map((v) => el("li", {}, el("button", {
+    type: "button", className: "row", dataset: { id: v.id },
+    ariaCurrent: String(v.id === selected), onclick: (ev) => inspect(v.id, ev.currentTarget),
+  }, faceWith(v, true), who(v, v.occupation)))));
   const more = el("p", { className: "scroll-more", ariaHidden: "true" });
   // Says how many rows are below the fold, so the list never looks cut off.
   const cue = () => {
@@ -1336,17 +931,15 @@ function openTile(crowd, hits) {
   return el("div", {}, rows, more);
 }
 
-// Name and the status as words, then trade or place and influence, the hint, and
-// whether the draft might interest them.
-function who(v, detail, m = {}) {
+// Name and the status as words, then trade or place and influence, and the last answer.
+function who(v, detail) {
   const note = noteOf(v.id);
   const known = BADGES[note.status];
   const about = [detail, v.influence].filter(Boolean).join(" · ");
   return el("span", { className: "who" },
     el("b", { textContent: v.name }), known ? el("span", { className: "st", textContent: `, ${known[1]}` }) : null,
     " ", el("small", { textContent: about }),
-    note.hints.length ? el("span", { className: "hint", textContent: `“${note.hints.at(-1)}”` }) : null,
-    m.might ? el("span", { className: "might-word", textContent: MIGHT }) : null);
+    note.hints.length ? el("span", { className: "hint", textContent: `“${note.hints.at(-1)}”` }) : null);
 }
 
 function focusKey(node) {
@@ -1448,12 +1041,6 @@ $("search").addEventListener("keydown", (ev) => {
 let cardRequest = 0;
 async function inspect(id, opener) {
   const request = ++cardRequest;
-  // On a phone, tapping a villager also makes them who the chip whispers to.
-  const v = villagers.find((x) => x.id === id);
-  if (phone.matches && v && !over) {
-    $("target").value = v.name;
-    setComposer();
-  }
   if (opener) cardOpener = { id: opener.dataset.id, node: opener, top: opener.getBoundingClientRect().top };
   selected = id;
   $("people").querySelectorAll(".row").forEach((row) => { row.ariaCurrent = String(row.dataset.id === id); });
@@ -1482,9 +1069,9 @@ function cardBody(body) {
   const rels = body.relationships.length
     ? body.relationships.flatMap((r, i) => [i ? ", " : "", el("button", { className: "rel", type: "button", textContent: r.name, onclick: () => inspect(r.id) }), ` (${r.kind})`])
     : ["none"];
-  const note = notes[body.id] || body.note;
+  const note = noteOf(body.id);
   const known = BADGES[note.status];
-  const alone = !known && !body.influence && !note.hints.length && !note.passed.length;
+  const alone = !known && !body.influence && !note.hints.length;
   return [
     el("h3", { id: "card-title", tabIndex: -1, textContent: body.name }),
     el("p", { className: "meta", textContent: `${body.occupation}, at the ${body.place}` }),
@@ -1503,11 +1090,9 @@ function cardBody(body) {
         alone ? el("span", { className: "known nothing", textContent: "Nothing yet." }) : null,
         known ? el("span", { className: "known", textContent: capital(known[1]) }) : null,
         body.influence ? el("span", { className: "known", textContent: capital(body.influence) }) : null,
-        ...note.hints.map((h) => el("span", { className: "brush", textContent: `“${h}”` })),
-        ...note.passed.map((t) => el("span", { className: "passed", textContent: `Passed on: “${t}”` })))),
+        ...note.hints.map((h) => el("span", { className: "brush", textContent: `“${h}”` })))),
     el("div", { className: "ask-slot", dataset: { id: body.id, name: body.name, place: body.place } }),
     el("div", { className: "actions" },
-      el("button", { className: "primary", type: "button", textContent: `Whisper to ${body.name}`, onclick: () => whisperTo(body.name) }),
       el("button", { className: "linkish", type: "button", textContent: "Close", onclick: closeCard })),
   ];
 }
@@ -1524,90 +1109,6 @@ function closeCard() {
   const node = opener.node.isConnected ? opener.node : $("people").querySelector(`[data-id="${CSS.escape(opener.id)}"]`);
   if (node) node.focus();
 }
-
-function whisperTo(name) {
-  cardRequest++;
-  $("card").hidden = true;
-  selected = null;
-  cardOpener = null;
-  $("target").value = name;
-  $("text").focus();
-  setComposer();
-}
-
-// The To box typeahead: the same matches as the search, with face, trade, place, and what you know.
-let suggestions = [];
-let active = -1;
-
-function setActive(i) {
-  active = i;
-  [...$("suggest").children].forEach((li, j) => { li.ariaSelected = String(j === i); });
-  const li = $("suggest").children[i];
-  if (li) {
-    $("target").setAttribute("aria-activedescendant", li.id);
-    li.scrollIntoView({ block: "nearest" });
-  } else {
-    $("target").removeAttribute("aria-activedescendant");
-  }
-}
-
-function showSuggestions(list) {
-  suggestions = list;
-  $("suggest").replaceChildren(...list.map((v, i) => {
-    return el("li", { id: `suggest-${i}`, role: "option", ariaSelected: "false", onmousedown: (ev) => { ev.preventDefault(); pickTarget(v); } },
-      faceWith(v), who(v, `${v.occupation}, at the ${v.place}`));
-  }));
-  $("suggest").hidden = !list.length;
-  $("target").ariaExpanded = String(list.length > 0);
-  setActive(-1);
-}
-
-function pickTarget(v) {
-  $("target").value = v.name;
-  showSuggestions([]);
-  if ($("to-sheet").open) $("to-sheet").close();
-  $("text").focus();
-  setComposer();
-}
-
-$("target").addEventListener("input", () => {
-  setComposer();
-  const found = matches($("target").value);
-  const exact = found.length === 1 && found[0].name.toLowerCase() === $("target").value.trim().toLowerCase();
-  showSuggestions(exact ? [] : found.slice(0, 8));
-});
-$("target").addEventListener("keydown", (ev) => {
-  const open = suggestions.length > 0;
-  if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
-    if (!open) return showSuggestions(matches($("target").value).slice(0, 8));
-    ev.preventDefault();
-    const n = suggestions.length;
-    const step = ev.key === "ArrowDown" ? 1 : -1;
-    setActive(active < 0 ? (step > 0 ? 0 : n - 1) : (active + step + n) % n);
-  } else if (ev.key === "Enter" && open && active >= 0) {
-    ev.preventDefault();
-    pickTarget(suggestions[active]);
-  } else if (ev.key === "Escape" && open) {
-    ev.preventDefault();
-    showSuggestions([]);
-  }
-});
-$("target").addEventListener("blur", () => showSuggestions([]));
-// On a phone the name search is a sheet behind the To chip; a name chosen there goes on to the words.
-$("to-pick").addEventListener("click", () => {
-  $("to-sheet").showModal();
-  $("target").select();
-});
-$("to-clear").addEventListener("click", () => {
-  $("target").value = "";
-  setComposer();
-  $("to-pick").focus();
-});
-$("to-sheet").addEventListener("close", () => {
-  showSuggestions([]);
-  setComposer();
-  if ($("target").value.trim()) $("text").focus();
-});
 
 const PHASES = ["morning", "afternoon", "evening", "night"];
 let clockAt = null;
@@ -1758,69 +1259,6 @@ function askForm(id, name) {
   return [form, status];
 }
 
-$("whisper").addEventListener("submit", async (ev) => {
-  ev.preventDefault();
-  const name = $("target").value.trim();
-  const text = $("text").value.trim();
-  if (!name || !text) return setStatus("Pick a villager and write what to whisper.", true);
-  const match = villagers.find((v) => v.name.toLowerCase() === name.toLowerCase());
-  const button = ev.submitter || $("whisper").querySelector(".primary");
-  const reply = talkingWith(name);
-  button.disabled = true;
-  setStatus("Whispering…");
-  const { ok, error } = await post("/api/whisper", match ? { villager_id: match.id, text } : { name, text });
-  button.disabled = over;
-  if (!ok) return setStatus(error, true);
-  $("text").value = "";
-  draftChanged();
-  recalled = -1;
-  const who = match ? match.name : name;
-  setStatus(reply ? `Said to ${who}.` : `Whispered to ${who}. If it touches what they care about, they'll pass it on.`);
-});
-
-// ArrowUp and ArrowDown in the whisper box step through what you have said, newest first.
-let recalled = -1;
-// While the player types, the villagers they are talking with wait; told at most once every few seconds.
-const TYPING_EVERY_MS = 5000;
-let typedAt = 0;
-function typed() {
-  if (Date.now() - typedAt < TYPING_EVERY_MS) return;
-  typedAt = Date.now();
-  fetch("/api/typing", { method: "POST" }).catch(() => {});
-}
-$("text").addEventListener("input", () => { recalled = -1; draftChanged(); typed(); });
-
-// After a pause in writing, mark villagers whose hints match the draft; a reply to an older draft is dropped.
-let draftTimer = 0;
-let draftAsk = 0;
-function draftChanged() {
-  clearTimeout(draftTimer);
-  const request = ++draftAsk;
-  const text = $("text").value.trim();
-  if (text.length < DRAFT_MIN) return setDrafted([]);
-  draftTimer = setTimeout(async () => {
-    const res = await fetch(`/api/hints?text=${encodeURIComponent(text)}`).catch(() => null);
-    const body = res && res.ok ? await res.json().catch(() => null) : null;
-    if (request === draftAsk) setDrafted(body && Array.isArray(body.ids) ? body.ids : []);
-  }, DRAFT_WAIT);
-}
-
-function setDrafted(ids) {
-  if (ids.length === drafted.size && ids.every((id) => drafted.has(id))) return;
-  drafted = new Set(ids);
-  refreshVillagers();
-}
-$("text").addEventListener("keydown", (ev) => {
-  if (ev.key !== "ArrowUp" && ev.key !== "ArrowDown") return;
-  const said = [...spoken.values()].filter((s) => s.speaker === "you").map((s) => s.text).reverse();
-  const next = recalled + (ev.key === "ArrowUp" ? 1 : -1);
-  if (next < -1 || next >= said.length) return;
-  ev.preventDefault();
-  recalled = next;
-  $("text").value = next === -1 ? "" : said[next];
-  draftChanged();
-});
-
 // On a phone the two columns are tabs; the choice is remembered.
 const TABS = ["hear", "village"];
 function setTab(name) {
@@ -1850,9 +1288,6 @@ if (TABS.includes(storedTab)) setTab(storedTab);
 // The columns are tab panels only while they are tabs, so a wide screen keeps its landmarks.
 const PANELS = { hear: "hear-panel", village: "town" };
 function setPanels() {
-  for (const sheet of document.querySelectorAll("dialog[open]")) sheet.close();
-  if (phone.matches) $("to-body").append($("target"), $("suggest"));
-  else $("to-label").after($("target"), $("suggest"));
   for (const [t, id] of Object.entries(PANELS)) {
     if (phone.matches) {
       $(id).setAttribute("role", "tabpanel");
@@ -1862,9 +1297,6 @@ function setPanels() {
       $(id).removeAttribute("aria-labelledby");
     }
   }
-  // A phone's conversation is a sheet that leaves the whisper box usable, so it is a dialog but not a modal one.
-  if (phone.matches) $("chat").setAttribute("role", "dialog");
-  else $("chat").removeAttribute("role");
 }
 phone.addEventListener("change", () => {
   setPanels();
@@ -1881,25 +1313,15 @@ function setConn(state, text) {
 function reset() {
   feed.replaceChildren();
   closeCard();
-  spoken.clear();
   faces.clear();
-  dock.clear();
-  saidTo.clear();
-  openChat(null);
-  setComposer();
+  notes = {};
   $("where").textContent = "";
   here = null;
   listenUntil = null;
-  lastTarget = null;
   lastId = 0;
-  draftAsk++;
-  drafted = new Set();
   rover = null;
   over = false;
   $("gameover").hidden = true;
-  $("whisper").classList.remove("over");
-  for (const node of $("whisper").elements) node.disabled = resting;
-  $("text").placeholder = "the miller waters his flour";
   setStatus("");
 }
 
@@ -1910,9 +1332,7 @@ async function loadState() {
   const state = await res.json();
   if (boot !== null && state.boot !== boot) reset();
   boot = state.boot;
-  talkHold = state.talk_hold_seconds;
   places = state.places;
-  notes = state.notes;
   $("usage").textContent = state.usage.summary;
   if (state.game.summary) showGameOver(state.game.summary, false);
   setClock(state.time);
@@ -1920,9 +1340,6 @@ async function loadState() {
   feed.setAttribute("aria-live", "off");
   const stick = feed.children.length === 0 || nearBottom();
   addEvents(state.events, false);
-  const open = [...dock.values()].pop();
-  if (open && !$("target").value.trim()) $("target").value = open.name;
-  setComposer();
   if (stick) feed.scrollTop = feed.scrollHeight;
   setTimeout(() => feed.setAttribute("aria-live", "polite"));
   setHere(state.place);

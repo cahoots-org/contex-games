@@ -11,13 +11,10 @@ from sleuth.config import Config
 from sleuth.contex_client import ContexClient
 from sleuth.decide import Decision
 from sleuth.engine import Engine
-from sleuth.feed import Feed
 from sleuth.lineage import Ids, Lineage
-from sleuth.mind import Mind, mind_project, said_project
+from sleuth.mind import Mind
 from sleuth.models import Utterance, Villager
-from sleuth.player import Player
-from sleuth.suspicion import Suspicion
-from sleuth.tests.helpers import PID, FakeEngine, StubBaselines, stub_player
+from sleuth.tests.helpers import StubBaselines, stub_player
 from sleuth.town import Town
 
 URL = os.environ.get("SLEUTH_CONTEX_URL")
@@ -174,43 +171,3 @@ async def test_query_since_excludes_older_items():
         assert recent[0].similarity is not None
 
 
-async def test_direct_check_hits_only_the_need_it_clears():
-    bakery, physics = "anything about my bakery", "quantum chromodynamics lecture"
-    async with ContexClient(URL) as client:
-        config = Config(contex_url=URL, session=f"test-{uuid.uuid4().hex[:8]}")
-        town = Town()
-        town.add(Villager("v1", "Ann", "baker", "kind", "none", [physics, bakery], {}), "cafe")
-        town.add(Villager("v2", "Bo", "scholar", "dry", "none", [physics], {}), "cafe")
-        engine = FakeEngine(Suspicion(config, town), client, StubBaselines(0.99, **{bakery: 0.5}))
-
-        async def deliver(utterance, listener_ids):
-            for vid in listener_ids:
-                await client.publish(mind_project(config.session, vid), f"utt:{utterance.id}", utterance.to_data())
-
-        engine.deliver = deliver
-        lineage = Lineage()
-        player = Player(engine, town, lineage, Ids(), Feed(lineage, town, out=None), config, player_id=PID)
-        assert await player.whisper_to("v1", "the oven at the bakery is cold") is None
-        assert await player.whisper_to("v2", "the oven at the bakery is cold") is None
-        player.close()
-    (vid, match), = engine.direct
-    assert (vid, match.data_key) == ("v1", "utt:w-1") and match.similarity >= 0.5
-    states = {(e.data["whisper_id"], e.data["state"]) for e in player.feed.recent if e.kind == "whisper_status"}
-    assert {("w-1", "heard"), ("w-2", "brushed_off")} <= states
-
-
-async def test_a_spoken_line_is_found_in_the_said_project_by_a_paraphrase(capsys):
-    async with ContexClient(URL) as client:
-        config = Config(contex_url=URL, session=f"test-{uuid.uuid4().hex[:8]}")
-        said = Utterance("u-1", "v1", "Ada", "cafe", "the well water has gone bad and folks are getting sick", None)
-        pid = said_project(config.session, "v1")
-        await client.publish(pid, "said:u-1", said.to_data())
-        found = []
-        for _ in range(20):
-            found = await client.query(pid, "you told me the water in the well is spoiled", top_k=3, threshold=0)
-            if found:
-                break
-            await asyncio.sleep(0.5)
-        with capsys.disabled():
-            print(f"said similarity {found[0].similarity:.3f} vs floor {config.said_floor}")
-        assert found[0].similarity >= config.said_floor

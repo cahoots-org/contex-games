@@ -14,12 +14,11 @@ from fastapi.testclient import TestClient
 from sleuth.case import Crime
 from sleuth.cases import CaseFile, Cases
 from sleuth.config import Config
-from sleuth.contex_client import Match
 from sleuth.feed import Feed
 from sleuth.game import Game, Summary
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Villager
-from sleuth.player import MAX_WHISPER_CHARS, Player
+from sleuth.player import Player
 from sleuth.players import RUN_OUT_LOCKOUT_SECONDS, Players, new_player_id
 from sleuth.suspicion import HEAT_LINES, Suspicion
 from sleuth.town import PLACES, Town
@@ -43,18 +42,6 @@ def receive(ws, timeout=5.0):
     return got[0]
 
 
-class FakeEngine(helpers.FakeEngine):
-    """Shows deliveries in the feed; every whisper lands."""
-
-    def __init__(self, feed, suspicion):
-        super().__init__(suspicion)
-        self.feed = feed
-
-    async def deliver(self, utterance, listener_ids):
-        self.feed.on_delivery(utterance, listener_ids)
-        self.contex.default = [Match(f"utt:{utterance.id}", {}, 0.9)]
-
-
 @pytest.fixture
 def game(monkeypatch):
     monkeypatch.setattr(web, "USAGE_POLL_SECONDS", 0.05)
@@ -64,7 +51,7 @@ def game(monkeypatch):
     feed = Feed(lineage, town, out=None)
     config = Config()
     suspicion, game = Suspicion(config, town), Game()
-    engine = FakeEngine(feed, suspicion)
+    engine = helpers.FakeEngine(suspicion)
     players = Players()
 
     def join(owner):
@@ -77,7 +64,7 @@ def game(monkeypatch):
     cases = Cases(config, town, None, random.Random(1), Ids())
     app = create_app(
         players=players, join=join, town=town, feed=feed, usage=usage, port=PORT,
-        suspicion=suspicion, game=game, hints=engine.hints, cases=cases,
+        suspicion=suspicion, game=game, cases=cases,
     )
     with TestClient(app, base_url=BASE) as client:
         client.get("/")
@@ -106,7 +93,6 @@ def test_state_lists_villagers_and_replay(game):
     assert state["place"] == "cafe"
     assert (state["time"]["day"], state["time"]["phase"]) == (1, "morning")
     assert 0 <= state["time"]["fraction"] < 0.25 and state["time"]["day_seconds"] > 0
-    assert state["talk_hold_seconds"] == game.player.config.talk_hold_seconds
     assert "NEED" not in game.client.get("/api/state").text
 
 
@@ -138,34 +124,6 @@ def test_inspect_shows_no_household_for_a_villager_without_one(game):
     assert game.client.get("/api/villagers/v2").json()["household"] == []
 
 
-def test_state_and_card_carry_notes_without_needs_or_numbers(game):
-    game.feed.on_whisper_status("w-1", "v1", "Marta Hale", "brushed_off", hint="The well keeps me up.")
-    game.feed.on_whisper_status("w-2", "v2", "Bert Cole", "took_the_bait", told=3)
-    notes = game.client.get("/api/state").json()["notes"]
-    assert notes == {
-        "v1": {"status": "brushed_off", "hints": ["The well keeps me up."], "passed": []},
-        "v2": {"status": "took_the_bait", "hints": [], "passed": []},
-    }
-    card = game.client.get("/api/villagers/v2")
-    assert card.json()["note"] == {"status": "took_the_bait", "hints": [], "passed": []}
-    assert "NEED" not in card.text and "3" not in json.dumps(notes)
-
-
-def test_hints_endpoint_marks_villagers_by_earned_hints(game):
-    contex = game.engine.contex
-    game.client.portal.call(game.engine.hints.add, game.player.id, "v1", "The vines worry me.")
-    contex.results["the vines"] = [Match("hint:1", {"id": "v1", "text": "x"}, 0.9)]
-    assert game.client.get("/api/hints", params={"text": "the vines"}).json() == {"ids": ["v1"]}
-    assert len(contex.queries) == 1
-    assert game.client.get("/api/hints", params={"text": "x" * (MAX_WHISPER_CHARS + 1)}).json() == {"ids": []}
-    game.join("o-2")
-    as_owner(game.client, "o-2")
-    assert game.client.get("/api/hints", params={"text": "the vines"}).json() == {"ids": []}
-    assert len(contex.queries) == 1
-    game.client.cookies.clear()
-    assert game.client.get("/api/hints", params={"text": "the vines"}).status_code == 401
-
-
 def test_page_is_served(game):
     response = game.client.get("/")
     assert response.status_code == 200 and "Sleuth" in response.text
@@ -185,20 +143,7 @@ def test_a_body_too_deeply_nested_to_parse_is_a_bad_request(game, monkeypatch):
         raise RecursionError
 
     monkeypatch.setattr(web.json, "loads", too_deep)
-    assert game.client.post("/api/whisper", content=b"[" * 8000).status_code == 400
-
-
-def test_whisper_validation_errors_come_back_as_messages(game):
-    post = game.client.post
-    assert post("/api/whisper", json={"name": "Zed", "text": "hi"}).json() == {"error": "No one in town is called Zed."}
-    too_long = post("/api/whisper", json={"villager_id": "v1", "text": "x" * (MAX_WHISPER_CHARS + 1)})
-    assert too_long.status_code == 400 and "500" in too_long.json()["error"]
-    assert post("/api/whisper", content=b"not json").status_code == 400
-    assert post("/api/whisper", json=["text"]).status_code == 400
-    assert post("/api/whisper", json={"name": 3, "text": "hi"}).status_code == 400
-    assert post("/api/whisper", content=b"x" * 10000).status_code == 413
-    game.town.remove("v2")
-    assert post("/api/whisper", json={"villager_id": "v2", "text": "hi"}).json() == {"error": "Bert Cole has left town."}
+    assert game.client.post("/api/walk", content=b"[" * 8000).status_code == 400
 
 
 def test_walk_moves_the_player_and_reports_problems(game):
@@ -210,14 +155,6 @@ def test_walk_moves_the_player_and_reports_problems(game):
     bad = post("/api/walk", content=b"nope")
     assert bad.status_code == 400 and bad.json() == {"error": web.BAD_WALK}
     assert post("/api/walk", content=b"x" * 10000).status_code == 413
-
-
-def test_typing_is_acknowledged(game):
-    assert game.client.post("/api/typing").json() == {"ok": True}
-
-
-def test_page_tells_the_game_while_the_player_types(game):
-    assert "/api/typing" in game.client.get("/").text
 
 
 def test_listen_starts_and_a_second_is_refused(game):
@@ -258,12 +195,11 @@ def test_loading_the_page_wakes_no_one_but_an_open_socket_does(game):
         assert eventually(game.players.any_playing)
 
 
-def test_websocket_receives_the_whisper(game):
+def test_websocket_receives_the_walk(game):
     with game.client.websocket_connect(WS) as ws:
-        response = game.client.post("/api/whisper", json={"villager_id": "v1", "text": "the well is cursed"})
-        assert response.json() == {"ok": True}
+        assert game.client.post("/api/walk", json={"place": "library"}).json() == {"ok": True}
         event = receive(ws)
-    assert (event["kind"], event["target"], event["text"]) == ("whisper", "Marta Hale", "the well is cursed")
+    assert (event["kind"], event["place"]) == ("place", "library")
 
 
 def test_villager_moves_reach_the_websocket(game):
@@ -281,11 +217,11 @@ def test_other_hosts_are_refused(game, host):
 
 def test_cross_origin_writes_are_refused(game):
     post = game.client.post
-    body = {"villager_id": "v1", "text": "hi"}
-    assert post("/api/whisper", json=body, headers={"origin": "http://evil.example"}).status_code == 403
-    assert post("/api/whisper", json=body, headers={"origin": f"http://localhost:{PORT}"}).status_code == 403
-    assert post("/api/whisper", json=body, headers={"origin": BASE}).status_code == 200
-    assert post("/api/whisper", json=body, headers={"origin": "null"}).status_code == 403
+    body = {"place": "library"}
+    assert post("/api/walk", json=body, headers={"origin": "http://evil.example"}).status_code == 403
+    assert post("/api/walk", json=body, headers={"origin": f"http://localhost:{PORT}"}).status_code == 403
+    assert post("/api/walk", json=body, headers={"origin": BASE}).status_code == 200
+    assert post("/api/walk", json=body, headers={"origin": "null"}).status_code == 403
     for headers in ({"origin": "http://evil.example"}, {"origin": "null"}, {"host": "evil.example:8765"}):
         with pytest.raises(WebSocketDisconnect):
             with game.client.websocket_connect(WS, headers=headers) as ws:
@@ -305,14 +241,6 @@ def test_closed_tab_is_dropped(game):
     while game.app.state.clients and time.monotonic() < deadline:
         time.sleep(0.01)
     assert not game.app.state.clients
-
-
-def test_whisper_by_id_picks_the_right_namesake(game):
-    game.town.add(Villager("v3", "Bert Cole", "baker", "shy", "none", [], {}), "cafe")
-    assert game.client.post("/api/whisper", json={"name": "Bert Cole", "text": "hi"}).status_code == 400
-    assert game.client.post("/api/whisper", json={"villager_id": "v3", "text": "hi"}).json() == {"ok": True}
-    whisper, = [e for e in game.feed.recent if e.kind == "whisper"]
-    assert whisper.data["target_id"] == "v3"
 
 
 def test_usage_is_in_state_and_reaches_the_websocket(game):
@@ -338,15 +266,6 @@ def test_each_session_sees_only_its_own_cost(game):
     assert event == {"kind": "usage", "usage": {"summary": "Your rumors have cost about $3.00 so far", "cost": 3.0}}
     as_owner(game.client, a.owner)
     assert game.client.get("/api/state").json()["usage"]["summary"] == "Your rumors have cost about $3.00 so far"
-
-
-def test_brush_off_hint_reaches_the_websocket(game):
-    hint = "Leave off, my willow bark won't gather itself."
-    with game.client.websocket_connect(WS) as ws:
-        game.feed.on_whisper_status("w-1", "v1", "Marta Hale", "brushed_off", hint=hint)
-        event = receive(ws)
-    assert (event["kind"], event["state"], event["hint"]) == ("whisper_status", "brushed_off", hint)
-    assert "NEED" not in str(event)
 
 
 LOSS = Summary("lost", ["Marta Hale heard it from you directly."])
@@ -398,62 +317,10 @@ def test_nothing_reaches_the_page_after_the_game_is_over(game):
     assert game.client.get("/api/state").json()["events"][-1]["kind"] == "gameover"
 
 
-def test_whisper_after_game_over_is_refused(game):
+def test_walking_after_game_over_is_refused(game):
     game.player.end(LOSS)
-    response = game.client.post("/api/whisper", json={"villager_id": "v1", "text": "hi"})
+    response = game.client.post("/api/walk", json={"place": "library"})
     assert (response.status_code, response.json()) == (400, {"error": "The game is over."})
-
-
-def test_a_refused_whisper_is_an_error_with_the_sentence_and_nothing_else(game):
-    game.suspicion.bump("v1", game.player.id, game.config.refuse_threshold, "whispered to them directly")
-    with game.client.websocket_connect(WS) as ws:
-        response = game.client.post("/api/whisper", json={"villager_id": "v1", "text": "hi"})
-        event = receive(ws)
-    assert (response.status_code, response.json()) == (409, {"error": "Marta Hale turns away from you."})
-    assert (event["kind"], event["name"], event["line"]) == ("refusal", "Marta Hale", None)
-
-
-SUSPICION_KEYS = ("susp", "score", "level", "evidence", "amount", "heat", "game", "summary", "reasons", "label")
-
-
-def walk(value, key=""):
-    """Yield (key, value) for every leaf, keyed by the nearest dict key."""
-    if isinstance(value, dict):
-        for k, v in value.items():
-            yield from walk(v, k)
-    elif isinstance(value, list):
-        for v in value:
-            yield from walk(v, key)
-    else:
-        yield key, value
-
-
-def test_no_api_response_contains_a_suspicion_number_or_villager_id_for_suspects(game):
-    scores = {"v1": 0.73, "v2": 0.21}
-    for vid, amount in scores.items():
-        game.suspicion.bump(vid, game.player.id, amount, "heard the newcomer named")
-    responses = []
-    with game.client.websocket_connect(WS) as ws:
-        responses.append(game.client.post("/api/whisper", json={"villager_id": "v2", "text": "the well is cursed"}).json())
-        responses.append(game.client.post("/api/whisper", json={"villager_id": "v1", "text": "the mill is cursed"}).json())
-        game.feed.on_warning("v2", "Bert Cole", "v1", "Marta Hale", game.player.id)
-        game.feed.on_heat(game.suspicion.label(game.player.id), player=game.player.id)
-        game.player.end(Summary("lost", game.suspicion.reasons(game.player.id)))
-        events = [receive(ws) for _ in range(8)]
-    kinds = ["whisper", "place", "whisper_status", "whisper_status", "refusal", "warning", "heat", "gameover"]
-    assert [e["kind"] for e in events] == kinds
-    assert events[-1]["reasons"][:2] == ["Marta Hale grew wary of the rumors going around.", "Bert Cole grew wary of the rumors going around."]
-    responses += [game.client.get("/api/state").json(), *(game.client.get(f"/api/villagers/{v}").json() for v in scores)]
-    responses += [game.client.post("/api/whisper", json={"villager_id": "v1", "text": "hi"}).json(), *events]
-    raw = {str(game.suspicion.score(v, game.player.id)) for v in scores} | {str(a) for a in scores.values()}
-    raw |= {str(game.suspicion.level(game.player.id)), str(game.config.refuse_threshold)}
-    for response in responses:
-        text = re.sub(r'"at": [0-9.e+-]+', '', json.dumps(response))
-        assert not any(r in text for r in raw), text
-        for key, value in walk(response):
-            if any(word in key for word in SUSPICION_KEYS):
-                assert not isinstance(value, int | float) or isinstance(value, bool), (key, value)
-                assert value not in scores, (key, value)
 
 
 def test_first_visit_sets_an_owner_cookie(game):
@@ -466,13 +333,13 @@ def test_first_visit_sets_an_owner_cookie(game):
 
 def test_two_sessions_play_as_two_players(game):
     a = game.client.cookies[web.COOKIE]
-    game.client.post("/api/whisper", json={"villager_id": "v1", "text": "the well is cursed"})
+    game.client.post("/api/walk", json={"place": "library"})
     game.client.cookies.clear()
     b = game.client.get("/").cookies[web.COOKIE]
     state = game.client.get("/api/state")
     body = state.json()
     assert a != b and a not in state.text
-    assert "rumors" not in body and body["notes"] == {} and not [e for e in body["events"] if e["kind"] == "whisper"]
+    assert body["place"] == "cafe" and not [e for e in body["events"] if e["kind"] == "place"]
 
 
 def test_a_players_socket_gets_none_of_another_players_events(game):
@@ -481,15 +348,15 @@ def test_a_players_socket_gets_none_of_another_players_events(game):
     b = game.players.live(game.client.get("/").cookies[web.COOKIE])
     with game.client.websocket_connect(WS) as ws:
         as_owner(game.client, a)
-        assert game.client.post("/api/whisper", json={"villager_id": "v1", "text": "the well is cursed"}).json() == {"ok": True}
+        assert game.client.post("/api/walk", json={"place": "library"}).json() == {"ok": True}
         game.feed.say("ping", player=b.id)
         assert receive(ws)["text"] == "ping"
 
 
 def test_two_tabs_of_one_player_both_get_its_events(game):
     with game.client.websocket_connect(WS) as ws1, game.client.websocket_connect(WS) as ws2:
-        game.client.post("/api/whisper", json={"villager_id": "v1", "text": "the well is cursed"})
-        assert receive(ws1)["kind"] == receive(ws2)["kind"] == "whisper"
+        game.client.post("/api/walk", json={"place": "library"})
+        assert receive(ws1)["kind"] == receive(ws2)["kind"] == "place"
 
 
 def test_an_unknown_cookie_asks_for_a_reload(game):
@@ -497,7 +364,7 @@ def test_an_unknown_cookie_asks_for_a_reload(game):
     response = game.client.get("/api/state")
     assert (response.status_code, response.json()) == (401, {"error": web.RELOAD})
     assert game.client.get("/api/villagers/v1").status_code == 401
-    assert game.client.post("/api/whisper", json={"villager_id": "v1", "text": "hi"}).status_code == 401
+    assert game.client.post("/api/walk", json={"place": "library"}).status_code == 401
     with game.client.websocket_connect(WS) as ws:
         with pytest.raises(WebSocketDisconnect) as closed:
             ws.receive_json()
@@ -542,7 +409,7 @@ def test_villagers_carry_influence_words_and_no_weights(game):
 def test_the_feed_has_three_kinds_of_line(game):
     html = game.client.get("/").text
     rove = re.search(r"const ROVE = \"(.*)\";", html).group(1)
-    assert set(rove.split(", ")) == {".fold-more", ".fold-talk", ".chat-open"}
+    assert rove == ".fold-more"
     for needle in ('"loud"', '"speech"', '"quiet"'):
         assert needle in html
     for gone in ("moved by", "rails", "toggleThread", "cardScene", "innerHTML"):
@@ -582,42 +449,11 @@ def test_no_replace_children_call_can_render_null(game):
             assert "null" not in outside_brackets(items) or after.startswith(".filter(Boolean)"), items
 
 
-def test_the_panel_has_selection_sort_and_draft_marks(game):
+def test_the_panel_has_a_sort(game):
     html = game.client.get("/").text
-    for text in ('id="sort"', "By what you know", "By influence", "/api/hints", "this might interest them"):
+    for text in ('id="sort"', "By what you know", "By influence"):
         assert text in html
     assert "innerHTML" not in html
-
-
-def test_the_page_has_the_conversation_dock(game):
-    html = game.client.get("/").text
-    for needle in ('id="dock"', 'id="chat"', "continues", "Talking with"):
-        assert needle in html
-    assert 'setAttribute("aria-controls", "chat")' in html and "ariaControls" not in html
-    dock = re.search(r"const DOCK = \{(.*?)\};", html, re.S).group(1)
-    glyphs = dict(re.findall(r'(\w+): \["(.)"', dock))
-    assert glyphs.keys() == {"near_miss", "answered", "brushed_off", "busy"}
-    assert glyphs["answered"] == "↩" and len(set(glyphs.values())) == 4
-    for gone in ("const talks", "startTalk", "innerHTML"):
-        assert gone not in html
-    assert ".reply" not in re.search(r"const ROVE = (.*);", html).group(1)
-
-
-def test_a_reply_lives_in_the_dock_and_the_feed_gets_a_note(game):
-    html = game.client.get("/").text
-    reply = re.search(r"function dockReply\(e\) \{(.*?)\n\}", html, re.S).group(1)
-    # A reply that comes before its answered status opens the conversation rather than being lost.
-    assert 'dockEntry({ ...e, state: "answered", whisper_id: saidTo.get(e.villager_id) ?? e.conversation }).lines.push(' in reply
-    assert "`${e.name} answered you`" in reply and "openChat(e.villager_id)" in reply and 'line("quiet"' in reply
-    assert 'line("speech"' not in reply
-    assert re.search(r"\.chat \{ max-width: 4[0-4]rem;", html)
-
-
-def test_a_lean_in_lasts_the_talk_hold_not_the_part_of_day(game):
-    html = game.client.get("/").text
-    assert "closeThreads" not in html
-    assert "talkHold = state.talk_hold_seconds;" in html
-    assert "Date.now() - Math.max(t.at, typedAt) >= talkHold * 1000" in html
 
 
 def test_a_phone_gets_two_tabs(game):
@@ -635,12 +471,6 @@ def test_a_phone_gets_two_tabs(game):
     assert '<main id="hear-panel">' in html and 'aria-label="Villagers"' in html and "rumors-panel" not in html
 
 
-def test_a_villager_who_storms_off_leaves_the_dock_with_a_parting_line(game):
-    html = game.client.get("/").text
-    case = re.search(r'case "stormed_off":(.*?)case ', html, re.S).group(1)
-    assert "dockEnd(e.villager_id);" in case and 'line("speech"' in case and "${e.verb}" in case
-
-
 RESTING = "The village is resting for today. Come back after midnight UTC."
 
 
@@ -653,7 +483,6 @@ def test_while_resting_model_actions_are_refused_and_walking_is_not(game):
     spend_the_day(game)
     post = game.client.post
     for path, body in (
-        ("/api/whisper", {"villager_id": "v1", "text": "the well is cursed"}),
         ("/api/ask", {"villager_id": "v1", "topic": "the mill"}),
     ):
         refused = post(path, json=body)
@@ -761,7 +590,7 @@ def test_the_cookie_is_secure_over_https(game):
     assert "secure" in secure.headers["set-cookie"].lower()
 
 
-def test_a_pruned_run_leaves_no_notes_or_sent_snapshots(game, monkeypatch):
+def test_a_pruned_run_leaves_no_sent_snapshots(game, monkeypatch):
     now = [time.time()]
     monkeypatch.setattr(time, "time", lambda: now[0])
     visitor = TestClient(game.app, base_url=BASE)
@@ -769,11 +598,10 @@ def test_a_pruned_run_leaves_no_notes_or_sent_snapshots(game, monkeypatch):
     gone = game.players.live(visitor.cookies[web.COOKIE])
     visitor.get("/api/state")
     game.app.state.sent["usage"][gone.id] = {}
-    assert gone.id in game.app.state.notes
     now[0] += game.config.idle_after_seconds
     TestClient(game.app, base_url=BASE).get("/")
     assert game.players.get(gone.id) is None
-    assert gone.id not in game.app.state.notes and all(gone.id not in kind for kind in game.app.state.sent.values())
+    assert all(gone.id not in kind for kind in game.app.state.sent.values())
 
 
 def phone_css(html: str) -> str:
@@ -793,26 +621,10 @@ def test_a_phone_header_is_one_line_with_a_menu(game):
     assert "width: 44px; height: 44px;" in phone and ".conn { order: 3; margin-left: auto; font-size: 0; }" in phone
 
 
-def test_a_phone_whispers_from_one_row_with_a_recipient_chip(game):
-    html = game.client.get("/").text
-    assert 'id="to-pick" aria-haspopup="dialog" aria-controls="to-sheet">To…</button>' in html
-    assert 'id="to-clear" aria-label="Clear who to whisper to" hidden>✕</button>' in html
-    sheet = re.search(r'<dialog class="sheet" id="to-sheet"([^>]*)>', html).group(1)
-    assert 'aria-modal="true"' in sheet and 'aria-labelledby="to-sheet-title"' in sheet
-    assert '<form class="sheet-body" id="to-body" method="dialog">' in html
-    # The search moves into the sheet; the target logic stays the one the wide screen uses.
-    assert '$("to-body").append($("target"), $("suggest"))' in html
-    assert '$("to-pick").textContent = name ? `To ${name}` : "To…";' in html
-    assert 'if ($("to-sheet").open) $("to-sheet").close();' in html
-    assert '$("whisper").querySelector("button")' not in html
-    phone = phone_css(html)
-    assert ".composer form { flex-wrap: nowrap; }" in phone and "#to-label { display: none; }" in phone
-
-
 def test_a_phone_has_its_tabs_at_the_bottom(game):
     html = game.client.get("/").text
     bottom = html[html.index('<div class="bottom">'):html.index("<script>")]
-    assert bottom.index('id="dock"') < bottom.index('role="tablist"') < bottom.index('class="composer"')
+    assert bottom.index('role="tablist"') < bottom.index('class="composer"') and 'id="whisper"' not in bottom
     phone = phone_css(html)
     assert ".tabs { display: flex; border-bottom: 1px solid var(--rail); }" in phone
     assert "min-height: 44px; background: none; border: 0; border-top: 3px solid transparent;" in phone
@@ -834,18 +646,6 @@ def test_a_phone_lists_the_village_one_row_per_place(game):
     assert "grid-template-columns: 4rem minmax(0, 1fr) 3.25rem;" in phone
 
 
-def test_a_phone_opens_a_conversation_as_a_sheet_over_the_content(game):
-    html = game.client.get("/").text
-    assert 'id="chat-close" type="button" aria-label="Close the conversation">✕</button>' in html
-    # Not modal, since the whisper box below it stays in use; a dialog only on a phone.
-    assert '$("chat").setAttribute("role", "dialog")' in html and '<section class="chat" id="chat" aria-label="Conversation" tabindex="0" hidden>' in html
-    phone = phone_css(html)
-    assert "position: absolute; left: 0; right: 0; bottom: 100%; z-index: 4; max-width: none; max-height: 60dvh;" in phone
-    assert ".dock-face { display: flex; align-items: center;" in phone
-    calm = bracketed(html, html.index("{", html.index("@media (prefers-reduced-motion: reduce)")))
-    assert ".chat { animation: none; }" in calm
-
-
 def test_state_shows_the_case_without_its_culprit(game):
     assert game.client.get("/api/state").json()["case"] is None
     crime = Crime("case-1", "steal", "bike", "v2", "v1", "library", 1, "night", 1422, "rival",
@@ -860,3 +660,7 @@ def test_state_shows_the_case_without_its_culprit(game):
 def test_page_has_the_case_panel(game):
     page = game.client.get("/").text
     assert '<section class="case" id="case" hidden>' in page and "No open case" in page
+
+
+def test_whisper_endpoint_is_gone(game):
+    assert game.client.post("/api/whisper", json={"villager_id": "v1", "text": "hi"}).status_code in (404, 405)

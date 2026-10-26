@@ -25,12 +25,8 @@ class Config:
     judge_concurrency: int = 10
     turn_concurrency: int = 20
     top_k: int = 5
-    # How far before a whisper's publish its direct check looks, absorbing clock skew with Contex's database.
-    check_lookback_seconds: float = 5.0
     # How far above a need's ordinary-talk similarity a whisper must score to match it.
     match_margin: float = 0.015
-    # How similar a villager's earlier line must be to what the newcomer says to be remembered.
-    said_floor: float = 0.8
     # How similar a line the villager heard must be to what the newcomer says to be recalled.
     heard_floor: float = 0.84
     # How much more clearance each retelling hop needs before it wakes a listener.
@@ -41,12 +37,6 @@ class Config:
     share_clearance: float = 0.02
     # How long one Listen lasts.
     listen_seconds: float = 20.0
-    # How similar a draft must be to a hint line for the villager who gave it to be marked.
-    draft_floor: float = 0.82
-    # How many times a villager answers the newcomer in one conversation.
-    talk_turns: int = 3
-    # How long a villager stays put for a player at their place who has an open exchange with them and stopped talking and typing.
-    talk_hold_seconds: float = 60.0
     # Where villages and need baselines are kept; empty means the working directory.
     data_dir: str = ""
     # How often the running game is saved, so a restart picks up where it left off.

@@ -4,12 +4,11 @@ import random
 import pytest
 
 from sleuth.actions import (
-    ANSWER, CONFRONT, DENY, FOUND_GROUP, IGNORE, JOIN_GROUP, LEAVE_GROUP, MOVE,
-    PREACH, RETELL, SPEAK, WARN,
+    CONFRONT, DENY, FOUND_GROUP, IGNORE, JOIN_GROUP, LEAVE_GROUP, MOVE, PREACH, RETELL, SPEAK,
 )
 from sleuth.contex_client import Match
 from sleuth.decide import (
-    GOSSIP_LEVELS, KEEN_LEVELS, SUSPICION_LEVELS, Decision, TurnView, decide, warmth_words,
+    GOSSIP_LEVELS, Decision, TurnView, decide, warmth_words,
 )
 from sleuth.models import Group, Villager
 from sleuth.tests.helpers import StubJev
@@ -27,7 +26,6 @@ def view(**kw):
     base = dict(
         villager=villager(), place="cafe", present=[villager("v2", "Bo")],
         member_groups=[], visible_groups=[], new=[match("m1")], recent=[],
-        suspicion=0.0, warn_threshold=0.4, names_newcomer=[],
     )
     return TurnView(**{**base, **kw})
 
@@ -222,93 +220,6 @@ async def test_odds_and_drawn_action_are_logged_at_debug(caplog):
 
 
 @pytest.mark.asyncio
-async def test_score_question_only_when_a_line_names_the_newcomer():
-    jev = StubJev({"action": IGNORE}, scores={"suspicion": 2.0})
-    d = await decide(jev, view())
-    assert "suspicion" not in jev.questions
-    assert d.suspicion_strength is None
-    d = await decide(jev, view(names_newcomer=[match("m1")]))
-    question = jev.questions["suspicion"]
-    assert list(question.criteria) == SUSPICION_LEVELS == ["not at all", "a little", "quite a bit", "convinced"]
-    assert all(s in question.instructions for s in ("newcomer", "personality", "rumors going around"))
-    assert "hurtful" not in question.instructions
-    assert "sensational" not in question.instructions
-    assert d.action == IGNORE
-    assert d.suspicion_strength == pytest.approx(2 / 3)
-
-
-@pytest.mark.asyncio
-async def test_missing_suspicion_answer_leaves_strength_none():
-    rooted = view(names_newcomer=[match("m1")])
-    assert (await decide(StubJev({"action": IGNORE}), rooted)).suspicion_strength is None
-    assert (await decide(StubJev({"action": IGNORE}, scores={}), rooted)).suspicion_strength is None
-    assert (await decide(StubJev({"action": IGNORE}, scores={"suspicion": "high"}), rooted)).suspicion_strength is None
-    assert (await decide(StubJev({"action": IGNORE}, scores={"suspicion": 9.0}), rooted)).suspicion_strength == 1.0
-
-
-@pytest.mark.asyncio
-async def test_warn_offered_only_above_threshold_and_with_someone_present():
-    jev = StubJev({"action": IGNORE})
-    await decide(jev, view(suspicion=0.39))
-    assert WARN not in jev.questions["action"].criteria
-    await decide(jev, view(suspicion=0.4))
-    assert WARN in jev.questions["action"].criteria
-    await decide(jev, view(suspicion=0.9, present=[]))
-    assert WARN not in jev.questions["action"].criteria
-
-
-@pytest.mark.asyncio
-async def test_state_shows_suspicion_in_words_not_numbers():
-    jev = StubJev({"action": IGNORE})
-    for score, words in ((0.0, "none"), (0.2, "a little"), (0.5, "quite a bit"), (0.95, "convinced")):
-        await decide(jev, view(suspicion=score))
-        assert jev.state["suspicion_of_the_newcomer"] == words
-        assert str(score) not in str(jev.state)
-
-
-@pytest.mark.asyncio
-async def test_warn_maps_target_and_style():
-    jev = StubJev({"action": WARN, "villager_target": "v2", "style": "exaggerated"})
-    d = await decide(jev, view(suspicion=0.5))
-    assert d == Decision(WARN, match("m1"), "v2", "exaggerated")
-
-
-@pytest.mark.asyncio
-async def test_said_lines_reach_the_jev_state_at_most_three():
-    jev = StubJev({"action": IGNORE})
-    await decide(jev, view(said=[match(f"s{i}", f"line {i}") for i in range(5)]))
-    assert jev.state["things_i_said_recently"] == ["line 0", "line 1", "line 2"]
-
-
-@pytest.mark.asyncio
-async def test_heard_lines_reach_the_jev_state_at_most_three():
-    jev = StubJev({"action": IGNORE})
-    await decide(jev, view(heard=[match(f"h{i}", f"heard {i}") for i in range(5)]))
-    assert jev.state["things_i_heard_before"] == ["heard 0", "heard 1", "heard 2"]
-    await decide(jev, view())
-    assert "things_i_heard_before" not in jev.state
-
-
-@pytest.mark.asyncio
-async def test_no_said_lines_leave_the_key_out_of_the_state():
-    jev = StubJev({"action": IGNORE})
-    await decide(jev, view())
-    assert "things_i_said_recently" not in jev.state
-
-
-@pytest.mark.asyncio
-async def test_answer_offered_only_after_a_landed_newcomer_line():
-    jev = StubJev({"action": IGNORE})
-    await decide(jev, view())
-    assert ANSWER not in jev.questions["action"].criteria
-    line = match("utt:w-1", "A newcomer whispered to you: psst")
-    jev = StubJev({"action": ANSWER, "source": "m1", "style": "mock", "villager_target": "v2"})
-    decision = await decide(jev, view(new=[match("m1"), line], answerable=[line]))
-    assert ANSWER in jev.questions["action"].criteria
-    assert decision == Decision(ANSWER, line, None, None)
-
-
-@pytest.mark.asyncio
 async def test_warm_styles_are_offered_and_kept():
     jev = StubJev({"action": SPEAK, "style": "conspiratorial"})
     d = await decide(jev, view())
@@ -330,36 +241,6 @@ async def test_a_move_keeps_its_manner_for_sharing_on_arrival():
     jev = StubJev({"action": MOVE, "place_target": "bar", "style": "worried"})
     d = await decide(jev, view())
     assert (d.action, d.target, d.style) == (MOVE, "bar", "worried")
-
-
-@pytest.mark.asyncio
-async def test_keen_is_asked_only_when_requested_and_scaled():
-    jev = StubJev({"action": IGNORE}, scores={"keen": 2})
-    d = await decide(jev, view())
-    assert "keen" not in jev.questions and d.keen is None
-    d = await decide(jev, view(ask_keen=True))
-    assert list(jev.questions["keen"].criteria) == KEEN_LEVELS
-    assert d.keen == pytest.approx(2 / 3)
-
-
-@pytest.mark.asyncio
-async def test_a_held_villager_cannot_walk_off():
-    jev = StubJev({"action": IGNORE})
-    await decide(jev, view(held=True))
-    criteria = jev.questions["action"].criteria
-    assert MOVE not in criteria and IGNORE in criteria
-    await decide(jev, view())
-    assert MOVE in jev.questions["action"].criteria
-
-
-@pytest.mark.asyncio
-async def test_decide_state_says_how_taken():
-    jev = StubJev({"action": IGNORE})
-    await decide(jev, view())
-    assert "how taken they were with the newcomer's story" not in jev.state
-    await decide(jev, view(taken="eager"))
-    assert jev.state["how taken they were with the newcomer's story"] == "eager"
-
 
 
 @pytest.mark.asyncio

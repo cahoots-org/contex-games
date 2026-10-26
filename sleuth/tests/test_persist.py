@@ -15,7 +15,6 @@ from sleuth.actions import IGNORE
 from sleuth.case import Crime, Record
 from sleuth.cases import CaseFile, Cases
 from sleuth.config import Config
-from sleuth.contex_client import Match
 from sleuth.decide import Decision
 from sleuth.engine import Engine
 from sleuth.facts import Facts
@@ -33,7 +32,7 @@ from sleuth.web import create_app
 
 SESSION = "s1"
 NOW = 1_800_000_000.0
-WHISPER = "the miller waters his flour"
+SAID = "the miller waters his flour"
 RETELLING = "they say the miller waters his flour"
 VILLAGERS = [
     Villager("v1", "Marta Hale", "herbalist", "anxious", "none", ["bread"], {}),
@@ -71,7 +70,7 @@ def build(contex=None):
 async def api_state(g, owner):
     app = create_app(
         players=g.players, join=None, town=g.engine.town, feed=g.feed, usage=g.players.usage, port=8023,
-        suspicion=g.engine.suspicion, game=g.engine.game, hints=g.engine.hints,
+        suspicion=g.engine.suspicion, game=g.engine.game,
     )
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8023") as client:
@@ -82,23 +81,24 @@ async def api_state(g, owner):
 
 
 async def played(monkeypatch):
-    """A scripted game: a player whispers and a villager retells."""
+    """A scripted game: a player walks, a villager says something and another retells it."""
     monkeypatch.setattr(time, "time", lambda: NOW)
     monkeypatch.setattr(engine_mod, "decide", ignore)
-    contex = StubContex({
-        "bread": [Match("utt:w-1", {}, 0.9)],
-    })
-    g = build(contex)
+    g = build()
     for v in VILLAGERS:
         await g.engine.add_villager(v, "cafe")
     g.engine.town.found_group("v2", "Millers", "flour first")
     player = g.make("p-abc", "o-abc")
     g.players.add(player)
     player.connected()
-    assert await player.whisper_to("v1", WHISPER) is None
-    retold = Utterance(g.engine.ids.next("u"), "v1", "Marta Hale", "cafe", RETELLING, "w-1", "retold",
+    assert player.walk("bar") is None
+    said = Utterance(g.engine.ids.next("u"), "v2", "Bert Cole", "cafe", SAID, None, action="speak")
+    g.engine.lineage.record(said.id, None)
+    g.engine.facts.record(said)
+    await g.engine.deliver(said, ["v1"])
+    retold = Utterance(g.engine.ids.next("u"), "v1", "Marta Hale", "cafe", RETELLING, said.id, "retold",
                        depth=1, action="retell")
-    g.engine.lineage.record(retold.id, "w-1")
+    g.engine.lineage.record(retold.id, said.id)
     g.engine.facts.record(retold)
     await g.engine.deliver(retold, ["v2"])
     player.disconnected()
@@ -108,7 +108,7 @@ async def played(monkeypatch):
 
 def assert_next_ids_are_new(fresh, g, player):
     ids, skip = fresh.engine.ids, persist.ID_MARGIN
-    assert ids.next("w") == f"w-{1 + skip + 1}" and ids.next("u") == f"u-{1 + skip + 1}"
+    assert ids.next("u") == f"u-{2 + skip + 1}"
 
 
 @pytest.mark.asyncio
@@ -141,14 +141,11 @@ async def test_counters_resume_past_every_id_in_use_even_when_saved_counters_lag
     state["ids"] = {}
     state["feed"]["last_id"] = 0
     state["feed"]["closed"] = {"p-old": 999}
-    state["hints"]["last_key"] = 7
 
     fresh = build()
     assert restore_game(state, fresh.parts, fresh.make)
     assert_next_ids_are_new(fresh, g, player)
     assert fresh.feed.say("next").id == 1000
-    await fresh.engine.hints.add("p-abc", "v1", "line")
-    assert fresh.engine.contex.published[-1][1] == f"hint:{7 + persist.ID_MARGIN + 1}"
 
 
 def test_a_save_is_written_whole_or_not_at_all(tmp_path, monkeypatch):
@@ -203,7 +200,7 @@ async def test_a_save_that_fails_to_restore_leaves_the_game_fresh(monkeypatch, t
     assert "could not be restored" in caplog.text
     assert not os.path.exists(path) and os.path.exists(f"{path}.bad-{int(NOW)}")
     assert fresh.players.get(player.id) is None and not fresh.feed.recent
-    assert fresh.engine.ids.next("w") == "w-1"
+    assert fresh.engine.ids.next("u") == "u-1"
     assert [v.id for v in fresh.engine.town.villagers] == [v.id for v in VILLAGERS]
 
 

@@ -1,42 +1,26 @@
 import pytest
 
 from sleuth.actions import (
-    ALIBI, ANSWER, BLAME, FOUND_GROUP, MOVE, PREACH, RETELL, SPEAK, WARN,
+    ALIBI, BLAME, FOUND_GROUP, MOVE, PREACH, RETELL, SPEAK,
 )
-from sleuth.config import Config
 from sleuth.contex_client import Match
 from sleuth.decide import Decision
 from sleuth.effects import act
 from sleuth.facts import Facts
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
-from sleuth.tests.helpers import PID, StubClient
-from sleuth.town import NEWCOMER, Town
-from sleuth.writer import Writer
+from sleuth.tests.helpers import PID
+from sleuth.town import Town
 
 
 class StubWriter:
     def __init__(self):
         self.say_calls = []
         self.group_calls = []
-        self.warn_calls = []
-        self.reply_calls = []
-        self.reply_moods = []
-        self.names_newcomer = []
 
-    async def say(self, villager, decision, source_text, audience, names_newcomer=False):
+    async def say(self, villager, decision, source_text, audience):
         self.say_calls.append((decision.action, source_text, audience))
-        self.names_newcomer.append(names_newcomer)
         return "words"
-
-    async def warn(self, villager, target):
-        self.warn_calls.append((villager.id, target.id))
-        return "Mind the newcomer."
-
-    async def reply(self, villager, newcomer_line, said, heard=(), known=(), mood=""):
-        self.reply_calls.append((villager.id, newcomer_line, said, heard))
-        self.reply_moods.append(mood)
-        return "Aye, I heard that too."
 
     async def describe_group(self, villager, inspiration):
         self.group_calls.append(list(inspiration))
@@ -48,8 +32,6 @@ class RecordingHub:
         self.delivered = []
         self.addressed = []
         self.groups = []
-        self.suspects = []
-        self.replies = []
         self.facts = {}
         self.covers = []
 
@@ -59,15 +41,9 @@ class RecordingHub:
     def mark_cover(self, vid, uid):
         self.covers.append((vid, uid))
 
-    async def reply(self, utterance):
-        self.replies.append(utterance)
-
     async def deliver(self, utterance, listener_ids, addressed=False):
         self.delivered.append((utterance, listener_ids))
         self.addressed.append(addressed)
-
-    def suspect(self, vid, player, amount, reason, uid=None):
-        self.suspects.append((vid, player, amount, reason, uid))
 
     async def publish_group(self, group):
         self.groups.append(group)
@@ -191,34 +167,6 @@ async def test_a_move_shares_nothing_without_luck_news_or_company():
 
 
 @pytest.mark.asyncio
-async def test_warn_is_addressed_to_the_target_only():
-    s = Setup()
-    await s.act("v1", Decision(WARN, source(), "v2", "faithful"), about=PID)
-    assert s.writer.warn_calls == [("v1", "v2")]
-    assert s.writer.say_calls == []
-    utt, listeners = s.hub.delivered[0]
-    assert listeners == ["v2"]
-    assert s.hub.addressed == [True]
-    assert (utt.verb, utt.parent, utt.text) == ("warned", None, "Mind the newcomer.")
-    assert s.lineage.root(utt.id) == utt.id
-
-
-@pytest.mark.asyncio
-async def test_warn_raises_the_targets_suspicion():
-    s = Setup()
-    await s.act("v1", Decision(WARN, None, "v2", None), about=PID)
-    utt, _ = s.hub.delivered[0]
-    assert s.hub.suspects == [("v2", PID, 0.5 * Config().suspicion_hear_max, "was warned about the newcomer", utt.id)]
-
-    def broken(*args):
-        raise RuntimeError("suspicion down")
-
-    s.hub.suspect = broken
-    await s.act("v1", Decision(WARN, None, "v2", None), about=PID)
-    assert len(s.hub.delivered) == 2
-
-
-@pytest.mark.asyncio
 async def test_act_records_depth_audience_action_style():
     s = Setup()
     s.facts.record(Utterance("u-0", "v3", "Cy", "cafe", "Bert stole bread", None, depth=2))
@@ -231,125 +179,16 @@ async def test_act_records_depth_audience_action_style():
     s.hub.deliver = deliver
     await s.act("v1", Decision(RETELL, source("u-0"), "v2", "faithful"))
     await s.act("v1", Decision(SPEAK, source("u-unknown"), None, "angry"))
-    await s.act("v1", Decision(WARN, source("u-0"), "v2", None), about=PID)
     await s.act("v1", Decision(FOUND_GROUP, source("u-0"), None, None))
-    got = [(u.depth, u.audience, u.action, u.style, u.names_newcomer) for u, _ in s.hub.delivered]
-    assert got == [
-        (3, "one", RETELL, "faithful", False),
-        (0, "room", SPEAK, "angry", False),
-        (0, "one", WARN, None, True),
-        (3, "room", FOUND_GROUP, None, False),
-    ]
-    assert recorded_first == [True] * 4
+    got = [(u.depth, u.audience, u.action, u.style) for u, _ in s.hub.delivered]
+    assert got == [(3, "one", RETELL, "faithful"), (0, "room", SPEAK, "angry"), (3, "room", FOUND_GROUP, None)]
+    assert recorded_first == [True] * 3
 
 
 def test_payload_unchanged():
     u = Utterance("u-1", "v1", "Bert", "cafe", "hi", None, depth=4, names_newcomer=True,
                   audience="room", action=SPEAK, style="sly")
     assert u.to_data() == {"id": "u-1", "text": "Bert said: hi"}
-
-
-WHISPER = "A newcomer whispered to you: Bert stole bread"
-
-
-def whispered(s, uid="w-1"):
-    """A player whisper recorded the way the player records one."""
-    s.lineage.record(uid, None, player=PID)
-    s.facts.record(Utterance(uid, NEWCOMER, "A newcomer", "cafe", "Bert stole bread", None, "whispered to you"))
-    return Match(f"utt:{uid}", {"id": uid, "text": WHISPER})
-
-
-@pytest.mark.asyncio
-async def test_non_faithful_retelling_drops_the_newcomer():
-    s = Setup()
-    client = StubClient("Bert's a thief, mark me.")
-    s.writer = Writer(client, "haiku-test")
-    await s.act("v1", Decision(RETELL, whispered(s), "v2", "exaggerated"))
-    utterance, _ = s.hub.delivered[0]
-    assert utterance.names_newcomer is False
-    prompt = client.messages.calls[0]["system"] + client.messages.calls[0]["messages"][0]["content"]
-    assert "Bert stole bread" in prompt
-    assert "newcomer whispered" not in prompt
-    assert "who started" in prompt
-
-
-@pytest.mark.asyncio
-async def test_faithful_retelling_of_a_whisper_names_the_newcomer():
-    s = Setup()
-    client = StubClient("The newcomer says Bert stole bread.", "Ada heard it from the newcomer.")
-    s.writer = Writer(client, "haiku-test")
-    await s.act("v1", Decision(RETELL, whispered(s), "v2", "faithful"))
-    first, _ = s.hub.delivered[0]
-    assert first.names_newcomer is True
-    assert WHISPER in client.messages.calls[0]["messages"][0]["content"]
-    retold = Match(f"utt:{first.id}", {"id": first.id, "text": "Bert said: words"})
-    await s.act("v2", Decision(SPEAK, retold, None, "faithful"))
-    assert s.hub.delivered[1][0].names_newcomer is True
-
-
-@pytest.mark.asyncio
-async def test_a_carried_whisper_names_the_newcomer_only_when_the_move_chose_faithful():
-    s = Setup()
-    s.town.move("v2", "bar")
-    await s.act("v1", Decision(MOVE, whispered(s), "bar", None), share_chance=1.0)
-    s.town.move("v2", "gym")
-    await s.act("v1", Decision(MOVE, whispered(s), "gym", "faithful"), share_chance=1.0)
-    assert [u.names_newcomer for u, _ in s.hub.delivered] == [False, True]
-
-
-@pytest.mark.asyncio
-async def test_shift_blame_drops_the_newcomer():
-    s = Setup()
-    await s.act("v1", Decision(RETELL, whispered(s), "v2", "shift_blame"))
-    await s.act("v1", Decision(SPEAK, whispered(s, "w-2"), None, "shift_blame"))
-    assert [u.names_newcomer for u, _ in s.hub.delivered] == [False, False]
-    assert s.writer.names_newcomer == [False, False]
-
-
-@pytest.mark.asyncio
-async def test_answer_emits_a_reply_and_records_it():
-    s = Setup()
-    s.lineage.record("w-1", None, player=PID)
-    whisper = Match("utt:w-1", {"id": "w-1", "text": "A newcomer whispered to you: psst"})
-    await s.act(
-        "v1", Decision(ANSWER, whisper, None, None),
-        said=["Bert said: the well is fine"], heard=["Cy said: the well is dry"],
-    )
-    assert s.writer.reply_calls == [
-        ("v1", whisper.data["text"], ["Bert said: the well is fine"], ["Cy said: the well is dry"]),
-    ]
-    assert s.hub.delivered == [] and s.writer.say_calls == []
-    assert s.writer.reply_moods == [""]
-    utt, = s.hub.replies
-    assert (utt.speaker, utt.parent, utt.text, utt.verb) == ("v1", "w-1", "Aye, I heard that too.", "answered")
-    assert s.lineage.root(utt.id) == "w-1"
-    fact = s.facts.get(utt.id)
-    assert (fact.action, fact.audience, fact.depth, fact.names_newcomer) == (ANSWER, "one", 0, False)
-
-
-@pytest.mark.asyncio
-async def test_a_warning_is_about_the_player_in_front():
-    s = Setup()
-    await s.act("v1", Decision(WARN, None, "v2", None), about="p-a")
-    assert s.hub.suspects[0][:2] == ("v2", "p-a") and s.hub.delivered[0][0].about == "p-a"
-
-
-@pytest.mark.asyncio
-async def test_a_retold_warning_stays_about_its_player():
-    s = Setup()
-    await s.act("v1", Decision(WARN, None, "v2", None), about="p-a")
-    warning, _ = s.hub.delivered[0]
-    await s.act("v2", Decision(RETELL, Match("k", {"id": warning.id, "text": warning.text}), "v3", "faithful"))
-    assert s.hub.delivered[1][0].about == "p-a"
-
-
-@pytest.mark.asyncio
-async def test_answer_carries_the_mood_to_the_reply():
-    s = Setup()
-    s.lineage.record("w-1", None, player=PID)
-    whisper = Match("utt:w-1", {"id": "w-1", "text": "A newcomer whispered to you: psst"})
-    await s.act("v1", Decision(ANSWER, whisper, None, None), mood="curious")
-    assert s.writer.reply_moods == ["curious"]
 
 
 @pytest.mark.asyncio

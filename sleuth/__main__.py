@@ -1,4 +1,4 @@
-"""Play Sleuth: python -m sleuth [--web]"""
+"""Play Sleuth in the browser: python -m sleuth"""
 
 import argparse
 import asyncio
@@ -15,17 +15,16 @@ from dotenv import load_dotenv
 
 from sleuth.calibration import Baselines
 from sleuth.cases import Cases
-from sleuth.cli import repl, until_over
 from sleuth.config import Config
 from sleuth.contex_client import ContexClient
 from sleuth.engine import Engine
 from sleuth.facts import Facts
-from sleuth.feed import Feed, terminal
+from sleuth.feed import Feed
 from sleuth.game import Game
 from sleuth.lineage import Ids, Lineage
 from sleuth.persist import components, resume_game, save_every, save_quietly, set_aside, state_path, stop
 from sleuth.player import Player
-from sleuth.players import LOCAL_OWNER, Players, new_player_id
+from sleuth.players import Players, new_player_id
 from sleuth.routine import Routine
 from sleuth.town import PUBLIC_PLACES, Town
 from sleuth.town_gen import SeedMismatch, load_or_generate, world_path
@@ -34,7 +33,7 @@ from sleuth.web import create_app
 from sleuth.writer import Writer
 
 
-async def play(web: bool) -> None:
+async def play() -> None:
     config = Config.from_env()
     rng = random.Random()
     usage = Usage(config)
@@ -101,29 +100,18 @@ async def play(web: bool) -> None:
                 for sig in (signal.SIGTERM, signal.SIGINT):
                     loop.add_signal_handler(sig, stop, save, main_task)
             await engine.run()
-            if web:
-                host, port = config.address()
-                app = create_app(
-                    players=players, join=join, town=town, feed=feed, usage=usage, port=port,
-                    suspicion=engine.suspicion, game=game, hints=engine.hints, host=host,
-                    cases=engine.cases,
-                )
-                server = uvicorn.Server(uvicorn.Config(
-                    app, host=host, port=port, log_level="warning", timeout_graceful_shutdown=1,
-                    # Behind a TLS proxy such as Railway's, the forwarded scheme says the page was served over https.
-                    proxy_headers=True, forwarded_allow_ips="*",
-                ))
-                print(f"Sleuth is running at http://{host}:{port} (Ctrl-C to stop)")
-                await server.serve()
-            else:
-                player = join(LOCAL_OWNER)
-                # The terminal stays open for as long as the game runs.
-                player.connected()
-                show = terminal(print)
-                for event in feed.replay(player.id):
-                    show(event)
-                feed.sinks.append(feed.view(player.id, show))
-                await until_over(repl(player, town, feed, usage), player)
+            host, port = config.address()
+            app = create_app(
+                players=players, join=join, town=town, feed=feed, usage=usage, port=port,
+                suspicion=engine.suspicion, game=game, host=host, cases=engine.cases,
+            )
+            server = uvicorn.Server(uvicorn.Config(
+                app, host=host, port=port, log_level="warning", timeout_graceful_shutdown=1,
+                # Behind a TLS proxy such as Railway's, the forwarded scheme says the page was served over https.
+                proxy_headers=True, forwarded_allow_ips="*",
+            ))
+            print(f"Sleuth is running at http://{host}:{port} (Ctrl-C to stop)")
+            await server.serve()
         finally:
             print(usage.summary())
             if saving is not None:
@@ -136,20 +124,19 @@ async def play(web: bool) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m sleuth")
-    parser.add_argument("--web", action="store_true", help="play in the browser instead of the terminal")
-    args = parser.parse_args()
+    # The game is web only; --web is still accepted so older launch commands keep working.
+    parser.add_argument("--web", action="store_true", help=argparse.SUPPRESS)
+    parser.parse_args()
     load_dotenv()
     logging.basicConfig(level=logging.WARNING)
     logging.getLogger("sleuth.engine").setLevel(logging.INFO)
     sys.stdout.reconfigure(line_buffering=True)
     try:
-        asyncio.run(play(args.web))
+        asyncio.run(play())
     except SeedMismatch as e:
         sys.exit(str(e))
     except (KeyboardInterrupt, asyncio.CancelledError):
         pass
-    # A thread blocked on stdin would stall interpreter exit.
-    os._exit(0)
 
 
 main()

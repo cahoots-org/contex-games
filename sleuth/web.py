@@ -17,14 +17,12 @@ from starlette.websockets import WebSocketClose
 from sleuth.cases import Cases, case_json
 from sleuth.feed import RESTING, Event, Feed
 from sleuth.game import Game
-from sleuth.hints import Hints
-from sleuth.notes import Notes
-from sleuth.player import MAX_WHISPER_CHARS, Player, Refusal
+from sleuth.player import Player, Refusal
 from sleuth.players import RUN_OUT_LOCKOUT_SECONDS, Players, new_owner_id
 from sleuth.suspicion import HEAT_LINES, Suspicion, influence
 from sleuth.town import PLACES, Town
 from sleuth.traits import describe
-from sleuth.usage import Usage, charging
+from sleuth.usage import Usage
 
 log = logging.getLogger(__name__)
 
@@ -34,7 +32,6 @@ VILLAGER_POLL_SECONDS = 1.0
 USAGE_POLL_SECONDS = 3.0
 # How many messages a tab may fall behind before its socket is closed.
 CLIENT_QUEUE = 256
-BAD_WHISPER = 'Send JSON like {"name": "Marta", "text": "the miller waters his flour"}.'
 BAD_WALK = 'Send JSON like {"place": "bar"}.'
 BAD_ASK = 'Send JSON like {"villager_id": "v1", "topic": "the gym"}.'
 COOKIE = "sleuth_player"
@@ -126,18 +123,12 @@ async def _payload(request: Request, bad: str, too_long: str) -> dict | JSONResp
 
 def create_app(
     *, players: Players, join: Callable[[str], Player], town: Town, feed: Feed, usage: Usage, port: int,
-    suspicion: Suspicion, game: Game, hints: Hints, host: str = "127.0.0.1", cases: Cases | None = None,
+    suspicion: Suspicion, game: Game, host: str = "127.0.0.1", cases: Cases | None = None,
 ) -> FastAPI:
     clients: dict[asyncio.Queue, str] = {}
     boot = uuid.uuid4().hex
-    notes: dict[str, Notes] = {}
     # What each player's tabs were last sent, by kind.
     sent: dict[str, dict[str, object]] = {"usage": {}}
-
-    def notes_of(player: Player) -> Notes:
-        if player.id not in notes:
-            notes[player.id] = Notes(feed, player.id)
-        return notes[player.id]
 
     def broadcast(message: dict) -> None:
         for queue in list(clients):
@@ -197,7 +188,6 @@ def create_app(
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(Guard, port=port, host=host)
     app.state.clients = clients
-    app.state.notes = notes
     app.state.sent = sent
 
     @app.get("/healthz")
@@ -216,7 +206,7 @@ def create_app(
             join(owner)
             # Joining may have pruned runs; forget what their tabs were shown.
             kept = {p.id for p in players}
-            for shown in (notes, *sent.values()):
+            for shown in sent.values():
                 for pid in shown.keys() - kept:
                     del shown[pid]
         response = FileResponse(PAGE)
@@ -235,10 +225,8 @@ def create_app(
             "places": list(PLACES),
             "place": player.place,
             "time": game.clock(),
-            "talk_hold_seconds": player.config.talk_hold_seconds,
             "villagers": villagers(town),
             "events": [event_json(e) for e in feed.replay(player.id)],
-            "notes": notes_of(player).all(),
             "usage": usage.to_json(player.id),
             "heat": (label := suspicion.label(player.id)),
             "heat_line": HEAT_LINES[label],
@@ -249,7 +237,7 @@ def create_app(
 
     @app.get("/api/villagers/{vid}")
     async def inspect(vid: str, request: Request):
-        if (player := player_for(players, request.cookies.get(COOKIE))) is None:
+        if player_for(players, request.cookies.get(COOKIE)) is None:
             return _error(401, RELOAD)
         if vid not in town:
             name = town.name_of(vid)
@@ -274,34 +262,7 @@ def create_app(
                 for o in town.villagers if v.household and o.household == v.household and o.id != v.id
             ],
             "influence": influence(v),
-            "note": notes_of(player).get(v.id),
         }
-
-    @app.get("/api/hints")
-    async def hinted(request: Request, text: str = ""):
-        """The ids of villagers whose hints to the player are close to the draft."""
-        if (player := player_for(players, request.cookies.get(COOKIE))) is None:
-            return _error(401, RELOAD)
-        if not text.strip() or len(text) > MAX_WHISPER_CHARS:
-            return {"ids": []}
-        with charging(player.id):
-            return {"ids": await hints.matching(player.id, text)}
-
-    @app.post("/api/whisper")
-    async def whisper(request: Request):
-        if (player := player_for(players, request.cookies.get(COOKIE))) is None:
-            return _error(401, RELOAD)
-        payload = await _payload(request, BAD_WHISPER, "That whisper is too long.")
-        if isinstance(payload, JSONResponse):
-            return payload
-        text, vid, name = payload.get("text"), payload.get("villager_id"), payload.get("name", "")
-        if not isinstance(text, str) or not isinstance(name, str) or not isinstance(vid, str | None):
-            return _error(400, BAD_WHISPER)
-        if usage.resting():
-            return _error(409, RESTING)
-        if problem := await (player.whisper_to(vid, text) if vid else player.whisper(name, text)):
-            return _error(409 if isinstance(problem, Refusal) else 400, problem)
-        return {"ok": True}
 
     @app.post("/api/walk")
     async def walk(request: Request):
@@ -331,13 +292,6 @@ def create_app(
             return _error(409, RESTING)
         if problem := await player.ask(vid, topic):
             return _error(409 if isinstance(problem, Refusal) else 400, problem)
-        return {"ok": True}
-
-    @app.post("/api/typing")
-    async def typing(request: Request):
-        if (player := player_for(players, request.cookies.get(COOKIE))) is None:
-            return _error(401, RELOAD)
-        player.typing()
         return {"ok": True}
 
     @app.post("/api/listen")

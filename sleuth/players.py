@@ -7,8 +7,6 @@ from collections.abc import Callable, Iterator
 from sleuth.player import Player
 from sleuth.usage import Usage
 
-# The one person playing in the terminal.
-LOCAL_OWNER = "local"
 # Real seconds a run-out player waits before a reload starts them over.
 RUN_OUT_LOCKOUT_SECONDS = 600
 

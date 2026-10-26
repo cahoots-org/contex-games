@@ -1,683 +1,25 @@
 import json
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 
 import time
 from dataclasses import replace
-from datetime import datetime
 
 from sleuth.contex_client import Match
 from sleuth.game import Summary
 from sleuth.lineage import Ids
 from sleuth.models import Utterance, Villager
-from sleuth.actions import SPEAK, WARN
-from sleuth.player import ALREADY_LISTENING, GAME_OVER, MAX_WHISPER_CHARS, Player, Refusal, echoes
-from sleuth.mind import mind_project
-from sleuth.notes import Notes
+from sleuth.actions import SPEAK
+from sleuth.player import ALREADY_LISTENING, GAME_OVER, MAX_ASK_CHARS, Player, Refusal
 from sleuth.players import Players
 from sleuth.config import Config
-from sleuth.rapport import interest_words
-from sleuth.tests.helpers import PID, TIMEOUT, StubBaselines, StubClient, StubContex, wait_for
+from sleuth.tests.helpers import PID, StubClient, wait_for
 from sleuth.tests.helpers import make_player as make
 from sleuth.town import NEWCOMER
-from sleuth.usage import Usage, charged_to
+from sleuth.usage import Usage
 from sleuth.writer import Writer
-
-
-@pytest.mark.asyncio
-async def test_unknown_name_says_so_and_publishes_nothing():
-    player, _, _, engine, _ = make("Marta")
-    assert "Zed" in await player.whisper("Zed", "hello")
-    assert engine.delivered == []
-
-
-@pytest.mark.asyncio
-async def test_ambiguous_name_lists_candidates():
-    player, _, _, engine, _ = make("Bert Baker", "Bert Miller")
-    problem = await player.whisper("Bert", "hello")
-    assert engine.delivered == []
-    assert "Bert Baker" in problem and "Bert Miller" in problem
-
-
-@pytest.mark.asyncio
-async def test_departed_villager_message():
-    player, town, _, engine, _ = make("Marta")
-    town.remove("v1")
-    assert await player.whisper("Marta", "hello") == "Marta has left town."
-    assert engine.delivered == []
-
-
-@pytest.mark.asyncio
-async def test_empty_and_overlong_whisper_rejected():
-    player, _, _, engine, _ = make("Marta")
-    assert await player.whisper("", "hello")
-    assert await player.whisper("Marta", "   ")
-    assert await player.whisper("Marta", "x" * (MAX_WHISPER_CHARS + 1))
-    assert engine.delivered == []
-
-
-@pytest.mark.asyncio
-async def test_whisper_is_delivered_and_rooted_in_lineage():
-    player, _, _, engine, lineage = make("Marta")
-    assert await player.whisper("Marta", "the miller waters his flour") is None
-    (utterance, listeners), = engine.delivered
-    assert listeners == ["v1"]
-    assert (utterance.id, utterance.speaker, utterance.speaker_name) == ("w-1", NEWCOMER, "A newcomer")
-    assert (utterance.verb, utterance.place, utterance.parent) == ("whispered to you", "bar", None)
-    assert utterance.text == "the miller waters his flour"
-    assert lineage.is_player_rooted("w-1")
-    assert player.whispered_at is not None
-    player.close()
-
-
-@pytest.mark.asyncio
-async def test_failed_whisper_says_so_and_leaves_no_brush_off():
-    player, _, lines, engine, _ = make("Marta")
-
-    async def boom(utterance, listener_ids):
-        raise RuntimeError("contex down")
-
-    engine.deliver = boom
-    assert await player.whisper("Marta", "hello") == "The whisper didn't carry; try again."
-    await asyncio.sleep(0.2)
-    assert lines == []
-    assert player._tasks == set()
-    assert not [e for e in player.feed.recent if e.kind == "whisper_status"]
-    assert player.whispered_at is None
-
-
-@pytest.mark.asyncio
-async def test_whisper_to_reaches_one_of_two_namesakes():
-    player, _, _, engine, _ = make("Bert Cole", "Bert Cole")
-    assert (await player.whisper("Bert Cole", "hi")).startswith("Which Bert Cole?")
-    assert await player.whisper_to("v2", "hi") is None
-    (_, listeners), = engine.delivered
-    assert listeners == ["v2"]
-    assert await player.whisper_to("v9", "hi") == "No one in town has that id."
-    player.close()
-
-
-NEEDS = [
-    "I need someone to repair the water wheel before the spring thaw",
-    "My daughter wants to apprentice as a weaver in the city",
-    "The rats have gotten into my grain stores again",
-]
-
-
-class StubWriter:
-    def __init__(self, *lines, gate=None):
-        self.lines = list(lines)
-        self.concerns = []
-        self.moods = []
-        self.gate = gate
-        self.patience_gate = None
-
-    async def turn_away(self, villager):
-        line = self.lines.pop(0)
-        if isinstance(line, Exception):
-            raise line
-        return line
-
-    async def lose_patience(self, villager):
-        if self.patience_gate:
-            await self.patience_gate.wait()
-        return self.lines.pop(0)
-
-    async def go_on(self, villager, newcomer_line, mood=""):
-        self.moods.append(mood)
-        line = self.lines.pop(0)
-        if isinstance(line, Exception):
-            raise line
-        return line
-
-    async def brush_off(self, villager, concern, mood=""):
-        self.concerns.append(concern)
-        self.moods.append(mood)
-        if self.gate:
-            await self.gate.wait()
-        line = self.lines.pop(0)
-        if isinstance(line, Exception):
-            raise line
-        return line
-
-
-def make_hinting(writer):
-    player, town, lines, engine, lineage = make()
-    town.add(Villager("v1", "Aldwin Miller", "miller", "tired", "the smith", list(NEEDS), {}), "gym")
-    player.writer = writer
-    return player, lines
-
-
-async def brush_off_once(player, lines):
-    before = len(lines)
-    await player.whisper_to("v1", "the tide tables were misprinted")
-    for _ in range(100):
-        if len(lines) > before:
-            return lines[-1]
-        await asyncio.sleep(0.01)
-    return None
-
-
-@pytest.mark.asyncio
-async def test_misses_brush_off_with_unused_concerns_and_cycles():
-    writer = StubWriter("Wheel's groaning.", "Girl wants the city.", "Rats again.", "Wheel again.")
-    player, lines = make_hinting(writer)
-    player.config = replace(player.config, interest_brush_off=0.0)
-    for _ in range(4):
-        await brush_off_once(player, lines)
-    assert writer.concerns == [NEEDS[0], NEEDS[1], NEEDS[2], NEEDS[0]]
-    assert lines[0] == 'Aldwin Miller brushes you off: "Wheel\'s groaning."'
-    event = player.feed.recent[-1]
-    assert (event.kind, event.data["state"], event.data["hint"]) == ("whisper_status", "brushed_off", "Wheel again.")
-    assert not any(n in str(e.to_json()) for e in player.feed.recent for n in NEEDS)
-
-
-@pytest.mark.asyncio
-async def test_writer_failure_falls_back_to_a_plain_shrug():
-    player, lines = make_hinting(StubWriter(RuntimeError("haiku down")))
-    assert await brush_off_once(player, lines) == "Aldwin Miller shrugs it off."
-    assert player.feed.recent[-1].data["hint"] is None
-
-
-@pytest.mark.asyncio
-async def test_echoed_concern_is_retried_once_then_dropped():
-    echo = "Leave me be, someone to repair the water wheel is all I want."
-    writer = StubWriter(echo, "Fine, the wheel is creaking.")
-    player, lines = make_hinting(writer)
-    assert await brush_off_once(player, lines) == 'Aldwin Miller brushes you off: "Fine, the wheel is creaking."'
-    writer = StubWriter(echo, echo)
-    player, lines = make_hinting(writer)
-    assert await brush_off_once(player, lines) == "Aldwin Miller shrugs it off."
-    assert len(writer.concerns) == 2
-
-
-@pytest.mark.asyncio
-async def test_no_brush_off_is_written_once_the_game_is_over():
-    writer = StubWriter("Wheel's groaning.")
-    player, lines = make_hinting(writer)
-    await player.whisper_to("v1", "the tide tables were misprinted")
-    player.end(Summary("lost", []))
-    await asyncio.sleep(0.15)
-    assert writer.concerns == []
-
-
-def test_echoes_needs_four_consecutive_words():
-    assert echoes("The rats have gotten in, curse them", NEEDS[2])
-    assert not echoes("Rats in the grain, again", NEEDS[2])
-
-
-def suspect(player, vid="v1"):
-    player.engine.suspicion.bump(vid, PID, player.config.refuse_threshold, "test")
-
-
-@pytest.mark.asyncio
-async def test_whisper_raises_the_recipients_suspicion_even_when_it_shrugs():
-    player, _, lines, _, _ = make("Marta")
-    suspicion = player.engine.suspicion
-    await player.whisper("Marta", "hello")
-    assert suspicion.score("v1", PID) == pytest.approx(player.config.suspicion_whisper_bump)
-    for _ in range(100):
-        if lines:
-            break
-        await asyncio.sleep(0.01)
-    assert lines == ["Marta shrugs it off."]
-    assert suspicion.score("v1", PID) == pytest.approx(player.config.suspicion_whisper_bump)
-    assert suspicion.top_evidence(PID)[0].uid == "w-1"
-
-
-@pytest.mark.asyncio
-async def test_whisper_to_a_suspicious_villager_is_refused_and_not_delivered():
-    player, _, _, engine, _ = make("Marta")
-    suspect(player)
-    assert await player.whisper("Marta", "hello") == Refusal("Marta turns away from you.")
-    await asyncio.sleep(0.15)
-    assert engine.delivered == []
-    assert player._tasks == set()
-    assert [e.kind for e in player.feed.recent] == ["refusal"]
-
-
-@pytest.mark.asyncio
-async def test_refusal_bumps_suspicion_and_prints_a_line():
-    player, _, lines, _, _ = make("Marta")
-    player.writer = StubWriter("Not another word.")
-    suspect(player)
-    before = player.engine.suspicion.score("v1", PID)
-    await player.whisper("Marta", "hello")
-    assert lines == ['Marta turns away from you: "Not another word."']
-    after = player.engine.suspicion.score("v1", PID)
-    assert after == pytest.approx(min(1.0, before + player.config.suspicion_whisper_bump))
-    assert "tried to whisper again" in {e.reason for e in player.engine.suspicion._evidence}
-
-
-@pytest.mark.asyncio
-async def test_refusal_falls_back_without_a_line_when_haiku_fails():
-    player, _, lines, _, _ = make("Marta")
-    player.writer = StubWriter(RuntimeError("haiku down"))
-    suspect(player)
-    assert isinstance(await player.whisper("Marta", "hello"), Refusal)
-    assert lines == ["Marta turns away from you."]
-    assert player.feed.recent[-1].data["line"] is None
-    player.writer = None
-    assert isinstance(await player.whisper("Marta", "hello"), Refusal)
-    assert lines[-1] == "Marta turns away from you."
-
-
-@pytest.mark.asyncio
-async def test_refusal_event_carries_no_score():
-    player, _, _, _, _ = make("Marta", "Bert")
-    player.writer = StubWriter("Go away.")
-    suspect(player)
-    await player.whisper("Marta", "hello")
-    event = player.feed.recent[-1].to_json()
-    assert set(event) == {"id", "at", "kind", "name", "villager_id", "line"}
-    assert not any(isinstance(v, float) for k, v in event.items() if k != "at")
-    assert "Bert" not in str(event)
-
-
-@pytest.mark.asyncio
-async def test_failed_delivery_does_not_bump():
-    player, _, _, engine, _ = make("Marta")
-
-    async def boom(utterance, listener_ids):
-        raise RuntimeError("contex down")
-
-    engine.deliver = boom
-    assert await player.whisper("Marta", "hello")
-    assert player.engine.suspicion.score("v1", PID) == 0.0
-
-
-def statuses(player):
-    return [e.data for e in player.feed.recent if e.kind == "whisper_status"]
-
-
-def landing(similarity, key="utt:w-1"):
-    return [Match(key, {"id": key[4:]}, similarity)]
-
-
-@pytest.mark.asyncio
-async def test_miss_is_brushed_off_at_once_then_gets_its_hint():
-    gate = asyncio.Event()
-    player, lines = make_hinting(StubWriter("Wheel's groaning.", gate=gate))
-    assert await player.whisper_to("v1", "the tide tables were misprinted") is None
-    first = statuses(player)
-    assert [s["state"] for s in first] == ["checking", "brushed_off"]
-    assert "hint" not in first[1] and first[1]["whisper_id"] == "w-1"
-    assert lines == []
-    gate.set()
-    await wait_for(lambda: len(statuses(player)) == 3)
-    last = statuses(player)[-1]
-    assert (last["state"], last["whisper_id"], last["hint"]) == ("brushed_off", "w-1", "Wheel's groaning.")
-    assert lines == ['Aldwin Miller brushes you off: "Wheel\'s groaning."']
-    assert player.engine.direct == []
-
-
-@pytest.mark.asyncio
-async def test_hit_hands_the_whisper_to_the_engine_and_reports_heard():
-    player, _, lines, engine, _ = make("Marta")
-    player.town.get("v1").needs.append("bread")
-    engine.contex = StubContex({"bread": landing(0.8)})
-    assert await player.whisper_to("v1", "the oven is cold") is None
-    (vid, match), = engine.direct
-    assert (vid, match.data_key, match.similarity) == ("v1", "utt:w-1", 0.8)
-    assert match.data == engine.delivered[0][0].to_data()
-    assert [s["state"] for s in statuses(player)] == ["checking", "heard"]
-    assert "until" not in statuses(player)[-1]
-    assert lines == [] and player._tasks == set()
-    assert engine.recalls == []
-
-
-@pytest.mark.asyncio
-async def test_busy_villager_reports_until():
-    player, _, lines, engine, _ = make("Marta")
-    player.town.get("v1").needs.append("bread")
-    engine.contex = StubContex({"bread": landing(0.8)})
-    engine.free_at = time.time() + 20
-    await player.whisper_to("v1", "the oven is cold")
-    last = statuses(player)[-1]
-    assert (last["state"], last["until"]) == ("busy", engine.free_at)
-    assert lines == []
-
-
-@pytest.mark.asyncio
-async def test_check_error_reports_not_carried_and_leaves_no_pending():
-    player, _, lines, engine, _ = make("Marta")
-    player.town.get("v1").needs.append("bread")
-    engine.contex = StubContex(error=RuntimeError("contex down"))
-    assert await player.whisper_to("v1", "the oven is cold") == "The whisper didn't carry; try again."
-    await asyncio.sleep(0.05)
-    assert engine.direct == []
-    assert [s["state"] for s in statuses(player)] == ["checking", "not_carried"]
-    assert lines == [] and player._tasks == set()
-    assert player.engine.suspicion.score("v1", PID) == pytest.approx(player.config.suspicion_whisper_bump)
-
-
-@pytest.mark.asyncio
-async def test_check_uses_since_and_each_needs_threshold():
-    player, _, _, engine, _ = make("Marta")
-    player.town.get("v1").needs.extend(["bread", "flour"])
-    engine.baselines = StubBaselines(0.5, flour=0.99)
-    engine.contex = StubContex({
-        "bread": landing(None) + landing(0.95, "utt:other"),
-        "flour": landing(0.8),
-    })
-    before = time.time()
-    await player.whisper_to("v1", "the oven is cold")
-    assert engine.direct == []
-    assert statuses(player)[-1]["state"] == "brushed_off"
-    queries = engine.contex.queries
-    assert sorted(q for _, q, _ in queries) == ["bread", "flour"]
-    for project, _, kwargs in queries:
-        assert project == mind_project(player.config.session, "v1")
-        assert kwargs["top_k"] == player.config.top_k
-        lookback = player.config.check_lookback_seconds
-        assert before - lookback - 1 <= datetime.fromisoformat(kwargs["since"]).timestamp() <= time.time() - lookback
-    engine.baselines = StubBaselines(0.5, flour=0.75)
-    engine.contex.results["flour"] = landing(0.8, "utt:w-2")
-    await player.whisper_to("v1", "the oven is cold")
-    assert [(vid, m.data_key) for vid, m in engine.direct] == [("v1", "utt:w-2")]
-    player.close()
-
-
-@pytest.mark.asyncio
-async def test_check_looks_back_from_the_publish():
-    player, _, _, engine, _ = make("Marta")
-    player.town.get("v1").needs.append("bread")
-    published = []
-
-    async def deliver(utterance, listener_ids):
-        published.append(time.time())
-
-    engine.deliver = deliver
-    await player.whisper_to("v1", "the oven is cold")
-    (_, _, kwargs), = engine.contex.queries
-    since = datetime.fromisoformat(kwargs["since"]).timestamp()
-    assert since <= published[0] - player.config.check_lookback_seconds
-    player.close()
-
-
-@pytest.mark.asyncio
-async def test_hit_on_a_villager_who_just_left_reports_nothing_more():
-    player, _, lines, engine, _ = make("Marta")
-    player.town.get("v1").needs.append("bread")
-    engine.contex = StubContex({"bread": landing(0.8)})
-    engine.hear_directly = lambda vid, match: False
-    assert await player.whisper_to("v1", "the oven is cold") is None
-    assert [s["state"] for s in statuses(player)] == ["checking"]
-    assert lines == [] and player._tasks == set()
-
-
-@pytest.mark.asyncio
-async def test_a_failing_brush_off_still_prints_the_plain_shrug():
-    player, _, lines, _, _ = make("Marta")
-
-    async def broken(villager_id):
-        raise RuntimeError("unexpected")
-
-    player._brush_off = broken
-    await player.whisper_to("v1", "hello")
-    await wait_for(lambda: lines)
-    assert lines == ["Marta shrugs it off."]
-
-
-@pytest.mark.asyncio
-async def test_check_queries_each_need_at_its_threshold():
-    player, _, _, engine, _ = make("Marta")
-    player.town.get("v1").needs.extend(["bread", "flour"])
-    engine.baselines = StubBaselines(0.5, flour=0.9)
-    await player.whisper_to("v1", "the oven is cold")
-    assert {q: kwargs["threshold"] for _, q, kwargs in engine.contex.queries} == {
-        "bread": pytest.approx(0.49), "flour": pytest.approx(0.89),
-    }
-    player.close()
-
-
-@pytest.mark.asyncio
-async def test_direct_hit_carries_clearance():
-    player, _, _, engine, _ = make("Marta")
-    player.town.get("v1").needs.extend(["bread", "flour"])
-    engine.baselines = StubBaselines(0.5, flour=0.6)
-    engine.contex = StubContex({"bread": landing(0.7), "flour": landing(0.9)})
-    assert await player.whisper_to("v1", "the oven is cold") is None
-    (_, match), = engine.direct
-    assert match.similarity == 0.9
-    assert match.clearance == pytest.approx(0.3)
-    fact = engine.facts.get("w-1")
-    assert (fact.depth, fact.audience) == (0, "one")
-    player.close()
-
-
-@pytest.mark.asyncio
-async def test_place_follows_the_last_whisper():
-    player, town, lines, engine, _ = make("Marta", "Bert")
-    town.move("v2", "gym")
-    assert player.place == "cafe"
-    await player.whisper_to("v1", "psst")
-    await player.whisper_to("v1", "psst again")
-    await player.whisper_to("v2", "psst")
-    places = [e for e in player.feed.recent if e.kind == "place"]
-    assert (player.place, [e.data["place"] for e in places]) == ("gym", ["bar", "gym"])
-    assert all(e.line == "" for e in places) and not any("gym" in line for line in lines)
-
-
-@pytest.mark.asyncio
-async def test_place_stays_when_the_whisper_fails():
-    player, _, _, engine, _ = make("Marta")
-
-    async def fail(utterance, listener_ids):
-        raise RuntimeError("down")
-
-    engine.deliver = fail
-    await player.whisper_to("v1", "psst")
-    assert player.place == "cafe"
-
-
-@pytest.mark.asyncio
-async def test_a_refusal_ends_the_conversation():
-    player, _, _, engine, _ = make("Marta")
-    engine.conversations[("v1", PID)] = {"id": "w-0", "answered": ["w-0"]}
-    suspect(player)
-    assert isinstance(await player.whisper("Marta", "hello"), Refusal)
-    assert ("v1", PID) not in engine.conversations
-
-
-@pytest.mark.asyncio
-async def test_a_refusal_ends_only_that_players_conversation():
-    player, _, _, engine, _ = make("Marta")
-    engine.conversations[("v1", PID)] = {"id": "w-0", "answered": ["w-0"]}
-    engine.conversations[("v1", "p-b")] = {"id": "w-9", "answered": ["w-9"]}
-    suspect(player)
-    assert isinstance(await player.whisper("Marta", "hello"), Refusal)
-    assert ("v1", "p-b") in engine.conversations and ("v1", PID) not in engine.conversations
-
-
-def hinted_player(*lines):
-    """A player whose misses are brushed off with these lines."""
-    player, _ = make_hinting(StubWriter(*lines))
-    player.engine.baselines = StubBaselines(0.5)
-    return player
-
-
-async def miss(player):
-    await player.whisper_to("v1", "the tide tables were misprinted")
-    await wait_for(lambda: player._tasks == set())
-
-
-def conversations(player):
-    return [u.conversation for u, _ in player.engine.delivered]
-
-
-@pytest.mark.asyncio
-async def test_a_reply_lands_on_the_hinted_need_at_its_baseline():
-    player = hinted_player("Wheel's groaning.")
-    await miss(player)
-    player.engine.contex = StubContex({n: landing(0.49, "utt:w-2") for n in NEEDS})
-    await player.whisper_to("v1", "I could look at the wheel")
-    (vid, match), = player.engine.direct
-    assert (vid, match.data_key) == ("v1", "utt:w-2")
-
-
-@pytest.mark.asyncio
-async def test_the_same_score_misses_a_need_that_was_not_hinted():
-    player = hinted_player("Wheel's groaning.")
-    await miss(player)
-    player.engine.contex = StubContex({n: landing(0.49, "utt:w-2") for n in NEEDS[1:]})
-    await player.whisper_to("v1", "I could look at the wheel")
-    assert player.engine.direct == []
-
-
-@pytest.mark.asyncio
-async def test_a_thread_closes_after_a_quiet_talk_hold(monkeypatch):
-    now = [1000.0]
-    monkeypatch.setattr(time, "time", lambda: now[0])
-    player = hinted_player("Wheel's groaning.", "Girl wants the city.")
-    player.config = replace(player.config, talk_hold_seconds=60.0)
-    await miss(player)
-    now[0] += 61
-    await miss(player)
-    assert conversations(player) == [None, None]
-
-
-@pytest.mark.asyncio
-async def test_a_reply_raises_suspicion_like_any_whisper():
-    player = near_missing_player("Go on.", "Go on.")
-    await miss(player)
-    player.engine.contex = StubContex({NEEDS[0]: landing(0.495, "utt:w-2")})
-    await miss(player)
-    assert player.engine.suspicion.score("v1", PID) == pytest.approx(2 * player.config.suspicion_whisper_bump)
-
-
-def near_missing_player(*lines):
-    player = hinted_player(*lines)
-    player.engine.contex = StubContex({NEEDS[0]: landing(0.495)})
-    return player
-
-
-@pytest.mark.asyncio
-async def test_a_miss_says_whether_the_next_whisper_continues_it():
-    player = hinted_player("Wheel's groaning.", "Enough.")
-    await miss(player)
-    await miss(player)
-    assert [s.get("continues") for s in statuses(player) if s["state"] != "checking"] == [True, True, False]
-
-
-def interest(player, rumor="w-1"):
-    return player.engine.rapport.interest("v1", PID, rumor)
-
-
-@pytest.mark.asyncio
-async def test_interest_rises_on_hits_and_near_misses_and_falls_on_brush_offs():
-    config = Config()
-    hit = hinted_player()
-    hit.engine.contex = StubContex({NEEDS[0]: landing(0.8)})
-    await miss(hit)
-    assert interest(hit) == pytest.approx(config.interest_hit)
-    assert hit.engine.rapport.rapport("v1", PID) == pytest.approx(config.rapport_share * config.interest_hit)
-    halfway = near_missing_player("Go on.")
-    await miss(halfway)
-    assert interest(halfway) == pytest.approx((config.interest_near_min + config.interest_near_max) / 2)
-    at_bar = near_missing_player("Go on.")
-    at_bar.engine.contex = StubContex({NEEDS[0]: landing(0.49999)})
-    await miss(at_bar)
-    assert interest(at_bar) == pytest.approx(config.interest_near_max, abs=1e-3)
-    brushed = hinted_player("Wheel's groaning.")
-    await miss(brushed)
-    assert interest(brushed) == pytest.approx(config.interest_brush_off)
-
-
-@pytest.mark.asyncio
-async def test_lowered_bar_lands_a_near_miss_at_full_interest():
-    player = hinted_player("Wheel's groaning.")
-    await miss(player)
-    player.engine.rapport.move("v1", PID, "w-1", 2.0)
-    player.engine.contex = StubContex({NEEDS[1]: landing(0.495, "utt:w-2")})
-    await player.whisper_to("v1", "the weaver's guild wants girls")
-    (vid, match), = player.engine.direct
-    assert (vid, match.data_key) == ("v1", "utt:w-2")
-
-
-@pytest.mark.asyncio
-async def test_a_whisper_about_a_story_they_heard_lands_without_a_need_match():
-    player = hinted_player("Wheel's groaning.")
-    player.engine.heard = [Match("utt:u-3", {"id": "u-3", "text": "Bo said at the well: the miller waters his flour"}, 0.9)]
-    assert await player.whisper_to("v1", "the miller waters his flour") is None
-    assert player.engine.recalls == [("v1", "the miller waters his flour", "w-1")]
-    (vid, match), = player.engine.direct
-    assert (vid, match.data_key, match.clearance) == ("v1", "utt:w-1", 0.0)
-    assert match.data == player.engine.delivered[0][0].to_data()
-    assert [s["state"] for s in statuses(player)] == ["checking", "heard"]
-    assert player._tasks == set() and "v1" not in player._threads
-
-
-@pytest.mark.asyncio
-async def test_a_familiar_near_miss_lands_and_drops_the_thread():
-    player = near_missing_player()
-    player.engine.heard = [Match("utt:u-3", {"id": "u-3", "text": "Bo said: the wheel"}, 0.9)]
-    assert await player.whisper_to("v1", "the wheel looks tired") is None
-    assert [s["state"] for s in statuses(player)] == ["checking", "heard"]
-    assert len(player.engine.direct) == 1 and "v1" not in player._threads
-
-
-@pytest.mark.asyncio
-async def test_an_unfamiliar_miss_still_brushes_off():
-    player = hinted_player("Wheel's groaning.")
-    await miss(player)
-    assert player.engine.recalls == [("v1", "the tide tables were misprinted", "w-1")]
-    assert player.engine.direct == []
-    assert [s["state"] for s in statuses(player)] == ["checking", "brushed_off", "brushed_off"]
-
-
-@pytest.mark.asyncio
-async def test_a_whisper_is_recorded_under_its_player():
-    player, _, _, engine, lineage = make("Marta")
-    assert await player.whisper_to("v1", "the well is cursed") is None
-    assert lineage.player_of("w-1") == PID
-    assert engine.delivered[0][0].speaker == NEWCOMER
-    player.close()
-
-
-@pytest.mark.asyncio
-async def test_a_villager_turns_away_only_the_player_they_suspect():
-    player, town, _, engine, lineage = make("Marta")
-    other = Player(engine, town, lineage, player.ids, player.feed, player.config, player_id="p-b")
-    engine.suspicion.bump("v1", PID, player.config.refuse_threshold, "test")
-    assert isinstance(await player.whisper_to("v1", "hi"), Refusal)
-    assert await other.whisper_to("v1", "hi") is None
-
-
-@pytest.mark.asyncio
-async def test_a_whisper_check_and_brush_off_are_charged_to_the_whisperer():
-    usage = Usage(Config())
-    player, lines = make_hinting(Writer(StubClient("Leave off, the wheel won't mend itself."), "haiku", usage))
-    contex, checked = player.engine.contex, []
-
-    async def query(project_id, query, **kwargs):
-        checked.append(charged_to.get())
-        return []
-
-    contex.query = query
-    assert await brush_off_once(player, lines) == 'Aldwin Miller brushes you off: "Leave off, the wheel won\'t mend itself."'
-    assert checked and set(checked) == {PID}
-    assert usage.cost(PID) == pytest.approx(usage.cost()) and usage.cost() > 0
-    assert charged_to.get() is None
-
-
-@pytest.mark.asyncio
-async def test_a_settled_brush_off_line_goes_to_the_players_hints():
-    line = "Leave off, the wheel won't mend itself."
-    player, lines = make_hinting(Writer(StubClient(line), "haiku", Usage(Config())))
-    engine = player.engine
-    assert await brush_off_once(player, lines) == f'Aldwin Miller brushes you off: "{line}"'
-    await wait_for(lambda: engine.contex.published)
-    assert engine.contex.published == [(engine.hints.project(PID), "hint:1", {"id": "v1", "text": line})]
-
-
-@pytest.mark.asyncio
-async def test_a_plain_shrug_adds_no_hint():
-    player, lines = make_hinting(StubWriter(RuntimeError("haiku down")))
-    assert await brush_off_once(player, lines) == "Aldwin Miller shrugs it off."
-    await asyncio.sleep(0.05)
-    assert player.engine.contex.published == []
 
 
 def test_someone_is_playing_only_while_a_connected_player_is_not_over():
@@ -730,7 +72,7 @@ def test_a_run_plays_while_connected_and_for_idle_after_seconds_after_it_disconn
     assert not players.any_playing() and players.at(p.place) == []
 
 
-@pytest.mark.parametrize("act", [lambda p: p.typing(), lambda p: p.walk("library"), lambda p: p.touch()])
+@pytest.mark.parametrize("act", [lambda p: p.walk("library"), lambda p: p.touch()])
 def test_a_run_plays_for_idle_after_seconds_after_an_action(clock, act):
     players = Players()
     p = make("Ann")[0]
@@ -746,7 +88,7 @@ def test_a_new_run_prunes_only_stale_runs_that_never_played(clock):
     first = make("Ann")[0]
     players = Players()
     stale, played = (run_of(first, pid) for pid in ("p-stale", "p-played"))
-    played.typing()
+    played.touch()
     for p in (stale, played):
         players.add(p)
     clock[0] += first.config.idle_after_seconds
@@ -764,7 +106,6 @@ async def test_walk_moves_the_player_and_tells_only_them():
     assert player.place == "gym"
     last = player.feed.replay(PID)[-1]
     assert (last.kind, last.player, last.data["place"]) == ("place", PID, "gym")
-    assert engine.delivered == []
     assert all(engine.suspicion.score(v.id, PID) == 0 for v in town.find(""))
 
 
@@ -783,18 +124,15 @@ def square_line(uid, text, speaker="v1", place="cafe", action=SPEAK):
 
 @pytest.mark.asyncio
 async def test_listen_opens_with_the_last_five_lines_of_this_part_of_the_day(monkeypatch):
-    player, _, _, engine, lineage = make("Marta")
+    player, _, _, engine, _ = make("Marta")
     with monkeypatch.context() as m:
         m.setattr(time, "time", lambda: 1.0)
         engine.facts.record(square_line("u-0", "long ago"))
     for i in range(1, 7):
         engine.facts.record(square_line(f"u-{i}", f"line {i}"))
-    lineage.record("w-1", None, player=PID)
-    lineage.record("h-1", "w-1")
-    engine.facts.record(square_line("h-1", "my own rumor"))
     engine.facts.record(square_line("t-1", "tavern talk", place="bar"))
     engine.facts.record(square_line("n-1", "psst", speaker=NEWCOMER))
-    engine.facts.record(square_line("x-1", "beware", action=WARN))
+    engine.facts.record(square_line("x-1", "beware", action="warn"))
     assert player.listen() is None
     event = next(e for e in player.feed.replay(PID) if e.kind == "listen")
     assert event.player == PID and event.data["ended"] is False and event.data["place"] == "cafe"
@@ -870,11 +208,10 @@ async def test_ask_answers_from_what_the_villager_heard():
     client = StubClient("Tom told me so.")
     player.writer = Writer(client, "haiku-test")
     assert await player.ask("v1", "the mill") is None
-    assert engine.recalls == [("v1", "the mill", "")]
+    assert engine.recalls == [("v1", "the mill")]
     assert "Tom at the gym: the mill is haunted" in asked_user_text(client)
     [event] = [e for e in player.feed.recent if e.kind == "asked"]
     assert (event.player, event.data["line"]) == (PID, "Tom told me so.")
-    assert engine.delivered == []
 
 
 @pytest.mark.asyncio
@@ -897,8 +234,7 @@ async def test_ask_about_a_neighbour_tells_the_writer_who_they_are():
 async def test_ask_falls_back_to_a_plain_line_when_the_writer_says_nothing():
     player, _, _, engine, _ = asking("Marta")
     engine.heard = []
-    player.writer = StubWriter()
-    player.writer.answer = lambda *args: _blank()
+    player.writer = SimpleNamespace(answer=lambda *args: _blank())
     assert await player.ask("v1", "the mill") is None
     [event] = [e for e in player.feed.recent if e.kind == "asked"]
     assert event.data["line"] == "Marta hasn't heard anything about that."
@@ -921,8 +257,8 @@ async def test_ask_needs_the_villager_at_your_place():
 async def test_ask_checks_the_game_the_villager_and_the_topic():
     player, town, _, engine, _ = asking("Marta")
     assert await player.ask("v1", "  ") == "Ask about what? Try: the gym"
-    too_long = await player.ask("v1", "x" * (MAX_WHISPER_CHARS + 1))
-    assert too_long == f"Too long: a question is at most {MAX_WHISPER_CHARS} characters."
+    too_long = await player.ask("v1", "x" * (MAX_ASK_CHARS + 1))
+    assert too_long == f"Too long: a question is at most {MAX_ASK_CHARS} characters."
     assert await player.ask("v9", "the mill") == "No one in town has that id."
     town.remove("v1")
     assert await player.ask("v1", "the mill") == "Marta has left town."
@@ -955,36 +291,6 @@ async def test_a_villager_who_heard_nothing_says_so():
 
 
 @pytest.mark.asyncio
-async def test_lines_about_another_newcomer_are_never_told():
-    player, _, _, engine, lineage = asking("Marta")
-    lineage.record("w-9", None, player="p-2")
-    lineage.record("u-4", "w-9")
-    engine.facts.record(Utterance("u-4", "v2", "Tom", "gym", "the newcomer started it", "w-9", names_newcomer=True))
-    engine.facts.record(Utterance("u-5", "v2", "Tom", "gym", "watch that newcomer", None, "warned", action=WARN, about="p-2"))
-    engine.heard = [Match(f"utt:{uid}", {"id": uid}, 0.9) for uid in ("u-4", "u-5", "u-6")]
-    client = StubClient("Not a word.")
-    player.writer = Writer(client, "haiku-test")
-    await player.ask("v1", "the newcomer")
-    user = asked_user_text(client)
-    assert "nothing about it" in user and "Tom" not in user
-
-
-@pytest.mark.asyncio
-async def test_lines_about_the_asker_can_be_told():
-    player, _, _, engine, lineage = asking("Marta")
-    lineage.record("w-1", None, player=PID)
-    lineage.record("u-4", "w-1")
-    engine.facts.record(Utterance("u-4", "v2", "Tom", "gym", "the newcomer started it", "w-1", names_newcomer=True))
-    engine.facts.record(Utterance("u-5", "v2", "Tom", "gym", "watch that newcomer", None, "warned", action=WARN, about=PID))
-    engine.heard = [Match(f"utt:{uid}", {"id": uid}, 0.9) for uid in ("u-4", "u-5")]
-    client = StubClient("Not a word.")
-    player.writer = Writer(client, "haiku-test")
-    await player.ask("v1", "the newcomer")
-    user = asked_user_text(client)
-    assert "the newcomer started it" in user and "watch that newcomer" in user
-
-
-@pytest.mark.asyncio
 async def test_a_wary_villager_turns_the_question_away():
     player, _, _, engine, _ = asking("Marta")
     engine.suspicion.bump("v1", PID, 0.9, "whispered to them directly")
@@ -993,131 +299,6 @@ async def test_a_wary_villager_turns_the_question_away():
     assert [e.player for e in player.feed.recent if e.kind == "refusal"] == [PID, PID]
     assert engine.recalls == []
     assert engine.suspicion.score("v1", PID) == pytest.approx(0.9)
-
-
-@pytest.mark.asyncio
-async def test_the_answer_joins_notes_and_hints():
-    player, _, _, engine, _ = asking("Marta")
-    notes = Notes(player.feed, PID)
-    await player.ask("v1", "the mill")
-    line = "Marta hasn't heard anything about that."
-    assert notes.get("v1")["hints"] == [line]
-    assert (engine.hints.project(PID), "hint:1", {"id": "v1", "text": line}) in engine.contex.published
-
-
-async def missed_once():
-    """A player who just missed with v1 at the tavern, so their exchange is open; whispers alone never make v1 wary."""
-    player, *_ = make("Marta")
-    player.config = replace(player.config, warn_threshold=1.0)
-    await player.whisper_to("v1", "the tide tables were misprinted")
-    await wait_for(lambda: player._tasks == set())
-    return player
-
-
-@pytest.mark.asyncio
-async def test_a_villager_you_are_talking_with_is_held_where_you_both_stand():
-    player = await missed_once()
-    assert player.place == "bar" and player.holds("v1")
-    player.walk("gym")
-    assert not player.holds("v1")
-
-
-@pytest.mark.asyncio
-async def test_a_hold_lapses_once_you_say_nothing_new_for_talk_hold_seconds(monkeypatch):
-    now = [1000.0]
-    monkeypatch.setattr(time, "time", lambda: now[0])
-    player = await missed_once()
-    player.config = replace(player.config, talk_hold_seconds=60.0)
-    assert player.holds("v1")
-    now[0] += 61
-    assert not player.holds("v1")
-
-
-@pytest.mark.asyncio
-async def test_typing_keeps_the_hold_until_you_stop_for_talk_hold_seconds(monkeypatch):
-    now = [1000.0]
-    monkeypatch.setattr(time, "time", lambda: now[0])
-    player = await missed_once()
-    player.config = replace(player.config, talk_hold_seconds=60.0)
-    now[0] += 50
-    player.typing()
-    now[0] += 50
-    assert player.holds("v1")
-    now[0] += 11
-    assert not player.holds("v1")
-
-
-@pytest.mark.asyncio
-async def test_typing_holds_no_one_you_have_not_talked_with():
-    player, *_ = make("Marta")
-    player.typing()
-    assert not player.holds("v1")
-
-
-@pytest.mark.asyncio
-async def test_no_hold_without_an_open_exchange():
-    player = await missed_once()
-    await player.whisper_to("v1", "the tide tables were misprinted again")
-    await wait_for(lambda: player._tasks == set())
-    assert not player.holds("v1")
-
-
-@pytest.mark.asyncio
-async def test_annoyed_by_low_interest_or_suspicion():
-    player = await missed_once()
-    assert player.annoyed("v1")
-    player.engine.rapport.move("v1", PID, "w-1", 0.1)
-    assert not player.annoyed("v1")
-    player.engine.rapport.move("v1", PID, "w-1", -0.5)
-    player.part("v1")
-    assert not player.annoyed("v1")
-    player.engine.suspicion.bump("v1", PID, 0.3, "whispered to them directly")
-    player.config = replace(player.config, warn_threshold=0.3)
-    assert player.annoyed("v1")
-
-
-@pytest.mark.asyncio
-async def test_parting_drops_the_whole_exchange():
-    player = await missed_once()
-    player.engine.conversations[("v1", PID)] = {"id": "w-1", "answered": ["w-1"]}
-    player.part("v1")
-    assert player._exchange("v1") is None and not player.holds("v1")
-
-
-@pytest.mark.asyncio
-async def test_losing_patience_parts_at_once_and_says_the_parting_line_after():
-    player = hinted_player("Wheel's groaning.", "I've no time for this.")
-    await miss(player)
-    gate = player.writer.patience_gate = asyncio.Event()
-    await asyncio.wait_for(player.whisper_to("v1", "the tide tables were misprinted"), TIMEOUT)
-    assert player._exchange("v1") is None
-    assert [e for e in player.engine.suspicion._evidence if e.reason == "lost patience with you"]
-    assert not [e for e in player.feed.recent if e.kind == "stormed_off"]
-    gate.set()
-    await wait_for(lambda: [e for e in player.feed.recent if e.kind == "stormed_off"])
-
-
-@pytest.mark.asyncio
-async def test_a_lean_in_that_fails_keeps_the_greeting_for_the_next():
-    player = near_missing_player(RuntimeError("haiku down"), "Go on.", "Tell me more.")
-    player.engine.rapport.sour("v1", PID, 0.5)
-    for text in ("the wheel looks tired", "the wheel looks very tired", "the wheel looks worn out"):
-        await player.whisper_to("v1", text)
-        await wait_for(lambda: player._tasks == set())
-    assert ["Greet the newcomer" in m for m in player.writer.moods] == [True, True, False]
-
-
-@pytest.mark.asyncio
-async def test_first_line_of_a_rumor_greets_by_rapport():
-    player = near_missing_player("Go on.", "Tell me more.")
-    player.engine.rapport.sour("v1", PID, 0.5)
-    await player.whisper_to("v1", "the wheel looks tired")
-    await wait_for(lambda: player._tasks == set())
-    await player.whisper_to("v1", "the wheel looks very tired")
-    await wait_for(lambda: player._tasks == set())
-    first, second = player.writer.moods
-    assert "curious" in first and "fond of the newcomer" in first and "Greet the newcomer" in first
-    assert second == interest_words(interest(player)) and "newcomer" not in second
 
 
 def test_past_max_idle_runs_the_oldest_never_played_runs_go_whatever_their_age(clock):
@@ -1129,23 +310,18 @@ def test_past_max_idle_runs_the_oldest_never_played_runs_go_whatever_their_age(c
         clock[0] += 1
         runs.append(run_of(first, pid))
         players.add(runs[-1])
-    runs[2].typing()
+    runs[2].touch()
     assert players.prune() == [runs[0]]
     assert [p.id for p in players] == ["p-2", "p-played", "p-3"]
 
 
 def durable(p):
-    return (p.id, p.owner, p.place, p.state, p.ended_at, p.created_at, p.summary, p.whispered_at,
-            p._threads, p._held, p._hinted, p._said_at, p._typed_at, p.over())
+    return (p.id, p.owner, p.place, p.state, p.ended_at, p.created_at, p.summary, p.over())
 
 
 def test_players_round_trip_as_json_with_no_sockets():
     player, town, _, engine, lineage = make("Bert")
     player.place = "bar"
-    player._threads["v1"] = {"id": "w-1", "need": "bread", "at": 5.0}
-    player._held["v1"] = ("w-1", "w-1")
-    player._hinted["v1"] = {1, 2}
-    player._said_at["v1"], player._typed_at, player.whispered_at = 4.0, 6.0, 4.0
     player.connected()
     ended = Player(engine, town, lineage, Ids(), player.feed, player.config, player_id="p-2", owner="o-1")
     ended.end(Summary("lost", ["ran out"]))
@@ -1169,15 +345,13 @@ def test_players_round_trip_as_json_with_no_sockets():
 
 
 @pytest.mark.asyncio
-async def test_a_first_visit_each_whisper_and_the_end_are_logged_for_counting(capsys):
+async def test_a_first_visit_and_the_end_are_logged_for_counting(capsys):
     player, *_ = make("Marta")
     player.connected()
     player.disconnected()
     player.connected()
-    assert await player.whisper("Marta", "the miller waters his flour") is None
     player.end(Summary("lost", []))
     lines = [line for line in capsys.readouterr().out.splitlines() if line.startswith("analytics")]
     tag = f"owner={player.owner} run={player.id}"
-    assert lines == [f"analytics visit {tag}", f"analytics whisper {tag}",
-                     f"analytics end {tag} outcome=lost"]
+    assert lines == [f"analytics visit {tag}", f"analytics end {tag} outcome=lost"]
     player.close()

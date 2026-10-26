@@ -12,7 +12,7 @@ from sleuth.town_gen import WORLDS_DIR
 
 log = logging.getLogger(__name__)
 
-STATE_VERSION = 8
+STATE_VERSION = 9
 # Every id the game's Ids counters hand out, as prefix and number.
 ID = re.compile(r"\b(u|w|r|case)-(\d+)\b")
 # How far a restore skips each id that also keys Contex data past the last one saved, so ids handed out after a save
@@ -31,7 +31,7 @@ def components(engine) -> dict:
         "town": engine.town, "ids": engine.ids, "lineage": engine.lineage, "facts": engine.facts, "feed": engine.feed,
         "game": engine.game, "usage": engine.players.usage, "suspicion": engine.suspicion, "rapport": engine.rapport,
         "engine": engine, "players": engine.players,
-        "hints": engine.hints, "cases": engine.cases,
+        "cases": engine.cases,
     }
 
 
@@ -117,7 +117,6 @@ def _restore(state: dict, components: dict, make: Callable, margin: int = 0) -> 
         last[prefix] = max(last.get(prefix, 0), int(n))
     for prefix, n in last.items():
         ids.ensure_past(prefix, n + margin)
-    components["hints"].ensure_past(state["hints"]["last_key"] + margin)
     feed = state["feed"]
     components["feed"].ensure_past(max([e["id"] for e in feed["recent"]] + list(feed["closed"].values()), default=0))
 

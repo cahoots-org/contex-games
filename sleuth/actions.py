@@ -10,8 +10,6 @@ FOUND_GROUP = "found_group"
 JOIN_GROUP = "join_group"
 LEAVE_GROUP = "leave_group"
 PREACH = "preach"
-WARN = "warn"
-ANSWER = "answer"
 ALIBI = "alibi"
 BLAME = "blame"
 
@@ -26,8 +24,6 @@ ACTIONS = {
     JOIN_GROUP: "Join a group that has members nearby and a cause you share.",
     LEAVE_GROUP: "Quit a group you belong to that you no longer believe in.",
     PREACH: "Speak up for one of your groups' beliefs to the people nearby.",
-    WARN: "Warn one specific person nearby that the newcomer is behind the rumors.",
-    ANSWER: "Answer the newcomer, who just spoke to you about something you care about.",
     ALIBI: "Tell one specific person nearby where you supposedly were when the crime happened.",
     BLAME: "Hint to one specific person nearby that someone else had a reason to do the crime.",
 }
@@ -38,7 +34,6 @@ ACTION_NOT_FOR = {
     SPEAK: "Not for telling one person in particular (retell).",
     DENY: "Not for personal accusations (confront).",
     CONFRONT: "Not for correcting a rumor in general (deny).",
-    WARN: "Not for passing on what you heard (retell) or arguing with someone (confront).",
 }
 
 STYLES = {
@@ -61,15 +56,14 @@ TARGET_KIND = {
     JOIN_GROUP: "group",
     LEAVE_GROUP: "group",
     PREACH: "group",
-    WARN: "villager",
     ALIBI: "villager",
     BLAME: "villager",
 }
 
 # Speech actions, which carry a style.
-STYLED = (RETELL, DENY, CONFRONT, SPEAK, PREACH, WARN, ALIBI, BLAME)
+STYLED = (RETELL, DENY, CONFRONT, SPEAK, PREACH, ALIBI, BLAME)
 
-NEEDS_SOMEONE = (RETELL, DENY, CONFRONT, SPEAK, WARN, ALIBI, BLAME)
+NEEDS_SOMEONE = (RETELL, DENY, CONFRONT, SPEAK, ALIBI, BLAME)
 
 
 def available_actions(view) -> list[str]:
@@ -82,13 +76,7 @@ def available_actions(view) -> list[str]:
             continue
         if a in (LEAVE_GROUP, PREACH) and not view.member_groups:
             continue
-        if a == WARN and view.suspicion < view.warn_threshold:
-            continue
-        if a == ANSWER and not view.answerable:
-            continue
         if a in (ALIBI, BLAME) and not view.case:
-            continue
-        if a == MOVE and view.held:
             continue
         out.append(a)
     return out

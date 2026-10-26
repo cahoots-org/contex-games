@@ -7,7 +7,6 @@ from sleuth.config import Config
 from sleuth.contex_client import Match
 from sleuth.facts import Facts
 from sleuth.feed import Feed
-from sleuth.hints import Hints
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Villager
 from sleuth.player import Player
@@ -132,44 +131,23 @@ class StubContex:
 
 class FakeEngine:
     def __init__(self, suspicion=None, contex=None, baselines=None):
-        self.delivered = []
         self.suspicion = suspicion
         self.contex = contex or StubContex()
         self.baselines = baselines or StubBaselines(0.5)
-        self.hints = Hints(self.contex, Config())
         self.rapport = Rapport(Config())
-        self.direct = []
-        self.rumors = None
         self.facts = Facts()
-        self.free_at = 0.0
-        self.conversations = {}
         self.heard = []
         self.recalls = []
 
-    async def recall_heard(self, vid, text, exclude):
-        self.recalls.append((vid, text, exclude))
+    async def recall_heard(self, vid, text):
+        self.recalls.append((vid, text))
         return self.heard
-
-    def end_conversation(self, vid, player=None):
-        for key in [k for k in self.conversations if k[0] == vid and player in (None, k[1])]:
-            del self.conversations[key]
-
-    async def deliver(self, utterance, listener_ids):
-        self.delivered.append((utterance, listener_ids))
-
-    def hear_directly(self, vid, match):
-        self.direct.append((vid, match))
-        return True
-
-    def cooldown_ends(self, vid):
-        return self.free_at
 
 
 def stub_player(pid=PID, place="cafe", listening=False):
     """A player standing at place whose game is not over."""
     return SimpleNamespace(
         id=pid, owner=pid, place=place, over=lambda: False, active=lambda: True, listening=lambda: listening,
-        holds=lambda vid: False, annoyed=lambda vid: False,
     )
 
 

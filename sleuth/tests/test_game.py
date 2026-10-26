@@ -17,10 +17,8 @@ from sleuth.game import MEMORY_PLAYERS, Game, Summary
 from sleuth.lineage import Ids, Lineage
 from sleuth.player import Player
 from sleuth.players import Players
-from sleuth.tests.helpers import PID, FakeMind, StubClient, make, make_player, wait_for
+from sleuth.tests.helpers import PID, FakeMind, make, make_player, wait_for
 from sleuth.town import PLACES, Town
-from sleuth.usage import Usage
-from sleuth.writer import Writer
 
 MEETING = "The town meets at town hall and runs the newcomer out of town."
 
@@ -188,23 +186,19 @@ def test_nothing_reaches_a_player_after_their_game_is_over():
     feed.on_game_over(Summary("lost", []), player="p-a")
     feed.close("p-a")
     assert feed.say("late", player="p-a") is None
-    feed.on_whisper_status("w-1", "v1", "Bert", "kept")
+    feed.say("mine", player="p-a")
     feed.on_time(2, "morning")
-    feed.on_whisper_status("w-2", "v1", "Bert", "kept")
+    feed.say("theirs", player="p-b")
     assert seen_a[-1].kind == "gameover" and feed.replay("p-a")[-1].kind == "gameover"
-    assert [e.kind for e in feed.replay("p-b")][-2:] == ["time", "whisper_status"]
+    assert [e.kind for e in feed.replay("p-b")][-2:] == ["time", "system"]
 
 
 @pytest.mark.asyncio
-async def test_whisper_after_game_over_is_refused():
-    player, _, lines, engine, lineage = make_player("Marta")
+async def test_asking_after_game_over_is_refused():
+    player, _, lines, engine, _ = make_player("Marta")
     player.end(Summary("lost", []))
-    assert await player.whisper_to("v1", "hello") == "The game is over."
-    assert await player.whisper("Marta", "hello") == "The game is over."
-    await asyncio.sleep(0.05)
-    assert engine.delivered == []
-    assert not lineage.is_player_rooted("w-1")
-    assert engine.suspicion.score("v1", PID) == 0.0
+    assert await player.ask("v1", "hello") == "The game is over."
+    assert engine.recalls == [] and engine.suspicion.score("v1", PID) == 0.0
     assert player._tasks == set()
     assert len(lines) == 1
 
@@ -433,90 +427,6 @@ def deciding(monkeypatch, action=IGNORE, target=None):
 
     monkeypatch.setattr(engine_mod, "decide", decide)
     return views
-
-
-@pytest.mark.asyncio
-async def test_the_routine_leaves_a_villager_someone_is_talking_with():
-    engine, player, _, _ = await start("v1", "v2")
-    engine.routine = StubRoutine({"v1": "gym", "v2": "gym"})
-    talking(engine, player)
-    await engine._walk("morning", 0.0)
-    assert (engine.town.place_of("v1"), engine.town.place_of("v2")) == ("cafe", "gym")
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_a_villager_stays_while_either_of_two_players_holds_them():
-    engine, pa, feed, _ = await start("v1")
-    pb = Player(engine, engine.town, engine.lineage, Ids(), feed, engine.config, player_id="p-b")
-    engine.players.add(pb)
-    engine.routine = StubRoutine({"v1": "gym"})
-    talking(engine, pb)
-    await engine._walk("morning", 0.0)
-    assert engine.town.place_of("v1") == "cafe"
-    pb.walk("library")
-    await engine._walk("morning", 0.0)
-    assert engine.town.place_of("v1") == "gym"
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_a_held_villagers_turn_cannot_walk_off_unless_every_holder_annoys_them(monkeypatch):
-    views = deciding(monkeypatch)
-    engine, pa, feed, _ = await start("v1")
-    pb = Player(engine, engine.town, engine.lineage, Ids(), feed, engine.config, player_id="p-b")
-    engine.players.add(pb)
-    talking(engine, pa)
-    talking(engine, pb)
-    engine.suspicion.bump("v1", PID, engine.config.warn_threshold, "whispered to them directly")
-    engine.minds["v1"].queue.put_nowait(None)
-    await wait_for(lambda: len(views) == 1)
-    assert views[0].held
-    pb.walk("library")
-    engine._last_turn.clear()
-    engine.minds["v1"].queue.put_nowait(None)
-    await wait_for(lambda: len(views) == 2)
-    assert not views[1].held
-    await engine.stop()
-
-
-async def storming(monkeypatch, action, target=None):
-    """v1, annoyed with PID and held by them, takes action at its next turn while p-b looks on from the well."""
-    views = deciding(monkeypatch, action, target)
-    engine, pa, feed, _ = await start("v1")
-    pb = Player(engine, engine.town, engine.lineage, Ids(), feed, engine.config, player_id="p-b")
-    pb.walk("library")
-    engine.players.add(pb)
-    usage = Usage(engine.config)
-    engine.writer = Writer(StubClient("I've heard quite enough from you.", "Farewell, all."), "haiku-test", usage)
-    talking(engine, pa)
-    talking(engine, pb)
-    engine.suspicion.bump("v1", PID, engine.config.warn_threshold, "whispered to them directly")
-    engine.minds["v1"].queue.put_nowait(None)
-    await wait_for(lambda: views and not engine._turning)
-    return engine, feed, usage
-
-
-@pytest.mark.asyncio
-async def test_an_annoyed_villager_who_walks_off_storms_off_on_the_player(monkeypatch):
-    engine, feed, usage = await storming(monkeypatch, MOVE, "gym")
-    stormed = kinds(feed, "stormed_off")
-    assert [(e.data["name"], e.data["line"]) for e in stormed] == [("V1", "I've heard quite enough from you.")]
-    assert stormed[0].line == 'V1 storms off: "I\'ve heard quite enough from you."'
-    assert not [e for e in feed.replay("p-b") if e.kind == "stormed_off"]
-    assert ("v1", PID) not in engine.conversations and ("v1", "p-b") in engine.conversations
-    (bump,) = [e for e in engine.suspicion._evidence if e.reason == "stormed off"]
-    assert (bump.player, bump.amount) == (PID, engine.config.suspicion_whisper_bump / 2)
-    assert usage.cost(PID) > 0 and usage.cost("p-b") == 0
-    assert engine.town.place_of("v1") == "gym"
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_an_annoyed_villager_who_stays_does_not_storm_off(monkeypatch):
-    engine, feed, _ = await storming(monkeypatch, IGNORE)
-    assert kinds(feed, "stormed_off") == [] and ("v1", PID) in engine.conversations
-    await engine.stop()
 
 
 @pytest.mark.asyncio

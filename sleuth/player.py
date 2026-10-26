@@ -1,20 +1,17 @@
-"""The player's whispers: validation, delivery, and whether each one landed."""
+"""A player's run: walking, listening and asking around."""
 
 import asyncio
 import logging
-import re
 import time
-from dataclasses import asdict, replace
-from datetime import UTC, datetime, timedelta
+from dataclasses import asdict
 
 from sleuth.config import Config
 from sleuth.contex_client import Match
-from sleuth.game import Game, Summary
 from sleuth.facts import audible
+from sleuth.game import Game, Summary
 from sleuth.lineage import Ids, Lineage
-from sleuth.mind import mind_project
 from sleuth.models import Utterance, Villager
-from sleuth.town import NEWCOMER, PLACES, START_PLACE, Town, neighbours
+from sleuth.town import PLACES, START_PLACE, Town, neighbours
 from sleuth.usage import charging
 
 log = logging.getLogger(__name__)
@@ -25,10 +22,8 @@ def analytics(event: str, **fields) -> None:
     print("analytics", event, *(f"{k}={v}" for k, v in fields.items()))
 
 
-MAX_WHISPER_CHARS = 500
-ECHO_WORDS = 4
+MAX_ASK_CHARS = 500
 GAME_OVER = "The game is over."
-NOT_CARRIED = "The whisper didn't carry; try again."
 LISTEN_OPENING = 5
 LISTEN_LOOKBACK_DAYS = 1 / 4
 ALREADY_LISTENING = "You're already listening."
@@ -36,17 +31,7 @@ ASK_LINES = 3
 
 
 class Refusal(str):
-    """The message for a whisper a suspicious villager turned away; the feed has already shown it."""
-
-
-def _runs(text: str) -> set[tuple[str, ...]]:
-    words = re.findall(r"[a-z0-9']+", text.lower())
-    return {tuple(words[i:i + ECHO_WORDS]) for i in range(len(words) - ECHO_WORDS + 1)}
-
-
-def echoes(line: str, concern: str) -> bool:
-    """Whether the line repeats four or more consecutive words of the concern."""
-    return bool(_runs(line) & _runs(concern))
+    """The message for a question a suspicious villager turned away; the feed has already shown it."""
 
 
 class Player:
@@ -65,24 +50,14 @@ class Player:
         self.config = config
         self.writer = writer
         self.game = game
-        # Where the player last whispered.
         self.place = START_PLACE
         self.state = "playing"
         self.summary: Summary | None = None
         self.finished = asyncio.Event()
         self.ended_at: float | None = None
-        self.whispered_at: float | None = None
         self._tasks: set[asyncio.Task] = set()
         # When the running listen ends, or None when the player is not listening.
         self._listen_until: float | None = None
-        self._hinted: dict[str, set[int]] = {}
-        self._threads: dict[str, dict] = {}
-        # Per villager, the last whisper that landed with them and its rumor; it holds while they have not acted on it.
-        self._held: dict[str, tuple[str, str]] = {}
-        # Per villager, when the player last whispered to them.
-        self._said_at: dict[str, float] = {}
-        # When the player last typed in the whisper box.
-        self._typed_at = 0.0
         self.created_at = time.time()
         # Open tabs, and when the player last acted or closed one; None until they first do.
         self._sockets = 0
@@ -92,26 +67,17 @@ class Player:
         """The run's durable fields as plain JSON; listens, tabs and tasks are left out."""
         return {
             "id": self.id, "owner": self.owner, "place": self.place, "state": self.state, "ended_at": self.ended_at,
-            "created_at": self.created_at, "summary": self.summary and asdict(self.summary),
-            "whispered_at": self.whispered_at,
-            "active_at": self._active_at, "threads": self._threads,
-            "held": {vid: list(held) for vid, held in self._held.items()},
-            "hinted": {vid: sorted(used) for vid, used in self._hinted.items()},
-            "said_at": self._said_at, "typed_at": self._typed_at,
+            "created_at": self.created_at, "summary": self.summary and asdict(self.summary), "active_at": self._active_at,
         }
 
     def restore(self, state: dict) -> None:
         """Fill the run from a saved state; with no tab open it is idle until its player reconnects."""
         self.place, self.state, self.ended_at = state["place"], state["state"], state["ended_at"]
-        self.created_at, self.whispered_at = state["created_at"], state["whispered_at"]
+        self.created_at = state["created_at"]
         summary = state["summary"]
         self.summary = summary and Summary(summary["outcome"], summary["reasons"])
         active_at = state["active_at"]
         self._active_at = None if active_at is None else min(active_at, time.time() - self.config.idle_after_seconds)
-        self._threads = state["threads"]
-        self._held = {vid: tuple(held) for vid, held in state["held"].items()}
-        self._hinted = {vid: set(used) for vid, used in state["hinted"].items()}
-        self._said_at, self._typed_at = state["said_at"], state["typed_at"]
         if self.state != "playing":
             self.finished.set()
 
@@ -140,32 +106,6 @@ class Player:
             self._active_at is not None and time.time() - self._active_at < self.config.idle_after_seconds
         )
 
-    async def whisper(self, name: str, text: str) -> str | None:
-        """Whisper text to the villager called name; returns why it could not be done, if it couldn't.
-
-        A villager turning the whisper away comes back as a Refusal.
-        """
-        self.touch()
-        if self.over():
-            return GAME_OVER
-        name = name.strip()
-        if not name or not text.strip():
-            return "Whisper to whom, and what? Try: Marta: the miller waters his flour"
-        found = self.find(name)
-        if isinstance(found, str):
-            return found
-        return await self.whisper_to(found.id, text)
-
-    def find(self, name: str) -> Villager | str:
-        """The one villager called name, or the message saying why there isn't one."""
-        matches = self.town.find(name)
-        if not matches:
-            gone = [v for v in self.town.departed if v.name.lower() == name.lower()]
-            return f"{gone[0].name} has left town." if gone else f"No one in town is called {name}."
-        if len(matches) > 1:
-            return f"Which {name}? " + ", ".join(v.name for v in matches)
-        return matches[0]
-
     def walk(self, place: str) -> str | None:
         """Move to place for free; returns why it could not be done, if it couldn't."""
         self.touch()
@@ -191,10 +131,7 @@ class Player:
         now = time.time()
         until = self._listen_until = now + self.config.listen_seconds
         since = now - self.config.day_seconds * LISTEN_LOOKBACK_DAYS
-        heard = [
-            u for u in self.engine.facts.recent(self.place, since)
-            if audible(u) and self.lineage.player_of(u.id) != self.id
-        ]
+        heard = [u for u in self.engine.facts.recent(self.place, since) if audible(u)]
         self.feed.on_listen(self.place, heard[-LISTEN_OPENING:], until, player=self.id)
         self._track(asyncio.create_task(self._end_listen(until)))
         return None
@@ -219,134 +156,6 @@ class Player:
         self.place = place
         self.feed.on_place(place, player=self.id)
 
-    async def whisper_to(self, villager_id: str, text: str) -> str | None:
-        """Whisper text to the villager with this id; returns why it could not be done, if it couldn't.
-
-        A villager turning the whisper away comes back as a Refusal. Every model call it sets off is charged to this player.
-        """
-        self.touch()
-        with charging(self.id):
-            return await self._whisper_to(villager_id, text)
-
-    async def _whisper_to(self, villager_id: str, text: str) -> str | None:
-        if self.over():
-            return GAME_OVER
-        text = text.strip()
-        if villager_id not in self.town:
-            gone = self.town.name_of(villager_id)
-            return f"{gone} has left town." if gone else "No one in town has that id."
-        if not text:
-            return "Whisper what? Try: the gymer waters his flour"
-        if len(text) > MAX_WHISPER_CHARS:
-            return f"Too long: a whisper is at most {MAX_WHISPER_CHARS} characters."
-        target = self.town.get(villager_id)
-        if self.engine.suspicion.score(target.id, self.id) >= self.config.refuse_threshold:
-            self.engine.suspicion.bump(target.id, self.id, self.config.suspicion_whisper_bump, "tried to whisper again")
-            self.engine.end_conversation(target.id, self.id)
-            self.feed.on_refusal(target.id, target.name, await self._turn_away(target), player=self.id)
-            return Refusal(f"{target.name} turns away from you.")
-        uid = self.ids.next("w")
-        self.lineage.record(uid, None, player=self.id)
-        thread = self._thread(target.id)
-        hint_need = None
-        if thread and (target.id, self.id) not in self.engine.conversations:
-            hint_need = thread["need"]
-        key = self._exchange(target.id) or uid
-        bar_drop = max(0.0, self.engine.rapport.interest(target.id, self.id, key)) * self.config.near_miss_band
-        place = self.town.place_of(target.id)
-        utterance = Utterance(uid, NEWCOMER, "A newcomer", place, text, None, "whispered to you")
-        self.engine.facts.record(utterance)
-        published_at = datetime.now(UTC)
-        since = (published_at - timedelta(seconds=self.config.check_lookback_seconds)).isoformat()
-        try:
-            await self.engine.deliver(utterance, [target.id])
-        except Exception:
-            log.exception("whisper to %s failed", target.id)
-            return NOT_CARRIED
-        self.whispered_at = self._said_at[target.id] = time.time()
-        analytics("whisper", owner=self.owner, run=self.id)
-        if self.game is not None:
-            self.game.moved(self.id)
-        if utterance.place != self.place:
-            self._move(utterance.place)
-        self.engine.suspicion.bump(
-            target.id, self.id, self.config.suspicion_whisper_bump, "whispered to them directly", uid,
-        )
-        self.feed.on_whisper_status(uid, target.id, target.name, "checking")
-        found = await self.check(target, utterance, since, hint_need, bar_drop)
-        if found is None:
-            self.feed.on_whisper_status(uid, target.id, target.name, "not_carried")
-            return NOT_CARRIED
-        hits = [m for _, m in found if m.clearance >= 0]
-        near_misses = [(need, m) for need, m in found if m.clearance < 0]
-        if hits:
-            hit = Match(
-                f"utt:{uid}", utterance.to_data(),
-                max(h.similarity for h in hits), clearance=max(h.clearance for h in hits),
-            )
-        else:
-            # A story the villager already heard lands whatever their needs.
-            familiar = await self.engine.recall_heard(target.id, text, uid)
-            hit = Match(f"utt:{uid}", utterance.to_data(), familiar[0].similarity, clearance=0.0) if familiar else None
-        if hit:
-            self.engine.rapport.move(target.id, self.id, key, self.config.interest_hit)
-            self._threads.pop(target.id, None)
-            self._held[target.id] = (uid, key)
-            if not self.engine.hear_directly(target.id, hit):
-                return None
-            until = self.engine.cooldown_ends(target.id)
-            if until > time.time():
-                self.feed.on_whisper_status(uid, target.id, target.name, "busy", until=until)
-            else:
-                self.feed.on_whisper_status(uid, target.id, target.name, "heard")
-        else:
-            closest = max(near_misses, key=lambda n: n[1].clearance, default=None)
-            interest = self.engine.rapport.move(target.id, self.id, key, self._miss_delta(closest))
-            continues = interest > self.config.interest_end
-            state = "near_miss" if closest else "brushed_off"
-            self.feed.on_whisper_status(uid, target.id, target.name, state, continues=continues)
-            if not continues:
-                self._lose_patience(target, key)
-                return None
-            concern = closest[0] if closest else self._next_concern(target.id)
-            self._extend_thread(target.id, uid, concern)
-            mood = self.engine.rapport.mood(target.id, self.id, key, greet=self.engine.rapport.greets(target.id, self.id, key))
-            task = asyncio.create_task(
-                self._hint(target.id, target.name, uid, key, concern, state, text, continues, mood),
-            )
-            self._track(task)
-        return None
-
-    def _miss_delta(self, closest: tuple[str, Match] | None) -> float:
-        """How a missed whisper moves interest: up for a near miss, more the closer it came to the bar; down for a
-        brush-off."""
-        if closest is None:
-            return self.config.interest_brush_off
-        closeness = 1 + closest[1].clearance / self.config.near_miss_band
-        low, high = self.config.interest_near_min, self.config.interest_near_max
-        return low + (high - low) * closeness
-
-    def _lose_patience(self, target: Villager, rumor: str) -> None:
-        """The villager has had enough of the rumor: she ends the exchange, likes the player less and suspects them a
-        little, then takes their leave in the background."""
-        self.part(target.id)
-        self.engine.rapport.sour(target.id, self.id, self.config.rapport_lost_patience)
-        self.engine.rapport.forget(target.id, self.id, rumor)
-        self.engine.suspicion.bump(
-            target.id, self.id, self.config.suspicion_whisper_bump / 2, "lost patience with you",
-        )
-        self._track(asyncio.create_task(self._take_leave(target)))
-
-    async def _take_leave(self, target: Villager) -> None:
-        """Show the villager taking their leave of the player, with their parting words if any."""
-        line = None
-        if self.writer is not None:
-            try:
-                line = await self.writer.lose_patience(target) or None
-            except Exception:
-                log.exception("lose-patience line for %s failed", target.id)
-        self.feed.on_storm_off(target.id, target.name, line, player=self.id, verb="takes their leave")
-
     async def ask(self, villager_id: str, topic: str) -> str | None:
         """Ask the villager what folk have been saying about the topic; returns why it could not be done, if it couldn't.
 
@@ -365,8 +174,8 @@ class Player:
         topic = topic.strip()
         if not topic:
             return "Ask about what? Try: the gym"
-        if len(topic) > MAX_WHISPER_CHARS:
-            return f"Too long: a question is at most {MAX_WHISPER_CHARS} characters."
+        if len(topic) > MAX_ASK_CHARS:
+            return f"Too long: a question is at most {MAX_ASK_CHARS} characters."
         villager = self.town.get(villager_id)
         place = self.town.place_of(villager_id)
         if place != self.place:
@@ -375,23 +184,15 @@ class Player:
             self.feed.on_refusal(villager_id, villager.name, await self._turn_away(villager), player=self.id)
             return Refusal(f"{villager.name} turns away from you.")
         self.engine.suspicion.bump(villager_id, self.id, self.config.suspicion_whisper_bump / 2, "asked questions")
-        recalled = await self.engine.recall_heard(villager_id, topic, "")
+        recalled = await self.engine.recall_heard(villager_id, topic)
         heard = [u for u in map(self._tellable, recalled) if u is not None][:ASK_LINES]
         line = await self._answer(villager, topic, heard)
         self.feed.on_answer(villager_id, villager.name, topic, line, player=self.id)
-        await self.engine.hints.add(self.id, villager_id, line)
         return None
 
     def _tellable(self, m: Match) -> Utterance | None:
-        """The fact behind a recalled line, unless it would give away another newcomer."""
-        fact = self.engine.facts.get(m.data.get("id"))
-        if fact is None:
-            return None
-        if self.lineage.player_of(fact.id) == self.id or fact.about == self.id:
-            return fact
-        if fact.names_newcomer or fact.speaker == NEWCOMER or fact.about is not None:
-            return None
-        return fact
+        """The fact behind a recalled line, if it is still kept."""
+        return self.engine.facts.get(m.data.get("id"))
 
     async def _answer(self, villager: Villager, topic: str, heard: list[Utterance]) -> str:
         """The villager's answer from the writer, or a plain line when there is none or it fails."""
@@ -408,99 +209,15 @@ class Player:
             return f"{villager.name} heard {heard[0].speaker_name} talking about it at the {heard[0].place}."
         return f"{villager.name} hasn't heard anything about that."
 
-    def _exchange(self, villager_id: str) -> str | None:
-        """The rumor of the player's open exchange with the villager: their conversation, a missed whisper's thread, or
-        a landed whisper the villager has not acted on yet."""
-        if conversation := self.engine.conversations.get((villager_id, self.id)):
-            return conversation["id"]
-        if thread := self._thread(villager_id):
-            return thread["id"]
-        held = self._held.get(villager_id)
-        if held is None:
+    async def _turn_away(self, villager: Villager) -> str | None:
+        """An in-character refusal line, or None when there is no writer or it fails."""
+        if self.writer is None:
             return None
-        uid, rumor = held
-        for wid, _ in self.feed.listening(villager_id):
-            if wid == uid:
-                return rumor
-        return None
-
-    def typing(self) -> None:
-        """The player is writing, which keeps whoever they are talking with where they are."""
-        self._typed_at = time.time()
-        self.touch()
-
-    def holds(self, villager_id: str) -> bool:
-        """Whether the villager stays put for this player: they share a place and an open exchange, and the player
-        spoke to them or typed within talk_hold_seconds."""
-        said = self._said_at.get(villager_id)
-        return (
-            not self.over() and said is not None
-            and time.time() - max(said, self._typed_at) < self.config.talk_hold_seconds
-            and villager_id in self.town and self.town.place_of(villager_id) == self.place
-            and self._exchange(villager_id) is not None
-        )
-
-    def annoyed(self, villager_id: str) -> bool:
-        """Whether the villager has had enough of this player: wary of them, or tired of their open rumor."""
-        if self.engine.suspicion.score(villager_id, self.id) >= self.config.warn_threshold:
-            return True
-        exchange = self._exchange(villager_id)
-        if exchange is None:
-            return False
-        return self.engine.rapport.interest(villager_id, self.id, exchange) <= self.config.interest_annoyed
-
-    def part(self, villager_id: str) -> None:
-        """End every exchange this player has open with the villager."""
-        self._threads.pop(villager_id, None)
-        self._held.pop(villager_id, None)
-        self.engine.end_conversation(villager_id, self.id)
-
-    def _thread(self, villager_id: str) -> dict | None:
-        """The villager's open thread, dropped once the player has neither whispered on it nor typed for
-        talk_hold_seconds."""
-        thread = self._threads.get(villager_id)
-        if thread and time.time() - max(thread["at"], self._typed_at) >= self.config.talk_hold_seconds:
-            del self._threads[villager_id]
-            return None
-        return thread
-
-    def _extend_thread(self, villager_id: str, uid: str, concern: str | None) -> None:
-        """Open a thread on a missed whisper, or carry the open one on to this concern."""
-        thread = self._thread(villager_id)
-        self._threads[villager_id] = {"id": thread["id"] if thread else uid, "need": concern, "at": time.time()}
-
-    async def check(
-        self, target: Villager, utterance: Utterance, since: str, hint_need: str | None = None, bar_drop: float = 0.0,
-    ) -> list[tuple[str, Match]] | None:
-        """The whisper's (need, match) pairs within the near-miss band of each need's bar, None on error.
-
-        Each match carries its clearance against the bar: below zero is a near miss.
-        The hinted need is held to its bare baseline plus the hint margin; the rest to their full threshold.
-        Every bar is lowered by bar_drop.
-        """
-        key = f"utt:{utterance.id}"
-        project = mind_project(self.config.session, target.id)
-        bars = {need: self._bar(need, need == hint_need) - bar_drop for need in target.needs}
-        floor = self.config.near_miss_band
         try:
-            found = await asyncio.gather(*(
-                self.engine.contex.query(project, need, top_k=self.config.top_k, since=since, threshold=bars[need] - floor)
-                for need in target.needs
-            ))
+            return await self.writer.turn_away(villager) or None
         except Exception:
-            log.exception("whisper check for %s failed", target.id)
+            log.exception("turn-away for %s failed", villager.id)
             return None
-        return [
-            (need, replace(m, clearance=m.similarity - bars[need]))
-            for need, matches in zip(target.needs, found) for m in matches
-            if m.data_key == key and m.similarity is not None and m.similarity >= bars[need] - floor
-        ]
-
-    def _bar(self, need: str, hinted: bool) -> float:
-        threshold = self.engine.baselines.threshold(need)
-        if not hinted:
-            return threshold
-        return threshold - self.config.match_margin + self.config.hint_margin
 
     def over(self) -> bool:
         """Whether this player's game is over."""
@@ -525,72 +242,3 @@ class Player:
     def _track(self, task: asyncio.Task) -> None:
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
-
-    async def _hint(
-        self, villager_id: str, name: str, uid: str, rumor: str, concern: str | None, state: str, text: str,
-        continues: bool, mood: str,
-    ) -> None:
-        """Add the brush-off or lean-in line, or nothing, to a missed whisper's status."""
-        if self.over():
-            return
-        try:
-            if state == "near_miss":
-                line = await self._go_on(villager_id, text, mood)
-            else:
-                line = await self._brush_off(villager_id, concern, mood)
-        except Exception:
-            log.exception("%s line for %s failed", state, villager_id)
-            line = None
-        if line:
-            self.engine.rapport.greeted(villager_id, self.id, rumor)
-        if self.over():
-            return
-        self.feed.on_whisper_status(uid, villager_id, name, state, hint=line, continues=continues)
-        if line:
-            await self.engine.hints.add(self.id, villager_id, line)
-
-    def _next_concern(self, villager_id: str) -> str | None:
-        """One of the villager's needs not hinted at yet, starting over once all have been."""
-        needs = self.town.get(villager_id).needs
-        if not needs:
-            return None
-        used = self._hinted.setdefault(villager_id, set())
-        if len(used) >= len(needs):
-            used.clear()
-        i = next(i for i in range(len(needs)) if i not in used)
-        used.add(i)
-        return needs[i]
-
-    async def _turn_away(self, villager: Villager) -> str | None:
-        """An in-character refusal line, or None when there is no writer or it fails."""
-        if self.writer is None:
-            return None
-        try:
-            return await self.writer.turn_away(villager) or None
-        except Exception:
-            log.exception("turn-away for %s failed", villager.id)
-            return None
-
-    async def _brush_off(self, villager_id: str, concern: str | None, mood: str = "") -> str | None:
-        """An in-character line hinting at a concern, or None for a plain shrug."""
-        if self.writer is None or concern is None or villager_id not in self.town:
-            return None
-        for _ in range(2):
-            try:
-                line = await self.writer.brush_off(self.town.get(villager_id), concern, mood)
-            except Exception:
-                log.exception("brush-off for %s failed", villager_id)
-                return None
-            if line and not echoes(line, concern):
-                return line
-        return None
-
-    async def _go_on(self, villager_id: str, text: str, mood: str = "") -> str | None:
-        """An in-character line urging the newcomer on, or None for a plain lean-in."""
-        if self.writer is None or villager_id not in self.town:
-            return None
-        try:
-            return await self.writer.go_on(self.town.get(villager_id), text, mood) or None
-        except Exception:
-            log.exception("go-on for %s failed", villager_id)
-            return None

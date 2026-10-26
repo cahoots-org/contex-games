@@ -22,20 +22,22 @@ Evidence is held by the game as records with ids like `r-12`, and the models nev
 | clip | a camera at the grocery, bar, town hall or elm street catches the culprit's height and coat at the exact minute |
 | log | a gym check-in, bar tab, grocery receipt or library checkout puts a named resident somewhere that part of the day |
 
+the same face every game. A "!" on the face means they turned you away.
+
 Room talk that grows from a case's news or a witness's memory is posted to the app and shows in the feed with an App tag.
 
 ## How it uses Contex
 
 | Feature | Where |
 |---|---|
-| `contex_publish` | every line a villager hears (one publish per listener), whispers, group records |
+| `contex_publish` | every line a villager hears (one publish per listener), group records |
 | `contex_create_subscription` | one per need (each villager has 3 to 5) on the villager's mind project, at that need's threshold |
 | `max_age_seconds` | noticing: a subscription only carries talk from the last `memory_days`, for a villager to react to |
 | `since` | forgetting: a villager recalls only lines heard since your last `memory_moves` moves |
 | `subscriptions/listen` | one stream per villager over all their subscriptions; a push is what wakes them |
 | reading the subscription resource | the villager's memories each turn, and lease renewal for quiet villagers |
-| `contex_query` | the check right after a whisper of whether it matched the target's needs; calibrating needs |
-| semantic matching | a whisper wakes a villager only if it scores clearly above ordinary village talk for one of their needs, and a rumor still reaches people after it is retold in other words |
+| `contex_query` | asking a villager what they heard; calibrating needs |
+| semantic matching | a line wakes a villager only if it scores clearly above ordinary village talk for one of their needs, and a rumor still reaches people after it is retold in other words |
 | scale | 100 projects, about 400 subscriptions, and 100 listen streams at once |
 
 A villager never hears their own words, so speaking never wakes the speaker.
@@ -62,18 +64,14 @@ export ANTHROPIC_API_KEY=...
 export TYPESAFE_API_KEY=...
 ```
 
-Run it from the repo root:
+Run it from the repo root and open the address it prints, `http://127.0.0.1:8765` unless `SLEUTH_WEB_PORT` says
+otherwise:
 
 ```bash
 python -m sleuth
 ```
 
-To play in a browser instead, add `--web` and open the address it prints,
-`http://127.0.0.1:8765` unless `SLEUTH_WEB_PORT` says otherwise:
-
-```bash
-python -m sleuth --web
-```
+The game is played in the browser only; `--web` is still accepted and changes nothing.
 
 Each run asks Haiku for a new village in batches of 10, every villager with a
 first name of their own, and saves it as `sleuth_worlds/<session>.json`;
@@ -90,7 +88,7 @@ start from the seed file, and the game process used 125 MB of memory and
 connections and used 4 to 5 CPU cores for a few seconds at each 30-second
 sweep; the override uses 60 seconds.
 
-## How a whisper lands
+## How a line wakes a villager
 
 The embedding model gives almost any two village sentences a similarity
 between about 0.72 and 0.82, related or not, and each need sits at its own
@@ -99,11 +97,6 @@ level within that band. So each need gets a baseline: its mean similarity to
 one. A line matches a need when it scores at least `SLEUTH_MATCH_MARGIN`
 (0.015) above that need's baseline. Each need's subscription uses that
 threshold, so Contex pushes only real matches.
-
-Right after you whisper, the game queries each of the target's needs for your
-whisper, one query per need and no model call, which is how the feed can say
-at once whether it landed. A whisper that lands joins the villager's next turn
-even if the push is slow.
 
 The first run computes the baselines and writes them to
 `sleuth_baselines.json`, shared by every village; for 400 needs that took 5.4 seconds on
@@ -140,34 +133,19 @@ whoever heard them retold (measured with the place in the text). A lower margin 
 higher one makes more of your aimed whispers miss.
 
 Run Contex with authentication off, since its rate limits would throttle
-calibration and the check after each whisper, and with `SYSTEM_ONE_ENABLED`
+calibration and every question, and with `SYSTEM_ONE_ENABLED`
 off, since query reranking would call a model on every check. Both are off by
 default.
 
 ## Commands
 
-In the terminal:
+Everything is done on the page:
 
-```
-<name>: <text>            whisper to a villager, e.g. Marta: the miller waters his flour
-whisper <name>: <text>    the same
-villagers                 everyone in town, with occupation and place
-inspect <name>            personality, any grudge, and relationships
-usage                     tokens used so far and their estimated cost
-help                      these commands
-quit
-```
-
-A name can be part of a full name if it is unambiguous. A whisper that
-touches nothing the villager cares about does nothing, and the feed says at
-once whether it caught their ear or they shrug it off. `inspect` shows enough
-to guess what someone cares about, but not their needs.
-
-A shrug is a hint. The villager brushes you off in their own voice, kindly or
-curtly as their temperament goes, and alludes to something they care about, a
-different concern each time until they run out and start over, so a miss tells
-you where to aim next. If the line can't be
-written, the whisper just says it was brushed off.
+- Walk: open a place's tile and press "Walk here".
+- Listen: at your own place, press "Listen here" to hear the last few lines said there.
+- Ask around: open a villager's card where you stand and ask what folk have been saying about something; the answer
+  goes in the feed and on their card.
+- Inspect: click a face to see a villager's trade, looks, home, household, personality, grudge and relationships.
 
 ## Suspicion
 
@@ -197,49 +175,24 @@ browser page:
 The village checks its mood four times a game day. If it is at the run-out
 level for three checks in a row, the town meets at town hall and runs you
 out of town, and you lose. The summary says what gave you away, such as "Marta
-Hale heard it from you directly." The game is over: whispers are refused, and
+Hale heard it from you directly." The game is over: questions are refused, and
 you restart the program to play again.
 
 ## The browser page
 
-The page has the feed, a whisper box, and the village in the sidebar.
+The page has the feed and the village in the sidebar.
 
 The town is one tile per place (nine public places and three streets), each with how many villagers are there and
 their faces. One tile is open at a time and lists everyone there: face, name,
-trade, what you know about them, and the last line they brushed you off with.
+trade, what you know about them, and the last thing they told you.
 The page remembers which tile you opened. The search box above the tiles finds
 villagers by name, trade, or place: it highlights matching faces and opens the
-place where the best match is. Escape clears it. The whisper box offers the
-same matches as you type; arrow keys and Enter pick one.
+place where the best match is. Escape clears it.
 
 Click a face, or press Enter on a name, to open the villager's card: occupation,
-personality, grudge if they have one, relationships, and what you know. "Whisper to" fills the
-whisper box with their name. Escape closes the card.
+personality, grudge if they have one, relationships, and what you know. Escape closes the card.
 
 A face is generated from the villager's id and trade, so the same villager has
-the same face every game. A badge on the face says what you know:
-
-| Badge | Means |
-|---|---|
-| ✓ | took the bait: passed your whisper on |
-| ↩ | answered you: you are talking with them |
-| ○ | kept it quiet: heard you and told no one |
-| – | brushed you off: your whisper missed what they care about |
-| ! | wary of you: turned you away or warned others about you |
-| … | listening: you whispered to them and nothing has come of it yet |
-
-The open tile and the card say the same in words. Each whisper in the feed
-shows where it stands, updated as it changes: checking, busy (with the seconds
-until they hear you), heard, took the bait (and how many people they told),
-kept it quiet, warned others, answered you, moved on, brushed you off (with
-their line once it is written), or didn't carry (the game couldn't check it).
-
-A villager whose interest you caught may answer you. The conversation shows
-above the composer: your lines and theirs. While they are talking with you, the composer
-says "Talking with" their name, and what you send them next is a reply. The
-conversation ends when they move on, brush you off, turn you away, or the game
-ends.
-
 Room talk that grows from a case is posted to the neighborhood app and shows in
 the feed. Listen at a place to hear the last few lines said there.
 
@@ -247,15 +200,14 @@ Arrow keys move through the feed's buttons. Reloading the page brings back the
 last 500 feed events.
 
 The server listens on 127.0.0.1 only. It answers only requests addressed to
-`127.0.0.1` or `localhost` on its own port, and refuses whispers and WebSocket
+`127.0.0.1` or `localhost` on its own port, and refuses writes and WebSocket
 connections from other origins.
 
 ## What it costs
 
 The game keeps a running count of the tokens it sends to Haiku and Jev and
-multiplies them by per-million-token prices. `usage` prints it in the
-terminal, the browser page shows it in the strip above the feed, and both
-print it on quit. The figures are estimates: the prices are list prices you can
+multiplies them by per-million-token prices. The browser page shows it in the
+menu, and the game prints it on quit. The figures are estimates: the prices are list prices you can
 change, and the providers' bills are the real numbers.
 
 Where the tokens go:
@@ -264,14 +216,7 @@ Where the tokens go:
 - Each time a villager wakes: one Jev request to decide what they do, plus a
   short Haiku call (at most 80 tokens out) when they speak, and a slightly
   longer one when they found a group.
-- Each shrug: one short Haiku call (at most 80 tokens out) for the brush-off,
-  and a second one if the first repeated the villager's concern word for word.
-- An answer to you: the turn's Jev request plus one short Haiku line, at
-  most `TALK_TURNS` per conversation.
-
-On the 100-villager seed with the defaults, the haunting
-whisper and the talk it started cost about $0.002 in five minutes; four
-whispers and a three-reply conversation, under $0.004.
+- Each question you ask: one short Haiku line.
 
 | Variable | Default (dollars per million tokens) |
 |---|---|
@@ -299,7 +244,7 @@ The image listens on `0.0.0.0` and on the `PORT` Railway gives it.
 
 The village thinks only while someone is playing: a player counts while one of
 their tabs is open, and for `SLEUTH_IDLE_AFTER_SECONDS` (10 minutes) after
-their last whisper, walk, question, listen, keystroke or closed tab.
+their last walk, question, listen or closed tab.
 A visitor who loads the page but never opens its feed never wakes the village,
 and their run is dropped once it is that old, or sooner once more than
 `SLEUTH_MAX_IDLE_RUNS` such runs pile up. A single open tab keeps the village
@@ -307,7 +252,7 @@ awake, so expect it to spend up to the cap every UTC day.
 
 Once the day's estimated spend reaches `SLEUTH_DAILY_SPEND_CAP` the village
 rests until midnight UTC: villagers stop thinking, the page says so, and
-whispers and questions are refused. Walking and listening still
+questions are refused. Walking and listening still
 work. Calls already under way finish, so the day can go a little over the cap.
 
 The cap counts spend in the running process only. A restart starts the count
@@ -331,9 +276,8 @@ unreadable, for another version or session, fails to restore, or has lost its
 village file is renamed to `<name>.bad-<time>` and the game starts fresh.
 
 To count players, search the logs for `analytics`. The game prints one line when a run first opens its feed
-(`analytics visit`), one per whisper (`analytics whisper`), and one when a run ends (`analytics end`, with its
-outcome). Each carries the player's anonymous `owner` id, so distinct owners in `analytics whisper`
-lines are the people who played.
+(`analytics visit`) and one when a run ends (`analytics end`, with its outcome). Each carries the player's anonymous
+`owner` id, so distinct owners in `analytics visit` lines are the people who came.
 
 ## Settings
 
@@ -350,22 +294,19 @@ Every field of `Config` can be set with an environment variable.
 | `SLEUTH_CASE_DAYS` | `3` | game days before an open case goes cold |
 | `SLEUTH_DAY_SECONDS` | `120` | length of a game day |
 | `SLEUTH_MEMORY_DAYS` | `2` | how many days a villager remembers what they heard |
-| `SLEUTH_MATCH_MARGIN` | `0.015` | how far above a need's score against ordinary village talk a whisper must score to match that need |
+| `SLEUTH_MATCH_MARGIN` | `0.015` | how far above a need's score against ordinary village talk a line must score to match that need |
 | `SLEUTH_TOP_K` | `5` | memories kept per need |
 | `SLEUTH_CALIBRATION_PATH` | `sleuth_baselines.json` | where need baselines are cached |
 | `SLEUTH_FATIGUE_PER_HOP` | `0.004` | extra clearance over a need's threshold each retelling hop needs before it wakes a listener |
 | `SLEUTH_OVERHEARD_MARGIN` | `0.01` | extra clearance a line said to the room needs over one told to the listener |
-| `SLEUTH_SAID_FLOOR` | `0.8` | how similar a villager's earlier line must be to what you say to them for them to recall it |
-| `SLEUTH_TALK_TURNS` | `3` | most times a villager answers you in one conversation |
 | `SLEUTH_COOLDOWN_SECONDS` | `30` | least time between a villager's turns |
-| `SLEUTH_CHECK_LOOKBACK_SECONDS` | `5` | how far before a whisper the check that it landed looks, to absorb clock skew with Contex |
 | `SLEUTH_JUDGE_CONCURRENCY` | `10` | routine-planning calls in flight |
 | `SLEUTH_TURN_CONCURRENCY` | `20` | villager turns in flight |
 | `SLEUTH_RENEW_SECONDS` | `1200` | read quiet villagers' subscriptions this often so they don't expire |
 | `SLEUTH_HAIKU_MODEL` | `claude-haiku-5-5` | model for speech and village generation |
 | `SLEUTH_SEED_PATH` | empty: a new village | a saved village to play again |
-| `SLEUTH_WEB_HOST` | `127.0.0.1` | address `--web` listens on; `0.0.0.0` serves anyone who can reach the machine |
-| `SLEUTH_WEB_PORT` | `8765` | port for `--web`; `PORT` wins when set |
+| `SLEUTH_WEB_HOST` | `127.0.0.1` | address the game listens on; `0.0.0.0` serves anyone who can reach the machine |
+| `SLEUTH_WEB_PORT` | `8765` | port the game listens on; `PORT` wins when set |
 | `SLEUTH_IDLE_AFTER_SECONDS` | `600` | how long a player counts as playing after their last action or closed tab |
 | `SLEUTH_MAX_IDLE_RUNS` | `200` | most runs kept that never played; past it the oldest are dropped |
 | `SLEUTH_DAILY_SPEND_CAP` | `5.0` | estimated dollars per UTC day before the village rests until midnight; `0` for no cap |
@@ -378,7 +319,7 @@ Every field of `Config` can be set with an environment variable.
 | `SLEUTH_RUN_OUT_CHECKS` | `3` | checks in a row at that level before you are run out |
 | `SLEUTH_SUSPICION_CHECK_DAYS` | `0.25` | game days between mood checks |
 
-`MATCH_MARGIN` matters most; see [How a whisper lands](#how-a-whisper-lands). Lower it and villagers react to more of what they hear; raise it and the village goes quiet.
+`MATCH_MARGIN` matters most; see [How a line wakes a villager](#how-a-line-wakes-a-villager). Lower it and villagers react to more of what they hear; raise it and the village goes quiet.
 
 Stories wear out. A line wakes a listener only if it clears one of their
 needs by `FATIGUE_PER_HOP` for each time it was retold, plus
@@ -389,10 +330,6 @@ of 6 to 9 of them. With the defaults, replays of that whisper gave 1 to 4
 retellings, each over within a minute, and the village stayed quiet. Raise
 the fatigue for a quieter village; lower the overheard margin and room talk
 runs on.
-
-A conversation costs suspicion like whispering does. Three messages to one
-villager left them at about 0.73, past the 0.7 at which they turn you away,
-which is why `TALK_TURNS` is 3.
 
 The mood is a mean over the whole village, so the same whispers count for more
 in a small one. In a village of 100, a player who whispered to someone

@@ -2,12 +2,12 @@
 
 import logging
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from typesafe_sdk import Choice, Score
 
 from sleuth.actions import (
-    ACTION_NOT_FOR, ACTIONS, ANSWER, IGNORE, JOIN_GROUP, MOVE, STYLED, STYLES, TARGET_KIND,
+    ACTION_NOT_FOR, ACTIONS, IGNORE, JOIN_GROUP, MOVE, STYLED, STYLES, TARGET_KIND,
     available_actions,
 )
 from sleuth.contex_client import Match
@@ -20,7 +20,6 @@ MAX_OPTIONS = 255
 # Actions Jev rates below this are never drawn.
 MIN_ACTION_PROBABILITY = 0.1
 MAX_RECENT = 10
-MAX_SAID = 3
 
 ACTION_INSTRUCTIONS = (
     "You are deciding what one villager does next in a small village that runs on gossip. "
@@ -33,15 +32,8 @@ ACTION_INSTRUCTIONS = (
     "group."
 )
 
-SUSPICION_LEVELS = ["not at all", "a little", "quite a bit", "convinced"]
 GOSSIP_LEVELS = ["keeps news to themselves", "shares now and then", "loves to share", "can't hold anything in"]
 GOSSIP_INSTRUCTIONS = "Given their personality, how readily does this villager pass news on to whoever they meet?"
-KEEN_LEVELS = ["not at all", "a little", "quite a bit", "can't stop"]
-KEEN_INSTRUCTIONS = "How much does this villager want to keep talking about this?"
-SUSPICION_INSTRUCTIONS = (
-    "How strongly does what this villager just heard make them suspect the newcomer is "
-    "behind the rumors going around, given their personality?"
-)
 
 
 @dataclass
@@ -53,24 +45,8 @@ class TurnView:
     visible_groups: list[Group]
     new: list[Match]
     recent: list[Match]
-    suspicion: float
-    warn_threshold: float
-    # New items that name the newcomer: the newcomer's own whispers and lines that say who started them.
-    names_newcomer: list[Match]
-    # The villager's own earlier lines that the newcomer's words bring back.
-    said: list[Match] = field(default_factory=list)
-    # What the villager heard before that the newcomer's words bring back.
-    heard: list[Match] = field(default_factory=list)
-    # The newcomer's lines that landed this turn and that the villager may still answer.
-    answerable: list[Match] = field(default_factory=list)
     # Whether to ask how much of a gossip the villager is, which is asked once per villager.
     ask_gossip: bool = False
-    # Whether to ask how keen the villager is to keep a scene going.
-    ask_keen: bool = False
-    # Whether a player talking with the villager keeps them from walking off.
-    held: bool = False
-    # How taken the villager was with the newcomer's whisper behind the turn's new items, if any is.
-    taken: str | None = None
     # The news of the case the villager is the culprit of, while it is set up or open.
     case: str | None = None
 
@@ -81,12 +57,8 @@ class Decision:
     source: Match | None
     target: str | None
     style: str | None
-    # How much this turn's news raised suspicion of the newcomer, in [0, 1].
-    suspicion_strength: float | None = None
     # How readily the villager passes news on, in [0, 1], when it was asked.
     gossip: float | None = None
-    # How keen the villager is to keep talking, in [0, 1], when it was asked.
-    keen: float | None = None
 
 
 def _text(m: Match) -> str:
@@ -96,16 +68,6 @@ def _text(m: Match) -> str:
 def _person(v: Villager, other: Villager) -> str:
     kind = v.relationships.get(other.id)
     return f"{other.name}, {other.occupation}" + (f", their {kind}" if kind else "")
-
-
-def _suspicion_words(view: TurnView) -> str:
-    if view.suspicion <= 0:
-        return "none"
-    if view.suspicion < view.warn_threshold:
-        return "a little"
-    if view.suspicion < (1 + view.warn_threshold) / 2:
-        return "quite a bit"
-    return "convinced"
 
 
 def warmth_words(w: float) -> str:
@@ -135,16 +97,9 @@ def _state(view: TurnView) -> dict:
         "just_heard": [_text(m) for m in view.new],
         "recent_memories": [_text(m) for m in view.recent[:MAX_RECENT]],
         "groups": [g.name for g in view.member_groups],
-        "suspicion_of_the_newcomer": _suspicion_words(view),
     }
     if view.case:
         state["your_secret"] = f"You did this, and people are talking about it: {view.case}"
-    if view.taken:
-        state["how taken they were with the newcomer's story"] = view.taken
-    if view.said:
-        state["things_i_said_recently"] = [_text(m) for m in view.said[:MAX_SAID]]
-    if view.heard:
-        state["things_i_heard_before"] = [_text(m) for m in view.heard[:MAX_SAID]]
     return state
 
 
@@ -158,12 +113,8 @@ def _action_criteria(view: TurnView) -> dict:
 
 def _questions(view: TurnView) -> dict[str, Choice | Score]:
     qs = {"action": Choice(instructions=ACTION_INSTRUCTIONS, criteria=_action_criteria(view))}
-    if view.names_newcomer:
-        qs["suspicion"] = Score(instructions=SUSPICION_INSTRUCTIONS, criteria=SUSPICION_LEVELS)
     if view.ask_gossip:
         qs["gossip"] = Score(instructions=GOSSIP_INSTRUCTIONS, criteria=GOSSIP_LEVELS)
-    if view.ask_keen:
-        qs["keen"] = Score(instructions=KEEN_INSTRUCTIONS, criteria=KEEN_LEVELS)
     if len(view.new) > 1:
         qs["source"] = Choice(
             instructions="Which of the things this villager just heard does the action respond to? "
@@ -222,13 +173,9 @@ async def decide(jev, view: TurnView) -> Decision:
     else:
         action = max(odds, key=odds.get)
     log.debug("%s: action odds %s, drew %s", view.villager.id, odds, action)
-    strength = _scaled(resp, "suspicion", SUSPICION_LEVELS) if view.names_newcomer else None
     gossip = _scaled(resp, "gossip", GOSSIP_LEVELS) if view.ask_gossip else None
-    keen = _scaled(resp, "keen", KEEN_LEVELS) if view.ask_keen else None
     if action == IGNORE:
-        return Decision(IGNORE, None, None, None, strength, gossip, keen)
-    if action == ANSWER:
-        return Decision(ANSWER, view.answerable[-1], None, None, strength, gossip, keen)
+        return Decision(IGNORE, None, None, None, gossip)
     if len(view.new) > 1:
         source = next(m for m in view.new if m.data_key == pick["source"])
     else:
@@ -242,4 +189,4 @@ async def decide(jev, view: TurnView) -> Decision:
     target = pick.get(target_key) if target_key else None
     # A move keeps a manner in case the villager shares the news where they arrive.
     style = pick.get("style") if action in STYLED or action == MOVE else None
-    return Decision(action, source, target, style, strength, gossip, keen)
+    return Decision(action, source, target, style, gossip)

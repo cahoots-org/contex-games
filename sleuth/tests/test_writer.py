@@ -1,4 +1,3 @@
-import re
 
 import pytest
 
@@ -7,7 +6,7 @@ from sleuth.config import Config
 from sleuth.models import Villager
 from sleuth.usage import Usage
 from sleuth.tests.helpers import StubClient
-from sleuth.writer import SAY_MAX_TOKENS, WHISPER_FRAMING, Writer, first_line
+from sleuth.writer import SAY_MAX_TOKENS, Writer, first_line
 
 
 def villager():
@@ -68,109 +67,18 @@ async def test_turn_away_prompts_with_profile_and_returns_one_line():
 
 
 @pytest.mark.asyncio
-async def test_storm_off_prompts_with_profile_and_returns_one_line():
-    client = StubClient('"I have heard quite enough."\nSecond line.')
-    line = await Writer(client, "haiku-test").storm_off(villager())
-    assert line == "I have heard quite enough."
-    call = client.messages.calls[0]
-    assert all(s in call["system"] for s in ("Ada", "baker", "sharp-tongued", "storm off"))
-    assert call["max_tokens"] == 60
-
-
-@pytest.mark.asyncio
-async def test_writer_lose_patience_is_one_line_in_temper():
-    client = StubClient('"I must be getting on, forgive me."\nSecond line.')
-    line = await Writer(client, "haiku-test").lose_patience(villager())
-    assert line == "I must be getting on, forgive me."
-    call = client.messages.calls[0]
-    assert all(s in call["system"] for s in ("Ada", "baker", "sharp-tongued"))
-    assert "a kindly villager excuses herself, a sour one cuts the newcomer off" in call["system"]
-    assert "owes me flour" not in call["system"]
-    assert call["max_tokens"] == SAY_MAX_TOKENS
-
-
-@pytest.mark.asyncio
-async def test_brush_off_prompts_with_profile_and_concern_and_returns_one_line():
-    client = StubClient('"Not now, my oven is cracked."\nAnd another thing.')
-    line = await Writer(client, "haiku-test").brush_off(villager(), "my oven needs a new hearthstone")
-    assert line == "Not now, my oven is cracked."
-    call = client.messages.calls[0]
-    assert all(s in call["system"] for s in ("Ada", "baker", "sharp-tongued", "Never repeat its wording"))
-    assert "in keeping with your temperament: a kindly villager is busy and apologetic, a sour one curt" in call["system"]
-    assert "grumbl" not in call["system"]
-    assert "owes me flour" not in call["system"]
-    assert "my oven needs a new hearthstone" in call["messages"][0]["content"]
-    assert call["max_tokens"] == 80
-
-
-@pytest.mark.asyncio
-async def test_brush_off_may_name_the_subject_but_no_particulars():
-    client = StubClient("Not now.")
-    await Writer(client, "haiku-test").brush_off(villager(), "my oven needs a new hearthstone")
-    system = client.messages.calls[0]["system"]
-    assert (
-        "You may name the subject itself, such as strange lights or the vines, "
-        "but never a name, a number, or any particular. Never repeat its wording."
-    ) in system
-    assert "don't name the specific thing" not in system
-
-
-@pytest.mark.asyncio
-async def test_warn_asks_for_one_line_and_never_says_how_suspicious_anyone_is():
-    client = StubClient('"Watch that newcomer, Bo."\nMore.')
-    target = Villager("v002", "Bo", "miller", "dour", "", [], {})
-    line = await Writer(client, "haiku-test").warn(villager(), target)
-    assert line == "Watch that newcomer, Bo."
-    call = client.messages.calls[0]
-    prompt = call["system"] + call["messages"][0]["content"]
-    assert all(s in prompt for s in ("Ada", "baker", "sharp-tongued", "Bo", "newcomer", "one short sentence"))
-    assert "owes me flour" not in prompt
-    assert "Never say how sure" in prompt
-    assert re.search(r"\d\.\d|suspicion", prompt) is None
-    assert call["max_tokens"] == 60
-
-
-@pytest.mark.asyncio
-async def test_reply_answers_the_newcomer_in_one_line():
-    client = StubClient('"Aye, the well has been off since spring."\nShe wipes her hands.', "Hm.")
-    writer = Writer(client, "haiku-test")
-    line = "A newcomer whispered to you: the well water tastes odd"
-    assert await writer.reply(villager(), line, []) == "Aye, the well has been off since spring."
-    await writer.reply(villager(), line, ["Ada said: the well is fine"])
-    plain, with_said = (c["system"] + c["messages"][0]["content"] for c in client.messages.calls)
-    assert "the well water tastes odd" in plain and "whispered to you" not in plain
-    assert "the well is fine" not in plain and "the well is fine" in with_said
-    assert "suspic" in plain.lower()
-
-
-@pytest.mark.asyncio
-async def test_reply_mentions_what_they_heard_only_when_there_is_something():
+async def test_say_mentions_a_grudge_only_when_there_is_one():
     client = StubClient("Hm.", "Hm.")
-    writer = Writer(client, "haiku-test")
-    line = "A newcomer whispered to you: the miller waters his flour"
-    await writer.reply(villager(), line, [])
-    await writer.reply(villager(), line, [], ["Bo said: the miller waters his flour", "Cy said: flour is thin"])
-    plain, with_heard = (c["system"] + c["messages"][0]["content"] for c in client.messages.calls)
-    assert "What you heard earlier" not in plain and "If you already heard" not in plain
-    assert "What you heard earlier: Bo said: the miller waters his flour / Cy said: flour is thin" in with_heard
-    assert "If you already heard about this, say so and what you heard, in your own words." in with_heard
-
-
-@pytest.mark.asyncio
-async def test_say_and_reply_mention_a_grudge_only_when_there_is_one():
-    client = StubClient("Hm.", "Hm.", "Hm.", "Hm.")
     writer = Writer(client, "haiku-test")
     kindly = Villager("v002", "Bea", "weaver", "warm", "", ["cloth"], {})
     decision = Decision("speak", None, None, None)
 
     await writer.say(kindly, decision, "Bob stole a loaf", "all")
-    await writer.reply(kindly, "the well water tastes odd", [])
     await writer.say(villager(), decision, "Bob stole a loaf", "all")
-    await writer.reply(villager(), "the well water tastes odd", [])
 
-    kind_say, kind_reply, sour_say, sour_reply = (c["system"] for c in client.messages.calls)
-    assert "grudge" not in (kind_say + kind_reply).lower()
-    assert "Your grudge: owes me flour." in sour_say and "Your grudge: owes me flour." in sour_reply
+    kind_say, sour_say = (c["system"] for c in client.messages.calls)
+    assert "grudge" not in kind_say.lower()
+    assert "Your grudge: owes me flour." in sour_say
     assert all("relish and curiosity, not malice" in s for s in (kind_say, sour_say))
 
 
@@ -184,22 +92,6 @@ async def test_say_tells_it_as_a_juicy_secret_in_the_conspiratorial_manner():
 def test_first_line_drops_stage_directions():
     raw = "*lowers voice conspiratorially* Mark my words, the taxes are *really* climbing."
     assert first_line(raw) == "Mark my words, the taxes are climbing."
-
-
-@pytest.mark.asyncio
-async def test_go_on_urges_the_newcomer_on_in_one_line():
-    client = StubClient('"Go on, I am listening."\nMore.')
-    line = await Writer(client, "haiku-test").go_on(villager(), "the oven looks tired")
-    assert line == "Go on, I am listening."
-    call = client.messages.calls[0]
-    assert all(s in call["system"] for s in ("Ada", "baker", "sharp-tongued", "under 15 words"))
-    assert "owes me flour" not in call["system"]
-    assert "the oven looks tired" in call["messages"][0]["content"]
-    assert call["max_tokens"] == 40
-
-
-def test_whisper_framing_is_a_newcomer():
-    assert WHISPER_FRAMING.sub("", "A newcomer whispered to you: hi") == "hi"
 
 
 @pytest.mark.asyncio
@@ -224,44 +116,6 @@ async def test_answer_is_told_who_the_neighbours_in_the_question_are():
     writer = Writer(client, "haiku-test")
     await writer.answer(villager(), "Everard Coke", [], ["Everard Coke, the tanner"])
     assert "Neighbours you know: Everard Coke, the tanner" in client.messages.calls[0]["messages"][0]["content"]
-
-
-@pytest.mark.asyncio
-async def test_deny_is_one_flat_line_naming_no_newcomer():
-    client = StubClient('"That is a lie, plain and simple."\nMore.')
-    line = await Writer(client, "haiku-test").deny(villager(), "Ada steals geese")
-    assert line == "That is a lie, plain and simple."
-    call = client.messages.calls[0]
-    prompt = call["system"] + call["messages"][0]["content"]
-    assert all(s in prompt for s in ("Ada", "baker", "sharp-tongued", "Ada steals geese", "deny"))
-    assert "newcomer" in call["system"] and "Never name" in call["system"]
-    assert call["max_tokens"] == 80
-
-
-@pytest.mark.asyncio
-async def test_reply_is_told_who_the_neighbours_in_the_line_are():
-    client = StubClient("Everard? That sour tanner.")
-    writer = Writer(client, "haiku-test")
-    await writer.reply(villager(), "Everard Coke stole the bells", [], [], ["Everard Coke, the tanner"])
-    call = client.messages.calls[0]
-    assert "Neighbours you know: Everard Coke, the tanner" in call["messages"][0]["content"]
-    assert "You know everyone in the town" in call["system"]
-
-
-@pytest.mark.asyncio
-async def test_writer_lines_carry_the_mood():
-    client = StubClient("Go on.", "Not now.", "Aye.", "Go on.", "Not now.", "Aye.")
-    writer = Writer(client, "haiku-test")
-    v = villager()
-    await writer.go_on(v, "the oven looks tired", mood="curious")
-    await writer.brush_off(v, "my oven is cracked", mood="curious")
-    await writer.reply(v, "the well is dry", [], mood="curious")
-    for call in client.messages.calls:
-        assert "How you feel: curious." in call["system"] and "set the tone" in call["system"]
-    await writer.go_on(v, "the oven looks tired")
-    await writer.brush_off(v, "my oven is cracked")
-    await writer.reply(v, "the well is dry", [])
-    assert all("How you feel" not in c["system"] for c in client.messages.calls[3:])
 
 
 @pytest.mark.asyncio

@@ -11,10 +11,6 @@ from sleuth.usage import charged_to
 
 SAY_MAX_TOKENS = 80
 TURN_AWAY_MAX_TOKENS = 60
-WARN_MAX_TOKENS = 60
-GO_ON_MAX_TOKENS = 40
-# How a player whisper reads when it reaches a villager.
-WHISPER_FRAMING = re.compile(r"^A newcomer whispered to you: ")
 
 
 STAGE_DIRECTION = re.compile(r"\*[^*]*\*")
@@ -44,11 +40,6 @@ def _grudge(villager: Villager, aside: str = "") -> str:
     return f"Your grudge: {villager.grudge}. {aside}" if villager.grudge else ""
 
 
-def _mood(mood: str) -> str:
-    """How the villager feels for a prompt, or nothing when it is not set."""
-    return f" How you feel: {mood}. Let it set the tone of what you say." if mood else ""
-
-
 class Writer:
     def __init__(self, client, model: str, usage=None):
         self.client = client
@@ -71,12 +62,8 @@ class Writer:
 
     async def say(
         self, villager: Villager, decision: Decision, source_text: str | None, audience: str,
-        names_newcomer: bool = False,
     ) -> str:
-        """The villager's words for this decision, in their voice and chosen style.
-
-        Unless names_newcomer, the newcomer's whisper framing is removed and the villager keeps the source unnamed.
-        """
+        """The villager's words for this decision, in their voice and chosen style, keeping the source unnamed."""
         system = (
             f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
@@ -90,42 +77,10 @@ class Writer:
         lines = [f"Action: {decision.action}.", f"Listening: {audience}."]
         if decision.style:
             lines.append(f"Manner: {STYLES[decision.style]}")
-        if source_text and names_newcomer:
+        if source_text:
             lines.append(f"What you heard: {source_text}")
-            lines.append("This story names the newcomer; keep that in.")
-        elif source_text:
-            lines.append(f"What you heard: {WHISPER_FRAMING.sub('', source_text)}")
             lines.append("Do not say or hint who started this story.")
         return first_line(await self.complete(system, "\n".join(lines), max_tokens=SAY_MAX_TOKENS))
-
-    async def brush_off(self, villager: Villager, concern: str, mood: str = "") -> str:
-        """The villager waving off the newcomer in character, alluding to their concern, in one line."""
-        system = (
-            f"You are {villager.name}, a {villager.occupation} in a small town. "
-            f"Your personality: {villager.personality}. "
-            "A newcomer just whispered something to you that you don't care about. Wave them off "
-            "in one short sentence, under 25 words, in your own voice and in keeping with your "
-            "temperament: a kindly villager is busy and apologetic, a sour one curt. Mention only "
-            "what is really on your mind and nothing else. "
-            "You may name the subject itself, such as strange lights or the vines, but never a "
-            "name, a number, or any particular. Never repeat its wording. "
-            "No stage directions, no quotation marks, no preamble."
-            + _mood(mood)
-        )
-        return first_line(await self.complete(system, f"What is really on your mind: {concern}", max_tokens=SAY_MAX_TOKENS))
-
-    async def go_on(self, villager: Villager, newcomer_line: str, mood: str = "") -> str:
-        """The villager leaning in to urge the newcomer on, in one line, without saying what interests them."""
-        system = (
-            f"You are {villager.name}, a {villager.occupation} in a small town. "
-            f"Your personality: {villager.personality}. "
-            "A newcomer just whispered something that nearly caught your interest. Urge them to go on "
-            "in one short sentence, under 15 words, in your own voice. "
-            "Never say what interests you or what you want to hear. "
-            "No stage directions, no quotation marks, no preamble."
-            + _mood(mood)
-        )
-        return first_line(await self.complete(system, f"The newcomer said: {newcomer_line}", max_tokens=GO_ON_MAX_TOKENS))
 
     async def turn_away(self, villager: Villager) -> str:
         """The villager refusing to hear the newcomer any more, in one line."""
@@ -140,87 +95,6 @@ class Writer:
         return first_line(
             await self.complete(system, "The newcomer is whispering to you again.", max_tokens=TURN_AWAY_MAX_TOKENS)
         )
-
-    async def storm_off(self, villager: Villager) -> str:
-        """The villager breaking off with the newcomer who has tried their patience, in one line."""
-        system = (
-            f"You are {villager.name}, a {villager.occupation} in a small town. "
-            f"Your personality: {villager.personality}. "
-            "The newcomer you were talking with has tried your patience, and you storm off. Say your parting "
-            "words in one short sentence, about 15 words, in your own voice. "
-            "Never mention suspicion. "
-            "No stage directions, no quotation marks, no preamble."
-        )
-        return first_line(
-            await self.complete(system, "You walk away from the newcomer.", max_tokens=TURN_AWAY_MAX_TOKENS)
-        )
-
-    async def lose_patience(self, villager: Villager) -> str:
-        """The villager ending a conversation that has worn out her interest, in one line, in her temper."""
-        system = (
-            f"You are {villager.name}, a {villager.occupation} in a small town. "
-            f"Your personality: {villager.personality}. "
-            "The newcomer you were talking with has worn out your interest, and you end the conversation. Say so "
-            "in one short sentence, under 20 words, in your own voice and in keeping with your temperament: "
-            "a kindly villager excuses herself, a sour one cuts the newcomer off. "
-            "Name no one. "
-            "No stage directions, no quotation marks, no preamble."
-        )
-        return first_line(
-            await self.complete(system, "You have heard enough from the newcomer.", max_tokens=SAY_MAX_TOKENS)
-        )
-
-    async def deny(self, villager: Villager, claim: str) -> str:
-        """The villager flatly denying the claim about them, in one line."""
-        system = (
-            f"You are {villager.name}, a {villager.occupation} in a small town. "
-            f"Your personality: {villager.personality}. "
-            "A rumor is going around about you and you deny it flatly. Say so in one short sentence, under 20 words, "
-            "in your own voice. "
-            "Never name or describe the newcomer or anyone who might be behind it. "
-            "No stage directions, no quotation marks, no preamble."
-        )
-        user = f"The rumor: {claim}"
-        return first_line(await self.complete(system, user, max_tokens=SAY_MAX_TOKENS))
-
-    async def warn(self, villager: Villager, target: Villager) -> str:
-        """The villager warning the target that the newcomer is behind the rumors, in one line."""
-        system = (
-            f"You are {villager.name}, a {villager.occupation} in a small town. "
-            f"Your personality: {villager.personality}. "
-            "You have come to believe a newcomer in town is behind the rumors going around. "
-            "Warn the person you are talking to in one short sentence, under 25 words, in your own voice. "
-            "Never say how sure you are or how many people suspect the newcomer. "
-            "No stage directions, no quotation marks, no preamble."
-        )
-        user = f"You are talking to {target.name}, a {target.occupation}."
-        return first_line(await self.complete(system, user, max_tokens=WARN_MAX_TOKENS))
-
-    async def reply(
-        self, villager: Villager, newcomer_line: str, said: list[str], heard: Sequence[str] = (),
-        known: Sequence[str] = (), mood: str = "",
-    ) -> str:
-        """The villager answering what the newcomer just said to them, in one line; known as for answer."""
-        system = (
-            f"You are {villager.name}, a {villager.occupation} in a small town. "
-            f"Your personality: {villager.personality}. "
-            + _grudge(villager)
-            + "You know everyone in the town by name and trade. "
-            "The newcomer in town just said something to you that you care about. Answer them "
-            "in one short sentence, under 30 words, in your own voice, responding to what they said. "
-            "Never mention suspicion. "
-            "No stage directions, no quotation marks, no preamble."
-            + _mood(mood)
-        )
-        lines = [f"The newcomer said: {WHISPER_FRAMING.sub('', newcomer_line)}"]
-        if said:
-            lines.append("What you said earlier: " + " / ".join(said))
-        if heard:
-            system += " If you already heard about this, say so and what you heard, in your own words."
-            lines.append("What you heard earlier: " + " / ".join(heard))
-        if known:
-            lines.append("Neighbours you know: " + "; ".join(known))
-        return first_line(await self.complete(system, "\n".join(lines), max_tokens=SAY_MAX_TOKENS))
 
     async def answer(self, villager: Villager, topic: str, heard: Sequence[str], known: Sequence[str] = ()) -> str:
         """The villager telling the newcomer what folk have said about the topic, in one line.
