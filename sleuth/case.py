@@ -22,6 +22,8 @@ FOUND = {"steal": "missing", "vandalize": "damaged", "sabotage": "spoiled", "dog
 NOTICED = (10, 45)
 PHASE_MINUTES = {"morning": (420, 720), "afternoon": (720, 1020), "evening": (1020, 1320), "night": (1320, 1740)}
 MOTIVE_WEIGHT = 3
+# How often the culprit is someone expected at the scene anyway, when one fits.
+REGULAR_CULPRIT = 1 / 3
 CAMERA_PLACES = ("grocery", "bar", "town hall", "elm street")
 LOG_PLACES = {"gym": "Gym check-in", "bar": "Bar tab closed", "grocery": "Grocery receipt", "library": "Library checkout"}
 MAX_WITNESSES = 2
@@ -124,20 +126,23 @@ def motive_of(culprit, victim) -> str:
 
 def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id: str, *,
                 places=None, exclude=frozenset()) -> Crime | None:
-    """Draw a crime, then a culprit and a victim from different households, the victim where the item plausibly is and
-    the culprit expected elsewhere; None if no crime fits."""
+    """Draw a crime, then a culprit and a victim from different households, the victim where the item plausibly is.
+    About REGULAR_CULPRIT of the time, when one fits, the culprit is expected at the scene too, otherwise elsewhere;
+    None if no crime fits."""
     residents = [v for v in town.villagers if v.id not in exclude and routine.place(v.id, phase) is not None]
     crimes = [(t, item) for t, (_, items) in TEMPLATES.items() for item in items]
     for template, item in rng.sample(crimes, len(crimes)):
         pairs = [(c, w, motive_of(c, w)) for w in residents for c in residents
                  if c.household != w.household
                  and routine.place(w.id, phase) in ITEM_PLACES[item]
-                 and (places is None or routine.place(w.id, phase) in places)
-                 and routine.place(c.id, phase) != routine.place(w.id, phase)]
+                 and (places is None or routine.place(w.id, phase) in places)]
         if pairs:
             break
     else:
         return None
+    regular = [p for p in pairs if routine.place(p[0].id, phase) == routine.place(p[1].id, phase)]
+    away = [p for p in pairs if p not in regular]
+    pairs = regular if regular and (not away or rng.random() < REGULAR_CULPRIT) else away
     culprit, victim, motive = rng.choices(pairs, [1 if m == "opportunity" else MOTIVE_WEIGHT for *_, m in pairs])[0]
     minute = rng.randrange(*PHASE_MINUTES[phase])
     place = routine.place(victim.id, phase)

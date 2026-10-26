@@ -11,10 +11,12 @@ ANSWERS = {"honest": "Say honestly you were asleep and can't vouch for them.",
 
 
 def claim(file: CaseFile, vid: str, routine) -> tuple[list[str], bool]:
-    """The places the resident says they were during the crime, and whether that is the truth."""
+    """The places the resident says they were during the crime, and whether that is the truth: a culprit who is a
+    regular at the scene says so truthfully."""
     if vid != file.crime.culprit:
         return file.whereabouts.get(vid, []), True
-    return file.alibi or [routine.place(vid, file.crime.phase)], False
+    places = file.alibi or [routine.place(vid, file.crime.phase)]
+    return places, places == [file.crime.place]
 
 
 def _vouches(file: CaseFile, speaker: Villager, about: Villager) -> bool:

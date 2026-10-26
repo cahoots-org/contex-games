@@ -66,12 +66,12 @@ def test_stage_crime_is_deterministic_for_a_seed():
     assert stage_crime(town, routine, Random(7), 1, "night", "case-1") == stage_crime(town, routine, Random(7), 1, "night", "case-1")
 
 
-def test_crime_is_at_the_victims_expected_place_and_the_culprit_is_expected_elsewhere():
+def test_culprit_is_sometimes_a_regular_at_the_scene_and_otherwise_expected_elsewhere():
     town, routine = make_town(), make_routine()
-    for seed in range(50):
-        crime = stage_crime(town, routine, Random(seed), 1, "night", "case-1")
-        assert crime.place == routine.place(crime.victim, "night")
-        assert routine.place(crime.culprit, "night") != crime.place
+    crimes = [stage_crime(town, routine, Random(seed), 1, "night", "case-1") for seed in range(300)]
+    assert all(c.place == routine.place(c.victim, "night") for c in crimes)
+    regulars = [c for c in crimes if routine.place(c.culprit, "night") == c.place]
+    assert 300 / 6 < len(regulars) < 300 / 2
 
 
 def test_culprit_and_victim_never_share_a_household():
@@ -107,7 +107,7 @@ def test_grudge_naming_the_victim_is_a_motive():
 
 def test_returns_none_when_no_pair_fits():
     town = make_town()
-    routine = make_routine({vid: "bar" for vid, *_ in RESIDENTS})
+    routine = make_routine({vid: "dog park" for vid, *_ in RESIDENTS})
     assert stage_crime(town, routine, Random(1), 1, "night", "case-1") is None
 
 

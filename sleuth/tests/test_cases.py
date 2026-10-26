@@ -8,7 +8,7 @@ import pytest
 
 from sleuth import cases as cases_mod
 from sleuth.alibi import claim
-from sleuth.case import CAMERA_PLACES, WHEN, Crime, Record, told
+from sleuth.case import CAMERA_PLACES, WHEN, Crime, Record, points_at, suspects, told
 from sleuth.cases import GUIDED_CLIP_TRAITS, CaseFile, Cases, case_json
 from sleuth.config import Config
 from sleuth.feed import Feed
@@ -381,8 +381,30 @@ async def test_the_victim_is_told_what_they_found_when_the_case_opens():
 @pytest.mark.asyncio
 async def test_staged_and_guided_cases_hold_clues_at_the_crime_place():
     cases, engine, _ = make_cases()
-    await tick(cases, engine)
     guided = await cases.open_guided(engine, "p-1", 1, "night")
+    await tick(cases, engine)
     for case in (cases.shared(), guided):
         clues = [r for r in case.records.values() if r.kind == "clue"]
         assert 1 <= len(clues) <= 2 and {r.place for r in clues} == {case.crime.place}
+
+
+@pytest.mark.asyncio
+async def test_cases_with_a_regular_culprit_still_open_solvable():
+    regulars = 0
+    for seed in range(40):
+        cases, engine, town = make_cases()
+        cases.rng = Random(seed)
+        await tick(cases, engine)
+        await tick(cases, engine, day=2)
+        opened = [cases.shared(), await cases.open_guided(engine, "p-1", 2, "night")]
+        for case in filter(None, opened):
+            crime = case.crime
+            if cases.routine.place(crime.culprit, crime.phase) != crime.place:
+                continue
+            regulars += 1
+            records = list(case.records.values())
+            traits = town.get(crime.culprit).traits
+            assert case.state == "open" and suspects(crime, records, town) == {crime.culprit}
+            assert any(r.sound and points_at(crime, crime.culprit, traits, r) for r in records)
+            assert claim(case, crime.culprit, cases.routine) == ([crime.place], True)
+    assert regulars

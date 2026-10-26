@@ -43,7 +43,9 @@ resting.
 | clue | left at the crime place: a boot print, coat thread or tracks showing one of the culprit's traits, or a grocery receipt dropped by the culprit or someone who was there, showing only the store and the time |
 | statement | what a resident tells you in an interview: where they or someone else were, what they heard, who'd have a reason |
 
-Statements can be lies: the culprit gives a false alibi, and a housemate may cover for them.
+Statements can be lies: a culprit expected elsewhere gives a false alibi, and a housemate may cover for them. About
+a third of the time the culprit is a regular at the scene, whose word on where they were is true; traits, clues and
+records catch them instead.
 
 **Interview** any resident from wherever you are (it's a modern town: you call or message them) by asking a question
 in your own words, like "Where were you last night?". Each resident keeps one conversation with you, which you can
@@ -61,8 +63,8 @@ other line. You only hear that someone in town seems colder toward you.
 **Finding witnesses.** People who are usually at the scene in the part of the day it happened may have seen
 something. The people list tags them "usually nearby" and ranks them near the top; type "nearby" in its search to see
 only them. The tag comes from each resident's routine (their work place by day, their evening place, their street at
-night), not from where anyone actually was, so most of the people it marks are innocent regulars. It's a lead: ask
-them what they saw.
+night), not from where anyone actually was, so most of the people it marks are innocent regulars, but the culprit can be
+one of them too. It's a lead: ask them what they saw.
 
 Walking still matters for the scene and the records: you search a place and pull its records only while you're there.
 

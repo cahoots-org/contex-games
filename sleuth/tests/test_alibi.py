@@ -19,6 +19,12 @@ def test_culprit_claim_omits_the_crime_place_and_is_unsound():
     assert claim(file, "v3", make_routine()) == (["library"], False)
 
 
+def test_a_regular_culprits_claim_is_the_crime_place_and_sound():
+    cases, _, _ = make_cases()
+    file = culprit_file(cases)
+    assert claim(file, "v3", make_routine()) == (["elm street"], True)
+
+
 def word(answer, speaker, about, phase="night"):
     cases, _, town = make_cases()
     file = culprit_file(cases, phase=phase)
