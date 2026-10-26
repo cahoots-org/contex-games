@@ -18,12 +18,15 @@ class Town:
         self._places: dict[str, str] = {}
         self._groups: dict[str, Group] = {}
         self.departed: list[Villager] = []
+        self._phase_starts: dict[str, str] = {}
+        self._phase_moves: dict[str, list[str]] = {}
 
     def to_state(self) -> dict:
-        """Villagers, places, groups and departed villagers as plain JSON."""
+        """Villagers, places, groups, departed villagers and this phase's whereabouts as plain JSON."""
         return {"villagers": [asdict(v) for v in self._villagers.values()], "places": dict(self._places),
                 "groups": [{**asdict(g), "members": sorted(g.members)} for g in self._groups.values()],
-                "departed": [asdict(v) for v in self.departed]}
+                "departed": [asdict(v) for v in self.departed],
+                "phase_starts": dict(self._phase_starts), "phase_moves": {k: list(m) for k, m in self._phase_moves.items()}}
 
     def restore(self, state: dict) -> None:
         """Replace the town with a saved state."""
@@ -32,6 +35,8 @@ class Town:
         self._groups = {g["id"]: Group(**{**g, "members": {m for m in g["members"] if m in self._villagers}})
                         for g in state["groups"]}
         self.departed = [Villager(**v) for v in state["departed"]]
+        self._phase_starts = dict(state["phase_starts"])
+        self._phase_moves = {k: list(m) for k, m in state["phase_moves"].items()}
 
     def __contains__(self, vid: str) -> bool:
         return vid in self._villagers
@@ -43,10 +48,13 @@ class Town:
     def add(self, v: Villager, place: str = START_PLACE) -> None:
         self._villagers[v.id] = v
         self._places[v.id] = place
+        self._phase_moves.setdefault(v.id, []).append(place)
 
     def remove(self, vid: str) -> Villager:
         v = self._villagers.pop(vid)
         self._places.pop(vid, None)
+        self._phase_starts.pop(vid, None)
+        self._phase_moves.pop(vid, None)
         for g in self._groups.values():
             g.members.discard(vid)
         self.departed.append(v)
@@ -75,6 +83,17 @@ class Town:
         if place not in PLACES:
             raise ValueError(f"unknown place: {place}")
         self._places[vid] = place
+        self._phase_moves.setdefault(vid, []).append(place)
+
+    def whereabouts(self, vid: str) -> list[str]:
+        """Where the resident has moved to this phase, or their place at its start."""
+        return list(self._phase_moves.get(vid) or [self._phase_starts[vid]])
+
+    def new_phase(self) -> dict[str, list[str]]:
+        """End the phase: return each resident's whereabouts through it, then start the next."""
+        log = {vid: self.whereabouts(vid) for vid in self._villagers}
+        self._phase_starts, self._phase_moves = dict(self._places), {}
+        return log
 
     def present(self, place: str, exclude: str | None = None) -> list[Villager]:
         return [

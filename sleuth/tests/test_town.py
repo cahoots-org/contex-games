@@ -106,3 +106,26 @@ def test_restore_drops_group_members_who_are_not_living_villagers():
 
 def test_streets_and_modern_places_are_places():
     assert set(STREETS) <= set(PLACES) and "dog park" in PLACES and "gate" not in PLACES
+
+
+def test_new_phase_returns_moves_or_start_place():
+    town = Town()
+    town.add(v("a", "Ann"), "cafe")
+    town.add(v("b", "Bob"), "gym")
+    town.new_phase()
+    town.move("a", "bar")
+    town.move("a", "elm street")
+    assert town.new_phase() == {"a": ["bar", "elm street"], "b": ["gym"]}
+    assert town.new_phase() == {"a": ["elm street"], "b": ["gym"]}
+
+
+def test_whereabouts_round_trip_through_state():
+    town = Town()
+    town.add(v("a", "Ann"), "cafe")
+    town.add(v("b", "Bob"), "gym")
+    town.new_phase()
+    town.move("a", "bar")
+    fresh = Town()
+    fresh.restore(json.loads(json.dumps(town.to_state())))
+    assert fresh.whereabouts("a") == ["bar"] and fresh.whereabouts("b") == ["gym"]
+    assert fresh.new_phase() == town.new_phase()
