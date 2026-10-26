@@ -36,7 +36,7 @@ BAD_INTERVIEW = 'Send JSON like {"villager_id": "v1"}.'
 BAD_PUBLISH = 'Send JSON like {"culprit_id": "v1", "record_ids": ["r-1"]}.'
 COOKIE = "sleuth_player"
 COOKIE_SECONDS = 365 * 24 * 3600
-RELOAD = "Reload the page to join the village."
+RELOAD = "Reload the page to rejoin the town."
 LOCAL_HOSTS = ("127.0.0.1", "localhost")
 
 
@@ -221,7 +221,7 @@ def create_app(
             return _error(401, RELOAD)
         if vid not in town:
             name = town.name_of(vid)
-            return _error(404, f"{name} has left town." if name else "No villager with that id.")
+            return _error(404, f"{name} has left town." if name else "No resident with that id.")
         v = town.get(vid)
         return {
             "id": v.id,

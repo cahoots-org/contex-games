@@ -134,7 +134,7 @@ async def test_seed_of_another_size_is_rejected(tmp_path):
     path = tmp_path / "seed.json"
     await load_or_generate(str(path), StubWriter(fenced(10)), 10, random.Random(1))
 
-    with pytest.raises(SeedMismatch, match=f"{path} has 10 villagers but population is 20; "
+    with pytest.raises(SeedMismatch, match=f"{path} has 10 residents but population is 20; "
                        "delete it or set SLEUTH_POPULATION=10"):
         await load_or_generate(str(path), StubWriter(fenced(10)), 20, random.Random(1))
 
@@ -221,8 +221,8 @@ async def test_generation_asks_for_mostly_kindly_villagers_and_a_few_sour_ones()
 
     await generate_villagers(RecordingWriter(), 10, random.Random(1))
 
-    assert "Most villagers are good-natured" in prompts[0]
-    assert "one villager in five is sour" in prompts[0]
+    assert "Most residents are good-natured" in prompts[0]
+    assert "one resident in five is sour" in prompts[0]
     assert 'empty grudge ""' in prompts[0]
 
 

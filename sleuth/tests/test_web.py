@@ -438,10 +438,10 @@ def test_a_phone_gets_two_tabs(game):
         assert gone not in html
     # The columns are tab panels only on a phone, so a wide screen keeps its landmarks and names.
     assert 'role="tabpanel"' not in html and 'matchMedia("(max-width: 760px)")' in html
-    assert '<main id="hear-panel">' in html and 'aria-label="Villagers"' in html and "rumors-panel" not in html
+    assert '<main id="hear-panel">' in html and 'aria-label="Residents"' in html and "rumors-panel" not in html
 
 
-RESTING = "The village is resting for today. Come back after midnight UTC."
+RESTING = "The town is resting for today. Come back after midnight UTC."
 
 
 def spend_the_day(game):

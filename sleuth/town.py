@@ -108,5 +108,5 @@ def neighbours(town: Town, villager: Villager, text: str) -> list[str]:
             continue
         tie = villager.relationships.get(v.id)
         named.append(f"{v.name}, the {v.occupation}" + (f" (your {tie})" if tie else "")
-                     + (", who has left the village" if gone else ""))
+                     + (", who has left town" if gone else ""))
     return named

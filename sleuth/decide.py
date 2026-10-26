@@ -22,9 +22,9 @@ MIN_ACTION_PROBABILITY = 0.1
 MAX_RECENT = 10
 
 ACTION_INSTRUCTIONS = (
-    "You are deciding what one villager does next in a small village that runs on gossip. "
+    "You are deciding what one resident of a small modern town does next. "
     "Judge from their personality, grudge, relationships, and what they just heard. "
-    "Villagers relish news that touches their trade, family, standing, fears, or someone "
+    "Residents care about news that touches their work, family, standing, fears, or someone "
     "they love or resent, and usually pass it on, argue about it, or act on it. "
     "They do nothing about news that does not concern them, or that they have already "
     "heard: if the same story is among their recent memories, they have dealt with it. "
@@ -32,7 +32,7 @@ ACTION_INSTRUCTIONS = (
 )
 
 GOSSIP_LEVELS = ["keeps news to themselves", "shares now and then", "loves to share", "can't hold anything in"]
-GOSSIP_INSTRUCTIONS = "Given their personality, how readily does this villager pass news on to whoever they meet?"
+GOSSIP_INSTRUCTIONS = "Given their personality, how readily does this resident pass news on to whoever they meet?"
 
 
 @dataclass
@@ -113,23 +113,23 @@ def _questions(view: TurnView) -> dict[str, Choice | Score]:
         qs["gossip"] = Score(instructions=GOSSIP_INSTRUCTIONS, criteria=GOSSIP_LEVELS)
     if len(view.new) > 1:
         qs["source"] = Choice(
-            instructions="Which of the things this villager just heard does the action respond to? "
+            instructions="Which of the things this resident just heard does the action respond to? "
             "Pick the one that matters most to them.",
             criteria={m.data_key: _text(m) for m in view.new},
         )
     if view.present:
         qs["villager_target"] = Choice(
-            instructions="Which person nearby is this villager addressing?",
+            instructions="Which person nearby is this resident addressing?",
             # Villagers beyond the first 255 in `present` order are dropped.
             criteria={p.id: _person(view.villager, p) for p in view.present[:MAX_OPTIONS]},
         )
     qs["place_target"] = Choice(
-        instructions="Which place does this villager walk to?",
+        instructions="Which place does this resident walk to?",
         criteria={p: None for p in PLACES if p != view.place},
     )
     if any(a in STYLED for a in available_actions(view)):
         qs["style"] = Choice(
-            instructions="In what manner would this villager say it, given their personality and what they heard?",
+            instructions="In what manner would this resident say it, given their personality and what they heard?",
             criteria=dict(STYLES),
         )
     return qs

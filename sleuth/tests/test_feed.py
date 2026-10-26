@@ -33,7 +33,7 @@ def test_time_lines_name_the_day_at_dawn():
     feed, lines = make()
     feed.on_time(2, "morning")
     feed.on_time(2, "evening")
-    assert lines == ["Day 2 dawns over the village.", "Evening falls, and lamps are lit."]
+    assert lines == ["Day 2: morning in town.", "Evening: people head home from work."]
     assert [(e.kind, e.data["day"], e.data["phase"]) for e in feed.recent] == [("time", 2, "morning"), ("time", 2, "evening")]
 
 

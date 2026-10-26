@@ -375,15 +375,15 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
         <p class="ask-status" id="case-status" role="status"></p>
       </form></section>
     <div class="stage">
-      <ol class="feed" id="feed" role="log" aria-live="off" aria-label="What the village is saying"></ol>
+      <ol class="feed" id="feed" role="log" aria-live="off" aria-label="What the town is saying"></ol>
       <p class="empty" id="empty">Walk somewhere and talk to the people there.</p>
     </div>
   </main>
 
-  <aside id="town" aria-label="Villagers">
-    <h2 id="people-heading">Village</h2>
+  <aside id="town" aria-label="Residents">
+    <h2 id="people-heading">Residents</h2>
     <div class="find">
-      <label for="search" class="visually-hidden">Find a villager</label>
+      <label for="search" class="visually-hidden">Find a resident</label>
       <input type="search" id="search" placeholder="Find by name, job, looks, or place" autocomplete="off">
       <p class="find-status" id="find-status" role="status"></p>
       <p class="sort"><label for="sort">Sort</label>
@@ -400,7 +400,7 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
   <div class="bottom">
     <nav class="tabs" role="tablist" aria-label="Views">
       <button type="button" role="tab" id="tab-hear" aria-controls="hear-panel" aria-selected="true">Hear</button>
-      <button type="button" role="tab" id="tab-village" aria-controls="town" aria-selected="false" tabindex="-1">Village</button>
+      <button type="button" role="tab" id="tab-village" aria-controls="town" aria-selected="false" tabindex="-1">Residents</button>
     </nav>
     <div class="composer">
       <p class="resting" id="resting" role="status" hidden></p>
@@ -427,7 +427,7 @@ let notes = {};
 let cardOpener = null;
 let here = null;
 let listenUntil = null;
-const RESTING = "The village is resting for today. Come back after midnight UTC.";
+const RESTING = "The town is resting for today. Come back after midnight UTC.";
 const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)");
 // What the feed's arrow keys move between; the feed itself is one tab stop.
 const ROVE = ".fold-more";
@@ -901,12 +901,12 @@ function renderVillagers() {
   const hits = new Set(found.map((v) => v.id));
   const order = [...places, ...[...new Set(villagers.map((v) => v.place))].filter((p) => !places.includes(p)).sort()];
   const open = openPlace(order);
-  $("people-heading").textContent = `Village (${villagers.length})`;
+  $("people-heading").textContent = `Residents (${villagers.length})`;
   people.classList.toggle("searching", hits.size > 0);
   people.replaceChildren(...order.map((place) => {
     const crowd = sorted(villagers.filter((v) => v.place === place));
     const count = hits.size ? `${crowd.filter((v) => hits.has(v.id)).length} of ${crowd.length}` : String(crowd.length);
-    const label = hits.size ? `${capital(place)}, ${count} villagers match` : `${capital(place)}, ${count} villagers`;
+    const label = hits.size ? `${capital(place)}, ${count} residents match` : `${capital(place)}, ${count} residents`;
     // A phone has no open tile: every place is one row with its faces and its Walk or Look around.
     if (phone.matches) {
       return el("section", { className: "tile" },
@@ -995,7 +995,7 @@ async function inspect(id, opener) {
   if (request !== cardRequest) return;
   if (!res || !res.ok) {
     card.replaceChildren(el("h3", { id: "card-title", tabIndex: -1, textContent: "Not here" }),
-      el("p", { textContent: body.error || "Couldn't load that villager. Try again." }),
+      el("p", { textContent: body.error || "Couldn't load that resident. Try again." }),
       el("div", { className: "actions" }, el("button", { className: "linkish", type: "button", textContent: "Close", onclick: closeCard })));
   } else {
     card.replaceChildren(...cardBody(body));
@@ -1317,7 +1317,7 @@ function connect() {
   };
   socket.onclose = (ev) => {
     if (ev.code === 1008 || unknown) {
-      setConn("down", "Reload the page to join the village.");
+      setConn("down", "Reload the page to rejoin the town.");
       return;
     }
     setConn("down", "Can't reach the game; retrying");

@@ -11,13 +11,13 @@ from sleuth.town import Town
 
 REPLAY_EVENTS = 500
 TIME_LINES = {
-    "morning": "Day {day} dawns over the village.",
-    "afternoon": "The sun is high over the village.",
-    "evening": "Evening falls, and lamps are lit.",
-    "night": "Night settles over the village.",
+    "morning": "Day {day}: morning in town.",
+    "afternoon": "It's the afternoon.",
+    "evening": "Evening: people head home from work.",
+    "night": "Night falls, and the streets go quiet.",
 }
-RESTING = "The village is resting for today. Come back after midnight UTC."
-WAKING = "The village wakes for a new day."
+RESTING = "The town is resting for today. Come back after midnight UTC."
+WAKING = "The town wakes up for a new day."
 
 
 @dataclass(frozen=True)

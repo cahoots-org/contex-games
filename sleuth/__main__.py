@@ -43,9 +43,9 @@ async def play() -> None:
     villagers = await load_or_generate(seed, writer, config.population, rng)
     if not config.seed_path:
         if kept:
-            print(f"Kept the village saved as {seed}.")
+            print(f"Kept the town saved as {seed}.")
         else:
-            print(f"A new village, saved as {seed}. Set SLEUTH_SEED_PATH={seed} to play it again.")
+            print(f"A new town, saved as {seed}. Set SLEUTH_SEED_PATH={seed} to play it again.")
     town, lineage, ids = Town(), Lineage(), Ids()
     feed = Feed(lineage, town, out=None)
     game = Game(config.day_seconds)

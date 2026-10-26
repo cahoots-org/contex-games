@@ -32,14 +32,14 @@ WARMTH = {
 
 SYSTEM = "You invent residents of a small modern American town. Reply with only JSON, no prose."
 PROMPT = (
-    "Invent {n} distinct villagers as a top-level JSON array of objects, not wrapped in "
+    "Invent {n} distinct residents as a top-level JSON array of objects, not wrapped in "
     "another object. Each item has: name (a full name), occupation, personality (one "
-    "short phrase), grudge (a string, empty for most villagers), and needs: a JSON array of 3 to 5 strings, each one sentence in the villager's own voice "
-    "about news they would prick up their ears at: one about their trade, one about a "
+    "short phrase), grudge (a string, empty for most residents), and needs: a JSON array of 3 to 5 strings, each one sentence in the resident's own voice "
+    "about news they would prick up their ears at: one about their work, one about a "
     "person they love or resent, one about their standing or money, and one about an odd "
     "fascination or fear of their own (break-ins, layoffs, gossip, their health, the town "
     "changing, or anything else). Make needs particular to this person and "
-    "different from the other villagers', never generic topics like news or gossip. "
+    "different from the other residents', never generic topics like news or gossip. "
     "{temper}{taken}"
 )
 GOOD = (
@@ -47,11 +47,11 @@ GOOD = (
     'absent-minded, or kindly, and an empty grudge ""'
 )
 SOUR = (
-    "sour, with a grudge: one sentence about someone or something they resent. Sour villagers "
-    "are the village's skeptics, quick to doubt, deny, or mock the rumors they hear, and their "
+    "sour, with a grudge: one sentence about someone or something they resent. Sour residents "
+    "are the town's skeptics, quick to doubt, deny, or mock what they hear, and their "
     "personality shows it"
 )
-MIX = f"Most villagers are {GOOD}; vary their temperaments. Roughly one villager in five is {SOUR}. "
+MIX = f"Most residents are {GOOD}; vary their temperaments. Roughly one resident in five is {SOUR}. "
 
 
 BULLET = re.compile(r"^\s*(?:[-*\u2022]|\d+[.)])\s*")
@@ -115,7 +115,7 @@ def _first(name: str) -> str:
 def _first_names_taken(villagers: list[Villager]) -> str:
     """The prompt line that keeps every first name in the village unique."""
     names = ", ".join(sorted({v.name.split()[0] for v in villagers if v.name.split()}))
-    return f"Give each villager a first name no one else in the village has; these are taken: {names}."
+    return f"Give each resident a first name no one else in town has; these are taken: {names}."
 
 
 async def generate_villagers(writer: Writer, count: int, rng: random.Random) -> list[Villager]:
@@ -149,7 +149,7 @@ async def generate_villagers(writer: Writer, count: int, rng: random.Random) -> 
             failed = 0
     if len(villagers) < count:
         raise ValueError(
-            f"got {len(villagers)} of {count} villagers after {MAX_FAILED_BATCHES} failed batches"
+            f"got {len(villagers)} of {count} residents after {MAX_FAILED_BATCHES} failed batches"
         )
     return villagers
 
@@ -233,10 +233,10 @@ async def load_or_generate(
         pass
     else:
         if any(not v.traits for v in villagers):
-            raise SeedMismatch(f"{path} is a village from before Sleuth's town; delete it")
+            raise SeedMismatch(f"{path} is a town from before Sleuth's; delete it")
         if len(villagers) != count:
             raise SeedMismatch(
-                f"{path} has {len(villagers)} villagers but population is {count}; "
+                f"{path} has {len(villagers)} residents but population is {count}; "
                 f"delete it or set SLEUTH_POPULATION={len(villagers)}"
             )
         return villagers
