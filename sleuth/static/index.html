@@ -536,6 +536,7 @@ function setCase(c) {
   text.className = id ? "" : "none";
   if ($("case").dataset.case !== id) $("notebook").replaceChildren();
   $("case").dataset.case = id;
+  $("case").dataset.private = String(Boolean(id && c.private));
   $("case").hidden = false;
   $("publish").hidden = !id;
 }
@@ -587,10 +588,14 @@ function note(records) {
 function render(e, fresh) {
   switch (e.kind) {
     case "case":
-      setCase(e.case);
+      // A shared case waits until the player's private case closes.
+      if (e.case.private || $("case").dataset.private !== "true") setCase(e.case);
       return null;
     case "case_closed":
-      if ($("case").dataset.case === e.case_id) setCase(null);
+      if ($("case").dataset.case === e.case_id) {
+        setCase(null);
+        if (fresh) loadState().catch(() => {});
+      }
       return e.text ? line("quiet", e.text) : null;
     case "pulled":
       note(e.records);

@@ -634,3 +634,11 @@ def test_publish_reports_problems_and_bad_bodies(game):
 
 def test_whisper_endpoint_is_gone(game):
     assert game.client.post("/api/whisper", json={"villager_id": "v1", "text": "hi"}).status_code in (404, 405)
+
+
+def test_the_page_reloads_the_case_when_its_own_closes_and_keeps_a_private_one(game):
+    page = game.client.get("/").text
+    closed = page[page.index('case "case_closed":'):page.index('case "pulled":')]
+    assert "loadState()" in closed
+    opened = page[page.index('case "case":'):page.index('case "case_closed":')]
+    assert "e.case.private" in opened and "dataset.private" in page
