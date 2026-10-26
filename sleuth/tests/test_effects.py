@@ -392,3 +392,17 @@ async def test_cover_story_does_nothing_without_a_fact_or_a_present_target():
     s.town.move("v2", "bar")
     await s.act("v1", Decision(BLAME, None, "v2", None))
     assert s.hub.delivered == [] and s.hub.covers == []
+
+
+@pytest.mark.asyncio
+async def test_cover_is_marked_before_delivery_so_a_failed_delivery_stays_marked():
+    s = Setup()
+    s.hub.facts[ALIBI] = "I was at the gym last night, all night."
+
+    async def broken(utterance, listener_ids, addressed=False):
+        raise RuntimeError("contex down")
+
+    s.hub.deliver = broken
+    with pytest.raises(RuntimeError):
+        await s.act("v1", Decision(ALIBI, None, "v2", None))
+    assert [vid for vid, _ in s.hub.covers] == ["v1"]

@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 
 from sleuth.actions import ALIBI, ANSWER, MOVE, WARN
 from sleuth.calibration import Baselines
-from sleuth.cases import Cases
+from sleuth.cases import APP, CaseFile, Cases
 from sleuth.config import Config
 from sleuth.contex_client import ContexClient, Match
 from sleuth.decide import Decision, TurnView, decide
@@ -646,6 +646,17 @@ class Engine:
     def mark_cover(self, vid: str, uid: str) -> None:
         if self.cases is not None:
             self.cases.mark_cover(vid, uid)
+
+    async def press(self, file: CaseFile) -> None:
+        """Tell the culprit a podcaster is asking around, at most once a part of the day."""
+        now = f"{self.game.day}:{self.game.phase}"
+        if file.pressed == now:
+            return
+        file.pressed = now
+        crime = file.crime
+        u = Utterance(self.ids.next("u"), "app", APP, crime.place, f"A podcaster is asking around about this: {crime.text}",
+                      None, "posted")
+        await self.deliver(u, [crime.culprit], addressed=True)
 
     def acted(self, decision: Decision, vid: str, target: str | None, creed: str | None = None) -> None:
         """Tell the judge of the villager's action and the player behind it."""

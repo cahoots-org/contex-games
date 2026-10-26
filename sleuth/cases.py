@@ -26,6 +26,7 @@ class CaseFile:
     opened: float = 0.0  # game time (day + phase index / 4) the news broke
     roots: dict[str, str] = field(default_factory=dict)  # utterance id → "news" | "memory" | "cover" | "episode"
     alibi: list[str] | None = None
+    whereabouts: dict[str, list[str]] = field(default_factory=dict)  # the crime phase's log
     published: list[str] = field(default_factory=list)
     solved_by: str | None = None
     pressed: str = ""  # "day:phase" last pressed
@@ -132,6 +133,7 @@ class Cases:
     async def _finish(self, engine, case: CaseFile, finished: dict[str, list[str]], now: float) -> None:
         """Add the phase's logs, then open the case and tell its witnesses if it is solvable, and drop it if not."""
         crime = case.crime
+        case.whereabouts = dict(finished)
         for r in logs(crime, finished, self.town, self.rng, self.ids):
             case.records[r.id] = r
         added = make_solvable(crime, list(case.records.values()), self.town, self.routine, self.rng, self.ids)

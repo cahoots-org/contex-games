@@ -212,3 +212,13 @@ def test_alibi_on_a_street_is_being_at_home():
     cases, _, _ = make_cases()
     culprit_file(cases)
     assert cases.alibi("v3") == "I was at home on elm street last night, all night."
+
+
+@pytest.mark.asyncio
+async def test_the_crime_phase_log_is_kept_as_whereabouts_when_the_news_breaks():
+    cases, engine, _ = make_cases()
+    await tick(cases, engine)
+    log = {"v2": ["elm street", "bar"]}
+    await cases.on_tick(engine, 2, "night", log, True)
+    [case] = cases.files.values()
+    assert case.state == "open" and case.whereabouts == log

@@ -2199,3 +2199,20 @@ async def test_culprit_is_not_walked_during_setup(turns):
     engine.cases.files["case-1"].state = "open"
     assert engine._free_to_walk("v1")
     await engine.stop()
+
+
+@pytest.mark.asyncio
+async def test_press_wakes_the_culprit_once_a_phase(turns):
+    game = Game()
+    engine, minds, _ = await setup("v1", "v2", game=game)
+    engine.cases = Cases(Config(), engine.town, None, random.Random(1), engine.ids)
+    file = engine.cases.files["case-1"] = case_file("open")
+    await engine.press(file)
+    await engine.press(file)
+    game.tick()
+    await engine.press(file)
+    heard = [data for _, data in minds["v1"].heard]
+    line = "The neighborhood app posted: A podcaster is asking around about this: Someone stole V2's bike."
+    assert [d["text"] for d in heard] == [line, line]
+    assert not minds["v2"].heard and file.pressed == "1:afternoon"
+    await engine.stop()

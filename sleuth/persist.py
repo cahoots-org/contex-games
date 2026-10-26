@@ -12,7 +12,7 @@ from sleuth.town_gen import WORLDS_DIR
 
 log = logging.getLogger(__name__)
 
-STATE_VERSION = 5
+STATE_VERSION = 6
 # Every id the game's Ids counters hand out, as prefix and number.
 ID = re.compile(r"\b(world|goal|u|w|r|case)-(\d+)\b")
 SCENE_ID = re.compile(r"s-(\d+)")

@@ -82,7 +82,7 @@ async def act(
 
     async def say(
         text: str, listeners: list[str], audience: str, verb: str = "said", addressed: bool = False,
-        root: bool = False, names_newcomer: bool = False,
+        root: bool = False, names_newcomer: bool = False, cover: bool = False,
     ) -> str:
         """Record and deliver an utterance descended from the decision's source, or starting a new line if root."""
         parent = None if root else source_id
@@ -95,6 +95,8 @@ async def act(
             about=about if root else told_about,
         )
         facts.record(utterance)
+        if cover:
+            hub.mark_cover(vid, uid)
         await hub.deliver(utterance, [i for i in listeners if i != vid], addressed=addressed)
         return uid
 
@@ -132,7 +134,7 @@ async def act(
     elif action in (ALIBI, BLAME):
         if decision.target in others() and (fact := hub.cover_story(vid, action)) is not None:
             text = await writer.say(villager, decision, fact, town.get(decision.target).name, False)
-            hub.mark_cover(vid, await say(text, [decision.target], ONE, root=True))
+            await say(text, [decision.target], ONE, root=True, cover=True)
     elif action == ANSWER:
         known = neighbours(town, villager, source_text or "")
         text = await writer.reply(villager, source_text, list(said), list(heard), known, mood)
