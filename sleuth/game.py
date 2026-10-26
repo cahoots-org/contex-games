@@ -23,6 +23,10 @@ class Game:
         self.day, self.phase = state["day"], state["phase"]
         self.phase_started = time.time() - state["elapsed"] * self.day_seconds / len(PHASES)
 
+    def now(self) -> str:
+        """The day and its part, like "day 4, morning"."""
+        return f"day {self.day}, {self.phase}"
+
     def tick(self) -> None:
         """Move the village clock on to the next part of the day."""
         at = PHASES.index(self.phase) + 1

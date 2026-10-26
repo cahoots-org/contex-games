@@ -338,10 +338,38 @@ async def test_an_interview_days_later_says_when_from_the_day_it_is():
     await ask(player, "v2", "where_were_you", when="afternoon")
     assert writer.calls[0][1] == "Someone stole Dana Reyes's bike two days ago, in the afternoon."
     assert writer.calls[0][4] == ["Eli Reyes says they were at the bar two days ago, in the afternoon."]
+    assert writer.calls[0][6:] == ("day 4, morning", "two days ago, in the afternoon")
     assert "this afternoon" not in replies(player)[-1]
     player.game.day = 3
     [said] = player.thread_json("v2")[0]["records"]
     assert said["text"] == "Eli Reyes says they were at the bar yesterday afternoon."
+
+
+@pytest.mark.asyncio
+async def test_a_reply_that_says_the_crime_time_as_it_was_then_falls_back():
+    player, file, engine, writer = interviewing()
+    file.crime = replace(file.crime, day=2, phase="afternoon")
+    file.whereabouts = {"v2": ["bar"]}
+    player.game = Game()
+    player.game.day = 4
+    writer.line = "I was at the bar this afternoon."
+    await ask(player, "v2", "where_were_you", when="afternoon")
+    assert replies(player)[-1] == "Eli Reyes says: Eli Reyes says they were at the bar two days ago, in the afternoon."
+
+
+@pytest.mark.asyncio
+async def test_hearsay_heard_days_ago_says_when_from_today():
+    player, file, engine, writer = interviewing()
+    file.crime = replace(file.crime, day=2, phase="afternoon")
+    hearsay(player, engine, "memory", file)
+    engine.facts.record(Utterance("u-5", "v8", "Kit Tran", "oak street", "Someone tall took a bike this afternoon.",
+                                  "u-1"))
+    player.game = Game()
+    player.game.day = 3
+    await ask(player, "v6", "who_told_you")
+    [said] = notebook(player)
+    assert said.text == f"Ivy Burke heard from Kit Tran: Someone tall took a bike {WHEN}."
+    assert writer.calls[0][4] == ["Ivy Burke heard from Kit Tran: Someone tall took a bike yesterday afternoon."]
 
 
 @pytest.mark.asyncio

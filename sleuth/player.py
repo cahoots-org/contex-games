@@ -7,7 +7,9 @@ import time
 from dataclasses import asdict, replace
 
 from sleuth.alibi import claim, household_word
-from sleuth.case import WHEN, TEMPLATES, Crime, Record, clock_at, motive_of, recall_more, record_json, told, when
+from sleuth.case import (
+    WHEN, TEMPLATES, Crime, Record, clock_at, misdated, motive_of, recall_more, record_json, retime, told, when,
+)
 from sleuth.cases import CaseFile
 from sleuth.config import Config
 from sleuth.decide import warmth_words
@@ -368,16 +370,17 @@ class Player:
                 continue
             if rooted[1] in EVIDENCE_ROOTS:
                 source = next((r.id for r in file.records.values() if r.utterance == root), None)
-                text = f"{name} heard from {heard.speaker_name}: {heard.text}"
+                text = f"{name} heard from {heard.speaker_name}: {retime(heard.text, WHEN)}"
                 return [self._statement(file, vid, text, rooted[1] == "memory", source)], []
             if rooted[1] == "news" and not talk:
-                talk.append(f"{heard.speaker_name}: {heard.text}")
+                talk.append(f"{heard.speaker_name}: {self._told(retime(heard.text, WHEN), crime)}")
         return [], talk
 
     async def _phrase(self, villager: Villager, file: CaseFile, question: str, thread: list[dict],
                       records: list[Record], talk: list[str]) -> str:
         """The resident's reply from the writer, or a plain line from the records when it fails, doesn't convey them
-        all or names someone they don't; with nothing known, that they wouldn't know."""
+        all, names someone they don't or gives a time they and the case don't; with nothing known, that they wouldn't
+        know."""
         crime = file.crime
         records = [replace(r, text=self._told(r.text, crime)) for r in records]
         texts = [r.text for r in records] + talk
@@ -387,10 +390,13 @@ class Player:
             try:
                 case = self._told(crime.text, crime)
                 known = neighbours(self.town, villager, case)
-                line = await self.writer.reply(villager, case, question, exchanges(thread), texts, known)
+                now = self.game.now() if self.game else ""
+                line = await self.writer.reply(villager, case, question, exchanges(thread), texts, known, now,
+                                               when(crime, self._today()))
                 allowed = " ".join([villager.name, *texts, *known, *(t["line"] for t in thread)])
                 firsts = {v.name.split()[0] for v in self.town.villagers}
-                if line and conveys(line, records) and not strangers(line, allowed, firsts):
+                if (line and conveys(line, records) and not strangers(line, allowed, firsts)
+                        and not misdated(line, " ".join([case, *texts]))):
                     return line
             except Exception:
                 log.exception("reply from %s failed", villager.id)

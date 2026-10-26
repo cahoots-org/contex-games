@@ -178,8 +178,8 @@ class StubWriter:
         self.line = line
         self.calls = []
 
-    async def reply(self, villager, case, question, thread, facts, known=()):
-        self.calls.append((villager.id, case, question, list(thread), list(facts), list(known)))
+    async def reply(self, villager, case, question, thread, facts, known=(), now="", when=""):
+        self.calls.append((villager.id, case, question, list(thread), list(facts), list(known), now, when))
         return self.line
 
 

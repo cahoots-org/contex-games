@@ -11,6 +11,7 @@ from sleuth.facts import Facts
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
 from sleuth.town import Town
+from sleuth.case import misdated, retime
 from sleuth.writer import Writer, invents
 
 DIRECT = (RETELL, DENY, CONFRONT)
@@ -27,7 +28,7 @@ class Hub(Protocol):
 
     def warn(self, vid: str, target: str) -> str | None: ...
 
-    def on_case(self, uid: str) -> bool: ...
+    def on_case(self, uid: str) -> tuple[str, str] | None: ...
 
 
 async def act(
@@ -45,7 +46,8 @@ async def act(
     """Apply the decision to the town and deliver any speech it produces.
 
     A villager who moves shares the news with someone where they arrive with share_chance. A line about a case that
-    adds to what the villager heard is dropped, and a cover story or warning is then told as its plain fact.
+    adds to what the villager heard or gives another time is dropped, and a cover story or warning is then told as
+    its plain fact. A case line heard days ago is retold with the case's time said today.
     """
     action = decision.action
     vid = villager.id
@@ -53,7 +55,10 @@ async def act(
     source_id = decision.source.data["id"] if decision.source else None
     source_text = decision.source.data.get("text") if decision.source else None
     heard_from = facts.get(source_id) if source_id else None
-    on_case = bool(source_id) and hub.on_case(source_id)
+    timing = hub.on_case(source_id) if source_id else None
+    on_case = timing is not None
+    if timing and source_text:
+        source_text = retime(source_text, timing[1])
 
     async def say(
         text: str, listeners: list[str], audience: str, verb: str = "said", addressed: bool = False,
@@ -76,9 +81,9 @@ async def act(
 
     async def words(facts_text: str | None, audience: str, case: bool, plain: str | None = None) -> str | None:
         """The writer's line; on a case, plain or nothing when it adds what facts_text and the people at hand don't."""
-        text = await writer.say(villager, decision, facts_text, audience, case)
+        text = await writer.say(villager, decision, facts_text, audience, case, *(timing or ()))
         allowed = " ".join([villager.name, audience, facts_text or ""])
-        if case and invents(text, allowed, {v.name.split()[0] for v in town.villagers}):
+        if case and (invents(text, allowed, {v.name.split()[0] for v in town.villagers}) or misdated(text, allowed)):
             return plain
         return text
 

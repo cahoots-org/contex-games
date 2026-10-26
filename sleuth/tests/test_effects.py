@@ -19,9 +19,10 @@ class StubWriter:
 
         self.on_case = []
 
-    async def say(self, villager, decision, source_text, audience, on_case=False):
+    async def say(self, villager, decision, source_text, audience, on_case=False, now="", when=""):
         self.say_calls.append((decision.action, source_text, audience))
         self.on_case.append(on_case)
+        self.timing = (now, when)
         return self.line
 
 
@@ -35,9 +36,10 @@ class RecordingHub:
         self.warning = None
         self.warned = []
         self.case_roots = set()
+        self.timing = ("day 1, evening", "this afternoon")
 
     def on_case(self, uid):
-        return uid in self.case_roots
+        return self.timing if uid in self.case_roots else None
 
     def warn(self, vid, target):
         self.warned.append((vid, target))
@@ -228,6 +230,21 @@ async def test_talk_rooted_in_a_case_and_cover_stories_are_written_as_case_talk(
     await s.act("v1", Decision(RETELL, source("u-9"), "v2", "faithful"))
     await s.act("v1", Decision(ALIBI, None, "v2", "faithful"))
     assert s.writer.on_case == [True, False, True]
+
+
+@pytest.mark.asyncio
+async def test_case_talk_retold_days_later_says_when_from_today():
+    s = Setup()
+    s.hub.case_roots.add("u-0")
+    s.hub.timing = ("day 4, morning", "two days ago, in the afternoon")
+    told = Match("k", {"id": "u-0", "text": "Someone stole Bert's bike this afternoon."})
+    s.writer.line = "Someone stole Bert's bike two days ago, in the afternoon."
+    await s.act("v1", Decision(RETELL, told, "v2", "faithful"))
+    assert s.writer.say_calls == [(RETELL, "Someone stole Bert's bike two days ago, in the afternoon.", "Ada")]
+    assert s.writer.timing == s.hub.timing and len(s.hub.delivered) == 1
+    s.writer.line = "Someone stole Bert's bike this afternoon."
+    await s.act("v1", Decision(RETELL, told, "v2", "faithful"))
+    assert len(s.hub.delivered) == 1
 
 
 @pytest.mark.asyncio

@@ -8,7 +8,7 @@ from contextlib import aclosing, suppress
 
 from sleuth.actions import ALIBI, MOVE
 from sleuth.calibration import Baselines
-from sleuth.case import told
+from sleuth.case import told, when
 from sleuth.cases import APP, CaseFile, Cases
 from sleuth.config import Config
 from sleuth.contex_client import ContexClient, Match
@@ -302,9 +302,13 @@ class Engine:
         if self.cases is not None:
             self.cases.mark_cover(vid, uid)
 
-    def on_case(self, uid: str) -> bool:
-        """Whether the utterance descends from a case's news, memory, cover story or episode."""
-        return self.cases is not None and self.cases.root_kind(self.lineage.root(uid)) is not None
+    def on_case(self, uid: str) -> tuple[str, str] | None:
+        """Today and when the case happened, said today, if the utterance descends from a case's news, memory, cover
+        story or episode; None if not."""
+        rooted = self.cases.root_kind(self.lineage.root(uid)) if self.cases is not None else None
+        if rooted is None:
+            return None
+        return self.game.now() if self.game is not None else "", when(rooted[0].crime, self._today())
 
     def testimony(self, uid: str) -> bool:
         """Whether the utterance descends from a witness's memory or a victim's discovery, which only an interview

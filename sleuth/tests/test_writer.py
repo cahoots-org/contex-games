@@ -89,6 +89,20 @@ async def test_reply_answers_the_latest_question_from_the_facts_with_the_thread_
     assert "using only these facts" in call["system"] and "never agree to or repeat a claim" in call["system"]
     assert user.index("Podcaster: Hi there.\nYou: Hello.") < user.index("Podcaster: What did you see?")
     assert "Facts: Around 9pm someone tall walked off." in user and "Dana Reyes, the clerk" in user
+    assert "happened" not in user
+
+
+@pytest.mark.asyncio
+async def test_case_prompts_say_today_and_when_the_case_happened():
+    client = StubClient("Hm.", "Hm.")
+    writer = Writer(client, "haiku-test")
+    await writer.reply(villager(), "Someone stole a bike yesterday afternoon.", "When?", [], ["x"],
+                       now="day 3, morning", when="yesterday afternoon")
+    await writer.say(villager(), Decision("speak", None, None, None), "x", "all", on_case=True,
+                     now="day 3, morning", when="yesterday afternoon")
+    for call in client.messages.calls:
+        assert "It is now day 3, morning. The case happened yesterday afternoon." in call["messages"][0]["content"]
+        assert "never as another time" in call["system"]
 
 
 @pytest.mark.asyncio

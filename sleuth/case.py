@@ -40,6 +40,9 @@ RECEIPT_BEFORE = (20, 180)
 # Case text keeps the crime's time as WHEN, said relative to the day it is read.
 WHEN = "{when}"
 DAYS_AGO = ("two", "three", "four", "five", "six")
+# A time as ago() or a resident says it.
+SAID_TIME = re.compile(r"\b(?:this (?:morning|afternoon|evening)|tonight|last night|yesterday (?:morning|afternoon|evening)|"
+                       r"\w+ days ago, (?:in the (?:morning|afternoon|evening)|at night))\b", re.IGNORECASE)
 
 
 @dataclass
@@ -100,6 +103,16 @@ def when(crime: Crime, today: int | None = None) -> str:
 def told(text: str, crime: Crime, today: int | None = None) -> str:
     """text with its WHEN said on today."""
     return text.replace(WHEN, when(crime, today))
+
+
+def retime(text: str, said: str) -> str:
+    """text, said about the case on some earlier day, with each time it gives replaced by said."""
+    return SAID_TIME.sub(said, text)
+
+
+def misdated(line: str, allowed: str) -> bool:
+    """Whether the line gives a time allowed does not."""
+    return any(t.lower() not in allowed.lower() for t in SAID_TIME.findall(line))
 
 
 def motive_of(culprit, victim) -> str:

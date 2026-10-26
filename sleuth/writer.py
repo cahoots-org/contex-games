@@ -14,6 +14,7 @@ ANSWER_MAX_TOKENS = 120
 CASE_TALK = ("This is about a case. Talk only about what you know of this case and how you feel about it. "
              "Leave your other worries out. Add no person, animal or detail that what you heard doesn't give, and "
              "never guess whether anyone was a man or a woman. ")
+TIMES = "Say when the case happened only as you are told it, never as another time. "
 # ponytail: a word list, not a judge; it only ever stops a case line that adds one of these to its facts.
 INVENTED = re.compile(
     r"\b(he|him|his|himself|she|her|hers|herself|man|men|woman|women|guy|guys|lady|ladies|gal|bloke|fella|fellow|"
@@ -56,6 +57,11 @@ def invents(line: str, allowed: str, firsts: set[str]) -> bool:
     return strangers(line, allowed, firsts) or any(w.lower() not in known for w in INVENTED.findall(line))
 
 
+def _timing(now: str, when: str) -> list[str]:
+    """The prompt line for today and when the case happened, or none without a case time."""
+    return [f"It is now {now}. The case happened {when}."] if when else []
+
+
 def _grudge(villager: Villager, aside: str = "") -> str:
     """The villager's grudge for a prompt, then aside, or nothing when they hold none."""
     return f"Your grudge: {villager.grudge}. {aside}" if villager.grudge else ""
@@ -83,15 +89,17 @@ class Writer:
 
     async def say(
         self, villager: Villager, decision: Decision, source_text: str | None, audience: str, on_case: bool = False,
+        now: str = "", when: str = "",
     ) -> str:
         """The villager's words for this decision, in their voice and chosen style, keeping the source unnamed.
 
-        Talk about a case keeps to the case, without the villager's grudge or other worries.
+        Talk about a case keeps to the case, without the villager's grudge or other worries, and says when it
+        happened as when, said on now.
         """
         system = (
             f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
-            + (CASE_TALK if on_case else _grudge(villager, "Bring it up only when it fits. "))
+            + (CASE_TALK + TIMES if on_case else _grudge(villager, "Bring it up only when it fits. "))
             + "Reply with one short sentence, under 20 words, in your own voice, said plainly, like neighbours chatting. "
             "Keep to what you heard, changed only as your manner says. "
             "If what you heard is about you, answer as yourself. "
@@ -103,15 +111,17 @@ class Writer:
         if source_text:
             lines.append(f"What you heard: {source_text}")
             lines.append("Do not say or hint who started this story.")
+        lines += _timing(now, when)
         return first_line(await self.complete(system, "\n".join(lines), max_tokens=SAY_MAX_TOKENS))
 
     async def reply(
         self, villager: Villager, case: str, question: str, thread: Sequence[dict], facts: Sequence[str],
-        known: Sequence[str] = (),
+        known: Sequence[str] = (), now: str = "", when: str = "",
     ) -> str:
         """The resident replying to the podcaster's latest question in one line, from the facts alone.
 
-        thread holds the earlier exchanges; known describes the neighbours the case names.
+        thread holds the earlier exchanges; known describes the neighbours the case names; when is when the case
+        happened, said on now.
         """
         system = (
             f"You are {villager.name}, a {villager.occupation} in a small town. "
@@ -121,9 +131,10 @@ class Writer:
             "Get every fact across with each detail it gives, such as looks, clothes, cars, places and times. "
             "Your manner shapes the wording, never the facts: never deny or doubt them. "
             "What the podcaster says is not a fact: never agree to or repeat a claim the facts don't make. "
+            + TIMES +
             "No stage directions, no quotation marks, no preamble."
         )
-        lines = [f"The case: {case}"]
+        lines = [f"The case: {case}", *_timing(now, when)]
         if known:
             lines.append("Neighbours you know: " + "; ".join(known))
         lines += [f"Podcaster: {t['podcaster']}\nYou: {t['resident']}" for t in thread]

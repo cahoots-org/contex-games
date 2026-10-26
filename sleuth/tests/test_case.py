@@ -22,6 +22,8 @@ from sleuth.case import (
     stage_crime,
     suspects,
     ago,
+    misdated,
+    retime,
     told,
     witness_memories,
 )
@@ -163,6 +165,19 @@ def test_told_says_the_crime_time_from_today_or_its_own_day():
     crime = Crime("case-1", "steal", "bike", "v3", "v1", "gym", 2, "afternoon", 800, "rival", f"Gone {WHEN}.")
     assert [told(crime.text, crime, today) for today in (None, 2, 3, 4)] == [
         "Gone this afternoon.", "Gone this afternoon.", "Gone yesterday afternoon.", "Gone two days ago, in the afternoon."]
+
+
+def test_retime_swaps_any_said_time_for_the_given_one():
+    said = "I was at the gym this afternoon. Tonight? Yesterday evening, two days ago, at night, last night."
+    assert retime(said, WHEN) == "I was at the gym {when}. {when}? {when}, {when}, {when}."
+    assert retime("I was home all night, in the afternoon.", WHEN) == "I was home all night, in the afternoon."
+
+
+def test_misdated_is_a_said_time_the_allowed_text_does_not_give():
+    allowed = "Someone stole a bike two days ago, in the afternoon."
+    assert misdated("I saw it this afternoon.", allowed) and misdated("Last night, I think.", allowed)
+    assert not misdated("It was two days ago, in the afternoon, around 2pm.", allowed)
+    assert not misdated("Around 2pm, someone tall.", allowed)
 
 
 def test_clock_at_formats_twelve_hour_time():
