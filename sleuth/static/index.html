@@ -584,13 +584,24 @@ function setCulprits() {
   select.value = kept;
 }
 
-// The evidence the player has gathered, once each, as "kind · from · clock · text", each with a box to cite it.
+// Minutes into the game's day, which starts at 6am, of a clock like "11:42pm".
+function clockMinutes(clock) {
+  const m = /^(\d+):(\d+)(am|pm)$/.exec(clock || "");
+  if (!m) return Infinity;
+  const minutes = (Number(m[1]) % 12 + (m[3] === "pm" ? 12 : 0)) * 60 + Number(m[2]);
+  return (minutes + 1440 - 360) % 1440;
+}
+
+// The evidence the player has gathered, once each and in clock order, as "kind · from · clock · text", each with a
+// box to cite it.
 function note(records) {
   const book = $("notebook");
   for (const r of records) {
     if (book.querySelector(`[data-id="${CSS.escape(r.id)}"]`)) continue;
-    book.append(el("li", { dataset: { id: r.id } }, el("label", {},
-      el("input", { type: "checkbox", value: r.id }), " ", [r.kind, r.from, r.clock, r.text].filter(Boolean).join(" · "))));
+    const at = clockMinutes(r.clock);
+    const item = el("li", { dataset: { id: r.id, at } }, el("label", {},
+      el("input", { type: "checkbox", value: r.id }), " ", [r.kind, r.from, r.clock, r.text].filter(Boolean).join(" · ")));
+    book.insertBefore(item, [...book.children].find((li) => Number(li.dataset.at) > at) || null);
   }
 }
 
