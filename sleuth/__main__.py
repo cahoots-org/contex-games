@@ -66,12 +66,11 @@ async def play() -> None:
             return Player(engine, town, lineage, ids, feed, config, writer, game, player_id=player_id, owner=owner)
 
         def join(owner: str) -> Player:
-            """Start a new run for the owner, dropping stale runs that never played and their private cases."""
+            """Start a new run for the owner, dropping stale runs that never played."""
             player = make(new_player_id(), owner)
             players.add(player)
             for gone in players.prune():
                 gone.close()
-                engine.cases.drop_private(gone.id)
             return player
 
         parts = components(engine)

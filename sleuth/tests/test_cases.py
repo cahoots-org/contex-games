@@ -310,14 +310,6 @@ async def test_no_guided_case_when_nothing_fits():
 
 
 @pytest.mark.asyncio
-async def test_dropping_a_runs_private_case_frees_its_people():
-    cases, engine, _ = make_cases()
-    case = await cases.open_guided(engine, "p-1", 1, "night")
-    cases.drop_private("p-1")
-    assert case.crime.id not in cases.files and cases.for_player("p-1") is None
-
-
-@pytest.mark.asyncio
 async def test_shared_staging_may_use_a_guided_witness_but_not_its_culprit_or_victim():
     cases, engine, town = make_cases()
     guided = culprit_file(cases)

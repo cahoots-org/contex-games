@@ -170,11 +170,6 @@ class Cases:
                 for vid in (f.crime.culprit, f.crime.victim,
                             *(r.holder for r in f.records.values() if witnesses and r.kind == "memory"))}
 
-    def drop_private(self, player_id: str) -> None:
-        """Forget the run's open private case, freeing its people."""
-        for f in [f for f in self.files.values() if f.crime.owner == player_id and f.state != "closed"]:
-            del self.files[f.crime.id]
-
     async def _finish(self, engine, case: CaseFile, finished: dict[str, list[str]], now: float) -> None:
         """Add the phase's logs, then open the case and tell its witnesses if it is solvable, and drop it if not."""
         crime = case.crime
