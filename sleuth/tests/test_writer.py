@@ -6,7 +6,7 @@ from sleuth.config import Config
 from sleuth.models import Villager
 from sleuth.usage import Usage
 from sleuth.tests.helpers import StubClient
-from sleuth.writer import ANSWER_MAX_TOKENS, Writer, first_line
+from sleuth.writer import ANSWER_MAX_TOKENS, Writer, first_line, invents
 
 
 def villager():
@@ -121,3 +121,24 @@ async def test_case_talk_keeps_to_the_case():
     assert "Talk only about what you know of this case and how you feel about it." in case_say
     assert "Leave your other worries out." in case_say and "owes me flour" not in case_say
     assert "this case" not in other_say and "owes me flour" in other_say
+
+
+FIRSTS = {"Ada", "Cy", "Lorraine"}
+
+
+def test_invents_catches_people_genders_animals_and_looks_the_facts_lack():
+    facts = "Someone in a grey hoodie was bent over something on Elm Street around 12:50am."
+    assert not invents("Some figure in a grey hoodie, bent over on Elm Street at ten to one.", facts, FIRSTS)
+    assert invents("A man in a grey hoodie was bent over on Elm Street.", facts, FIRSTS)
+    assert invents("Someone in a grey hoodie had a little dog with him.", facts, FIRSTS)
+    assert invents("Someone in a grey hoodie by a silver minivan.", facts, FIRSTS)
+    assert invents("Cy says someone in a grey hoodie was out.", facts, FIRSTS)
+    assert not invents("Someone let Lorraine's dog out, she says.", "Someone let out Lorraine's dog. She found it.",
+                       FIRSTS)
+
+
+@pytest.mark.asyncio
+async def test_case_talk_is_told_to_add_nothing():
+    client = StubClient("Someone took it.")
+    await Writer(client, "haiku-test").say(villager(), Decision("speak", None, None, None), "x", "all", on_case=True)
+    assert "Add no person, animal or detail" in client.messages.calls[0]["system"]

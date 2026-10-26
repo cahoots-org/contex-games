@@ -13,7 +13,8 @@ from sleuth.town import Town
 
 
 class StubWriter:
-    def __init__(self):
+    def __init__(self, line="words"):
+        self.line = line
         self.say_calls = []
 
         self.on_case = []
@@ -21,7 +22,7 @@ class StubWriter:
     async def say(self, villager, decision, source_text, audience, on_case=False):
         self.say_calls.append((decision.action, source_text, audience))
         self.on_case.append(on_case)
-        return "words"
+        return self.line
 
 
 
@@ -227,3 +228,34 @@ async def test_talk_rooted_in_a_case_and_cover_stories_are_written_as_case_talk(
     await s.act("v1", Decision(RETELL, source("u-9"), "v2", "faithful"))
     await s.act("v1", Decision(ALIBI, None, "v2", "faithful"))
     assert s.writer.on_case == [True, False, True]
+
+
+@pytest.mark.asyncio
+async def test_case_talk_that_invents_is_dropped():
+    s = Setup()
+    s.hub.case_roots.add("u-0")
+    s.writer.line = "A hooded man stole it, and he had a little dog with him."
+    await s.act("v1", Decision(SPEAK, source("u-0"), None, "add_detail"))
+    await s.act("v1", Decision(RETELL, source("u-0"), "v2", "faithful"))
+    assert s.hub.delivered == []
+    s.writer.line = "Ada, did you hear Bert stole bread?"
+    await s.act("v1", Decision(RETELL, source("u-0"), "v2", "faithful"))
+    assert [u.text for u, _ in s.hub.delivered] == ["Ada, did you hear Bert stole bread?"]
+
+
+@pytest.mark.asyncio
+async def test_a_cover_story_that_invents_is_told_plainly():
+    s = Setup()
+    s.hub.facts[ALIBI] = "I was at the gym last night, all night."
+    s.writer.line = "I was at the gym with my dog, ask Cy."
+    await s.act("v1", Decision(ALIBI, None, "v2", "faithful"))
+    [(utt, _)] = s.hub.delivered
+    assert utt.text == "I was at the gym last night, all night."
+
+
+@pytest.mark.asyncio
+async def test_talk_off_any_case_is_not_checked():
+    s = Setup()
+    s.writer.line = "He had a little dog with him."
+    await s.act("v1", Decision(SPEAK, source("u-9"), None, None))
+    assert [u.text for u, _ in s.hub.delivered] == ["He had a little dog with him."]

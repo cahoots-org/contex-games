@@ -19,6 +19,7 @@ from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
 from sleuth.town import PLACES, START_PLACE, STREETS, Town, at, neighbours, place_name
 from sleuth.usage import charging
+from sleuth.writer import strangers
 
 log = logging.getLogger(__name__)
 # ponytail: a phrase list, not a judge; it only ever swaps a model line for the plain record text.
@@ -369,17 +370,12 @@ class Player:
                 known = neighbours(self.town, villager, file.crime.text)
                 line = await self.writer.reply(villager, file.crime.text, question, exchanges(thread), texts, known)
                 allowed = " ".join([villager.name, *texts, *known, *(t["line"] for t in thread)])
-                if line and conveys(line, records) and not self._strangers(line, allowed):
+                firsts = {v.name.split()[0] for v in self.town.villagers}
+                if line and conveys(line, records) and not strangers(line, allowed, firsts):
                     return line
             except Exception:
                 log.exception("reply from %s failed", villager.id)
         return f"{villager.name} says: {' '.join(texts)}"
-
-    def _strangers(self, line: str, allowed: str) -> bool:
-        """Whether the line names a resident by first name whom allowed does not."""
-        firsts = {v.name.split()[0] for v in self.town.villagers}
-        return any(re.search(rf"\b{re.escape(f)}\b", line) and not re.search(rf"\b{re.escape(f)}\b", allowed)
-                   for f in firsts)
 
     def pull(self) -> str | None:
         """Copy the open case's footage and logs at this place into the notebook; returns why it could not be done."""

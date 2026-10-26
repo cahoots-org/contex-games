@@ -12,7 +12,14 @@ from sleuth.usage import charged_to
 SAY_MAX_TOKENS = 80
 ANSWER_MAX_TOKENS = 120
 CASE_TALK = ("This is about a case. Talk only about what you know of this case and how you feel about it. "
-             "Leave your other worries out. ")
+             "Leave your other worries out. Add no person, animal or detail that what you heard doesn't give, and "
+             "never guess whether anyone was a man or a woman. ")
+# ponytail: a word list, not a judge; it only ever stops a case line that adds one of these to its facts.
+INVENTED = re.compile(
+    r"\b(he|him|his|himself|she|her|hers|herself|man|men|woman|women|guy|guys|lady|ladies|gal|bloke|fella|fellow|"
+    r"boy|girl|gentleman|mr|mrs|ms|dogs?|pup\w*|cats?|kitten\w*|birds?|parrots?|horses?|rabbits?|hamsters?|"
+    r"hood\w*|hats?|caps?|beard\w*|glasses|tattoo\w*|coat|jacket|raincoat|puffer|flannel|denim|pickup|truck|"
+    r"sedan|hatchback|minivan|van|car|bicycle|bike|tall|bald|blond\w*|haired)\b", re.IGNORECASE)
 
 
 STAGE_DIRECTION = re.compile(r"\*[^*]*\*")
@@ -35,6 +42,18 @@ def extract_json(text: str):
             except json.JSONDecodeError:
                 continue
     raise ValueError(f"no JSON in model output: {text[:200]!r}")
+
+
+def strangers(line: str, allowed: str, firsts: set[str]) -> bool:
+    """Whether the line names someone by first name whom allowed does not."""
+    return any(re.search(rf"\b{re.escape(f)}\b", line) and not re.search(rf"\b{re.escape(f)}\b", allowed)
+               for f in firsts)
+
+
+def invents(line: str, allowed: str, firsts: set[str]) -> bool:
+    """Whether the line adds to allowed a resident, a gender, an animal or a look."""
+    known = set(re.findall(r"\w+", allowed.lower()))
+    return strangers(line, allowed, firsts) or any(w.lower() not in known for w in INVENTED.findall(line))
 
 
 def _grudge(villager: Villager, aside: str = "") -> str:

@@ -11,7 +11,7 @@ from sleuth.facts import Facts
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
 from sleuth.town import Town
-from sleuth.writer import Writer
+from sleuth.writer import Writer, invents
 
 DIRECT = (RETELL, DENY, CONFRONT)
 ROOM = "room"
@@ -44,7 +44,8 @@ async def act(
 ) -> None:
     """Apply the decision to the town and deliver any speech it produces.
 
-    A villager who moves shares the news with someone where they arrive with share_chance.
+    A villager who moves shares the news with someone where they arrive with share_chance. A line about a case that
+    adds to what the villager heard is dropped, and a cover story or warning is then told as its plain fact.
     """
     action = decision.action
     vid = villager.id
@@ -73,6 +74,14 @@ async def act(
         await hub.deliver(utterance, [i for i in listeners if i != vid], addressed=addressed)
         return uid
 
+    async def words(facts_text: str | None, audience: str, case: bool, plain: str | None = None) -> str | None:
+        """The writer's line; on a case, plain or nothing when it adds what facts_text and the people at hand don't."""
+        text = await writer.say(villager, decision, facts_text, audience, case)
+        allowed = " ".join([villager.name, audience, facts_text or ""])
+        if case and invents(text, allowed, {v.name.split()[0] for v in town.villagers}):
+            return plain
+        return text
+
     def others() -> list[str]:
         return [v.id for v in town.present(place, exclude=vid)]
 
@@ -88,16 +97,16 @@ async def act(
             )
     elif action in DIRECT:
         if decision.target in others():
-            text = await writer.say(villager, decision, source_text, town.get(decision.target).name, on_case)
-            await say(text, [decision.target], ONE)
+            if text := await words(source_text, town.get(decision.target).name, on_case):
+                await say(text, [decision.target], ONE)
     elif action in (ALIBI, BLAME):
         if decision.target in others() and (fact := hub.cover_story(vid, action)) is not None:
-            text = await writer.say(villager, decision, fact, town.get(decision.target).name, True)
+            text = await words(fact, town.get(decision.target).name, True, fact)
             await say(text, [decision.target], ONE, root=True, cover=True)
     elif action == WARN:
         if decision.target in others() and (fact := hub.warn(vid, decision.target)) is not None:
-            text = await writer.say(villager, decision, fact, town.get(decision.target).name, True)
+            text = await words(fact, town.get(decision.target).name, True, fact)
             await say(text, [decision.target], ONE, root=True)
     elif action == SPEAK:
-        text = await writer.say(villager, decision, source_text, place, on_case)
-        await say(text, others(), ROOM)
+        if text := await words(source_text, place, on_case):
+            await say(text, others(), ROOM)
