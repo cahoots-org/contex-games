@@ -9,7 +9,7 @@ from dataclasses import replace
 from sleuth.contex_client import Match
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
-from sleuth.player import GRADUATED, GUIDED_WRONG, HELD, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, SKIPPED, Player, Refusal, conveys, voiced
+from sleuth.player import GRADUATED, PRACTICE_WRONG, HELD, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, SKIPPED, Player, Refusal, conveys, voiced
 from sleuth.players import Players
 from sleuth.config import Config
 from sleuth.case import WHEN, Record
@@ -866,7 +866,7 @@ async def test_publishing_the_practice_case_moves_the_player_into_the_real_town(
     player.feed.sinks.append(seen.append)
     assert await player.publish(named, ids) is None
     assert (file.state, file.solved_by) == ("closed", PID if held else None)
-    verdict = HELD if held else f"{GUIDED_WRONG} It was Cal Hughes."
+    verdict = HELD if held else f"{PRACTICE_WRONG} It was Cal Hughes."
     assert [e.data["verdict"] for e in seen if e.kind == "episode"] == [verdict]
     assert [e.data["text"] for e in seen if e.kind == "case_closed"] == [f"{verdict} {GRADUATED}"]
     assert not player.practising and PID not in player.feed.practising
@@ -915,7 +915,7 @@ def done(steps):
 
 
 @pytest.mark.asyncio
-async def test_no_checklist_off_a_guided_case():
+async def test_no_checklist_off_the_practice_case():
     player, file, engine, _ = interviewing()
     memory_of(file, player.ids)
     await ask(player, "v2", "what_did_you_see")

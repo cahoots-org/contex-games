@@ -436,7 +436,7 @@ let unread = 0;
 let introShown = false;
 // The cases whose scene the player has searched.
 let searched = new Set();
-// The guided case's checklist from the server; null off a guided case.
+// The practice case's checklist from the server; null off it.
 let steps = null;
 // The notebook by record id, in the order the player got each entry.
 const notebook = new Map();
@@ -805,8 +805,7 @@ function tag(text) {
 function render(e, fresh) {
   switch (e.kind) {
     case "case":
-      // A shared case waits until the player's private case closes.
-      if (e.case.private || !(caseNow && caseNow.private)) setCase(e.case);
+      setCase(e.case);
       break;
     case "case_closed":
       if (caseNow && caseNow.id === e.case_id) {

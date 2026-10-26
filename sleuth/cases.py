@@ -6,8 +6,8 @@ from dataclasses import asdict, dataclass, field
 from random import Random
 
 from sleuth.case import (
-    CAMERA_PLACES, WHEN, Crime, Record, camera_clip, discovery, found_it, logs, make_solvable, scene_clues, stage_crime,
-    told, witness_memories,
+    WHEN, Crime, Record, camera_clip, discovery, found_it, logs, make_solvable, scene_clues, stage_crime, told,
+    witness_memories,
 )
 from sleuth.config import Config
 from sleuth.game import PHASES
@@ -19,7 +19,6 @@ log = logging.getLogger(__name__)
 
 APP = "The neighborhood app"
 COLD = "The case went cold. It was {name}."
-GUIDED_CLIP_TRAITS = ("height", "coat", "hair")
 
 
 @dataclass
@@ -122,13 +121,12 @@ class Cases:
         return f"{name} has never liked {victim.name.split()[0]}. I'd ask where they were {WHEN}."
 
     def close(self, file: CaseFile, solved_by: str | None) -> None:
-        """Close a case, solved or not; the next shared crime waits crime_every_days from now."""
+        """Close a case, solved or not; the next crime waits crime_every_days from now."""
         file.state, file.solved_by = "closed", solved_by
-        if file.crime.owner is None:
-            self.last_closed = self.now
+        self.last_closed = self.now
 
     def brief(self, feed, player_id: str, today: float | None) -> None:
-        """Tell a player just off their guided case the town's open case and its news, hidden from them till now."""
+        """Tell a player just off the practice case the town's open case and its news, hidden from them till now."""
         case = self.shared()
         if case is None or case.state != "open":
             return
@@ -158,44 +156,13 @@ class Cases:
             if now - case.opened >= self.config.case_days:
                 self.close(case, None)
                 cold = COLD.format(name=self.town.name_of(case.crime.culprit))
-                engine.feed.on_case_closed(case.crime.id, cold, player=case.crime.owner)
-                if case.crime.owner:
-                    self.brief(engine.feed, case.crime.owner, day)
-                if run := engine.players.get(case.crime.owner):
-                    engine.players.onboarded.add(run.owner)
+                engine.feed.on_case_closed(case.crime.id, cold)
         if playing and self.shared() is None and now - self.last_closed >= self.config.crime_every_days:
             self._stage(day, phase)
 
-    async def open_guided(self, engine, player_id: str, day: int, phase: str) -> CaseFile | None:
-        """Stage and open an easy private case for a new podcaster at once, in the latest part of the day that fits;
-        None when none does."""
-        case_id, involved = self.ids.next("case"), self._involved()
-        for ph in reversed(PHASES[:PHASES.index(phase) + 1]):
-            if crime := stage_crime(self.town, self.routine, self.rng, day, ph, case_id,
-                                    places=CAMERA_PLACES, exclude=involved):
-                break
-        else:
-            return None
-        crime.owner = player_id
-        records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids)[:1],
-                   camera_clip(crime, self.town, self.ids, GUIDED_CLIP_TRAITS),
-                   *scene_clues(crime, self.town, self.routine, self.rng, self.ids)]
-        case = self.files[crime.id] = CaseFile(crime, {r.id: r for r in records}, "setup")
-        self.town.move(crime.culprit, crime.place)
-        now = day + PHASES.index(phase) / len(PHASES)
-        try:
-            await self._finish(engine, case, {}, now)
-        except Exception:
-            log.exception("opening %s failed", crime.id)
-            self._drop(case, now)
-        case.whereabouts = {v.id: [self.routine.place(v.id, crime.phase)] for v in self.town.villagers}
-        return case if case.state == "open" else None
-
-    def _involved(self, witnesses: bool = True) -> set[str]:
-        """The culprits and victims, and optionally witnesses, of every case not yet closed."""
-        return {vid for f in self.files.values() if f.state != "closed"
-                for vid in (f.crime.culprit, f.crime.victim,
-                            *(r.holder for r in f.records.values() if witnesses and r.kind == "memory"))}
+    def _involved(self) -> set[str]:
+        """The culprits and victims of every case not yet closed."""
+        return {vid for f in self.files.values() if f.state != "closed" for vid in (f.crime.culprit, f.crime.victim)}
 
     async def _finish(self, engine, case: CaseFile, finished: dict[str, list[str]], now: float) -> None:
         """Add the phase's logs, then open the case and tell its witnesses and victim what they saw and found if it is
@@ -220,18 +187,17 @@ class Cases:
                    *(v.id for v in self.town.present(crime.place))]
         case.roots[news.id] = "news"
         await engine.deliver(news, list(dict.fromkeys(hearers)))
-        engine.feed.on_case(case_json(case, self.town, self.routine, now), player=crime.owner)
-        engine.feed.on_post(news, crime.id, player=crime.owner)
+        engine.feed.on_case(case_json(case, self.town, self.routine, now))
+        engine.feed.on_post(news, crime.id)
 
     def _drop(self, case: CaseFile, now: float) -> None:
-        """Forget a case that never opened; a shared one waits crime_every_days like a closed one."""
+        """Forget a case that never opened; the next waits crime_every_days as after a close."""
         self.files.pop(case.crime.id, None)
-        if case.crime.owner is None:
-            self.last_closed = now
+        self.last_closed = now
 
     def _stage(self, day: int, phase: str) -> None:
         crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"),
-                            exclude=self._involved(witnesses=False))
+                            exclude=self._involved())
         if crime is None:
             return
         self.town.move(crime.culprit, crime.place)

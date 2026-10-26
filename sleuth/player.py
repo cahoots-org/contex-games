@@ -110,7 +110,7 @@ LOOKS = tuple(v for values in TRAITS.values() for v in values)
 EVIDENCE_ROOTS = ("memory", "cover")
 PODCAST = "A true-crime podcast"
 WRONG = "Your episode didn't hold up. The town now believes it, and people are warier of you."
-GUIDED_WRONG = "Your episode didn't hold up: the evidence doesn't back it."
+PRACTICE_WRONG = "Your episode didn't hold up: the evidence doesn't back it."
 HELD = "It holds up. Case closed."
 GRADUATED = "That was practice. You're in the real town now."
 SKIPPED = f"Tutorial skipped. {GRADUATED}"
@@ -231,7 +231,7 @@ class Player:
         ]
 
     def _tick(self) -> None:
-        """Send the guided case's checklist to the player, if they are on one."""
+        """Send the practice case's checklist to the player, if they are on one."""
         if (steps := self.steps()) is not None:
             self.feed.on_steps(steps, player=self.id)
 
@@ -544,7 +544,7 @@ class Player:
         accused, victim = self.town.get(culprit_id), self.town.get(crime.victim)
         held = holds(crime, culprit_id, accused.traits, [self.notebook[i] for i in record_ids])
         if crime.owner:
-            verdict = HELD if held else f"{GUIDED_WRONG} It was {self.town.get(crime.culprit).name}."
+            verdict = HELD if held else f"{PRACTICE_WRONG} It was {self.town.get(crime.culprit).name}."
             self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids), verdict=verdict,
                                  player=self.id)
             self._graduate(file, self.id if held else None, f"{verdict} {GRADUATED}")

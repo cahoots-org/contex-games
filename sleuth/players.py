@@ -22,7 +22,7 @@ class Players:
         self.usage = usage
         self._by_id: dict[str, Player] = {}
         self._latest: dict[str, Player] = {}
-        # Owners who have closed their guided first case.
+        # Owners who have left the practice town.
         self.onboarded: set[str] = set()
 
     def to_state(self) -> dict:

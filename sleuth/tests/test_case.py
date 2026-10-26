@@ -84,20 +84,20 @@ def test_culprit_and_victim_never_share_a_household():
         assert town.get(crime.culprit).household != town.get(crime.victim).household
 
 
-def test_stage_crime_honours_places_and_exclude():
+def test_stage_crime_honours_exclude():
     town, routine = make_town(), make_routine()
     for seed in range(30):
-        crime = stage_crime(town, routine, Random(seed), 1, "night", "case-1", places={"elm street"}, exclude=frozenset({"v1"}))
-        assert crime.place == "elm street" and "v1" not in (crime.culprit, crime.victim)
+        crime = stage_crime(town, routine, Random(seed), 1, "night", "case-1", exclude=frozenset({"v1"}))
+        assert "v1" not in (crime.culprit, crime.victim)
 
 
 def test_rival_is_the_likeliest_culprit():
     town, routine = make_town(), make_routine()
     others = frozenset({"v2", "v3", "v4"})
-    crimes = [stage_crime(town, routine, Random(seed), 1, "night", "case-1", places={"elm street"}, exclude=others)
-              for seed in range(200)]
+    crimes = [c for seed in range(400)
+              if (c := stage_crime(town, routine, Random(seed), 1, "night", "case-1", exclude=others)).victim == "v1"]
     rival = [c for c in crimes if c.culprit == "v5"]
-    assert len(rival) > 200 / 3 and all(c.motive == "rival" for c in rival)
+    assert len(rival) > len(crimes) / 3 and all(c.motive == "rival" for c in rival)
     assert all(c.motive == "opportunity" for c in crimes if c.culprit != "v5")
 
 

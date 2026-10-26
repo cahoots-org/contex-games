@@ -686,12 +686,10 @@ def test_the_notebook_groups_entries_by_kind(game):
         assert f"{kind}: " in html[html.index("const GROUP_OF"):], kind
 
 
-def test_the_page_reloads_the_case_when_its_own_closes_and_keeps_a_private_one(game):
+def test_the_page_reloads_the_case_when_its_own_closes(game):
     page = game.client.get("/").text
     closed = page[page.index('case "case_closed":'):page.index('case "pulled":')]
     assert "loadState()" in closed
-    opened = page[page.index('case "case":'):page.index('case "case_closed":')]
-    assert "e.case.private" in opened and "caseNow.private" in opened
 
 
 

@@ -90,7 +90,7 @@ class Feed:
         return self.emit("system", line, player=player, text=line)
 
     def on_steps(self, steps: list[dict], *, player: str) -> None:
-        """The checklist of a new player's guided case, ticked from what they have done."""
+        """The checklist of a new player's practice case, ticked from what they have done."""
         self.emit("steps", player=player, steps=steps)
 
     def sees(self, player: str, event: Event) -> bool:

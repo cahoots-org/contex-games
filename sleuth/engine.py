@@ -164,7 +164,7 @@ class Engine:
             raise next(r for r in results if isinstance(r, Exception))
         if utterance.audience == "room" and self.cases is not None:
             if (rooted := self.cases.root_kind(self.lineage.root(utterance.id))) and rooted[1] != "memory":
-                self.feed.on_post(utterance, rooted[0].crime.id, player=rooted[0].crime.owner)
+                self.feed.on_post(utterance, rooted[0].crime.id)
 
     async def recall_heard(self, vid: str, text: str) -> list[Match]:
         """Lines the villager heard earlier that the words match, best first."""

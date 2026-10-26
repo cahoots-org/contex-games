@@ -63,7 +63,7 @@ class Crime:
     minute: int
     motive: str  # "rival" | "grudge" | "opportunity"
     text: str  # public news line
-    owner: str | None = None  # a private guided case's player
+    owner: str | None = None  # the practice case's player
 
 
 @dataclass
@@ -132,7 +132,7 @@ def motive_of(culprit, victim) -> str:
 
 
 def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id: str, *,
-                places=None, exclude=frozenset()) -> Crime | None:
+                exclude=frozenset()) -> Crime | None:
     """Draw a crime, then a culprit and a victim from different households, the victim where the item plausibly is.
     About REGULAR_CULPRIT of the time, when one fits, the culprit is expected at the scene too, otherwise elsewhere;
     None if no crime fits."""
@@ -141,8 +141,7 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
     for template, item in rng.sample(crimes, len(crimes)):
         pairs = [(c, w, motive_of(c, w)) for w in residents for c in residents
                  if c.household != w.household
-                 and routine.place(w.id, phase) in ITEM_PLACES[item]
-                 and (places is None or routine.place(w.id, phase) in places)]
+                 and routine.place(w.id, phase) in ITEM_PLACES[item]]
         if pairs:
             break
     else:
@@ -212,12 +211,12 @@ def found_it(crime: Crime, clock: str) -> str:
     return f"Around {clock}, I found my {crime.item} {FOUND[crime.template]} {at(crime.place)}."
 
 
-def camera_clip(crime: Crime, town: Town, ids: Ids, traits: tuple[str, ...] = CLIP_TRAITS) -> Record | None:
+def camera_clip(crime: Crime, town: Town, ids: Ids) -> Record | None:
     """The scene's camera footage at the crime minute, if the place has a camera."""
     if crime.place not in CAMERA_PLACES:
         return None
     culprit = town.get(crime.culprit).traits
-    seen = {c: culprit[c] for c in traits}
+    seen = {c: culprit[c] for c in CLIP_TRAITS}
     clock = clock_at(crime.minute)
     text = f"{clock}, {place_name(crime.place)} camera: {figure(seen)} {WITNESS_ACTION[crime.template]}."
     return Record(ids.next("r"), crime.id, "clip", crime.place, clock, text, traits=seen, day=crime.day)
