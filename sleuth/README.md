@@ -28,7 +28,8 @@ start; they come back on a reload only until the podcaster has asked anyone anyt
 camera: one witness, a clip showing the culprit's height, coat and hair, a clue or two at the scene, and no logs but a receipt's. Only
 they see its news. A checklist in the case header walks them through it: ask the victim what happened, ask the
 witness what they saw (or, with no witness, pull the records at the scene), search the scene, and publish. The game
-ticks each step from what they have actually done and lights the person or button the current step needs; once it closes, by an episode or by going cold, they play the town's shared case like everyone else. No new private case is opened while the town is
+ticks each step from what they have actually done and lights the person or button the current step needs. Town talk stays hidden and the notebook appears with its first
+entry until the first case closes; once it closes, by an episode or by going cold, they play the town's shared case like everyone else. No new private case is opened while the town is
 resting.
 
 **Evidence** is held by the game as records with ids like `r-12`; the models never invent any of it.

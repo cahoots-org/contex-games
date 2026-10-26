@@ -356,7 +356,7 @@ select, input[type="text"], input[type="search"] {
       <p class="status" id="case-status" role="status"></p>
     </section>
 
-    <section class="book" aria-labelledby="book-title">
+    <section class="book" id="book" aria-labelledby="book-title">
       <div class="book-head"><h2 id="book-title">Notebook</h2><small>by kind, newest first</small></div>
       <div id="notebook"></div>
       <p class="empty" id="book-empty">Nothing yet. Ask people what they saw, search the scene and pull records.</p>
@@ -479,6 +479,8 @@ function setCase(c) {
   $("case-title").textContent = open ? open.title : "Waiting for the next crime";
   $("case-text").textContent = open ? open.text : "The neighborhood app posts the news when something happens.";
   $("publish-open").hidden = !open;
+  // The first case keeps the page small: no town talk.
+  $("talk").hidden = Boolean(open && open.private);
   drawNotebook();
   drawWhere();
 }
@@ -553,6 +555,7 @@ function drawNotebook() {
   $("notebook").replaceChildren(...groups.map(([g, rs]) => el("section", { className: "group" },
     el("h3", { textContent: g }), el("ol", {}, ...rs.map((r) => entry(r, ticked.has(r.id)))))));
   $("book-empty").hidden = notebook.size > 0;
+  $("book").hidden = Boolean(caseNow && caseNow.private) && notebook.size === 0;
   countCited();
   drawPeople();
 }
