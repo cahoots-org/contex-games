@@ -27,7 +27,6 @@ log = logging.getLogger(__name__)
 
 PAGE = Path(__file__).parent / "static" / "index.html"
 MAX_BODY_BYTES = 8192
-VILLAGER_POLL_SECONDS = 1.0
 USAGE_POLL_SECONDS = 3.0
 # How many messages a tab may fall behind before its socket is closed.
 CLIENT_QUEUE = 256
@@ -65,7 +64,7 @@ class Guard:
 
 def villagers(town: Town) -> list[dict]:
     return sorted(
-        ({"id": v.id, "name": v.name, "occupation": v.occupation, "place": town.place_of(v.id),
+        ({"id": v.id, "name": v.name, "occupation": v.occupation,
           "looks": describe(v.traits), "face": face(v.traits)} for v in town.villagers),
         key=lambda v: v["name"],
     )
@@ -114,24 +113,10 @@ def create_app(
     # What each player's tabs were last sent, by kind.
     sent: dict[str, dict[str, object]] = {"usage": {}}
 
-    def broadcast(message: dict) -> None:
-        for queue in list(clients):
-            offer(clients, queue, message)
-
     def on_event(event: Event) -> None:
         for queue, pid in list(clients.items()):
             if feed.sees(pid, event):
                 offer(clients, queue, event.to_json(pid))
-
-    async def watch(kind: str, snapshot, seconds: float) -> None:
-        """Send the snapshot whenever it has changed, checking every few seconds."""
-        last = snapshot()
-        while True:
-            await asyncio.sleep(seconds)
-            now = snapshot()
-            if now != last:
-                last = now
-                broadcast({"kind": kind, kind: now})
 
     async def watch_each(kind: str, snapshot: Callable[[str], object], seconds: float) -> None:
         """Send each player's tabs their own snapshot whenever it has changed, checking every few seconds."""
@@ -157,7 +142,6 @@ def create_app(
     async def lifespan(app: FastAPI):
         feed.sinks.append(on_event)
         watchers = [
-            asyncio.create_task(watch("villagers", lambda: villagers(town), VILLAGER_POLL_SECONDS)),
             asyncio.create_task(watch_each("usage", usage.to_json, USAGE_POLL_SECONDS)),
             asyncio.create_task(watch_rest()),
         ]
@@ -244,7 +228,6 @@ def create_app(
             "id": v.id,
             "name": v.name,
             "occupation": v.occupation,
-            "place": town.place_of(v.id),
             "personality": v.personality,
             "grudge": v.grudge,
             "relationships": [

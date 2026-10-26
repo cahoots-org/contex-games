@@ -1030,8 +1030,7 @@ async function loadState() {
 }
 
 function receive(e) {
-  if (e.kind === "villagers") setResidents(e.villagers);
-  else if (e.kind === "usage") $("usage").textContent = e.usage.summary;
+  if (e.kind === "usage") $("usage").textContent = e.usage.summary;
   else addEvents([e], true);
 }
 

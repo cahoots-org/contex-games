@@ -278,12 +278,16 @@ def test_websocket_receives_the_walk(game):
     assert (event["kind"], event["place"]) == ("place", "library")
 
 
-def test_villager_moves_reach_the_websocket(game):
-    with game.client.websocket_connect(WS) as ws:
-        game.town.move("v1", "bar")
-        event = receive(ws)
-    assert event["kind"] == "villagers"
-    assert {v["name"]: v["place"] for v in event["villagers"]}["Marta Hale"] == "bar"
+def test_no_residents_current_place_is_sent(game):
+    game.town.move("v1", "dog park")
+    game.town.move("v2", "hardware store")
+    state = game.client.get("/api/state").json()
+    assert state["place"] == "cafe"
+    assert all("place" not in v for v in state["villagers"])
+    assert not re.search("dog park|hardware store", json.dumps(state["villagers"]))
+    for vid in ("v1", "v2"):
+        card = game.client.get(f"/api/villagers/{vid}")
+        assert "place" not in card.json() and not re.search("dog park|hardware store", card.text)
 
 
 @pytest.mark.parametrize("host", ["evil.example:8765", "127.0.0.1:9999", "localhost"])
