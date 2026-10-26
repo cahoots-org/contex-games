@@ -14,7 +14,7 @@ from sleuth.facts import audible
 from sleuth.game import Game
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
-from sleuth.town import PLACES, START_PLACE, Town, neighbours
+from sleuth.town import PLACES, START_PLACE, STREETS, Town, neighbours
 from sleuth.usage import charging
 
 log = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ PODCAST = "A true-crime podcast"
 WRONG = "Your episode didn't hold up. The town now believes it, and people are warier of you."
 RIVAL = "Another podcaster cracked the case first."
 GUIDE = (
-    "A case just for you: {case}. Watch the neighborhood app, then walk {place} and {then}.",
+    "A case just for you: {case}. Watch the neighborhood app, then walk to {place} and {then}.",
     "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Pull records where a "
     "place has a camera or keeps logs.",
     "When the evidence points to one person, publish an episode. Name them and cite what backs it up.",
@@ -104,7 +104,7 @@ class Player:
                 crime = case.crime
                 there = any(r.kind == "memory" and self.town.place_of(r.holder) == crime.place
                             for r in case.records.values())
-                self._guide(0, case=crime.text.rstrip("."), place=at(crime.place),
+                self._guide(0, case=crime.text.rstrip("."), place=crime.place if crime.place in STREETS else f"the {crime.place}",
                             then="interview whoever is there" if there else "pull the records there")
         except Exception:
             log.exception("opening a guided case for %s failed", self.id)

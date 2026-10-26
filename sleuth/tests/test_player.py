@@ -610,7 +610,7 @@ async def test_guide_walks_a_new_player_through_interview_pull_and_publish():
     assert await player.publish("v3", [memory.id]) is None
     assert guides(player) == [
         "A case just for you: Someone stole Dana Reyes's bike on elm street last night. Watch the neighborhood app, "
-        "then walk on elm street and interview whoever is there.",
+        "then walk to elm street and interview whoever is there.",
         "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Pull records where "
         "a place has a camera or keeps logs.",
         "When the evidence points to one person, publish an episode. Name them and cite what backs it up.",
@@ -706,4 +706,4 @@ async def test_with_no_witness_at_the_scene_the_first_line_points_to_the_records
     await player.start()
     assert guides(player) == [
         "A case just for you: Someone stole Dana Reyes's bike on elm street last night. Watch the neighborhood app, "
-        "then walk on elm street and pull the records there."]
+        "then walk to elm street and pull the records there."]
