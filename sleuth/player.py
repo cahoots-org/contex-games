@@ -1,15 +1,18 @@
-"""A player's run: walking, listening and asking around."""
+"""A player's run: walking, looking around and interviewing residents into a notebook."""
 
 import asyncio
 import logging
 import time
+from dataclasses import asdict
 
+from sleuth.alibi import claim, household_word
+from sleuth.case import Record, at, clock_at, record_json, when
+from sleuth.cases import CaseFile
 from sleuth.config import Config
-from sleuth.contex_client import Match
 from sleuth.facts import audible
 from sleuth.game import Game
 from sleuth.lineage import Ids, Lineage
-from sleuth.models import Utterance, Villager
+from sleuth.models import Villager
 from sleuth.town import PLACES, START_PLACE, Town, neighbours
 from sleuth.usage import charging
 
@@ -21,11 +24,15 @@ def analytics(event: str, **fields) -> None:
     print("analytics", event, *(f"{k}={v}" for k, v in fields.items()))
 
 
-MAX_ASK_CHARS = 500
 LISTEN_OPENING = 5
 LISTEN_LOOKBACK_DAYS = 1 / 4
 ALREADY_LISTENING = "You just looked around."
-ASK_LINES = 3
+# Hearsay rooted in these is evidence; news-rooted hearsay is only talk.
+EVIDENCE_ROOTS = ("memory", "cover")
+
+
+class Refusal(str):
+    """A resident turning the podcaster away."""
 
 
 class Player:
@@ -45,6 +52,7 @@ class Player:
         self.writer = writer
         self.game = game
         self.place = START_PLACE
+        self.notebook: dict[str, Record] = {}
         self._tasks: set[asyncio.Task] = set()
         # When the running listen ends, or None when the player is not listening.
         self._listen_until: float | None = None
@@ -57,12 +65,13 @@ class Player:
         """The run's durable fields as plain JSON; listens, tabs and tasks are left out."""
         return {
             "id": self.id, "owner": self.owner, "place": self.place, "created_at": self.created_at,
-            "active_at": self._active_at,
+            "active_at": self._active_at, "notebook": [asdict(r) for r in self.notebook.values()],
         }
 
     def restore(self, state: dict) -> None:
         """Fill the run from a saved state; with no tab open it is idle until its player reconnects."""
         self.place, self.created_at = state["place"], state["created_at"]
+        self.notebook = {r["id"]: Record(**r) for r in state["notebook"]}
         active_at = state["active_at"]
         self._active_at = None if active_at is None else min(active_at, time.time() - self.config.idle_after_seconds)
 
@@ -137,52 +146,100 @@ class Player:
         self.place = place
         self.feed.on_place(place, player=self.id)
 
-    async def ask(self, villager_id: str, topic: str) -> str | None:
-        """Ask the villager what folk have been saying about the topic; returns why it could not be done, if it couldn't.
+    async def interview(self, vid: str) -> str | None:
+        """Interview the resident about the open case; returns why it could not be done, if it couldn't.
 
-        The model call is charged to this player.
+        New evidence goes in the notebook, and the culprit hears a podcaster is asking around. The model calls are
+        charged to this player.
         """
         self.touch()
         with charging(self.id):
-            return await self._ask(villager_id, topic)
+            return await self._interview(vid)
 
-    async def _ask(self, villager_id: str, topic: str) -> str | None:
-        if villager_id not in self.town:
-            gone = self.town.name_of(villager_id)
-            return f"{gone} has left town." if gone else "No one in town has that id."
-        topic = topic.strip()
-        if not topic:
-            return "Ask about what? Try: the gym"
-        if len(topic) > MAX_ASK_CHARS:
-            return f"Too long: a question is at most {MAX_ASK_CHARS} characters."
-        villager = self.town.get(villager_id)
-        place = self.town.place_of(villager_id)
+    async def _interview(self, vid: str) -> str | None:
+        if vid not in self.town:
+            return "No one in town has that id."
+        file = self.engine.cases.for_player(self.id) if self.engine.cases else None
+        if file is None:
+            return "There's no open case."
+        villager = self.town.get(vid)
+        place = self.town.place_of(vid)
         if place != self.place:
-            return f"{villager.name} is at the {place}. Walk there to ask them."
-        recalled = await self.engine.recall_heard(villager_id, topic)
-        heard = [u for u in map(self._tellable, recalled) if u is not None][:ASK_LINES]
-        line = await self._answer(villager, topic, heard)
-        self.feed.on_answer(villager_id, villager.name, topic, line, player=self.id)
+            return f"{villager.name} is at the {place}. Walk there to talk to them."
+        if self.engine.reputation.get(vid, self.id) < self.config.guarded_at:
+            return Refusal(f"{villager.name} won't talk to you.")
+        found, talk = await self._gather(file, villager)
+        seen = {(r.kind, r.holder, r.text) for r in self.notebook.values()}
+        new = []
+        for r in found:
+            if (r.kind, r.holder, r.text) not in seen:
+                seen.add((r.kind, r.holder, r.text))
+                r.id = r.id or self.ids.next("r")
+                self.notebook[r.id] = r
+                new.append(r)
+        line = await self._phrase(villager, file, [r.text for r in new] + talk)
+        self.feed.on_interview(vid, villager.name, line, [record_json(r, self.town) for r in new], player=self.id)
+        try:
+            await self.engine.press(file)
+        except Exception:
+            log.exception("pressing the culprit of %s failed", file.crime.id)
         return None
 
-    def _tellable(self, m: Match) -> Utterance | None:
-        """The fact behind a recalled line, if it is still kept."""
-        return self.engine.facts.get(m.data.get("id"))
+    async def _gather(self, file: CaseFile, villager: Villager) -> tuple[list[Record], list[str]]:
+        """What the resident can give: their memory, their claim, their housemates' whereabouts and the best hearsay
+        as records, and news-rooted hearsay as talk."""
+        crime, vid, name = file.crime, villager.id, villager.name
+        records = [r for r in file.records.values() if r.kind == "memory" and r.holder == vid]
 
-    async def _answer(self, villager: Villager, topic: str, heard: list[Utterance]) -> str:
-        """The villager's answer from the writer, or a plain line when there is none or it fails."""
+        def statement(text: str, sound: bool, source: str | None = None) -> Record:
+            return Record("", crime.id, "statement", self.place, self._clock(), text, vid, sound=sound, utterance=source)
+
+        places, sound = claim(file, vid, self.engine.routine)
+        if places:
+            records.append(statement(f"{name} says they were {' then '.join(at(p) for p in places)} {when(crime.phase)}.",
+                                     sound))
+        for mate in self.town.villagers:
+            try:
+                word = await household_word(self.engine.jev, file, villager, mate)
+            except Exception:
+                log.exception("household word from %s failed", vid)
+                continue
+            if word:
+                records.append(statement(f"{name}: {word[0]}", word[1]))
+        talk = []
+        for m in await self.engine.recall_heard(vid, crime.text):
+            if (heard := self.engine.facts.get(m.data.get("id"))) is None:
+                continue
+            root = self.lineage.root(heard.id)
+            rooted = self.engine.cases.root_kind(root)
+            if rooted is None or rooted[0] is not file:
+                continue
+            if rooted[1] in EVIDENCE_ROOTS:
+                source = next((r.id for r in file.records.values() if r.utterance == root), None)
+                records.append(statement(f"{name} heard from {heard.speaker_name}: {heard.text}",
+                                         rooted[1] == "memory", source))
+                break
+            if rooted[1] == "news" and not talk:
+                talk.append(f"{heard.speaker_name}: {heard.text}")
+        return records, talk
+
+    async def _phrase(self, villager: Villager, file: CaseFile, facts: list[str]) -> str:
+        """The resident's answer from the writer, or a plain line when there is none or it fails."""
         if self.writer is not None:
             try:
                 if line := await self.writer.answer(
-                    villager, topic, [f"{u.speaker_name} at the {u.place}: {u.text}" for u in heard],
-                    neighbours(self.town, villager, topic),
+                    villager, file.crime.text, facts, neighbours(self.town, villager, file.crime.text),
                 ):
                     return line
             except Exception:
                 log.exception("answer for %s failed", villager.id)
-        if heard:
-            return f"{villager.name} heard {heard[0].speaker_name} talking about it at the {heard[0].place}."
-        return f"{villager.name} hasn't heard anything about that."
+        if facts:
+            return f"{villager.name} says: {facts[0]}"
+        return f"{villager.name} doesn't know anything about it."
+
+    def _clock(self) -> str:
+        """The game's time of day, like "9:40am"; empty without a game."""
+        return clock_at(int(360 + self.game.clock()["fraction"] * 1440)) if self.game else ""
 
     def close(self) -> None:
         """Cancel every background task this player started."""

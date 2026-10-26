@@ -10,6 +10,7 @@ from sleuth.feed import Feed
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Villager
 from sleuth.player import Player
+from sleuth.reputation import Reputation
 from sleuth.town import Town
 
 PID = "p-1"
@@ -134,10 +135,30 @@ class FakeEngine:
         self.facts = Facts()
         self.heard = []
         self.recalls = []
+        self.cases = None
+        self.routine = None
+        self.jev = None
+        self.reputation = Reputation(Config())
+        self.pressed = []
 
     async def recall_heard(self, vid, text):
         self.recalls.append((vid, text))
         return self.heard
+
+    async def press(self, file):
+        self.pressed.append(file)
+
+
+class StubWriter:
+    """Records what each answer was given, and answers with line."""
+
+    def __init__(self, line="Can't say I know much."):
+        self.line = line
+        self.calls = []
+
+    async def answer(self, villager, topic, heard, known=()):
+        self.calls.append((villager.id, topic, list(heard), list(known)))
+        return self.line
 
 
 def stub_player(pid=PID, place="cafe", listening=False):

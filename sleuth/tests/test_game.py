@@ -87,6 +87,16 @@ async def test_the_engine_announces_each_part_of_the_day():
 
 
 @pytest.mark.asyncio
+async def test_reputations_ease_each_part_of_the_day():
+    engine, _, feed, _ = await start("v1", day_seconds=0.04, reputation_decay=0.1)
+    engine.reputation.nudge("v1", PID, -0.5)
+    await engine.run()
+    await wait_for(lambda: kinds(feed, "time"))
+    await engine.stop()
+    assert engine.reputation.get("v1", PID) > -0.5
+
+
+@pytest.mark.asyncio
 async def test_the_clock_walks_villagers_to_their_routine_place():
     engine, _, _, _ = await start("v1", "v2", day_seconds=0.2)
     engine.routine = StubRoutine({"v1": "gym", "v2": "bar"})

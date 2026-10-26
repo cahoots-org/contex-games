@@ -71,13 +71,14 @@ def test_listen_events_reach_only_the_listener_and_print_the_lines():
     assert (feed.recent[-1].data["ended"], feed.recent[-1].player, len(lines)) == (True, PID, 2)
 
 
-def test_an_answer_reaches_only_the_asker():
+def test_an_interview_reaches_only_the_podcaster():
     feed, lines = make()
-    feed.on_answer("v2", "Marta", "the mill", "Tom told me so.", player=PID)
+    records = [{"id": "r-1", "kind": "memory", "place": "cafe", "clock": "9:00am", "text": "I saw it.", "from": "Marta"}]
+    feed.on_interview("v2", "Marta", "I saw someone tall.", records, player=PID)
     event = feed.recent[-1]
-    assert (event.kind, event.player) == ("asked", PID)
-    assert event.data == {"villager_id": "v2", "name": "Marta", "topic": "the mill", "line": "Tom told me so."}
-    assert lines == ['Marta, asked about the mill: "Tom told me so."']
+    assert (event.kind, event.player) == ("interview", PID)
+    assert event.data == {"villager_id": "v2", "name": "Marta", "line": "I saw someone tall.", "records": records}
+    assert lines == ['Marta: "I saw someone tall."']
     assert not feed.sees("p-2", event)
 
 

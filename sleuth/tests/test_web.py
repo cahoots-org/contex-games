@@ -11,7 +11,7 @@ import pytest
 from fastapi import FastAPI, WebSocketDisconnect
 from fastapi.testclient import TestClient
 
-from sleuth.case import Crime
+from sleuth.case import Crime, Record
 from sleuth.cases import CaseFile, Cases
 from sleuth.config import Config
 from sleuth.feed import Feed
@@ -60,7 +60,7 @@ def game(monkeypatch):
         return player
 
     usage = Usage(Config())
-    cases = Cases(config, town, None, random.Random(1), Ids())
+    cases = engine.cases = Cases(config, town, None, random.Random(1), Ids())
     app = create_app(
         players=players, join=join, town=town, feed=feed, usage=usage, port=PORT,
         game=game, cases=cases,
@@ -130,9 +130,10 @@ def test_page_is_served(game):
 
 def test_page_has_the_walk_listen_and_ask_controls(game):
     html = game.client.get("/").text
-    for needle in ("Walk here", "Look around", "Recently said at the", "/api/walk", "/api/listen", "/api/ask", 'case "listen"', 'case "asked"'):
+    for needle in ("Walk here", "Look around", "Recently said at the", "/api/walk", "/api/listen", "/api/interview", 'case "listen"', 'case "interview"',
+                   'id="notebook"', '"Interview"'):
         assert needle in html
-    assert 'class="ask"' in html or 'className: "ask"' in html
+    assert "/api/ask" not in html and 'case "asked"' not in html
     assert "ariaDisabled" in html
     assert "innerHTML" not in html and "Listen here" not in html and "You listen at" not in html
 
@@ -162,19 +163,51 @@ def test_listen_starts_and_a_second_is_refused(game):
     assert again.status_code == 400 and again.json() == {"error": "You just looked around."}
 
 
-def test_ask_reports_problems_and_answers_through_the_feed(game):
+def open_case(game, culprit="v2"):
+    crime = Crime("case-1", "steal", "bike", culprit, "v1", "library", 1, "night", 1422, "rival",
+                  "Someone stole Marta Hale's bike at the library last night.")
+    game.cases.files["case-1"] = CaseFile(crime, {}, "open")
+    return game.cases.files["case-1"]
+
+
+def test_interview_reports_problems_and_answers_through_the_feed(game):
     post = game.client.post
     post("/api/walk", json={"place": "library"})
+    none = post("/api/interview", json={"villager_id": "v1"})
+    assert (none.status_code, none.json()) == (400, {"error": "There's no open case."})
+    open_case(game)
     with game.client.websocket_connect(WS) as ws:
-        assert post("/api/ask", json={"villager_id": "v1", "topic": "the mill"}).json() == {"ok": True}
+        assert post("/api/interview", json={"villager_id": "v1"}).json() == {"ok": True}
         event = receive(ws)
-        while event["kind"] != "asked":
+        while event["kind"] != "interview":
             event = receive(ws)
-    assert (event["villager_id"], event["line"]) == ("v1", "Marta Hale hasn't heard anything about that.")
-    away = post("/api/ask", json={"villager_id": "v2", "topic": "the mill"})
-    assert (away.status_code, away.json()) == (400, {"error": "Bert Cole is at the gym. Walk there to ask them."})
-    bad = post("/api/ask", json={"villager_id": "v1"})
-    assert (bad.status_code, bad.json()) == (400, {"error": web.BAD_ASK})
+    assert (event["villager_id"], event["line"]) == ("v1", "Marta Hale doesn't know anything about it.")
+    away = post("/api/interview", json={"villager_id": "v2"})
+    assert (away.status_code, away.json()) == (400, {"error": "Bert Cole is at the gym. Walk there to talk to them."})
+    bad = post("/api/interview", json={})
+    assert (bad.status_code, bad.json()) == (400, {"error": web.BAD_INTERVIEW})
+    assert post("/api/ask", json={"villager_id": "v1", "topic": "x"}).status_code in (404, 405)
+
+
+def test_a_guarded_resident_is_a_conflict(game):
+    open_case(game)
+    game.client.post("/api/walk", json={"place": "library"})
+    game.engine.reputation.nudge("v1", game.player.id, -1)
+    refused = game.client.post("/api/interview", json={"villager_id": "v1"})
+    assert refused.status_code == 409 and "Marta Hale" in refused.json()["error"]
+
+
+def test_state_notebook_hides_soundness(game):
+    assert game.client.get("/api/state").json()["notebook"] == []
+    open_case(game)
+    lie = Record("r-1", "case-1", "statement", "gym", "9:00am", "Bert Cole says they were at the gym last night.", "v2",
+                 sound=False)
+    old = Record("r-2", "case-0", "statement", "gym", "9:00am", "from an old case", "v2")
+    game.player.notebook = {r.id: r for r in (lie, old)}
+    body = game.client.get("/api/state").json()
+    assert body["notebook"] == [{"id": "r-1", "kind": "statement", "place": "gym", "clock": "9:00am",
+                                 "text": lie.text, "from": "Bert Cole"}]
+    assert "sound" not in json.dumps(body["notebook"])
 
 
 def eventually(check, timeout=5.0):
@@ -406,7 +439,7 @@ def test_while_resting_model_actions_are_refused_and_walking_is_not(game):
     spend_the_day(game)
     post = game.client.post
     for path, body in (
-        ("/api/ask", {"villager_id": "v1", "topic": "the mill"}),
+        ("/api/interview", {"villager_id": "v1"}),
     ):
         refused = post(path, json=body)
         assert (refused.status_code, refused.json()) == (409, {"error": RESTING}), path

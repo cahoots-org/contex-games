@@ -21,6 +21,18 @@ Evidence is held by the game as records with ids like `r-12`, and the models nev
 | memory | a witness recalls a few of the culprit's traits, never a name, around the time of the crime |
 | clip | a camera at the grocery, bar, town hall or elm street catches the culprit's height and coat at the exact minute |
 | log | a gym check-in, bar tab, grocery receipt or library checkout puts a named resident somewhere that part of the day |
+| statement | what a resident tells the podcaster in an interview |
+
+## Interviews
+
+Interview a resident where you both stand and the game, not the model, decides what they can give, adding anything new to your notebook under the case:
+
+- a witness's memory record;
+- where they say they were during the crime, a lie when they are the culprit;
+- for a night crime, whether each housemate was home, which Jev decides the speaker covers for or not (the culprit gives no such word);
+- the best line they heard that traces back to a witness's memory or the culprit's cover story, naming who told them.
+
+Haiku phrases the answer from those facts alone, and a resident who knows nothing says so. Every interview tells the culprit, at most once a part of the day, that a podcaster is asking around. A resident whose regard for you has fallen below `guarded_at` won't talk to you; regard drifts back toward 0 by `reputation_decay` each part of the day.
 
 Room talk that grows from a case's news or a witness's memory is posted to the app and shows in the feed with an App tag.
 
@@ -33,7 +45,7 @@ Room talk that grows from a case's news or a witness's memory is posted to the a
 | `max_age_seconds` | noticing: a subscription only carries talk from the last `memory_days`, for a villager to react to |
 | `subscriptions/listen` | one stream per villager over all their subscriptions; a push is what wakes them |
 | reading the subscription resource | the villager's memories each turn, and lease renewal for quiet villagers |
-| `contex_query` | asking a villager what they heard; calibrating needs |
+| `contex_query` | what a resident heard about the case, in an interview; calibrating needs |
 | semantic matching | a line wakes a villager only if it scores clearly above ordinary village talk for one of their needs, and a rumor still reaches people after it is retold in other words |
 | scale | 100 projects, about 400 subscriptions, and 100 listen streams at once |
 
@@ -140,8 +152,8 @@ Everything is done on the page:
 
 - Walk: open a place's tile and press "Walk here".
 - Look around: at your own place, press "Look around" to see the last few lines said there.
-- Ask around: open a villager's card where you stand and ask what folk have been saying about something; the answer
-  goes in the feed and on their card.
+- Interview: open a villager's card where you stand and press "Interview"; the answer goes in the feed and on their
+  card, and any new evidence in the notebook under the case.
 - Inspect: click a face to see a villager's trade, looks, home, household, personality, grudge and relationships.
 
 ## The browser page
@@ -184,7 +196,7 @@ Where the tokens go:
 - Each time a villager wakes: one Jev request to decide what they do, plus a
   short Haiku call (at most 80 tokens out) when they speak, and a slightly
   longer one when they found a group.
-- Each question you ask: one short Haiku line.
+- Each interview: one short Haiku line, plus one Jev request per housemate for a night crime.
 
 | Variable | Default (dollars per million tokens) |
 |---|---|
@@ -212,7 +224,7 @@ The image listens on `0.0.0.0` and on the `PORT` Railway gives it.
 
 The village thinks only while someone is playing: a player counts while one of
 their tabs is open, and for `SLEUTH_IDLE_AFTER_SECONDS` (10 minutes) after
-their last walk, question, look around or closed tab.
+their last walk, interview, look around or closed tab.
 A visitor who loads the page but never opens its feed never wakes the village,
 and their run is dropped once it is that old, or sooner once more than
 `SLEUTH_MAX_IDLE_RUNS` such runs pile up. A single open tab keeps the village
@@ -220,7 +232,7 @@ awake, so expect it to spend up to the cap every UTC day.
 
 Once the day's estimated spend reaches `SLEUTH_DAILY_SPEND_CAP` the village
 rests until midnight UTC: villagers stop thinking, the page says so, and
-questions are refused. Walking and looking around still
+interviews are refused. Walking and looking around still
 work. Calls already under way finish, so the day can go a little over the cap.
 
 The cap counts spend in the running process only. A restart starts the count
@@ -260,6 +272,8 @@ Every field of `Config` can be set with an environment variable.
 | `SLEUTH_POPULATION` | `50` | village size; newcomers arrive to keep it there |
 | `SLEUTH_CRIME_EVERY_DAYS` | `1` | game days from one shared case's close to the next crime |
 | `SLEUTH_CASE_DAYS` | `3` | game days before an open case goes cold |
+| `SLEUTH_GUARDED_AT` | `-0.3` | below this regard a resident won't talk to you |
+| `SLEUTH_REPUTATION_DECAY` | `0.02` | how far each resident's regard for you drifts back toward 0 each part of the day |
 | `SLEUTH_DAY_SECONDS` | `120` | length of a game day |
 | `SLEUTH_MEMORY_DAYS` | `2` | how many days a villager remembers what they heard |
 | `SLEUTH_MATCH_MARGIN` | `0.015` | how far above a need's score against ordinary village talk a line must score to match that need |

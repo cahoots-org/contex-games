@@ -13,10 +13,11 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from starlette.datastructures import Headers
 from starlette.websockets import WebSocketClose
 
+from sleuth.case import record_json
 from sleuth.cases import Cases, case_json
 from sleuth.feed import RESTING, Event, Feed
 from sleuth.game import Game
-from sleuth.player import Player
+from sleuth.player import Player, Refusal
 from sleuth.players import Players, new_owner_id
 from sleuth.town import PLACES, Town
 from sleuth.traits import describe
@@ -31,7 +32,7 @@ USAGE_POLL_SECONDS = 3.0
 # How many messages a tab may fall behind before its socket is closed.
 CLIENT_QUEUE = 256
 BAD_WALK = 'Send JSON like {"place": "bar"}.'
-BAD_ASK = 'Send JSON like {"villager_id": "v1", "topic": "the gym"}.'
+BAD_INTERVIEW = 'Send JSON like {"villager_id": "v1"}.'
 COOKIE = "sleuth_player"
 COOKIE_SECONDS = 365 * 24 * 3600
 RELOAD = "Reload the page to join the village."
@@ -198,6 +199,7 @@ def create_app(
     async def state(request: Request):
         if (player := player_for(players, request.cookies.get(COOKIE))) is None:
             return _error(401, RELOAD)
+        case = cases.for_player(player.id) if cases else None
         return {
             "boot": f"{boot}:{player.id}",
             "places": list(PLACES),
@@ -207,7 +209,8 @@ def create_app(
             "events": [e.to_json() for e in feed.replay(player.id)],
             "usage": usage.to_json(player.id),
             "resting": usage.resting(),
-            "case": case_json(case) if cases and (case := cases.for_player(player.id)) else None,
+            "case": case_json(case) if case else None,
+            "notebook": [record_json(r, town) for r in player.notebook.values() if case and r.case == case.crime.id],
         }
 
     @app.get("/api/villagers/{vid}")
@@ -252,20 +255,20 @@ def create_app(
             return _error(400, problem)
         return {"ok": True}
 
-    @app.post("/api/ask")
-    async def ask(request: Request):
+    @app.post("/api/interview")
+    async def interview(request: Request):
         if (player := player_for(players, request.cookies.get(COOKIE))) is None:
             return _error(401, RELOAD)
-        payload = await _payload(request, BAD_ASK, "That question is too long.")
+        payload = await _payload(request, BAD_INTERVIEW, "That request is too long.")
         if isinstance(payload, JSONResponse):
             return payload
-        vid, topic = payload.get("villager_id"), payload.get("topic")
-        if not isinstance(vid, str) or not isinstance(topic, str):
-            return _error(400, BAD_ASK)
+        vid = payload.get("villager_id")
+        if not isinstance(vid, str):
+            return _error(400, BAD_INTERVIEW)
         if usage.resting():
             return _error(409, RESTING)
-        if problem := await player.ask(vid, topic):
-            return _error(400, problem)
+        if problem := await player.interview(vid):
+            return _error(409 if isinstance(problem, Refusal) else 400, problem)
         return {"ok": True}
 
     @app.post("/api/listen")

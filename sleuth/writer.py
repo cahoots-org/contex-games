@@ -81,21 +81,21 @@ class Writer:
             lines.append("Do not say or hint who started this story.")
         return first_line(await self.complete(system, "\n".join(lines), max_tokens=SAY_MAX_TOKENS))
 
-    async def answer(self, villager: Villager, topic: str, heard: Sequence[str], known: Sequence[str] = ()) -> str:
-        """The villager telling the newcomer what folk have said about the topic, in one line.
+    async def answer(self, villager: Villager, case: str, facts: Sequence[str], known: Sequence[str] = ()) -> str:
+        """The resident answering the podcaster about the case in one line, from the facts alone.
 
-        known describes the neighbours the question names, whom the villager knows even with no gossip about them.
+        known describes the neighbours the case names, whom the resident knows by name and trade.
         """
         system = (
             f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
-            "You know everyone in the town by name and trade. "
-            "The newcomer asks what folk have been saying about something. Answer in one short sentence, "
-            "under 30 words, in your own voice, naming who told you and where. If you heard nothing about it, "
-            "say so. No stage directions, no quotation marks, no preamble."
+            "A podcaster is asking about a case. "
+            "Answer the podcaster in one short sentence in your own voice, using only these facts. "
+            "If there are none, say you know nothing about it. "
+            "No stage directions, no quotation marks, no preamble."
         )
-        said = "What you heard: " + " / ".join(heard) if heard else "What you heard: nothing about it."
-        user = f"The newcomer asks about: {topic}\n{said}"
+        said = "Facts: " + " / ".join(facts) if facts else "Facts: none."
+        user = f"The case: {case}\n{said}"
         if known:
             user += "\nNeighbours you know: " + "; ".join(known)
         return first_line(await self.complete(system, user, max_tokens=SAY_MAX_TOKENS))

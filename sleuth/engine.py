@@ -19,6 +19,7 @@ from sleuth.lineage import Ids, Lineage
 from sleuth.mind import Mind, group_project, mind_project
 from sleuth.models import Group, Utterance, Villager
 from sleuth.players import Players
+from sleuth.reputation import Reputation
 from sleuth.routine import Routine
 from sleuth.town import START_PLACE, Town
 from sleuth.writer import Writer
@@ -63,6 +64,7 @@ class Engine:
         self.baselines = baselines
         self.routine = routine
         self.cases = cases
+        self.reputation = Reputation(config)
         self.players = Players()
         self.mind_factory = mind_factory or (lambda v: Mind(contex, v, config, baselines))
         self.game = game
@@ -326,11 +328,13 @@ class Engine:
         return m.clearance >= self.config.fatigue_per_hop * depth + room
 
     async def _clock_loop(self) -> None:
-        """Move the village through the parts of each day, announce each one, run its cases and walk its daily round."""
+        """Move the village through the parts of each day, announce each one, ease reputations, run its cases and walk its
+        daily round."""
         phase_seconds = self.config.day_seconds / len(PHASES)
         while True:
             await asyncio.sleep(phase_seconds)
             self.game.tick()
+            self.reputation.decay()
             self.feed.on_time(self.game.day, self.game.phase)
             finished = self.town.new_phase()
             if self.cases is not None:

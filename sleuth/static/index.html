@@ -186,6 +186,8 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
 .case[hidden] { display: none; }
 .case p { margin: 0; max-width: 46rem; }
 .case p.none { color: var(--muted); font-size: .875rem; }
+.notebook { margin: .4rem 0 0; padding-left: 1.25rem; max-width: 46rem; font-size: .85rem; }
+.notebook:empty { display: none; }
 #search { width: 100%; }
 .find { display: contents; }
 .find-status { margin: .25rem 0 0; min-height: 1.25rem; font-size: .8rem; color: var(--muted); }
@@ -239,8 +241,6 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
 .card .rel { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; }
 .card .actions { display: flex; gap: .5rem; align-items: center; margin-top: .5rem; }
 .ask { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-top: .5rem; }
-.ask label { flex: 1 0 100%; font-size: .85rem; color: var(--muted); }
-.ask input { flex: 1 1 8rem; }
 .ask-status { margin: .25rem 0 0; min-height: 1.25rem; font-size: .8rem; color: var(--muted); }
 .ask-status.error { color: var(--danger); }
 .tile-act { display: block; margin-top: .3rem; font-size: .8rem; }
@@ -361,7 +361,8 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
   </header>
 
   <main id="hear-panel">
-    <section class="case" id="case" hidden><p id="case-text" class="none">No open case</p></section>
+    <section class="case" id="case" hidden><p id="case-text" class="none">No open case</p>
+      <ol class="notebook" id="notebook" aria-label="Your notebook"></ol></section>
     <div class="stage">
       <ol class="feed" id="feed" role="log" aria-live="off" aria-label="What the village is saying"></ol>
       <p class="empty" id="empty">Walk somewhere and talk to the people there.</p>
@@ -516,13 +517,24 @@ function setResting(on) {
   $("resting").textContent = on ? RESTING : "";
 }
 
-// The open case's news, or that there is none.
+// The open case's news, or that there is none; a different case starts an empty notebook.
 function setCase(c) {
   const text = $("case-text");
-  text.textContent = c && c.state === "open" ? c.text : "No open case";
-  text.className = c && c.state === "open" ? "" : "none";
-  $("case").dataset.case = c && c.state === "open" ? c.id : "";
+  const id = c && c.state === "open" ? c.id : "";
+  text.textContent = id ? c.text : "No open case";
+  text.className = id ? "" : "none";
+  if ($("case").dataset.case !== id) $("notebook").replaceChildren();
+  $("case").dataset.case = id;
   $("case").hidden = false;
+}
+
+// The evidence the player has gathered, once each, as "kind · from · clock · text".
+function note(records) {
+  const book = $("notebook");
+  for (const r of records) {
+    if (book.querySelector(`[data-id="${CSS.escape(r.id)}"]`)) continue;
+    book.append(el("li", { dataset: { id: r.id }, textContent: [r.kind, r.from, r.clock, r.text].filter(Boolean).join(" · ") }));
+  }
 }
 
 function render(e, fresh) {
@@ -550,15 +562,16 @@ function render(e, fresh) {
     case "rest":
       setResting(e.resting);
       return line("quiet", e.text);
-    case "asked":
+    case "interview":
       learn(e);
-      return line("speech", `${e.name}, asked about ${e.topic}: “${e.line}”`);
+      note(e.records);
+      return line("speech", `${e.name}: “${e.line}”`);
     default:
       return null;
   }
 }
 
-// The player's notes: what each villager answered when asked around, once each, in order.
+// The player's notes: what each villager answered in an interview, once each, in order.
 let learned = false;
 
 function noteOf(id) {
@@ -1089,7 +1102,7 @@ async function listenHere() {
   if (!ok) setStatus(error, true);
 }
 
-// The card's Ask around form while the villager is where the player is, else where they are and a way there.
+// The card's Interview button while the villager is where the player is, else where they are and a way there.
 function setAsk() {
   const slot = $("card").hidden ? null : $("card").querySelector(".ask-slot");
   if (!slot) return;
@@ -1102,35 +1115,27 @@ function setAsk() {
   slot.replaceChildren(...(key ? [
     el("p", { textContent: `${name} is at the ${place}.` }),
     el("button", { type: "button", className: "linkish walk-there", textContent: "Walk there", onclick: () => walkTo(place) }),
-  ] : askForm(id, name)));
-  if (inside) slot.querySelector("input, button").focus();
+  ] : interviewForm(id, name)));
+  if (inside) slot.querySelector("button").focus();
 }
 
-function askForm(id, name) {
-  const input = el("input", { type: "text", id: "ask-topic", maxLength: 500, autocomplete: "off", required: true,
-    placeholder: "the gym" });
-  const button = el("button", { className: "primary", type: "submit", textContent: "Ask" });
+function interviewForm(id, name) {
+  const button = el("button", { className: "primary", type: "button", textContent: "Interview" });
   const status = el("p", { className: "ask-status", role: "status" });
   const say = (text, error = false) => {
     status.textContent = text;
     status.classList.toggle("error", error);
   };
-  const form = el("form", { className: "ask" },
-    el("label", { htmlFor: "ask-topic", textContent: `Ask ${name} what folk say about` }), input, button);
-  form.addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const topic = input.value.trim();
-    if (!topic) return say("Write what to ask about.", true);
+  button.addEventListener("click", async () => {
     button.disabled = true;
-    say("Asking…");
-    const { ok, error } = await post("/api/ask", { villager_id: id, topic });
+    say("Interviewing…");
+    const { ok, error } = await post("/api/interview", { villager_id: id });
     button.disabled = false;
-    if (input.isConnected) input.focus();
+    if (button.isConnected) button.focus();
     if (!ok) return say(error, true);
-    input.value = "";
     say(`${name} answered. It's in the feed.`);
   });
-  return [form, status];
+  return [el("div", { className: "ask" }, button), status];
 }
 
 // On a phone the two columns are tabs; the choice is remembered.
@@ -1218,6 +1223,8 @@ async function loadState() {
   setVillagers(state.villagers);
   setResting(state.resting);
   setCase(state.case);
+  $("notebook").replaceChildren();
+  note(state.notebook);
 }
 
 function receive(e) {

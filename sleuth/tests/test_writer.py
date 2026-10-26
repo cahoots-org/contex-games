@@ -84,27 +84,21 @@ def test_first_line_drops_stage_directions():
 
 
 @pytest.mark.asyncio
-async def test_answer_names_the_topic_and_what_was_heard_in_one_line():
-    client = StubClient("Tom told me at the mill, aye.", "Not a word.")
+async def test_answer_tells_the_podcaster_only_the_facts_given():
+    client = StubClient("Saw someone tall, that's all.", "No idea.")
     writer = Writer(client, "haiku-test")
-    line = await writer.answer(villager(), "the mill", ["Tom at the mill: the mill is haunted"])
-    assert line == "Tom told me at the mill, aye."
+    line = await writer.answer(villager(), "Someone stole a bike.", ["Around 9pm someone tall walked off."],
+                               ["Dana Reyes, the clerk"])
+    assert line == "Saw someone tall, that's all."
     call = client.messages.calls[0]
     user = call["messages"][0]["content"]
-    assert call["max_tokens"] == SAY_MAX_TOKENS
-    assert "the mill" in user and "Tom at the mill: the mill is haunted" in user
-    assert "Ada" in call["system"]
-    await writer.answer(villager(), "the well", [])
-    assert "nothing about it" in client.messages.calls[1]["messages"][0]["content"]
-    assert "You know everyone in the town" in call["system"]
-
-
-@pytest.mark.asyncio
-async def test_answer_is_told_who_the_neighbours_in_the_question_are():
-    client = StubClient("The tanner? Keeps to himself.")
-    writer = Writer(client, "haiku-test")
-    await writer.answer(villager(), "Everard Coke", [], ["Everard Coke, the tanner"])
-    assert "Neighbours you know: Everard Coke, the tanner" in client.messages.calls[0]["messages"][0]["content"]
+    assert call["max_tokens"] == SAY_MAX_TOKENS and "Ada" in call["system"]
+    assert ("Answer the podcaster in one short sentence in your own voice, using only these facts. "
+            "If there are none, say you know nothing about it.") in call["system"]
+    assert "Someone stole a bike." in user and "Around 9pm someone tall walked off." in user
+    assert "Dana Reyes, the clerk" in user
+    await writer.answer(villager(), "Someone stole a bike.", [])
+    assert "Facts: none." in client.messages.calls[1]["messages"][0]["content"]
 
 
 @pytest.mark.asyncio

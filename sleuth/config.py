@@ -20,6 +20,14 @@ class Config:
     crime_every_days: float = 1.0
     # Game days before an open case goes cold.
     case_days: float = 3.0
+    # How a resident's regard for a podcaster moves: a right publish, a wrong one, and being wrongly accused.
+    reputation_right: float = 0.3
+    reputation_wrong: float = -0.4
+    reputation_accused: float = -0.4
+    # How far every regard drifts back toward 0 each part of the day.
+    reputation_decay: float = 0.02
+    # Below this regard a resident won't talk to the podcaster.
+    guarded_at: float = -0.3
     judge_concurrency: int = 10
     turn_concurrency: int = 20
     top_k: int = 5

@@ -8,12 +8,17 @@ from dataclasses import replace
 
 from sleuth.contex_client import Match
 from sleuth.lineage import Ids
-from sleuth.models import Utterance, Villager
+from sleuth.models import Utterance
 from sleuth.actions import SPEAK
-from sleuth.player import ALREADY_LISTENING, MAX_ASK_CHARS, Player
+from sleuth.player import ALREADY_LISTENING, Player, Refusal
 from sleuth.players import Players
 from sleuth.config import Config
-from sleuth.tests.helpers import PID, StubClient, wait_for
+from sleuth.alibi import claim
+from sleuth.case import Record
+from sleuth.feed import Feed
+from sleuth.lineage import Lineage
+from sleuth.tests.helpers import PID, FakeEngine, StubClient, StubJev, StubWriter, wait_for
+from sleuth.tests.test_cases import culprit_file, make_cases
 from sleuth.tests.helpers import make_player as make
 from sleuth.town import NEWCOMER
 from sleuth.writer import Writer
@@ -160,93 +165,6 @@ async def test_listen_makes_no_model_calls():
     player.close()
 
 
-def asking(*names):
-    """A player at the tavern with the villagers, where make_player puts them."""
-    player, town, lines, engine, lineage = make(*names)
-    player.place = "bar"
-    return player, town, lines, engine, lineage
-
-
-def asked_user_text(client):
-    return client.messages.calls[0]["messages"][0]["content"]
-
-
-@pytest.mark.asyncio
-async def test_ask_answers_from_what_the_villager_heard():
-    player, _, _, engine, _ = asking("Marta")
-    engine.facts.record(Utterance("u-3", "v2", "Tom", "gym", "the mill is haunted", None, action=SPEAK))
-    engine.heard = [Match("utt:u-3", {"id": "u-3"}, 0.9)]
-    client = StubClient("Tom told me so.")
-    player.writer = Writer(client, "haiku-test")
-    assert await player.ask("v1", "the mill") is None
-    assert engine.recalls == [("v1", "the mill")]
-    assert "Tom at the gym: the mill is haunted" in asked_user_text(client)
-    [event] = [e for e in player.feed.recent if e.kind == "asked"]
-    assert (event.player, event.data["line"]) == (PID, "Tom told me so.")
-
-
-@pytest.mark.asyncio
-async def test_ask_about_a_neighbour_tells_the_writer_who_they_are():
-    player, _, _, engine, _ = asking("Marta")
-    engine.heard = []
-    player.town.add(Villager("v9", "Everard Coke", "tanner", "dour", "", [], {}), "gym")
-    player.town.add(Villager("v8", "Ida Coke", "baker", "warm", "", [], {}), "gym")
-    player.town.remove("v8")
-    player.town.get("v1").relationships["v9"] = "rival"
-    client = StubClient("Everard? The tanner. Nothing new of him.")
-    player.writer = Writer(client, "haiku-test")
-    assert await player.ask("v1", "what of Everard Coke and Ida?") is None
-    user = asked_user_text(client)
-    assert "Everard Coke, the tanner (your rival)" in user
-    assert "Ida Coke, the baker, who has left the village" in user
-
-
-@pytest.mark.asyncio
-async def test_ask_falls_back_to_a_plain_line_when_the_writer_says_nothing():
-    player, _, _, engine, _ = asking("Marta")
-    engine.heard = []
-    player.writer = SimpleNamespace(answer=lambda *args: _blank())
-    assert await player.ask("v1", "the mill") is None
-    [event] = [e for e in player.feed.recent if e.kind == "asked"]
-    assert event.data["line"] == "Marta hasn't heard anything about that."
-
-
-async def _blank():
-    return ""
-
-
-@pytest.mark.asyncio
-async def test_ask_needs_the_villager_at_your_place():
-    player, _, _, engine, _ = asking("Marta")
-    player.place = "cafe"
-    assert await player.ask("v1", "the mill") == "Marta is at the bar. Walk there to ask them."
-    assert engine.recalls == []
-
-
-@pytest.mark.asyncio
-async def test_ask_checks_the_villager_and_the_topic():
-    player, town, _, engine, _ = asking("Marta")
-    assert await player.ask("v1", "  ") == "Ask about what? Try: the gym"
-    too_long = await player.ask("v1", "x" * (MAX_ASK_CHARS + 1))
-    assert too_long == f"Too long: a question is at most {MAX_ASK_CHARS} characters."
-    assert await player.ask("v9", "the mill") == "No one in town has that id."
-    town.remove("v1")
-    assert await player.ask("v1", "the mill") == "Marta has left town."
-    assert engine.recalls == []
-
-
-@pytest.mark.asyncio
-async def test_a_villager_who_heard_nothing_says_so():
-    player, _, _, _, _ = asking("Marta")
-    client = StubClient("Not a word.")
-    player.writer = Writer(client, "haiku-test")
-    await player.ask("v1", "the mill")
-    assert "nothing about it" in asked_user_text(client)
-    player.writer = None
-    await player.ask("v1", "the mill")
-    assert player.feed.recent[-1].data["line"] == "Marta hasn't heard anything about that."
-
-
 def test_past_max_idle_runs_the_oldest_never_played_runs_go_whatever_their_age(clock):
     first = make("Ann")[0]
     first.config = replace(first.config, max_idle_runs=2)
@@ -297,3 +215,172 @@ async def test_a_first_visit_is_logged_for_counting(capsys):
     lines = [line for line in capsys.readouterr().out.splitlines() if line.startswith("analytics")]
     assert lines == [f"analytics visit owner={player.owner} run={player.id}"]
     player.close()
+
+
+MEMORY = "Around 11:40pm, on elm street, someone tall in a grey hoodie walked off with something."
+
+
+def interviewing(answer="honest"):
+    """A podcaster on elm street, where everyone is, with the shared case open: Fay (v3) stole Dana's (v1) bike."""
+    cases, _, town = make_cases()
+    file = culprit_file(cases)
+    engine = FakeEngine()
+    engine.cases, engine.routine, engine.jev = cases, cases.routine, StubJev({"answer": answer})
+    lineage, writer = Lineage(), StubWriter()
+    feed = Feed(lineage, town, out=None)
+    player = Player(engine, town, lineage, cases.ids, feed, Config(), writer, player_id=PID)
+    player.place = "elm street"
+    return player, file, engine, writer
+
+
+def memory_of(file, ids, holder="v2", utterance="u-1"):
+    m = Record(ids.next("r"), file.crime.id, "memory", "elm street", "11:40pm", MEMORY, holder,
+               {"height": "tall", "coat": "grey hoodie"}, utterance=utterance)
+    file.records[m.id] = m
+    return m
+
+
+def notebook(player, kind="statement"):
+    return [r for r in player.notebook.values() if r.kind == kind]
+
+
+@pytest.mark.asyncio
+async def test_interview_gives_a_witness_their_memory_record():
+    player, file, engine, writer = interviewing()
+    memory = memory_of(file, player.ids)
+    assert await player.interview("v2") is None
+    assert player.notebook[memory.id] is memory
+    [(vid, topic, heard, _)] = writer.calls
+    assert (vid, topic) == ("v2", file.crime.text) and MEMORY in heard
+    [event] = [e for e in player.feed.recent if e.kind == "interview"]
+    assert (event.player, event.data["villager_id"], event.data["line"]) == (PID, "v2", writer.line)
+    assert memory.id in [r["id"] for r in event.data["records"]]
+    assert all("sound" not in r for r in event.data["records"])
+    assert await player.interview("v2") is None
+    assert writer.calls[-1][2] == [] and len(player.notebook) == 2
+
+
+@pytest.mark.asyncio
+async def test_interview_records_an_alibi_claim_with_soundness():
+    player, file, *_ = interviewing()
+    file.whereabouts = {"v2": ["elm street", "bar"]}
+    file.alibi = ["gym"]
+    await player.interview("v2")
+    await player.interview("v3")
+    claims = {r.holder: r for r in notebook(player) if " says they were " in r.text}
+    assert claims["v2"].text == "Eli Reyes says they were on elm street then at the bar last night."
+    assert claims["v3"].text == "Fay Okafor says they were at the gym last night."
+    assert (claims["v2"].sound, claims["v3"].sound) == (True, False)
+    assert claim(file, "v3", player.engine.routine)[1] is False
+
+
+@pytest.mark.asyncio
+async def test_interview_records_a_housemates_word_but_not_the_culprits():
+    player, *_ = interviewing(answer="cover")
+    await player.interview("v4")
+    [word] = notebook(player)
+    assert (word.text, word.sound) == ("Gus Okafor: Fay Okafor was home with me all night.", False)
+    await player.interview("v3")
+    assert not [r for r in notebook(player) if r.holder == "v3" and r.text.startswith("Fay Okafor: ")]
+
+
+def hearsay(player, engine, root_kind, file):
+    """Ivy (v6), on oak street with the podcaster, heard Kit retell a line rooted in root_kind."""
+    player.place = "oak street"
+    memory = memory_of(file, player.ids, holder="v7", utterance="u-1")
+    file.roots["u-1"] = root_kind
+    player.lineage.record("u-5", "u-1")
+    engine.facts.record(Utterance("u-5", "v8", "Kit Tran", "oak street", "someone tall took a bike", "u-1"))
+    engine.heard = [Match("utt:u-5", {"id": "u-5"}, 0.9)]
+    return memory
+
+
+@pytest.mark.asyncio
+async def test_interview_hearsay_traced_to_a_memory_is_sound_and_names_the_teller():
+    player, file, engine, _ = interviewing()
+    memory = hearsay(player, engine, "memory", file)
+    await player.interview("v6")
+    [said] = [r for r in notebook(player) if " heard from " in r.text]
+    assert said.text == "Ivy Burke heard from Kit Tran: someone tall took a bike"
+    assert (said.sound, said.utterance, said.holder) == (True, memory.id, "v6")
+    assert engine.recalls == [("v6", file.crime.text)]
+
+
+@pytest.mark.asyncio
+async def test_interview_hearsay_from_a_cover_story_is_unsound():
+    player, file, engine, _ = interviewing()
+    hearsay(player, engine, "cover", file)
+    await player.interview("v6")
+    [said] = [r for r in notebook(player) if " heard from " in r.text]
+    assert said.sound is False
+
+
+@pytest.mark.asyncio
+async def test_news_hearsay_is_phrased_but_not_recorded():
+    player, file, engine, writer = interviewing()
+    hearsay(player, engine, "news", file)
+    await player.interview("v6")
+    assert not [r for r in notebook(player) if " heard from " in r.text]
+    assert "Kit Tran: someone tall took a bike" in writer.calls[0][2]
+
+
+@pytest.mark.asyncio
+async def test_interview_never_hands_the_writer_the_culprits_name_from_a_witness():
+    player, file, engine, writer = interviewing()
+    memory_of(file, player.ids)
+    file.whereabouts = {"v2": ["elm street"]}
+    await player.interview("v2")
+    assert "Fay" not in json.dumps(writer.calls) and "Okafor" not in json.dumps(writer.calls)
+
+
+@pytest.mark.asyncio
+async def test_guarded_resident_turns_the_podcaster_away():
+    player, file, engine, writer = interviewing()
+    engine.reputation.nudge("v2", PID, player.config.guarded_at - 0.1)
+    refused = await player.interview("v2")
+    assert isinstance(refused, Refusal) and "Eli Reyes" in refused
+    assert writer.calls == [] and engine.pressed == [] and player.notebook == {}
+
+
+@pytest.mark.asyncio
+async def test_interview_requires_an_open_case_and_the_same_place():
+    player, file, engine, writer = interviewing()
+    player.place = "gym"
+    assert await player.interview("v2") == "Eli Reyes is at the elm street. Walk there to talk to them."
+    assert await player.interview("v99") == "No one in town has that id."
+    file.state = "closed"
+    assert await player.interview("v2") == "There's no open case."
+    assert writer.calls == [] and engine.recalls == []
+
+
+@pytest.mark.asyncio
+async def test_interview_presses_the_culprit():
+    player, file, engine, _ = interviewing()
+    await player.interview("v2")
+    assert engine.pressed == [file]
+
+
+@pytest.mark.asyncio
+async def test_interview_falls_back_to_the_first_records_text_when_phrasing_fails():
+    player, file, _, _ = interviewing()
+    memory_of(file, player.ids)
+
+    async def down(*_):
+        raise RuntimeError("haiku down")
+
+    player.writer = SimpleNamespace(answer=down)
+    await player.interview("v2")
+    assert player.feed.recent[-1].data["line"] == f"Eli Reyes says: {MEMORY}"
+    await player.interview("v2")
+    assert player.feed.recent[-1].data["line"] == "Eli Reyes doesn't know anything about it."
+
+
+@pytest.mark.asyncio
+async def test_notebook_round_trips():
+    player, file, *_ = interviewing()
+    memory_of(file, player.ids)
+    file.whereabouts = {"v2": ["elm street"]}
+    await player.interview("v2")
+    fresh = run_of(player, PID)
+    fresh.restore(json.loads(json.dumps(player.to_state())))
+    assert fresh.notebook == player.notebook and len(fresh.notebook) == 3

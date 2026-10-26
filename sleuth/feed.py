@@ -97,10 +97,10 @@ class Feed:
 
         return seen
 
-    def on_answer(self, villager_id: str, name: str, topic: str, line: str, *, player: str) -> None:
-        """The villager's answer to the player asking what folk say about the topic."""
-        self.emit("asked", f'{name}, asked about {topic}: "{line}"', player=player,
-                  villager_id=villager_id, name=name, topic=topic, line=line)
+    def on_interview(self, villager_id: str, name: str, line: str, records: list[dict], *, player: str) -> None:
+        """The resident's answer to the podcaster, and the records it added to their notebook."""
+        self.emit("interview", f'{name}: "{line}"', player=player, villager_id=villager_id, name=name, line=line,
+                  records=records)
 
     def on_case(self, case: dict, player: str | None = None) -> None:
         """A case opened or changed in the neighborhood app."""
