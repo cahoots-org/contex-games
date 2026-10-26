@@ -10,7 +10,7 @@ from dataclasses import replace
 from sleuth.contex_client import Match
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
-from sleuth.player import GUIDED_WRONG, MAX_QUESTION, MESSAGES_PER_PART, Player, Refusal, conveys
+from sleuth.player import GUIDED_WRONG, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, Player, Refusal, conveys
 from sleuth.players import Players
 from sleuth.config import Config
 from sleuth.case import WHEN, Record
@@ -332,13 +332,13 @@ async def test_where_was_a_housemate_is_their_household_word_from_the_same_jev_c
 
 @pytest.mark.asyncio
 async def test_where_was_someone_else_is_where_the_log_put_them_together_never_the_crime_place():
-    player, file, *_ = interviewing()
+    player, file, _, writer = interviewing()
     file.whereabouts = {"v2": ["elm street", "bar"], "v5": ["elm street", "bar"], "v6": ["elm street"]}
     await ask(player, "v2", "where_was", who="v5")
     [seen] = notebook(player)
     assert (seen.text, seen.sound) == (f"Eli Reyes says they saw Hal Burke at the bar {WHEN}.", True)
     await ask(player, "v2", "where_was", who="v6")
-    assert len(notebook(player)) == 1 and replies(player)[-1] == "I wouldn't know about that."
+    assert len(notebook(player)) == 1 and writer.calls[-1][4] == []
 
 
 @pytest.mark.asyncio
@@ -349,7 +349,7 @@ async def test_who_had_reason_names_ties_who_feud_with_the_victim():
     [said] = notebook(player)
     assert (said.text, said.who) == ("Ivy Burke says Hal Burke has never got on with Dana Reyes.", "v5")
     await ask(player, "v5", "who_had_reason")
-    assert replies(player)[-1] == "I wouldn't know about that."
+    assert len(notebook(player)) == 1
 
 
 @pytest.mark.asyncio
@@ -376,28 +376,44 @@ async def test_what_do_you_think_of_someone_is_phrased_from_the_tie_but_not_reco
     assert player.notebook == {}
     assert writer.calls[0][4] == ["Dana Reyes is Hal Burke's rival, and they are on hostile terms."]
     await ask(player, "v5", "what_do_you_think_of", who="v8")
-    assert replies(player)[-1] == "I wouldn't know about that." and len(writer.calls) == 1
+    assert writer.calls[-1][4] == [] and len(writer.calls) == 2
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["none", "what_did_you_see", "nonsense"])
-async def test_none_or_nothing_known_is_an_honest_i_wouldnt_know_without_the_writer(kind):
+async def test_none_or_nothing_known_is_still_a_reply_in_character_with_no_facts(kind):
     player, file, engine, writer = interviewing()
+    writer.line = "Oh dear, I really couldn't tell you."
     assert await ask(player, "v2", kind) is None
-    assert replies(player) == ["I wouldn't know about that."] and writer.calls == [] and player.notebook == {}
-    assert player.thread_json("v2") == [{"question": "?", "line": "I wouldn't know about that.", "records": []}]
+    assert replies(player) == [writer.line] and player.notebook == {}
+    assert len(writer.calls) == 1 and writer.calls[0][4] == [] and engine.jev.calls == 1
+    assert player.thread_json("v2") == [{"question": "?", "line": writer.line, "records": []}]
 
 
 @pytest.mark.asyncio
-async def test_a_failed_route_is_an_honest_i_wouldnt_know():
+@pytest.mark.parametrize("line", ["Ask Hal, he'd know.", "Try the bar.", "Around 11pm, maybe.", "It was last night.",
+                                  "Someone in a grey hoodie, I think.", "Someone tall, I think.", ""])
+async def test_a_reply_with_no_facts_that_adds_a_name_place_time_or_look_falls_back_to_a_shrug(line):
+    player, file, engine, writer = interviewing()
+    writer.line = line
+    await ask(player, "v2", "none")
+    assert replies(player)[-1] in SHRUGS and player.notebook == {}
+
+
+@pytest.mark.asyncio
+async def test_a_failed_route_or_writer_is_still_a_shrug():
     player, file, engine, writer = interviewing()
 
-    async def down(**_):
-        raise RuntimeError("jev down")
+    async def down(*_, **__):
+        raise RuntimeError("down")
 
     engine.jev = SimpleNamespace(system_one=down)
+    writer.reply = down
     assert await player.interview("v2", "Hello?") is None
-    assert replies(player) == ["I wouldn't know about that."]
+    assert replies(player)[-1] in SHRUGS
+    player.writer = None
+    assert await player.interview("v2", "Hello?") is None
+    assert replies(player)[-1] in SHRUGS and player.notebook == {}
 
 
 @pytest.mark.asyncio
@@ -508,7 +524,7 @@ async def test_interview_reaches_a_resident_from_anywhere():
     player, file, engine, writer = interviewing()
     player.place = "gym"
     assert await ask(player, "v2", "none") is None
-    assert replies(player) == ["I wouldn't know about that."]
+    assert replies(player) == [writer.line]
 
 
 @pytest.mark.asyncio

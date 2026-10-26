@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import random
 import re
 import time
 from dataclasses import asdict, replace
@@ -20,7 +21,8 @@ from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
 from sleuth.town import PLACES, START_PLACE, STREETS, Town, at, neighbours, place_name
 from sleuth.usage import charging
-from sleuth.writer import strangers
+from sleuth.traits import TRAITS
+from sleuth.writer import invents, strangers
 
 log = logging.getLogger(__name__)
 # ponytail: a phrase list, not a judge; it only ever swaps a model line for the plain record text.
@@ -42,6 +44,13 @@ def conveys(line: str, records: list[Record]) -> bool:
     return not _denials(line) - hedged and all(value in said for r in records for value in r.traits.values())
 
 
+def adds_nothing(line: str, names: set[str]) -> bool:
+    """Whether a reply with no facts behind it names no one and gives no time, place or look."""
+    lower = line.lower()
+    return bool(line) and not (invents(line, "", names) or misdated(line, "") or re.search(r"\d", line)
+                               or any(re.search(rf"\b{re.escape(w)}\b", lower) for w in (*PLACES, *LOOKS)))
+
+
 def analytics(event: str, **fields) -> None:
     """One line on stdout per countable event, for the host's log search: `analytics <event> key=value ...`."""
     print("analytics", event, *(f"{k}={v}" for k, v in fields.items()))
@@ -51,7 +60,10 @@ MAX_QUESTION = 300
 MESSAGES_PER_PART = 4
 # How many exchanges a thread keeps.
 THREAD_KEPT = 40
-UNKNOWN = "I wouldn't know about that."
+# A reply with nothing behind it, when the writer's can't be used.
+SHRUGS = ("I couldn't tell you, sorry.", "Can't help you there.", "No idea, I'm afraid.", "That's news to me.",
+          "I really couldn't say.", "Not something I'd know about.")
+LOOKS = tuple(v for values in TRAITS.values() for v in values)
 # Hearsay rooted in these is evidence; news-rooted hearsay is only talk.
 EVIDENCE_ROOTS = ("memory", "cover")
 PODCAST = "A true-crime podcast"
@@ -345,13 +357,12 @@ class Player:
     async def _phrase(self, villager: Villager, file: CaseFile, question: str, thread: list[dict],
                       records: list[Record], talk: list[str]) -> str:
         """The resident's reply from the writer, or a plain line from the records when it fails, doesn't convey them
-        all, names someone they don't or gives a time they and the case don't; with nothing known, that they wouldn't
-        know."""
+        all, names someone they don't or gives a time they and the case don't; with nothing known, a shrug."""
         crime = file.crime
         records = [replace(r, text=self._told(r.text, crime)) for r in records]
         texts = [r.text for r in records] + talk
         if not texts:
-            return UNKNOWN
+            return await self._shrug(villager, file, question, thread)
         if self.writer is not None:
             try:
                 case = self._told(crime.text, crime)
@@ -367,6 +378,19 @@ class Player:
             except Exception:
                 log.exception("reply from %s failed", villager.id)
         return f"{villager.name} says: {' '.join(texts)}"
+
+    async def _shrug(self, villager: Villager, file: CaseFile, question: str, thread: list[dict]) -> str:
+        """The resident's reply when they know nothing for the question: the writer's, if it adds nothing, else a
+        stock line."""
+        if self.writer is not None:
+            try:
+                line = await self.writer.reply(villager, self._told(file.crime.text, file.crime), question,
+                                               exchanges(thread), [])
+                if adds_nothing(line, {w for v in self.town.villagers for w in v.name.split()}):
+                    return line
+            except Exception:
+                log.exception("reply from %s failed", villager.id)
+        return random.choice(SHRUGS)
 
     def pull(self) -> str | None:
         """Copy the open case's footage and logs at this place into the notebook; returns why it could not be done."""

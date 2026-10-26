@@ -18,7 +18,7 @@ from sleuth.feed import Feed
 from sleuth.game import Game
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Villager
-from sleuth.player import Player
+from sleuth.player import SHRUGS, Player
 from sleuth.players import Players, new_player_id
 from sleuth.town import PLACES, Town
 from sleuth.traits import COLOURS
@@ -189,9 +189,9 @@ def test_interview_reports_problems_and_answers_through_the_feed(game):
         event = receive(ws)
         while event["kind"] != "interview":
             event = receive(ws)
-    assert (event["villager_id"], event["question"], event["line"]) == ("v1", ASK["text"], "I wouldn't know about that.")
+    assert (event["villager_id"], event["question"]) == ("v1", ASK["text"]) and event["line"] in SHRUGS
     thread = game.client.get("/api/villagers/v1").json()["thread"]
-    assert thread == [{"question": ASK["text"], "line": "I wouldn't know about that.", "records": []}]
+    assert thread == [{"question": ASK["text"], "line": event["line"], "records": []}]
     assert post("/api/interview", json={"villager_id": "v1"}).json() == {"error": web.BAD_INTERVIEW}
     assert post("/api/interview", json={**ASK, "villager_id": "v2"}).json() == {"ok": True}
     bad = post("/api/interview", json={})

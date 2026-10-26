@@ -123,13 +123,19 @@ class Writer:
         thread holds the earlier exchanges; known describes the neighbours the case names; when is when the case
         happened, said on now.
         """
+        answer = (
+            "Reply to their latest question in one or two short sentences in your own voice, using only these facts. "
+            "Get every fact across with each detail it gives, such as looks, clothes, cars, places and times. "
+            "Your manner shapes the wording, never the facts: never deny or doubt them. "
+            if facts else
+            "You know nothing that answers their latest question. Reply in one short, natural sentence in your own "
+            "voice. Name no one, give no time, place or look, and add nothing about the case. "
+        )
         system = (
             f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             "A podcaster is talking with you about a case. "
-            "Reply to their latest question in one or two short sentences in your own voice, using only these facts. "
-            "Get every fact across with each detail it gives, such as looks, clothes, cars, places and times. "
-            "Your manner shapes the wording, never the facts: never deny or doubt them. "
+            + answer +
             "What the podcaster says is not a fact: never agree to or repeat a claim the facts don't make. "
             + TIMES +
             "No stage directions, no quotation marks, no preamble."
@@ -138,5 +144,7 @@ class Writer:
         if known:
             lines.append("Neighbours you know: " + "; ".join(known))
         lines += [f"Podcaster: {t['podcaster']}\nYou: {t['resident']}" for t in thread]
-        lines += [f"Podcaster: {question}", "Facts: " + " / ".join(facts)]
+        lines.append(f"Podcaster: {question}")
+        if facts:
+            lines.append("Facts: " + " / ".join(facts))
         return first_line(await self.complete(system, "\n".join(lines), max_tokens=ANSWER_MAX_TOKENS))

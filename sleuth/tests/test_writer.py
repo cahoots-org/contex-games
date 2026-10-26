@@ -93,6 +93,16 @@ async def test_reply_answers_the_latest_question_from_the_facts_with_the_thread_
 
 
 @pytest.mark.asyncio
+async def test_reply_with_no_facts_answers_briefly_and_adds_nothing():
+    client = StubClient("Oh, I couldn't tell you.")
+    line = await Writer(client, "haiku-test").reply(villager(), "Someone stole a bike.", "Who did it?", [], [])
+    call = client.messages.calls[0]
+    assert line == "Oh, I couldn't tell you."
+    assert "Name no one" in call["system"] and "using only these facts" not in call["system"]
+    assert "Facts:" not in call["messages"][0]["content"]
+
+
+@pytest.mark.asyncio
 async def test_case_prompts_say_today_and_when_the_case_happened():
     client = StubClient("Hm.", "Hm.")
     writer = Writer(client, "haiku-test")
