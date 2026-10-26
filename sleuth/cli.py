@@ -7,13 +7,11 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from sleuth.player import Player, Refusal
-from sleuth.players import Players
-from sleuth.suspicion import HEAT_LINES, Suspicion
 from sleuth.town import Town
 
 HELP = (
     "Whisper by typing a name, a colon, and the rumor, e.g. Marta: the miller waters his flour\n"
-    "Other commands: go <place>, listen, ask <name>: <topic>, villagers, inspect <name>, goals, swap N, trophies, usage, help, quit"
+    "Other commands: go <place>, listen, ask <name>: <topic>, villagers, inspect <name>, usage, help, quit"
 )
 
 
@@ -31,10 +29,8 @@ class Command:
 def parse_command(line: str) -> Command:
     """Turn one typed line into a Command."""
     line = line.strip()
-    if line in ("listen", "villagers", "goals", "trophies", "usage", "help", "quit"):
+    if line in ("listen", "villagers", "usage", "help", "quit"):
         return Command(line)
-    if line.startswith("swap ") and line[5:].strip().isdigit():
-        return Command("swap", text=line[5:].strip())
     if line.startswith("inspect ") and line[8:].strip():
         return Command("inspect", line[8:].strip())
     if line.startswith("go ") and line[3:].strip():
@@ -87,10 +83,7 @@ async def until_over(session: Coroutine, player: Player) -> None:
         running.result()
 
 
-async def repl(
-    player: Player, town: Town, feed, judge=None, usage=None, suspicion: Suspicion | None = None,
-    players: Players | None = None,
-) -> None:
+async def repl(player: Player, town: Town, feed, usage=None) -> None:
     """Read commands until quit or end of input; stdin is read off the event loop."""
     feed.say(HELP)
     while True:
@@ -121,28 +114,6 @@ async def repl(
         elif cmd.kind == "inspect":
             for out in _inspect(town, cmd.name):
                 feed.say(out)
-        elif cmd.kind == "goals":
-            progress = judge.progress if judge else {}
-            for n, goal in enumerate(player.goals, 1):
-                feed.say(f"{n}. {goal.text}: {int(progress.get(goal.id, 0.0) * 100)}%")
-            if not player.goals:
-                feed.say("No goals yet.")
-            if judge:
-                feed.say(f"World goal: {judge.world.text}: {int(progress.get(judge.world.id, 0.0) * 100)}%")
-            if suspicion:
-                feed.say(HEAT_LINES[suspicion.label(player.id)])
-        elif cmd.kind == "swap" and judge:
-            n = int(cmd.text)
-            if not 1 <= n <= len(player.goals):
-                feed.say(f"Pick a goal from 1 to {len(player.goals)}.")
-            elif problem := await judge.swap(player, player.goals[n - 1].id):
-                feed.say(problem)
-        elif cmd.kind == "trophies":
-            case = players.cases.get(player.owner, []) if players else []
-            for t in case:
-                feed.say(f"Day {t.day}: {'; '.join(t.goals)}")
-            if not case:
-                feed.say("No trophies yet.")
         elif cmd.kind == "usage" and usage:
             feed.say(usage.summary())
         elif cmd.kind == "help" or line.strip():

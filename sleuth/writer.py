@@ -13,7 +13,6 @@ SAY_MAX_TOKENS = 80
 TURN_AWAY_MAX_TOKENS = 60
 WARN_MAX_TOKENS = 60
 GO_ON_MAX_TOKENS = 40
-POOL_MAX_TOKENS = 2500
 # How a player whisper reads when it reaches a villager.
 WHISPER_FRAMING = re.compile(r"^A newcomer whispered to you: ")
 
@@ -48,20 +47,6 @@ def _grudge(villager: Villager, aside: str = "") -> str:
 def _mood(mood: str) -> str:
     """How the villager feels for a prompt, or nothing when it is not set."""
     return f" How you feel: {mood}. Let it set the tone of what you say." if mood else ""
-
-
-POOL_SYSTEM = (
-    "You write the rumors for a town gossip game. Given the villagers, reply with only a JSON object "
-    '{"accusations": ["..."], "claims": ["..."]}.\n'
-    "- About 40 accusations. Each completes the sentence \"{someone} ...\", such as \"is stealing from the "
-    "tithe box\" or \"waters down the ale\": petty, specific, and fitted to the trades and grudges listed, "
-    "though never to one villager in particular.\n"
-    "- About 15 claims. Each is a whole statement about the town, such as \"the drinking fountain is cursed\".\n"
-    "Rules:\n"
-    "- Under 80 characters each.\n"
-    "- Third person. Never use \"you\" or \"your\".\n"
-    "- Name no one and no place by name."
-)
 
 
 class Writer:
@@ -269,13 +254,3 @@ class Writer:
         parsed = extract_json(await self.complete(system, user))
         return parsed["name"], parsed["creed"]
 
-    async def goal_pool(self, villagers: list[Villager]) -> dict:
-        """Accusations and village-wide claims fitted to the villagers, as Haiku wrote them, or {} if unreadable."""
-        user = "Villagers:\n" + "\n".join(
-            f"- {v.occupation}, {v.personality}." + (f" Grudge: {v.grudge}." if v.grudge else "") for v in villagers
-        )
-        try:
-            parsed = extract_json(await self.complete(POOL_SYSTEM, user, max_tokens=POOL_MAX_TOKENS))
-        except ValueError:
-            return {}
-        return parsed if isinstance(parsed, dict) else {}

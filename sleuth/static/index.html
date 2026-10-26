@@ -100,10 +100,10 @@ button, input, select { font: inherit; color: inherit; }
 .app {
   display: grid;
   grid-template-columns: 18rem minmax(0, 1fr) 20rem;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   height: 100dvh;
 }
-.strip, .bottom { grid-column: 1 / -1; }
+.bottom { grid-column: 1 / -1; }
 header {
   grid-column: 1 / -1;
   display: flex;
@@ -118,7 +118,6 @@ header {
 }
 .hud p { margin: 0; }
 .hud .heat { order: -2; }
-#trophies-toggle { order: -1; }
 .menu { display: contents; }
 .mood, .menu-toggle { display: none; }
 h1 { font: 500 1.5rem/1.2 var(--rumor); margin: 0; }
@@ -232,19 +231,15 @@ mark.kept {
 }
 .rumor-row:hover, .rumor-row[aria-expanded="true"] { background: var(--bg); }
 .rumor-row .rmark { margin-right: 0; }
-.stopped > .rumor-row :is(.rmark, .rbar) { filter: grayscale(1); }
+.stopped > .rumor-row .rmark { filter: grayscale(1); }
 .rumor-detail { padding: 0 .25rem .6rem 2rem; font-size: .875rem; overflow-wrap: anywhere; }
 .rumor-detail p { margin: .35rem 0 0; }
 .rumor-detail ul { list-style: none; margin: .35rem 0 0; padding: 0; color: var(--muted); }
 .rumor-detail b { color: var(--ink); font-weight: 700; }
 .rumor-detail .chip { background: var(--bg); }
 .rumor-detail .chip .badge { border-color: var(--bg); }
-.goal-line { color: var(--muted); }
 .whispered .brush { font-size: .95rem; }
 .heard { min-width: 2ch; font-size: 1.35rem; line-height: 1; text-align: right; font-variant-numeric: tabular-nums; }
-.rbar { flex: 1; min-width: 2rem; height: 6px; background: var(--rail); border-radius: 3px; overflow: hidden; }
-.rbar i { display: block; height: 100%; background: var(--rc); }
-.goal-word { flex: 0 1 6rem; min-width: 0; font-size: .8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .reuse { margin-left: .5rem; font-size: .75rem; }
 .where, .clock { margin: 0; font-size: .85rem; color: var(--muted); }
 .clock { color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -320,16 +315,6 @@ aside {
 }
 h2 { font-size: 1rem; margin: 1rem 0 .5rem; }
 h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 .2rem; }
-.strip {
-  flex: none;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: .5rem;
-  padding: .25rem 1.25rem .6rem;
-  border-bottom: 1px solid var(--rail);
-}
-.strip-toggle { display: none; }
 /* A phone's sheets rise from the foot of the screen; a tap on the shade or Escape closes them. */
 .sheet {
   position: fixed; inset: auto 0 0; width: 100%; max-width: 100%; max-height: 85dvh; margin: 0; padding: 0; overflow-y: auto;
@@ -344,56 +329,11 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
 .to-chip { display: none; }
 .sheet-close { width: 44px; height: 44px; margin-right: -.6rem; background: none; border: 0; font-size: 1.1rem; cursor: pointer; }
 @keyframes rise { from { transform: translateY(100%); } }
-.goals {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: .5rem;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.goal-card {
-  flex: 0 0 19rem; min-width: 0; display: flex; flex-direction: column; gap: .25rem;
-  background: var(--panel); border: 1px solid var(--edge); border-radius: 6px; padding: .4rem .6rem;
-}
-.goal-card.picked { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-/* Your goal's text is the button that picks it, so its villagers are marked in the village. */
-button.goal-text { all: unset; cursor: pointer; text-align: left; font-size: .85rem; overflow-wrap: anywhere; }
-button.goal-text:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.goal-card:empty { display: none; }
-.goal-label { display: flex; align-items: center; font-size: .75rem; color: var(--muted); }
-.swap {
-  margin-left: auto; padding: 0 .35rem; border: 0; border-radius: 4px; background: none; color: var(--muted);
-  font: inherit; line-height: 1.4; cursor: pointer; opacity: 0;
-}
-.goal-card:hover .swap:not(:disabled), .swap:focus-visible { opacity: 1; }
-.swap:hover:not(:disabled) { color: var(--ink); background: var(--rail); }
-.swap:disabled { cursor: default; opacity: .25; }
-@media (hover: none) { .swap { opacity: .6; } .swap:disabled { opacity: .25; } }
-.doubt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-/* A goal is read whole: the card grows to fit it rather than cutting it short. */
-.goal-text { font-size: .85rem; overflow-wrap: anywhere; }
-.doubt { margin: 0; font-size: .75rem; color: var(--muted); }
-.bar { margin-top: auto; display: flex; align-items: center; gap: .5rem; font-size: .8rem; color: var(--muted); }
-.bar span:first-child { flex: 1; height: 4px; background: var(--rail); border-radius: 3px; overflow: hidden; }
-.bar.standing span:first-child { height: auto; background: none; text-align: right; }
-.bar i { display: block; height: 100%; background: var(--accent); }
-.met .bar { color: var(--accent); font-weight: 700; }
 .heat { margin: 0; font: italic 1rem/1.3 var(--rumor); }
 .case { flex: none; background: var(--panel); border-bottom: 1px solid var(--rail); padding: .6rem 1.25rem; }
 .case[hidden] { display: none; }
 .case p { margin: 0; max-width: 46rem; }
 .case p.none { color: var(--muted); font-size: .875rem; }
-.trophies {
-  flex: none; max-height: 40%; overflow-y: auto; background: var(--panel); border-bottom: 1px solid var(--rail);
-  padding: .75rem 1.25rem 1rem;
-}
-.trophies[hidden] { display: none; }
-.trophies h2 { font: 500 1.25rem/1.25 var(--rumor); margin: 0 0 .4rem; width: fit-content; }
-.trophies ol { max-width: 46rem; margin: 0; padding-left: 1.25rem; font-size: .95rem; }
-.trophies li { margin: .1rem 0; }
-.trophies li.none { list-style: none; margin-left: -1.25rem; color: var(--muted); }
 #search { width: 100%; }
 .find { display: contents; }
 .find-status { margin: .25rem 0 0; min-height: 1.25rem; font-size: .8rem; color: var(--muted); }
@@ -414,10 +354,6 @@ button.goal-text:focus-visible { outline: 2px solid var(--accent); outline-offse
   outline: 1px solid var(--face-edge); outline-offset: -1px;
 }
 .face.big canvas { width: 32px; height: 32px; border-radius: 6px; }
-/* The picked goal's villagers: a ring outside any rumor outline, solid for who it needs, dashed for who it is about. */
-.face.needed, .face.about, .legend .needed, .legend .about { border-radius: 7px; outline-offset: 3px; }
-.face.needed, .legend .needed { outline: 2px solid var(--accent); }
-.face.about, .legend .about { outline: 2px dashed var(--r3); }
 .badge {
   position: absolute; right: -5px; bottom: -5px; width: 15px; height: 15px; border-radius: 50%;
   display: inline-grid; place-items: center; font: 700 10px/1 var(--ui); color: #fff;
@@ -438,8 +374,7 @@ button.goal-text:focus-visible { outline: 2px solid var(--accent); outline-offse
   content: ""; position: absolute; left: -4px; top: -4px; width: 7px; height: 7px; border-radius: 50%;
   background: var(--mark); border: 1px solid var(--ink);
 }
-.legend .touched, .legend .might, .legend .needed, .legend .about { position: static; display: inline-block; vertical-align: -.1rem; margin-right: .5rem; }
-.legend .needed, .legend .about { width: 10px; height: 10px; outline-offset: 1px; }
+.legend .touched, .legend .might { position: static; display: inline-block; vertical-align: -.1rem; margin-right: .5rem; }
 .legend .touched { width: 10px; height: 10px; border-radius: 3px; }
 .sort { display: flex; align-items: center; gap: .5rem; margin: .1rem 0 0; font-size: .85rem; color: var(--muted); }
 .sort select { background: var(--panel); color: var(--ink); border: 1px solid var(--edge); border-radius: 6px; padding: .2rem .4rem; }
@@ -507,9 +442,6 @@ button.goal-text:focus-visible { outline: 2px solid var(--accent); outline-offse
 @media (max-width: 1200px) {
   .conn { margin-left: auto; }
   .hud { order: 5; flex: 1 0 100%; margin-left: 0; justify-content: flex-start; }
-  .strip { flex-wrap: nowrap; }
-  .goals { flex: 3 1 0; flex-wrap: nowrap; min-width: 0; }
-  .goal-card { flex: 1 1 0; }
 }
 @media (max-width: 760px) {
   .app { grid-template-columns: minmax(0, 1fr); }
@@ -552,18 +484,8 @@ button.goal-text:focus-visible { outline: 2px solid var(--accent); outline-offse
   }
   .menu.open { display: flex; }
   .menu .where, .menu .usage { font-size: .8rem; }
-  #trophies-toggle { order: 0; min-height: 44px; text-align: left; font-size: .95rem; }
   aside { padding: .5rem 1rem 1.5rem; }
   .feed { padding: .5rem 1rem 1rem; }
-  .strip { padding: .2rem 1rem; }
-  .strip-toggle {
-    display: inline-flex; align-items: center; min-height: 44px; padding: 0 1rem; background: var(--panel);
-    border: 1px solid var(--edge); border-radius: 22px; cursor: pointer; font-size: .9rem; font-weight: 700;
-  }
-  .sheet .goals { flex-direction: column; flex-wrap: nowrap; }
-  .sheet .goal-card { flex: none; margin-top: .5rem; }
-  .sheet .swap { min-width: 44px; min-height: 44px; margin: -.65rem -.6rem -.65rem auto; opacity: .7; }
-  .sheet .swap:disabled { opacity: .25; }
   .gameover { max-height: 45%; padding: .75rem 1rem; }
   .gameover h2 { font-size: 1.25rem; }
   .gameover ul { font-size: .875rem; }
@@ -622,12 +544,8 @@ button.goal-text:focus-visible { outline: 2px solid var(--accent); outline-offse
     margin: 0 -1rem; border-radius: 10px 10px 0 0; border-width: 1px 0 0;
   }
 }
-/* A goal being swapped: its button turns and its words wait for the new goal. */
-@keyframes turn { to { transform: rotate(360deg); } }
-.swap.turning { opacity: 1; animation: turn 1s linear infinite; }
-.goal-card.swapping .goal-text { opacity: .45; }
 @media (prefers-reduced-motion: reduce) {
-  .fresh, .fresh mark, .gameover, .swap.turning, .sheet[open], .chat { animation: none; }
+  .fresh, .fresh mark, .gameover, .sheet[open], .chat { animation: none; }
 }
 </style>
 </head>
@@ -661,25 +579,12 @@ button.goal-text:focus-visible { outline: 2px solid var(--accent); outline-offse
       </div>
       <button class="menu-toggle" id="menu-toggle" type="button" aria-label="More" aria-expanded="false" aria-controls="menu">⋯</button>
       <div class="menu" id="menu">
-        <button class="linkish" id="trophies-toggle" type="button" aria-expanded="false" aria-controls="trophies">Trophies (0)</button>
         <p class="where" id="where"></p>
         <p class="usage" id="usage"></p>
       </div>
     </div>
     <span class="conn" id="conn" data-state="connecting" role="status">Connecting</span>
   </header>
-
-  <section class="strip" id="strip" aria-label="Goals and mood">
-    <button class="strip-toggle" id="strip-toggle" type="button" aria-haspopup="dialog" aria-controls="goals-sheet"></button>
-    <ul class="goals" id="goals"></ul>
-    <div class="goal-card world" id="world" aria-live="polite"></div>
-  </section>
-
-  <dialog class="sheet" id="goals-sheet" aria-modal="true" aria-labelledby="goals-sheet-title">
-    <div class="sheet-body" id="goals-body">
-      <div class="sheet-head"><h2 id="goals-sheet-title">Goals</h2><button class="sheet-close" type="button" aria-label="Close">✕</button></div>
-    </div>
-  </dialog>
 
   <dialog class="sheet" id="to-sheet" aria-modal="true" aria-labelledby="to-sheet-title">
     <form class="sheet-body" id="to-body" method="dialog">
@@ -695,15 +600,9 @@ button.goal-text:focus-visible { outline: 2px solid var(--accent); outline-offse
   <main id="hear-panel">
     <section class="case" id="case" hidden><p id="case-text" class="none">No open case</p></section>
     <div class="stage">
-      <section class="trophies" id="trophies" aria-labelledby="trophies-title" hidden>
-        <h2 id="trophies-title" tabindex="-1">Trophy case</h2>
-        <ol id="trophy-list"></ol>
-      </section>
       <section class="gameover" id="gameover" aria-labelledby="gameover-title" hidden>
         <div>
           <h2 id="gameover-title" tabindex="-1"></h2>
-          <h3>Goals</h3>
-          <ul id="gameover-goals"></ul>
           <div id="gameover-reasons"></div>
           <p class="restart">Reload the page in 10 minutes to come back as a new newcomer.</p>
         </div>
@@ -735,8 +634,6 @@ button.goal-text:focus-visible { outline: 2px solid var(--accent); outline-offse
       <span><span class="badge" data-s="brushed_off" aria-hidden="true">–</span>brushed you off</span>
       <span><span class="badge" data-s="wary" aria-hidden="true">!</span>wary of you</span>
       <span><span class="badge" data-s="listening" aria-hidden="true">…</span>listening</span>
-      <span><span class="needed" aria-hidden="true"></span>the goal you picked needs them</span>
-      <span><span class="about" aria-hidden="true"></span>the goal you picked is about them</span>
       <span><span class="touched" aria-hidden="true"></span><span id="legend-mark"></span>touched by the rumor you opened</span>
       <span><span class="might" aria-hidden="true"></span>this might interest them</span>
     </p>
@@ -777,10 +674,6 @@ button.goal-text:focus-visible { outline: 2px solid var(--accent); outline-offse
 const $ = (id) => document.getElementById(id);
 const feed = $("feed");
 const spoken = new Map();
-const goals = new Map();
-let world = null;
-const swapping = new Set();
-let trophies = [];
 const MAX_ITEMS = 1000;
 // Above this share of new words, mark what survived instead of what changed.
 const REWORDED = 0.6;
@@ -818,7 +711,7 @@ let chatWith = null;
 const DRIFT = "The story turned to other things after this.";
 const RESTING = "The village is resting for today. Come back after midnight UTC.";
 let resting = false;
-const REASONS = { heated: "heated", lively: "lively", goal: "about your goal" };
+const REASONS = { heated: "heated", lively: "lively" };
 // Where each person stands with a rumor, by frontier state.
 const FRONTIER = {
   heard: () => "heard it",
@@ -836,7 +729,7 @@ const FRONTIER = {
 };
 const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)");
 // What the feed's arrow keys move between; the feed itself is one tab stop.
-const ROVE = ".fold-more, .fold-talk, .trophy-open, .chat-open";
+const ROVE = ".fold-more, .fold-talk, .chat-open";
 let talkLines = 0;
 const OPEN_KEY = "sleuth-open-place";
 const SORT_KEY = "sleuth-sort";
@@ -844,9 +737,7 @@ const TAB_KEY = "sleuth-tab";
 const FACES_SHOWN = 11;
 // The open rumor, whose touch the village panel shows.
 let selectedRumor = null;
-const TOUCH = { heard: "heard it", passed: "passed it on", believes: "believes it", scene: "in a scene" };
-// Villager id to the claims of the player's goals they believe.
-let beliefs = {};
+const TOUCH = { heard: "heard it", passed: "passed it on", scene: "in a scene" };
 // Villagers whose hints match the whisper being written.
 let drafted = new Set();
 const DRAFT_MIN = 12;
@@ -956,34 +847,17 @@ function rumorMark(uid) {
   return el("span", { className: "rmark", ariaHidden: "true", textContent: MARKS[r], dataset: { r } });
 }
 
-// How far a rumor has carried its first goal, and the goal in a word.
-function rumorGoal(t) {
-  const link = t?.goals[0];
-  const stopped = t?.stopped ? "stopped" : null;
-  if (!link) return { word: stopped || "no goal yet", value: 0, said: "no goal yet" };
-  const needed = link.world ? world?.needed : [...goals.values()].find((g) => g.text === link.text)?.needed;
-  return {
-    word: stopped || link.claim || link.text,
-    value: needed ? Math.min(100, Math.round(100 * link.convinced / needed)) : 0,
-    said: needed ? `${link.convinced} of ${needed} convinced` : `${link.convinced} convinced`,
-  };
-}
-
 // The row's name starts with the whisper, since its mark is hidden from screen readers.
 function setRow(uid) {
   const item = rumorRows.get(uid);
   if (!item) return;
   const t = tallies.get(uid);
-  const goal = rumorGoal(t);
   item.classList.toggle("stopped", Boolean(t?.stopped));
   item.querySelector(".rumor-row").replaceChildren(
     el("span", { className: "visually-hidden", textContent: `${item.dataset.text}: ` }),
     rumorMark(uid),
     el("b", { className: "heard", textContent: t?.heard ?? 1 }),
-    el("span", { className: "visually-hidden", textContent: " heard, " }),
-    el("span", { className: "rbar", ariaHidden: "true" }, el("i", { style: `width:${goal.value}%` })),
-    el("span", { className: "goal-word" }, goal.word,
-      goal.said === goal.word ? null : el("span", { className: "visually-hidden", textContent: `, ${goal.said}` })));
+    el("span", { className: "visually-hidden", textContent: " heard" }));
 }
 
 // Opens one rumor in place, or closes the open one, and rings the villagers it touched in its colour.
@@ -1008,13 +882,12 @@ function selectRumor(uid) {
   $("legend-mark").replaceChildren(...(item ? [rumorMark(uid)] : []));
 }
 
-// The open rumor: how it is going, its goal, who has it, the conversations about it now, and what you whispered.
+// The open rumor: how it is going, who has it, the conversations about it now, and what you whispered.
 function setDetail(uid) {
   const item = rumorRows.get(uid);
   if (!item) return;
   const detail = item.querySelector(".rumor-detail");
   const t = tallies.get(uid);
-  const link = t?.goals[0];
   const status = statuses.get(uid);
   const { text, target, place } = item.dataset;
   const focused = detail.contains(document.activeElement);
@@ -1024,7 +897,6 @@ function setDetail(uid) {
   detail.replaceChildren(...[
     t?.heard > 1 ? el("p", { className: "story", textContent: story(t) })
       : status ? chip(status) : el("p", { className: "story", textContent: "Waiting to hear back." }),
-    link ? el("p", { className: "goal-line", textContent: goalLine(link) }) : null,
     t?.heard > 1 && !t.stopped ? el("ul", { className: "frontier" }, ...whoHasIt(t.frontier)) : null,
     talking.length ? el("ul", { className: "talking" }, ...talking) : null,
     el("p", { className: "whispered" }, "You whispered to ", el("b", { textContent: target }), place ? ` at the ${place}` : "",
@@ -1099,10 +971,6 @@ function story(t) {
   const where = talking.length
     ? `; ${talking.length} ${talking.length === 1 ? "is" : "are"} talking about it at the ${talking[0].scene.place}` : "";
   return `Spreading: ${t.heard} have heard it${where}.`;
-}
-
-function goalLine(link) {
-  return `${link.world ? "World goal" : "Goal"}: ${link.claim || link.text} · ${link.convinced} convinced`;
 }
 
 function sceneWords(tone, place) {
@@ -1218,16 +1086,9 @@ function touchedBy() {
 }
 
 // Overheard lines join their listen's or scene's fold, or else the village talk fold at the end of the feed when it is
-// for the same place; a line about your goal outside a scene is speech of its own. Returns a new line or fold, or null.
+// for the same place. Returns a new fold, or null.
 function overheard(e, fresh) {
   const listening = e.reason === "listen" && listenBlock(e.place);
-  if (!listening && !e.scene && e.reason === "goal") {
-    const id = `talk-line-${++talkLines}`;
-    const node = line("speech", null, `${e.speaker_name}: “${e.text}”`);
-    node.querySelector(".line-text").id = id;
-    node.append(talkButton(e, id));
-    return node;
-  }
   const last = feed.lastElementChild;
   const block = listening || (e.scene ? sceneFold(e.scene, e.place)
     : last?.matches(".fold:not([data-scene]):not([data-listen]):not([data-rumor])") && last.dataset.place === e.place
@@ -1480,15 +1341,6 @@ function hinted(e) {
   return line("speech", cardOf.get(e.whisper_id), `${e.name} ${how}: “${e.hint}”`);
 }
 
-// Goal progress replaces the line before it when that is progress on the same goal.
-function progressed(e) {
-  const node = line("quiet", cardOf.get(e.rumor), `${e.text}: now ${goalProgress(e)}`);
-  node.dataset.goal = e.goal_id;
-  const last = feed.lastElementChild;
-  if (last?.matches(`.line[data-goal="${CSS.escape(e.goal_id)}"]`)) last.remove();
-  return node;
-}
-
 // The open case's news, or that there is none.
 function setCase(c) {
   const text = $("case-text");
@@ -1548,15 +1400,6 @@ function render(e, fresh) {
       return line("speech", null, e.line ? `${e.name} ${e.verb}: “${e.line}”` : `${e.name} ${e.verb}.`);
     case "denied":
       return line("speech", null, e.line ? `${e.name}: “${e.line}”` : `${e.name} denies it.`);
-    case "goal_swapped":
-    case "goal_void": {
-      swapping.delete(e.goal_id);
-      const kept = [...goals].map(([id, g]) => (id === e.goal_id ? [e.new.id, goalOf(e.new)] : [id, g]));
-      goals.clear();
-      for (const [id, g] of kept) goals.set(id, g);
-      renderGoals();
-      return line("quiet", null, e.text);
-    }
     case "heat":
       setHeat(e.text, e.label);
       return null;
@@ -1569,37 +1412,6 @@ function render(e, fresh) {
       return hinted(e);
     case "announcement":
       return line("quiet", null, e.text);
-    case "goal": {
-      if (e.world) {
-        world = goalOf(e);
-        renderWorld();
-        return e.met ? line("loud", null, e.line) : null;
-      }
-      const was = goals.get(e.goal_id);
-      // Progress events leave out who the goal is aimed at, which the deal gave.
-      const now = { ...goalOf(e), longShot: was?.longShot ?? false, marks: was?.marks ?? [], subject: was?.subject ?? null,
-        action: was?.action ?? false };
-      goals.set(e.goal_id, now);
-      renderGoals();
-      if (e.met) return line("loud", null, `Goal met: ${e.text}`);
-      // Progress that only brings news of doubt updates the card, not the feed.
-      return was && goalProgress(was) === goalProgress(now) ? null : progressed(e);
-    }
-    case "world_goal":
-      world = goalOf(e);
-      renderWorld();
-      return null;
-    case "deal":
-      goals.clear();
-      for (const g of e.goals) goals.set(g.id, goalOf(g));
-      renderGoals();
-      return line("quiet", null, `New goals: ${e.goals.map((g) => g.text).join(" · ")}`);
-    case "trophy":
-      trophies.push(e.trophy);
-      renderTrophies();
-      return line("loud", null, e.text, " ",
-        el("button", { type: "button", className: "linkish trophy-open", tabIndex: -1, textContent: "Open the trophy case",
-          onclick: () => setTrophies(true, true) }));
     case "system":
       return line("quiet", null, e.text);
     case "rest":
@@ -1777,35 +1589,16 @@ function faceFor(id, occupation) {
   return canvas;
 }
 
-// The goal the player picked, whose villagers are marked; none until they pick one.
-let pickedGoal = null;
-
-function pickGoal(id) {
-  pickedGoal = pickedGoal === id ? null : id;
-  renderGoals();
-  document.querySelector(`button.goal-text[data-goal="${CSS.escape(id)}"]`)?.focus();
-}
-
-// The villagers the picked goal works on, and the one its claim is about, while it is unmet.
-function targets() {
-  const g = goals.get(pickedGoal);
-  if (!g || g.met) return { marks: new Set(), subjects: new Set() };
-  return { marks: new Set(g.marks), subjects: new Set(g.subject ? [g.subject] : []) };
-}
-
 function faceWith(v, big = false) {
   const status = noteOf(v.id).status;
-  const { marks, subjects } = targets();
-  const ring = marks.has(v.id) ? "needed" : subjects.has(v.id) ? "about" : null;
-  return el("span", { className: ["face", big && "big", ring].filter(Boolean).join(" "), ariaHidden: "true" },
+  return el("span", { className: big ? "face big" : "face", ariaHidden: "true" },
     faceFor(v.id, v.occupation), BADGES[status] && badge(status));
 }
 
 // The villager's name and, when the player knows something, the status in words.
 function knownAs(v) {
   const b = BADGES[noteOf(v.id).status];
-  const { marks, subjects } = targets();
-  return [v.name, b && b[1], marks.has(v.id) && "your goal needs them", subjects.has(v.id) && "your goal is about them"].filter(Boolean).join(", ");
+  return [v.name, b && b[1]].filter(Boolean).join(", ");
 }
 
 const OUTCOMES = { lost: "The village ran you out of town." };
@@ -1816,7 +1609,6 @@ function showGameOver(summary, live) {
   const wasHidden = panel.hidden;
   const stick = nearBottom();
   $("gameover-title").textContent = OUTCOMES[summary.outcome] || "The game is over.";
-  $("gameover-goals").replaceChildren(...summary.goals.map(([text, percent]) => el("li", { textContent: `${text}: ${percent}%` })));
   $("gameover-reasons").replaceChildren(...(summary.reasons.length
     ? [el("h3", { textContent: "What gave you away" }), el("ul", {}, ...summary.reasons.map((r) => el("li", { textContent: r })))]
     : []));
@@ -1916,126 +1708,7 @@ document.addEventListener("keydown", (ev) => {
     $("menu-toggle").focus();
   } else if (!$("card").hidden) closeCard();
   else if (chatWith != null) openChat(null);
-  else if (!$("trophies").hidden) setTrophies(false);
   else if (selectedRumor != null) selectRumor(null);
-});
-
-function goalOf({ text, percent = 0, met = false, believers = null, needed = null, doubt = null, long_shot = false, marks = [], subject = null, action = false, standing = null }) {
-  return { text, percent, met, believers, needed, doubt, longShot: long_shot, marks, subject, action, standing };
-}
-
-// An action goal is done or not, so it says where it stands in words instead of a share.
-function goalProgress(g) {
-  if (g.action) return g.standing || "Not yet";
-  return g.needed == null ? `${g.percent}%` : `${g.believers} of ${g.needed} believe it`;
-}
-
-// The text cut at a word boundary to at most max characters, with an ellipsis only when cut.
-function clip(text, max) {
-  if (text.length <= max) return text;
-  const space = text.lastIndexOf(" ", max);
-  return `${text.slice(0, space > 0 ? space : max)}…`;
-}
-
-function doubtLine(g) {
-  const d = g.doubt;
-  if (g.met || !d?.count || !d.saying) return null;
-  const who = d.count === 1 ? "1 heard it but doesn't" : `${d.count} heard it but don't`;
-  return el("p", { className: "doubt", textContent: `${who} believe it — they're saying: “${clip(d.saying, 80)}”` });
-}
-
-// How long a swap may wait for its new goal before the card gives up waiting.
-const SWAP_WAIT_MS = 15000;
-
-function swapDone(id) {
-  if (swapping.delete(id)) renderGoals();
-}
-
-// A swap stays pending until the new goal arrives (goal_swapped), not just until the request returns.
-function swapButton(id) {
-  const busy = swapping.has(id);
-  const button = el("button", {
-    type: "button", className: busy ? "swap turning" : "swap", textContent: "↻",
-    ariaLabel: busy ? "Finding a new goal" : "Swap for a new goal", title: busy ? "Finding a new goal…" : "Swap for a new goal",
-    disabled: swapping.size > 0 || over,
-  });
-  button.addEventListener("click", async () => {
-    swapping.add(id);
-    renderGoals();
-    setTimeout(() => swapDone(id), SWAP_WAIT_MS);
-    const { ok, error } = await post("/api/goal/swap", { goal_id: id });
-    if (!ok) {
-      setStatus(error, true);
-      swapDone(id);
-    }
-  });
-  return button;
-}
-
-// A goal card's label, claim, doubt, and bar with progress words at its foot; a swap button when given the goal's id.
-function goalCard(g, label, swapId = null) {
-  const shown = swapping.has(swapId) ? "Finding a new goal…" : g.met ? "Met" : goalProgress(g);
-  return [
-    el("div", { className: "goal-label" }, label, g.longShot ? el("span", { className: "tag", textContent: "Long shot" }) : null,
-      swapId && !g.met ? swapButton(swapId) : null),
-    swapId
-      ? el("button", { type: "button", className: "goal-text", textContent: g.text, ariaPressed: String(pickedGoal === swapId),
-          title: "Show who this goal needs", dataset: { goal: swapId }, onclick: () => pickGoal(swapId) })
-      : el("div", { className: "goal-text", textContent: g.text }),
-    doubtLine(g),
-    g.action
-      ? el("div", { className: "bar standing" }, el("span", { textContent: shown }))
-      : el("div", { className: "bar" },
-        el("span", { role: "progressbar", ariaLabel: g.text, ariaValueNow: g.percent, ariaValueMin: 0, ariaValueMax: 100, ariaValueText: shown },
-          el("i", { style: `width:${g.percent}%` })),
-        el("span", { textContent: shown })),
-  ].filter(Boolean);
-}
-
-function renderGoals() {
-  const all = [...goals.values()];
-  $("strip-toggle").textContent = `Goals ${all.filter((g) => g.met).length} of ${all.length}`;
-  $("goals").replaceChildren(...[...goals].map(([id, g]) => el("li", {
-    className: ["goal-card", g.met && "met", id === pickedGoal && "picked", swapping.has(id) && "swapping"].filter(Boolean).join(" "),
-    ariaBusy: String(swapping.has(id)),
-  }, ...goalCard(g, "Your goal", id))));
-  for (const uid of rumorRows.keys()) setRow(uid);
-  refreshVillagers();
-}
-
-function renderWorld() {
-  $("world").replaceChildren(...(world ? goalCard(world, "World goal") : []));
-  $("world").classList.toggle("met", Boolean(world?.met));
-  for (const uid of rumorRows.keys()) setRow(uid);
-}
-
-function renderTrophies() {
-  $("trophies-toggle").textContent = `Trophies (${trophies.length})`;
-  $("trophy-list").replaceChildren(...(trophies.length
-    ? trophies.map((t) => el("li", {},
-      t.long_shot ? el("span", { className: "glyph", title: "Long shot", textContent: "✦" }) : null,
-      t.long_shot ? el("span", { className: "visually-hidden", textContent: "Long shot. " }) : null,
-      `${t.kind === "world" ? "World: " : ""}Day ${t.day}: ${t.goals.join("; ")}`))
-    : [el("li", { className: "none", textContent: "No trophies yet." })]));
-}
-
-// Opening from a feed note moves focus to the case; closing returns it to the toggle (on a phone, the menu's) when it
-// was inside.
-function setTrophies(open, focus = false) {
-  const inside = $("trophies").contains(document.activeElement);
-  $("trophies").hidden = !open;
-  $("trophies-toggle").setAttribute("aria-expanded", String(open));
-  if (open && focus) $("trophies-title").focus();
-  else if (!open && inside) $(phone.matches ? "menu-toggle" : "trophies-toggle").focus();
-}
-// On a phone the toggle sits in the menu, and the case is on the Hear tab.
-$("trophies-toggle").addEventListener("click", () => {
-  const open = $("trophies").hidden;
-  if (phone.matches) {
-    setMenu(false);
-    if (open) setTab("hear");
-  }
-  setTrophies(open, open && phone.matches);
 });
 
 // The mood in full for the live region, and in a word for the phone's header.
@@ -2177,22 +1850,18 @@ function openTile(crowd, hits) {
   return el("div", {}, rows, more);
 }
 
-// Name, the status and the selected rumor's touch as words, then trade or place, influence and beliefs, the hint, and
+// Name, the status and the selected rumor's touch as words, then trade or place and influence, the hint, and
 // whether the draft might interest them.
 function who(v, detail, m = {}) {
   const note = noteOf(v.id);
   const known = BADGES[note.status];
-  const about = [detail, v.influence, believesText(beliefs[v.id])].filter(Boolean).join(" · ");
+  const about = [detail, v.influence].filter(Boolean).join(" · ");
   return el("span", { className: "who" },
     el("b", { textContent: v.name }), known ? el("span", { className: "st", textContent: `, ${known[1]}` }) : null,
     m.touch ? el("span", { className: "touch", textContent: `, ${m.touch}` }) : null,
     " ", el("small", { textContent: about }),
     note.hints.length ? el("span", { className: "hint", textContent: `“${note.hints.at(-1)}”` }) : null,
     m.might ? el("span", { className: "might-word", textContent: MIGHT }) : null);
-}
-
-function believesText(claims) {
-  return claims && claims.length ? `believes ${joined(claims)}` : "";
 }
 
 function focusKey(node) {
@@ -2333,7 +2002,6 @@ function cardBody(body) {
     : ["none"];
   const note = notes[body.id] || body.note;
   const known = BADGES[note.status];
-  const believes = believesText(body.believes);
   const alone = !known && !body.influence && !note.hints.length && !note.passed.length;
   return [
     el("h3", { id: "card-title", tabIndex: -1, textContent: body.name }),
@@ -2350,11 +2018,9 @@ function cardBody(body) {
       body.grudge ? el("dd", { textContent: body.grudge }) : null,
       el("dt", { textContent: "Relationships" }), el("dd", {}, ...rels),
       el("dt", { textContent: "What you know" }), el("dd", {},
-        el("span", { className: "known nothing", hidden: !alone || Boolean(believes), textContent: "Nothing yet." }),
+        alone ? el("span", { className: "known nothing", textContent: "Nothing yet." }) : null,
         known ? el("span", { className: "known", textContent: capital(known[1]) }) : null,
         body.influence ? el("span", { className: "known", textContent: capital(body.influence) }) : null,
-        el("span", { className: "known believes", hidden: !believes, textContent: believes && capital(believes),
-          dataset: { id: body.id, alone: String(alone) } }),
         ...note.hints.map((h) => el("span", { className: "brush", textContent: `“${h}”` })),
         ...note.passed.map((t) => el("span", { className: "passed", textContent: `Passed on: “${t}”` })))),
     el("div", { className: "ask-slot", dataset: { id: body.id, name: body.name, place: body.place } }),
@@ -2362,16 +2028,6 @@ function cardBody(body) {
       el("button", { className: "primary", type: "button", textContent: `Whisper to ${body.name}`, onclick: () => whisperTo(body.name) }),
       el("button", { className: "linkish", type: "button", textContent: "Close", onclick: closeCard })),
   ];
-}
-
-// The open card's beliefs line follows the live beliefs.
-function setCardBeliefs() {
-  const line = $("card").hidden ? null : $("card").querySelector(".believes");
-  if (!line) return;
-  const text = believesText(beliefs[line.dataset.id]);
-  line.textContent = text && capital(text);
-  line.hidden = !text;
-  $("card").querySelector(".nothing").hidden = line.dataset.alone !== "true" || Boolean(text);
 }
 
 function closeCard() {
@@ -2713,8 +2369,6 @@ if (TABS.includes(storedTab)) setTab(storedTab);
 const PANELS = { rumors: "rumors-panel", hear: "hear-panel", village: "town" };
 function setPanels() {
   for (const sheet of document.querySelectorAll("dialog[open]")) sheet.close();
-  // A phone's goal cards are in the goals sheet, the same nodes as the wide screen's strip.
-  (phone.matches ? $("goals-body") : $("strip")).append($("goals"), $("world"));
   if (phone.matches) $("to-body").append($("target"), $("suggest"));
   else $("to-label").after($("target"), $("suggest"));
   for (const [t, id] of Object.entries(PANELS)) {
@@ -2736,8 +2390,6 @@ phone.addEventListener("change", () => {
 });
 setPanels();
 
-$("strip-toggle").addEventListener("click", () => $("goals-sheet").showModal());
-
 function setConn(state, text) {
   $("conn").dataset.state = state;
   $("conn").textContent = text;
@@ -2748,12 +2400,6 @@ function reset() {
   feed.replaceChildren();
   closeCard();
   spoken.clear();
-  goals.clear();
-  world = null;
-  trophies = [];
-  renderWorld();
-  renderTrophies();
-  setTrophies(false);
   noted.clear();
   statuses.clear();
   faces.clear();
@@ -2772,7 +2418,6 @@ function reset() {
   listenUntil = null;
   lastTarget = null;
   lastId = 0;
-  beliefs = {};
   draftAsk++;
   drafted = new Set();
   rover = null;
@@ -2794,7 +2439,6 @@ async function loadState() {
   talkHold = state.talk_hold_seconds;
   places = state.places;
   notes = state.notes;
-  beliefs = state.beliefs;
   $("usage").textContent = state.usage.summary;
   if (state.game.summary) showGameOver(state.game.summary, false);
   setClock(state.time);
@@ -2806,14 +2450,6 @@ async function loadState() {
   const replayed = new Set(state.events.map((e) => e.uid).filter(Boolean));
   for (const c of state.rumors) if (!replayed.has(c.uid)) newCard(c.uid, c.target_name, c.place, c.text);
   addEvents(state.events, false);
-  // The replay's goal, deal and trophy events are older than the state, which has the last word.
-  goals.clear();
-  for (const g of state.goals) goals.set(g.id, goalOf(g));
-  renderGoals();
-  world = goalOf(state.world_goal);
-  renderWorld();
-  trophies = state.trophies;
-  renderTrophies();
   const open = [...dock.values()].pop();
   if (open && !$("target").value.trim()) $("target").value = open.name;
   setComposer();
@@ -2832,10 +2468,6 @@ function receive(e) {
     setVillagers(e.villagers);
   } else if (e.kind === "rumors") {
     setTallies(e.rumors);
-  } else if (e.kind === "beliefs") {
-    beliefs = e.beliefs;
-    refreshVillagers();
-    setCardBeliefs();
   } else if (e.kind === "usage") {
     $("usage").textContent = e.usage.summary;
   } else {

@@ -359,28 +359,6 @@ async def test_frontier_entries_carry_no_internal_fields():
         assert set(entry) == {"id", "name", "state", "until", "told", "crowd", "scene"}
 
 
-class StubOverhear:
-    def __init__(self, claims):
-        self.result = claims
-        self.calls = []
-
-    async def claims(self, text):
-        self.calls.append(text)
-        return self.result
-
-
-@pytest.mark.asyncio
-async def test_a_whisper_card_keeps_its_place_and_claims_and_a_reply_asks_nothing():
-    overhear = StubOverhear(["tavern-ghost"])
-    rumors = Rumors(StubContex(), StubBaselines(0.5), Config(session="s1"), overhear)
-    await rumors.add("w-1", "a ghost in the tavern", AT, "v1", "Marta", player=PID, place="bar")
-    await rumors.add("w-2", "it moans", AT, "v1", "Marta", conversation="w-1", player=PID, place="bar")
-    assert overhear.calls == ["a ghost in the tavern"]
-    card, = rumors.cards(PID)
-    assert rumors.card("w-1").claims == ["tavern-ghost"] and card["place"] == "bar"
-    assert "claims" not in card
-
-
 @pytest.mark.asyncio
 async def test_card_follows_a_reply_to_its_conversation_card():
     rumors, _ = await make()
@@ -454,14 +432,13 @@ async def test_state_round_trips_as_json_without_scenes_or_waits():
     scene = Scene("s-1", "bar", "w-1", "w-1", True, "u-1", {"v2", "v4"}, {"v2"}, ["u-1"], 0.5)
     rumors.in_scene("w-1", scene, {"v2": "Bert", "v4": "Dora"})
     assert rumors.first("w-1", "size:2") and rumors.first("w-1", "scene:s-1")
-    rumors._cards["w-1"].claims = ["gen-1"]
     await asyncio.sleep(0)
     state = json.loads(json.dumps(rumors.to_state()))
     fresh = Rumors(StubContex(), StubBaselines(0.5), Config(session="s1"))
     fresh.restore(state)
     old, new = rumors._cards["w-1"], fresh._cards["w-1"]
     assert new.measuring is None and new.published_at == old.published_at
-    assert (new.heard, new.told_at, new.hops, new.claims) == (old.heard, old.told_at, old.hops, old.claims)
+    assert (new.heard, new.told_at, new.hops) == (old.heard, old.told_at, old.hops)
     assert new.baseline == 0.5
     assert new.marked == {"size:2"}
     assert all(e["scene"] is None and e["until"] is None for e in new.frontier.values())

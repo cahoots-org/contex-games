@@ -239,18 +239,6 @@ async def test_deny_is_one_flat_line_naming_no_newcomer():
 
 
 @pytest.mark.asyncio
-async def test_writer_goal_pool_parses_and_tolerates_junk():
-    client = StubClient('```json\n{"accusations": ["waters the ale"], "claims": ["the well is cursed"]}\n```', "Sorry, no.")
-    writer = Writer(client, "haiku-test")
-
-    assert await writer.goal_pool([villager()]) == {"accusations": ["waters the ale"], "claims": ["the well is cursed"]}
-    assert await writer.goal_pool([villager()]) == {}
-    call = client.messages.calls[0]
-    prompt = call["system"] + call["messages"][0]["content"]
-    assert "baker" in prompt and "sharp-tongued" in prompt and "owes me flour" in prompt
-
-
-@pytest.mark.asyncio
 async def test_reply_is_told_who_the_neighbours_in_the_line_are():
     client = StubClient("Everard? That sour tanner.")
     writer = Writer(client, "haiku-test")

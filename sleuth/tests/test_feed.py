@@ -1,8 +1,6 @@
 import json
-from pathlib import Path
 
 from sleuth.feed import REPLAY_EVENTS, Feed
-from sleuth.goals import Goal, Trophy
 from sleuth.lineage import Lineage
 from sleuth.models import Utterance, Villager
 from sleuth.scenes import Scene
@@ -71,47 +69,12 @@ def test_unrooted_announcements_reach_sinks_but_not_the_terminal():
     assert lines == []
 
 
-def test_goal_events_and_replay_is_bounded():
-    feed, lines = make()
-    goal = Goal("cat", "the cat is a spy", "belief")
-    feed.on_progress(goal, 0.42, player=PID)
-    feed.on_progress(goal, 0.6, (15, 25), player=PID, doubt={"count": 2, "saying": "the cat is odd"})
-    feed.on_met(goal, player=PID)
-    assert [(e.data["percent"], e.data["met"], e.player) for e in feed.recent] == [
-        (42, False, PID), (60, False, PID), (100, True, PID),
-    ]
-    assert feed.recent[1].data["believers"] == 15 and feed.recent[1].data["needed"] == 25
-    assert feed.recent[0].data["doubt"] is None and feed.recent[1].data["doubt"] == {"count": 2, "saying": "the cat is odd"}
-    assert lines == ['Goal "the cat is a spy": 42%', 'Goal "the cat is a spy": 15 of 25 believe it',
-                     'Goal met: "the cat is a spy"']
+def test_replay_is_bounded():
+    feed, _ = make()
     for _ in range(REPLAY_EVENTS):
         feed.say("x")
     assert len(feed.recent) == REPLAY_EVENTS
-    assert feed.recent[-1].id == REPLAY_EVENTS + 3
-
-
-def test_world_goal_events_reach_everyone_and_a_deal_only_its_player():
-    feed, lines = make()
-    world = Goal("world-cat", "Two thirds of the village believes the cat is a spy", "belief")
-    feed.on_world(world, (0, 8))
-    feed.on_progress(world, 0.5)
-    feed.on_met(world)
-    feed.on_deal([Goal("a", "A", "belief"), Goal("b", "B", "action")], player=PID, counts={"a": (0, 6)})
-    assert [(e.kind, e.player, e.data.get("world")) for e in feed.recent] == [
-        ("world_goal", None, None), ("goal", None, True), ("goal", None, True), ("deal", PID, None),
-    ]
-    assert lines == [
-        'World goal: "Two thirds of the village believes the cat is a spy"',
-        'Goal "Two thirds of the village believes the cat is a spy": 50%',
-        "The whole village now holds that the cat is a spy.",
-        "Goal: A\nGoal: B",
-    ]
-    assert feed.recent[2].data["line"] == "The whole village now holds that the cat is a spy."
-    assert feed.recent[-1].data["goals"] == [
-        {"id": "a", "text": "A", "believers": 0, "needed": 6, "long_shot": False, "marks": [], "subject": None, "action": False},
-            {"id": "b", "text": "B", "believers": None, "needed": None, "long_shot": False, "marks": [], "subject": None, "action": True},
-    ]
-    assert (feed.recent[0].data["believers"], feed.recent[0].data["needed"]) == (0, 8)
+    assert feed.recent[-1].id == REPLAY_EVENTS
 
 
 def test_refusal_event_and_terminal_lines():
@@ -257,21 +220,6 @@ def test_a_warning_reaches_only_the_player_it_is_about():
     assert [e.kind for e in feed.replay("p-a")] == ["warning"] and feed.replay("p-b") == []
 
 
-def test_a_trophy_reaches_only_its_player():
-    feed, lines = make()
-    feed.on_trophy(Trophy("personal", ("a", "b", "c"), 3), "A trophy for your case.", player="p-a")
-    assert [e.kind for e in feed.replay("p-a")] == ["trophy"] and feed.replay("p-b") == []
-    assert feed.replay("p-a")[0].to_json()["trophy"] == {
-        "kind": "personal", "goals": ["a", "b", "c"], "day": 3, "long_shot": False,
-    }
-    assert lines == ["A trophy for your case."]
-
-
-def test_the_page_shows_the_servers_world_met_line():
-    page = (Path(__file__).parents[1] / "static" / "index.html").read_text()
-    assert 'line("loud", null, e.line)' in page and "The village now holds" not in page
-
-
 def test_listen_events_reach_only_the_listener_and_print_the_lines():
     feed, lines = make()
     said = Utterance("u-9", "v3", "Ada", "cafe", "the well is dry", None)
@@ -301,16 +249,6 @@ def test_an_answer_reaches_only_the_asker():
     assert not feed.sees("p-2", event)
 
 
-def test_progress_carries_the_rumor_only_for_its_player():
-    feed, lines = make()
-    goal = Goal("cat", "the cat is a spy", "belief")
-    feed.on_progress(goal, 0.42, player=PID, rumor="w-1")
-    feed.on_progress(goal, 0.42, rumor="w-1")
-    mine, everyone = list(feed.recent)[-2:]
-    assert mine.data["rumor"] == "w-1" and "rumor" not in everyone.data
-    assert lines == ['Goal "the cat is a spy": 42%'] * 2
-
-
 def test_a_moment_reaches_only_its_rumors_player():
     feed, lines = make()
     feed.on_moment("w-1", "x")
@@ -318,58 +256,6 @@ def test_a_moment_reaches_only_its_rumors_player():
     assert (event.kind, event.player, event.data["tone"], lines) == ("moment", PID, "good", ["x"])
     feed.on_moment("u-unknown", "x")
     assert len(feed.recent) == 1 and lines == ["x"]
-
-
-def test_goal_void_reaches_only_its_player():
-    feed, lines = make()
-    old, new = Goal("o", "Marta believes it", "belief"), Goal("n", "Half of the village believes it", "belief")
-    feed.on_goal_void(old, new, "Marta has left town", player=PID)
-    event = feed.recent[-1]
-    assert (event.kind, event.player) == ("goal_void", PID)
-    assert event.line == '"Marta believes it" is off: Marta has left town. New goal: "Half of the village believes it"'
-    assert event.data["goal_id"] == "o" and event.data["new"] == {
-        "id": "n", "text": new.text, "believers": None, "needed": None, "long_shot": False, "marks": [], "subject": None, "action": False,
-    }
-
-
-def test_deal_and_void_carry_each_goals_targets():
-    feed, lines = make()
-    about = Goal("gen-1", "Hob steals geese", "belief", audience=("v1", "v2"), subject="v2", owner=PID, long_shot=True)
-    feed.on_deal([about, Goal("b", "B", "action")], player=PID, counts={"gen-1": (0, 3)})
-    a, b = feed.recent[-1].data["goals"]
-    assert (a["long_shot"], a["marks"], a["subject"]) == (True, ["v1", "v2"], "v2")
-    assert (b["long_shot"], b["marks"], b["subject"]) == (False, [], None)
-    feed.on_goal_void(Goal("old", "Old", "action"), about, "gone", player=PID, counts=(1, 3))
-    assert feed.recent[-1].data["text"] == feed.recent[-1].line
-    new = feed.recent[-1].data["new"]
-    assert (new["believers"], new["needed"], new["marks"], new["subject"], new["long_shot"]) == (1, 3, ["v1", "v2"], "v2", True)
-
-
-def test_goal_swapped_reaches_only_its_player_with_the_new_goal():
-    feed, lines = make()
-    old = Goal("o", "Old", "belief")
-    new = Goal("n", "New", "belief", audience=("v1",), subject="v2", long_shot=True)
-    feed.on_goal_swapped(old, new, player=PID, counts=(0, 1))
-    event = feed.recent[-1]
-    assert (event.kind, event.player, event.line) == ("goal_swapped", PID, 'New goal: "New"')
-    assert not feed.sees("p-2", event)
-    assert event.data["goal_id"] == "o" and event.data["text"] == event.line
-    assert event.data["new"] == {
-        "id": "n", "text": "New", "believers": 0, "needed": 1, "long_shot": True, "marks": ["v1"], "subject": "v2", "action": False,
-    }
-
-
-def test_the_page_swaps_goals_in_place():
-    page = (Path(__file__).parents[1] / "static" / "index.html").read_text()
-    assert 'case "goal_swapped"' in page and "Swap for a new goal" in page and "/api/goal/swap" in page
-
-
-def test_progress_on_an_action_goal_shows_where_it_stands():
-    feed = Feed(Lineage(), Town(), out=None)
-    goal = Goal("a", "Drive Vi out of town", "action")
-    feed.on_progress(goal, 0.0, None, player="p-1", standing="Vi is shaken")
-    event = feed.recent[-1]
-    assert event.line == 'Goal "Drive Vi out of town": Vi is shaken' and event.data["standing"] == "Vi is shaken"
 
 
 def test_state_round_trips_as_json_and_ids_go_on_past_it():

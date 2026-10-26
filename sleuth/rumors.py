@@ -12,7 +12,6 @@ from sleuth.config import Config
 from sleuth.contex_client import ContexClient
 from sleuth.feed import Event
 from sleuth.models import Utterance
-from sleuth.overhear import Overhear
 from sleuth.scenes import Scene
 
 log = logging.getLogger(__name__)
@@ -63,8 +62,6 @@ class Card:
     frontier: dict[str, dict] = field(default_factory=dict)
     # Where it was whispered.
     place: str = ""
-    # The goal ids its words serve, best first.
-    claims: list[str] = field(default_factory=list)
     # The moments already shown for it.
     marked: set[str] = field(default_factory=set)
 
@@ -96,11 +93,10 @@ def _who(names: list[str]) -> str:
 
 
 class Rumors:
-    def __init__(self, contex: ContexClient, baselines: Baselines, config: Config, overhear: Overhear | None = None):
+    def __init__(self, contex: ContexClient, baselines: Baselines, config: Config):
         self.contex = contex
         self.baselines = baselines
         self.config = config
-        self.overhear = overhear
         self.project = f"sleuth:{config.session}:rumors"
         self._cards: dict[str, Card] = {}
 
@@ -146,11 +142,8 @@ class Rumors:
         card.measuring = asyncio.ensure_future(self._measure(card.uid, card.text))
 
     async def publish(self, whisper_uid: str) -> None:
-        """Publish an opened card's words and note the goals they serve; failures are logged."""
-        card = self._cards[whisper_uid]
-        await self._publish(card)
-        if card.part_of is None and self.overhear is not None:
-            card.claims = await self.overhear.claims(card.text)
+        """Publish an opened card's words; failures are logged."""
+        await self._publish(self._cards[whisper_uid])
 
     def discard(self, whisper_uid: str) -> None:
         """Drop an opened card whose whisper never went out."""

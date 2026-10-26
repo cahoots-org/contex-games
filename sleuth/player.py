@@ -7,12 +7,9 @@ import time
 from dataclasses import asdict, replace
 from datetime import UTC, datetime, timedelta
 
-from typesafe_sdk import Noul
-
 from sleuth.config import Config
 from sleuth.contex_client import Match
 from sleuth.game import Game, Summary
-from sleuth.goals import Goal, goal_from_state
 from sleuth.lineage import Ids, Lineage
 from sleuth.mind import mind_project
 from sleuth.overhear import audible
@@ -58,7 +55,7 @@ class Player:
         *, player_id: str, owner: str | None = None,
     ):
         self.id = player_id
-        # The person behind this run; they keep their trophies across runs.
+        # The person behind this run, across runs.
         self.owner = player_id if owner is None else owner
         self.engine = engine
         self.town = town
@@ -75,9 +72,6 @@ class Player:
         self.finished = asyncio.Event()
         self.ended_at: float | None = None
         self.whispered_at: float | None = None
-        self.goals: list[Goal] = []
-        # The ids of this hand's goals met so far.
-        self.met: set[str] = set()
         self._tasks: set[asyncio.Task] = set()
         # When the running listen ends, or None when the player is not listening.
         self._listen_until: float | None = None
@@ -99,7 +93,7 @@ class Player:
         return {
             "id": self.id, "owner": self.owner, "place": self.place, "state": self.state, "ended_at": self.ended_at,
             "created_at": self.created_at, "summary": self.summary and asdict(self.summary),
-            "goals": [asdict(g) for g in self.goals], "met": sorted(self.met), "whispered_at": self.whispered_at,
+            "whispered_at": self.whispered_at,
             "active_at": self._active_at, "threads": self._threads,
             "held": {vid: list(held) for vid, held in self._held.items()},
             "hinted": {vid: sorted(used) for vid, used in self._hinted.items()},
@@ -111,9 +105,7 @@ class Player:
         self.place, self.state, self.ended_at = state["place"], state["state"], state["ended_at"]
         self.created_at, self.whispered_at = state["created_at"], state["whispered_at"]
         summary = state["summary"]
-        self.summary = summary and Summary(summary["outcome"], [tuple(g) for g in summary["goals"]], summary["reasons"])
-        self.goals = [goal_from_state(g) for g in state["goals"]]
-        self.met = set(state["met"])
+        self.summary = summary and Summary(summary["outcome"], summary["reasons"])
         active_at = state["active_at"]
         self._active_at = None if active_at is None else min(active_at, time.time() - self.config.idle_after_seconds)
         self._threads = state["threads"]
@@ -292,9 +284,6 @@ class Player:
         if found is None:
             self.feed.on_whisper_status(uid, target.id, target.name, "not_carried")
             return NOT_CARRIED
-        marked = self._marks_of(target.id)
-        if marked:
-            self._track(asyncio.create_task(self._worked_on(target, text, marked)))
         hits = [m for _, m in found if m.clearance >= 0]
         near_misses = [(need, m) for need, m in found if m.clearance < 0]
         if hits:
@@ -367,31 +356,6 @@ class Player:
             except Exception:
                 log.exception("lose-patience line for %s failed", target.id)
         self.feed.on_storm_off(target.id, target.name, line, player=self.id, verb="takes their leave")
-
-    def _marks_of(self, villager_id: str) -> list[Goal]:
-        """This player's unmet claim goals about someone that the villager's belief counts toward."""
-        return [g for g in self.goals if g.claim_text and g.subject and villager_id in g.audience and g.id not in self.met]
-
-    async def _worked_on(self, target: Villager, text: str, goals: list[Goal]) -> None:
-        """Raise the mark's suspicion once if the whisper plainly tries to turn them against a goal's subject."""
-        question = "Is the newcomer plainly trying to turn this villager against the person the claim is about?"
-        try:
-            with charging(self.id):
-                for goal in goals:
-                    state = {
-                        "villager": f"{target.name}, {target.occupation}. {target.personality}",
-                        "claim": goal.claim_text,
-                        "about": self.town.name_of(goal.subject) or "",
-                        "newcomer said": text,
-                    }
-                    response = await self.engine.jev.system_one(state=state, questions={"q": Noul(instructions=question)})
-                    if response.nouls["q"].noul > 0.5:
-                        self.engine.suspicion.bump(
-                            target.id, self.id, self.config.suspicion_whisper_bump, "worked on them",
-                        )
-                        return
-        except Exception:
-            log.exception("judging whether %s was worked on failed", target.id)
 
     async def ask(self, villager_id: str, topic: str) -> str | None:
         """Ask the villager what folk have been saying about the topic; returns why it could not be done, if it couldn't.
@@ -565,8 +529,7 @@ class Player:
             return
         self.state, self.summary, self.ended_at = summary.outcome, summary, time.time()
         self.finished.set()
-        analytics("end", owner=self.owner, run=self.id, outcome=summary.outcome,
-                  met=f"{len(self.met)}/{len(self.goals)}")
+        analytics("end", owner=self.owner, run=self.id, outcome=summary.outcome)
         self.feed.on_game_over(summary, player=self.id)
         self.feed.close(self.id)
 

@@ -22,14 +22,10 @@ from sleuth.engine import Engine
 from sleuth.facts import Facts
 from sleuth.feed import Feed, terminal
 from sleuth.game import Game
-from sleuth.believability import Believability
-from sleuth.goal_maker import GoalMaker
-from sleuth.judge import Judge
 from sleuth.lineage import Ids, Lineage
 from sleuth.overhear import Overhear
 from sleuth.persist import components, resume_game, save_every, save_quietly, set_aside, state_path, stop
 from sleuth.player import Player
-from sleuth.pool import load_pool
 from sleuth.players import LOCAL_OWNER, Players, new_player_id
 from sleuth.routine import Routine
 from sleuth.rumors import Rumors
@@ -58,38 +54,27 @@ async def play(web: bool) -> None:
     game = Game(config.memory_moves, config.day_seconds)
     async with ContexClient(config.contex_url) as contex:
         jev = CountingJev(typesafe_sdk.AsyncTypeSafeClient(), usage)
-        believability = Believability(jev)
-        pool = await load_pool(seed + ".goals.json", writer, believability, villagers)
         baselines = Baselines(contex, config)
         facts = Facts()
         overhear = Overhear(contex, baselines, config, rng)
         routine = Routine(jev, seed + ".places.json", config)
         engine = Engine(
-            config, town, contex, jev, writer, lineage, ids, feed, game=game, summary_source=lambda p: judge.percents(p.goals),
-            baselines=baselines, rumors=Rumors(contex, baselines, config, overhear), overhear=overhear,
+            config, town, contex, jev, writer, lineage, ids, feed, game=game,
+            baselines=baselines, rumors=Rumors(contex, baselines, config), overhear=overhear,
             routine=routine, facts=facts, cases=Cases(config, town, routine, rng, ids),
         )
-        maker = GoalMaker(jev, pool, town, routine, overhear, baselines, config, rng, ids)
-        judge = Judge(
-            contex, jev, town, config, feed, game, baselines=baselines, lineage=lineage, facts=facts,
-            engine=engine, maker=maker,
-        )
-        players = Players(feed, usage)
+        players = Players(usage)
         engine.players = players
-        engine.judge = judge
 
         def make(player_id: str, owner: str) -> Player:
             return Player(engine, town, lineage, ids, feed, config, writer, game, player_id=player_id, owner=owner)
 
         def join(owner: str) -> Player:
-            """Start a new run for the owner and deal it goals, dropping stale runs that never played."""
+            """Start a new run for the owner, dropping stale runs that never played."""
             player = make(new_player_id(), owner)
             players.add(player)
             for gone in players.prune():
-                maker.overhear.drop([g.id for g in gone.goals])
                 gone.close()
-            judge.deal(player)
-            players.deliver_pending(player)
             return player
 
         parts = components(engine)
@@ -99,15 +84,10 @@ async def play(web: bool) -> None:
         if fixed and not kept:
             set_aside(saves)
         if fixed and resume_game(saves, config.session, parts, make):
-            maker.ready_instead([g for p in players if not p.over() for g in p.goals] + [judge.world])
             villagers = town.villagers
-        else:
-            feed.on_world(judge.world, judge.counts_of(judge.world))
-        judging = saving = None
+        saving = None
         try:
             await baselines.load([need for v in villagers for need in v.needs])
-            await maker.prepare()
-            judging = asyncio.create_task(judge.run(players))
             await routine.load(villagers)
             await asyncio.gather(*(
                 engine.add_villager(
@@ -127,7 +107,7 @@ async def play(web: bool) -> None:
             if web:
                 host, port = config.address()
                 app = create_app(
-                    players=players, join=join, town=town, feed=feed, judge=judge, usage=usage, port=port,
+                    players=players, join=join, town=town, feed=feed, usage=usage, port=port,
                     suspicion=engine.suspicion, game=game, rumors=engine.rumors, hints=engine.hints, host=host,
                     cases=engine.cases,
                 )
@@ -146,13 +126,12 @@ async def play(web: bool) -> None:
                 for event in feed.replay(player.id):
                     show(event)
                 feed.sinks.append(feed.view(player.id, show))
-                await until_over(repl(player, town, feed, judge, usage, engine.suspicion, players), player)
+                await until_over(repl(player, town, feed, usage), player)
         finally:
             print(usage.summary())
-            tasks = [t for t in (judging, saving) if t is not None]
-            for task in tasks:
-                task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
+            if saving is not None:
+                saving.cancel()
+                await asyncio.gather(saving, return_exceptions=True)
             for run in players:
                 run.close()
             await engine.stop()

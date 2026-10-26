@@ -13,12 +13,11 @@ class Config:
     day_seconds: float = 180.0
     # How long a subscription keeps talk for a villager to react to.
     memory_days: float = 2.0
-    # How many of the newcomer's moves the village remembers a line for when judging belief.
+    # How many of the newcomer's moves the village remembers a line for.
     memory_moves: int = 20
     cooldown_seconds: float = 30.0
     renew_seconds: float = 1200.0
     population: int = 50
-    judge_every_days: float = 1.0
     # Game days from one shared case's close to the next crime.
     crime_every_days: float = 1.0
     # Game days before an open case goes cold.
@@ -81,8 +80,6 @@ class Config:
     suspicion_hear_max: float = 0.25
     suspicion_decay_per_day: float = 0.05
     warn_threshold: float = 0.3
-    # Jev's odds that a villager believes a claim at which the judge counts them as a believer.
-    belief_cutoff: float = 0.4
     refuse_threshold: float = 0.7
     # Weighted town suspicion at which villagers start moving to run the newcomer out.
     run_out_level: float = 0.08

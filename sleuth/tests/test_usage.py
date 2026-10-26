@@ -120,7 +120,7 @@ def test_a_zero_cap_never_rests():
 
 def test_nobody_plays_while_the_village_rests():
     usage = Usage(Config(haiku_input_per_mtok=1.0, daily_spend_cap=1.0))
-    players = Players(None, usage)
+    players = Players(usage)
     player = make_player("Ann")[0]
     players.add(player)
     player.connected()

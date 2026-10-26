@@ -14,8 +14,6 @@ MEMORY_PLAYERS = 20
 @dataclass(frozen=True)
 class Summary:
     outcome: str
-    # Goal text and whole percent.
-    goals: list[tuple[str, int]]
     reasons: list[str]
 
 

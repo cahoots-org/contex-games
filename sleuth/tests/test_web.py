@@ -5,7 +5,6 @@ import re
 import threading
 import time
 from datetime import UTC, datetime
-from dataclasses import replace
 from functools import partial
 from types import SimpleNamespace
 
@@ -19,7 +18,6 @@ from sleuth.config import Config
 from sleuth.contex_client import Match
 from sleuth.feed import REPLAY_EVENTS, Feed
 from sleuth.game import Game, Summary
-from sleuth.goals import Goal, Trophy, world_goal
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
 from sleuth.player import MAX_WHISPER_CHARS, Player
@@ -36,8 +34,6 @@ from sleuth.web import create_app
 PORT = 8765
 BASE = f"http://127.0.0.1:{PORT}"
 WS = f"ws://127.0.0.1:{PORT}/ws"
-GOAL = Goal("cat", "Half the village believes the mayor's cat is a spy", "belief")
-WORLD = world_goal(Goal("library", "A third of the village believes the well is cursed", "belief"))
 
 
 def receive(ws, timeout=5.0):
@@ -72,25 +68,20 @@ def game(monkeypatch):
     config = Config()
     suspicion, game = Suspicion(config, town), Game()
     engine = FakeEngine(feed, suspicion)
-    players = Players(feed)
+    players = Players()
 
     def join(owner):
         player = Player(engine, town, lineage, Ids(), feed, config, game=game, player_id=new_player_id(), owner=owner)
         players.add(player)
         players.prune()
-        player.goals = [GOAL]
-        players.deliver_pending(player)
         return player
 
-    judge = SimpleNamespace(progress={"cat": 0.42, WORLD.id: 0.1}, counts={"cat": (5, 12)}, world=WORLD, roots={},
-        doubt={}, standing=lambda goal: "Not yet" if goal.kind == "action" else None,
-    )
     usage = Usage(Config())
     rumors = Rumors(helpers.StubContex(), helpers.StubBaselines(0.5), config)
     feed.sinks.append(rumors.on_event)
     cases = Cases(config, town, None, random.Random(1), Ids())
     app = create_app(
-        players=players, join=join, town=town, feed=feed, judge=judge, usage=usage, port=PORT,
+        players=players, join=join, town=town, feed=feed, usage=usage, port=PORT,
         suspicion=suspicion, game=game, rumors=rumors, hints=engine.hints, cases=cases,
     )
     with TestClient(app, base_url=BASE) as client:
@@ -98,7 +89,7 @@ def game(monkeypatch):
         player = players.live(client.cookies[web.COOKIE])
         yield SimpleNamespace(
             client=client, town=town, feed=feed, app=app, usage=usage, suspicion=suspicion, player=player, config=config,
-            rumors=rumors, players=players, join=join, judge=judge, engine=engine, cases=cases,
+            rumors=rumors, players=players, join=join, engine=engine, cases=cases,
         )
     for p in players:
         p.close()
@@ -110,23 +101,16 @@ def as_owner(client, owner):
     client.cookies.set(web.COOKIE, owner)
 
 
-def test_state_lists_goals_villagers_and_replay(game):
+def test_state_lists_villagers_and_replay(game):
     game.feed.say("hello")
     state = game.client.get("/api/state").json()
-    assert state["goals"] == [{"id": "cat", "text": GOAL.text, "percent": 42, "met": False, "believers": 5, "needed": 12,
-                              "doubt": None, "standing": None, "long_shot": False, "marks": [], "subject": None,
-                              "action": False}]
-    assert state["world_goal"] == {
-        "id": WORLD.id, "text": WORLD.text, "percent": 10, "met": False, "believers": 0, "needed": 2,
-        "doubt": None, "standing": None, "long_shot": False, "marks": [], "subject": None, "action": False,
-    }
+    assert not {"goals", "world_goal", "trophies", "beliefs"} & state.keys()
     assert [v["name"] for v in state["villagers"]] == ["Bert Cole", "Marta Hale"]
     assert state["places"] == list(PLACES) and state["boot"]
     assert state["events"][-1]["text"] == "hello"
     assert state["place"] == "cafe"
     assert (state["time"]["day"], state["time"]["phase"]) == (1, "morning")
     assert 0 <= state["time"]["fraction"] < 0.25 and state["time"]["day_seconds"] > 0
-    assert state["trophies"] == []
     assert state["talk_hold_seconds"] == game.player.config.talk_hold_seconds
     assert "NEED" not in game.client.get("/api/state").text
 
@@ -190,52 +174,6 @@ def test_hints_endpoint_marks_villagers_by_earned_hints(game):
 def test_page_is_served(game):
     response = game.client.get("/")
     assert response.status_code == 200 and "Sleuth" in response.text
-
-
-def test_page_has_the_trophy_case_and_world_goal(game):
-    html = game.client.get("/").text
-    assert 'id="trophies-toggle"' in html and 'aria-controls="trophies"' in html and 'id="world"' in html
-    assert "trophy-open" in html and "innerHTML" not in html
-    assert "restart the program" not in html
-
-
-def test_goals_are_cards_and_the_header_has_one_status(game):
-    html = game.client.get("/").text
-    for needle in ('id="world"', 'class="goal-card world"', "goal-card", 'class="hud"', "doubtLine(", "don't`", "doesn't"):
-        assert needle in html
-    card = re.search(r"function goalCard\(.*?\n}\n", html, re.S).group(0)
-    assert card.index("doubtLine(g)") < card.index('className: "bar"')
-    assert html.count('class="status"') == 0 and ".status {" not in html
-    test_page_has_the_trophy_case_and_world_goal(game)
-
-
-def test_progress_with_unchanged_words_adds_no_feed_line(game):
-    html = game.client.get("/").text
-    assert "goalProgress(was) === goalProgress(now) ? null : progressed(e)" in html
-    assert "goalOf(e)" in html and "needed: null }" not in html
-
-
-def test_doubt_goes_out_only_for_the_players_own_goals_and_the_world_goal(game):
-    other = game.join("o-other")
-    other.goals = [Goal("dog", "Half the village believes the dog is a thief", "belief")]
-    game.judge.doubt = {
-        "cat": {"count": 3, "saying": "the cat is odd"}, "dog": {"count": 4, "saying": "SECRET DOG TALK"},
-        WORLD.id: {"count": 1, "saying": "the well is poisoned"},
-    }
-    state = game.client.get("/api/state").json()
-    assert state["goals"][0]["doubt"] == {"count": 3, "saying": "the cat is odd"}
-    assert state["world_goal"]["doubt"] == {"count": 1, "saying": "the well is poisoned"}
-    assert "SECRET DOG TALK" not in json.dumps(state)
-
-
-def test_page_says_where_an_action_goal_stands_instead_of_a_percent(game):
-    html = game.client.get("/").text
-    assert 'g.standing || "Not yet"' in html and "bar standing" in html
-
-
-def test_page_shows_a_goal_waiting_for_its_swap(game):
-    html = game.client.get("/").text
-    assert "Finding a new goal…" in html and "swap turning" in html and "swapping.delete(e.goal_id)" in html
 
 
 def test_page_has_the_walk_listen_and_ask_controls(game):
@@ -416,7 +354,7 @@ def test_brush_off_hint_reaches_the_websocket(game):
     assert "NEED" not in str(event)
 
 
-LOSS = Summary("lost", [(GOAL.text, 42)], ["Marta Hale heard it from you directly."])
+LOSS = Summary("lost", ["Marta Hale heard it from you directly."])
 
 
 def test_state_carries_the_label_and_no_scores(game):
@@ -442,7 +380,7 @@ def test_gameover_event_reaches_the_websocket(game):
         game.player.end(LOSS)
         event = receive(ws)
     assert event["kind"] == "gameover"
-    assert (event["outcome"], event["goals"], event["reasons"]) == ("lost", [[GOAL.text, 42]], LOSS.reasons)
+    assert (event["outcome"], event["reasons"]) == ("lost", LOSS.reasons)
 
 
 def test_state_after_loss_carries_the_summary(game):
@@ -450,7 +388,7 @@ def test_state_after_loss_carries_the_summary(game):
     state = game.client.get("/api/state").json()
     assert state["game"] == {
         "state": "lost",
-        "summary": {"outcome": "lost", "goals": [[GOAL.text, 42]], "reasons": LOSS.reasons},
+        "summary": {"outcome": "lost", "reasons": LOSS.reasons},
     }
     assert state["events"][-1]["kind"] == "gameover"
 
@@ -505,7 +443,7 @@ def test_no_api_response_contains_a_suspicion_number_or_villager_id_for_suspects
         responses.append(game.client.post("/api/whisper", json={"villager_id": "v1", "text": "the mill is cursed"}).json())
         game.feed.on_warning("v2", "Bert Cole", "v1", "Marta Hale", game.player.id)
         game.feed.on_heat(game.suspicion.label(game.player.id), player=game.player.id)
-        game.player.end(Summary("lost", [(GOAL.text, 42)], game.suspicion.reasons(game.player.id)))
+        game.player.end(Summary("lost", game.suspicion.reasons(game.player.id)))
         events = [receive(ws) for _ in range(8)]
     kinds = ["whisper", "place", "whisper_status", "whisper_status", "refusal", "warning", "heat", "gameover"]
     assert [e["kind"] for e in events] == kinds
@@ -519,7 +457,7 @@ def test_no_api_response_contains_a_suspicion_number_or_villager_id_for_suspects
         assert not any(r in text for r in raw), text
         for key, value in walk(response):
             if any(word in key for word in SUSPICION_KEYS):
-                assert not isinstance(value, int | float) or isinstance(value, bool) or key == "goals", (key, value)
+                assert not isinstance(value, int | float) or isinstance(value, bool), (key, value)
                 assert value not in scores, (key, value)
 
 
@@ -557,59 +495,8 @@ def test_card_tallies_reach_the_websocket(game):
         while event["kind"] != "rumors":
             event = receive(ws)
     assert event["rumors"] == [
-        {"uid": "w-1", "heard": 1, "frontier": [], "stopped": None, "touched": {"v1": "heard"},
-         "goals": []},
+        {"uid": "w-1", "heard": 1, "frontier": [], "stopped": None, "touched": {"v1": "heard"}},
     ]
-
-
-def card_with_claims(game, claims):
-    game.client.portal.call(partial(
-        game.rumors.add, "w-1", "the cat spies by the well", datetime.now(UTC), "v1", "Marta Hale", player=game.player.id,
-    ))
-    game.rumors.card("w-1").claims = claims
-
-
-def test_cards_link_goals_and_count_who_each_convinced(game):
-    card_with_claims(game, ["cat", "library"])
-    game.judge.roots = {"cat": {"v1": "w-1", "v2": None}, WORLD.id: {"v2": "w-1"}}
-    card, = game.client.get("/api/state").json()["rumors"]
-    assert card["goals"] == [
-        {"text": GOAL.text, "claim": "the mayor's cat is a spy", "world": False, "convinced": 1},
-        {"text": WORLD.text, "claim": "the well is cursed", "world": True, "convinced": 1},
-    ]
-    assert card["touched"] == {"v1": "believes", "v2": "believes"}
-    assert "claims" not in card
-
-
-def test_cards_link_a_generated_world_goal_by_its_full_id(game):
-    game.judge.world = replace(WORLD, id="world-3")
-    card_with_claims(game, ["world-3"])
-    game.judge.roots = {"world-3": {"v2": "w-1"}}
-    card, = game.client.get("/api/state").json()["rumors"]
-    assert [g["world"] for g in card["goals"]] == [True]
-
-
-def test_a_believer_through_a_joined_whisper_counts_on_the_first_card(game):
-    card_with_claims(game, ["cat"])
-    game.client.portal.call(partial(
-        game.rumors.add, "w-2", "the cat spies by the well", datetime.now(UTC), "v2", "Bert Cole", "w-1",
-        player=game.player.id,
-    ))
-    game.judge.roots = {"cat": {"v2": "w-2"}}
-    card, = game.client.get("/api/state").json()["rumors"]
-    assert card["uid"] == "w-1" and card["goals"][0]["convinced"] == 1
-    assert card["touched"] == {"v1": "heard", "v2": "believes"}
-    assert game.rumors.first("w-2", "size:5") and not game.rumors.first("w-1", "size:5")
-
-
-def test_another_players_believers_never_count_on_your_card(game):
-    card_with_claims(game, ["cat"])
-    game.client.portal.call(partial(
-        game.rumors.add, "w-9", "the cat is a spy", datetime.now(UTC), "v2", "Bert Cole", player="p-other",
-    ))
-    game.judge.roots = {"cat": {"v1": "w-9"}}
-    card, = game.client.get("/api/state").json()["rumors"]
-    assert card["goals"][0]["convinced"] == 0 and card["touched"] == {"v1": "heard"}
 
 
 def test_first_visit_sets_an_owner_cookie(game):
@@ -618,18 +505,6 @@ def test_first_visit_sets_an_owner_cookie(game):
     assert response.cookies[web.COOKIE].startswith("o-")
     header = response.headers["set-cookie"].lower()
     assert "httponly" in header and "samesite=lax" in header and "max-age=31536000" in header
-
-
-def test_a_new_run_keeps_the_same_person_and_trophy_case(game):
-    owner = game.client.cookies[web.COOKIE]
-    game.players.cases[owner] = [Trophy("personal", ("a", "b", "c"), 2)]
-    game.player.end(LOSS)
-    game.player.ended_at -= RUN_OUT_LOCKOUT_SECONDS
-    game.client.get("/")
-    body = game.client.get("/api/state").json()
-    assert game.client.cookies[web.COOKIE] == owner and body["trophies"] == [
-        {"kind": "personal", "goals": ["a", "b", "c"], "day": 2, "long_shot": False}
-    ]
 
 
 def test_two_sessions_play_as_two_players(game):
@@ -641,7 +516,6 @@ def test_two_sessions_play_as_two_players(game):
     body = state.json()
     assert a != b and a not in state.text
     assert body["rumors"] == [] and body["notes"] == {} and not [e for e in body["events"] if e["kind"] == "whisper"]
-    assert body["world_goal"]["text"] == game.judge.world.text
 
 
 def test_a_players_socket_gets_none_of_another_players_events(game):
@@ -708,32 +582,6 @@ def test_villagers_carry_influence_words_and_no_weights(game):
     assert game.client.get("/api/villagers/v1").json()["influence"] is None
 
 
-def test_beliefs_are_the_players_own_goals_only(game):
-    game.judge.roots = {"cat": {"v1": None}, "other": {"v2": "w-9"}, WORLD.id: {"v2": None}}
-    assert game.client.get("/api/state").json()["beliefs"] == {
-        "v1": ["the mayor's cat is a spy"], "v2": ["the well is cursed"],
-    }
-    assert game.client.get("/api/villagers/v1").json()["believes"] == ["the mayor's cat is a spy"]
-
-
-@pytest.fixture
-def fast_polls(monkeypatch):
-    monkeypatch.setattr(web, "VILLAGER_POLL_SECONDS", 0.05)
-
-
-def test_beliefs_reach_the_websocket(fast_polls, game):
-    other = game.join("o-other")
-    other.goals = [Goal("dog", "Half the village believes the dog is a thief", "belief")]
-    with game.client.websocket_connect(WS) as ws:
-        game.judge.roots = {"cat": {"v1": None}}
-        event = receive(ws)
-        while event["kind"] != "beliefs":
-            event = receive(ws)
-    assert event == {"kind": "beliefs", "beliefs": {"v1": ["the mayor's cat is a spy"]}}
-    as_owner(game.client, other.owner)
-    assert game.client.get("/api/state").json()["beliefs"] == {}
-
-
 def test_the_page_has_words_for_every_frontier_state(game):
     html = game.client.get("/").text
     body = re.search(r"const FRONTIER = \{(.*?)\};", html, re.S).group(1)
@@ -741,7 +589,7 @@ def test_the_page_has_words_for_every_frontier_state(game):
     assert set(re.findall(r"^\s*(\w+):", body, re.M)) == emitted
 
 
-def test_the_page_renders_moments_and_goal_links(game):
+def test_the_page_renders_moments(game):
     html = game.client.get("/").text
     rove = re.search(r"const ROVE = (.*);", html).group(1)
     assert 'case "moment"' in html and "frontier-more" not in rove
@@ -752,7 +600,7 @@ def test_the_page_renders_moments_and_goal_links(game):
 def test_the_feed_has_three_kinds_of_line(game):
     html = game.client.get("/").text
     rove = re.search(r"const ROVE = \"(.*)\";", html).group(1)
-    assert set(rove.split(", ")) == {".fold-more", ".fold-talk", ".trophy-open", ".chat-open"}
+    assert set(rove.split(", ")) == {".fold-more", ".fold-talk", ".chat-open"}
     for needle in ('"loud"', '"speech"', '"quiet"', "retold("):
         assert needle in html
     for gone in ("moved by", "rails", "toggleThread", "cardScene", "innerHTML"):
@@ -811,7 +659,7 @@ def test_the_page_marks_each_rumor(game):
 
 def test_the_panel_has_selection_sort_and_draft_marks(game):
     html = game.client.get("/").text
-    for text in ('id="sort"', "By what you know", "By influence", "/api/hints", "this might interest them", "touched", '"beliefs"'):
+    for text in ('id="sort"', "By what you know", "By influence", "/api/hints", "this might interest them", "touched"):
         assert text in html
     assert "innerHTML" not in html
 
@@ -872,85 +720,10 @@ def test_a_phone_gets_three_tabs(game):
     assert '<main id="hear-panel">' in html and 'aria-label="Villagers"' in html and 'aria-label="Your rumors"' in html
 
 
-def test_an_action_goal_shows_a_percent_and_an_unchecked_belief_goal_its_target(game):
-    dog = Goal("dog", "Half the village believes the dog is a thief", "belief", target_fraction=0.5)
-    game.player.goals = [dog, Goal("quiet", "Nobody leaves the village", "action")]
-    state = game.client.get("/api/state").json()
-    assert [(g["believers"], g["needed"]) for g in state["goals"]] == [(0, 1), (None, None)]
-    html = game.client.get("/").text
-    assert "g.needed == null ? `${g.percent}%` : `${g.believers} of ${g.needed} believe it`" in html
-
-
-def test_every_goal_card_has_a_label_a_claim_and_a_bar(game):
-    html = game.client.get("/").text
-    for needle in ('"Your goal"', '"World goal"', "goalCard(", "-webkit-line-clamp: 2", "margin-top: auto"):
-        assert needle in html
-
-
 def test_a_villager_who_storms_off_leaves_the_dock_with_a_parting_line(game):
     html = game.client.get("/").text
     case = re.search(r'case "stormed_off":(.*?)case ', html, re.S).group(1)
     assert "dockEnd(e.villager_id);" in case and 'line("speech"' in case and "${e.verb}" in case
-
-
-def test_goal_json_carries_marks_subject_long_shot(game):
-    about = Goal("gen-1", "Hob steals geese", "belief", audience=("v1", "v2"), subject="v2", owner=game.player.id,
-                 long_shot=True)
-    game.player.goals = [about]
-    [goal] = game.client.get("/api/state").json()["goals"]
-    assert (goal["long_shot"], goal["marks"], goal["subject"]) == (True, ["v1", "v2"], "v2")
-
-
-def test_marks_only_come_with_a_subject(game):
-    circle = Goal("gen-2", "The bakers", "belief", audience=("v1", "v2"), owner=game.player.id)
-    game.player.goals = [circle]
-    [goal] = game.client.get("/api/state").json()["goals"]
-    assert (goal["marks"], goal["subject"]) == ([], None)
-
-
-def test_state_hides_other_players_marks(game):
-    mine = Goal("gen-1", "Hob steals geese", "belief", audience=("v1",), subject="v2", owner=game.player.id)
-    game.player.goals = [mine]
-    other = game.join("o-2")
-    other.goals = [GOAL]
-    as_owner(game.client, "o-2")
-    state = game.client.get("/api/state")
-    assert [g["id"] for g in state.json()["goals"]] == ["cat"]
-    assert state.json()["goals"][0]["marks"] == [] and "gen-1" not in state.text
-
-
-def test_page_renders_badges_and_long_shot(game):
-    html = game.client.get("/").text
-    for needle in ("the goal you picked needs them", "the goal you picked is about them", 'class="needed"', "pickGoal", "Long shot", "long_shot", "goal_void", '"denied"', "was?.marks"):
-        assert needle in html
-    assert "innerHTML" not in html
-
-
-def test_swap_a_goal(game):
-    asked = []
-
-    async def swap(player, goal_id):
-        asked.append((player.id, goal_id))
-
-    game.judge.swap = swap
-    response = game.client.post("/api/goal/swap", json={"goal_id": "cat"})
-    assert (response.status_code, response.json(), asked) == (200, {"ok": True}, [(game.player.id, "cat")])
-
-
-def test_a_swap_problem_is_a_409_with_the_sentence(game):
-    async def swap(player, goal_id):
-        return "That goal is already met."
-
-    game.judge.swap = swap
-    response = game.client.post("/api/goal/swap", json={"goal_id": "cat"})
-    assert (response.status_code, response.json()) == (409, {"error": "That goal is already met."})
-
-
-def test_a_bad_swap_payload_is_a_400_and_a_stranger_a_401(game):
-    assert game.client.post("/api/goal/swap", json={"goal_id": 3}).status_code == 400
-    assert game.client.post("/api/goal/swap", content=b"nope").status_code == 400
-    game.client.cookies.clear()
-    assert game.client.post("/api/goal/swap", json={"goal_id": "cat"}).status_code == 401
 
 
 RESTING = "The village is resting for today. Come back after midnight UTC."
@@ -961,23 +734,16 @@ def spend_the_day(game):
 
 
 def test_while_resting_model_actions_are_refused_and_walking_is_not(game):
-    called = []
-
-    async def swap(player, goal_id):
-        called.append(goal_id)
-
-    game.judge.swap = swap
     assert game.client.get("/api/state").json()["resting"] is False
     spend_the_day(game)
     post = game.client.post
     for path, body in (
         ("/api/whisper", {"villager_id": "v1", "text": "the well is cursed"}),
         ("/api/ask", {"villager_id": "v1", "topic": "the mill"}),
-        ("/api/goal/swap", {"goal_id": "cat"}),
     ):
         refused = post(path, json=body)
         assert (refused.status_code, refused.json()) == (409, {"error": RESTING}), path
-    assert called == [] and game.rumors.cards(game.player.id) == []
+    assert game.rumors.cards(game.player.id) == []
     assert post("/api/walk", json={"place": "library"}).json() == {"ok": True}
     assert post("/api/listen").json() == {"ok": True}
     assert game.client.get("/api/state").json()["resting"] is True
@@ -1107,23 +873,10 @@ def test_a_phone_header_is_one_line_with_a_menu(game):
     for needle in ('id="mood"', 'id="menu-toggle"', 'aria-controls="menu"', 'class="menu" id="menu"', "setHeat(e.text, e.label)"):
         assert needle in html
     menu = re.search(r'<div class="menu" id="menu">(.*?)</div>', html, re.S).group(1)
-    assert 'id="trophies-toggle"' in menu and 'id="usage"' in menu
+    assert 'id="usage"' in menu and "trophies" not in menu
     phone = phone_css(html)
     assert ".hud { display: contents; }" in phone and ".menu.open { display: flex; }" in phone
     assert "width: 44px; height: 44px;" in phone and ".conn { order: 3; margin-left: auto; font-size: 0; }" in phone
-
-
-def test_a_phone_keeps_its_goals_behind_one_pill(game):
-    html = game.client.get("/").text
-    sheet = re.search(r'<dialog class="sheet" id="goals-sheet"([^>]*)>', html).group(1)
-    assert 'aria-modal="true"' in sheet and 'aria-labelledby="goals-sheet-title"' in sheet
-    assert 'aria-haspopup="dialog" aria-controls="goals-sheet"' in html
-    assert "`Goals ${all.filter((g) => g.met).length} of ${all.length}`" in html
-    assert '$("goals-sheet").showModal()' in html and '.append($("goals"), $("world"))' in html
-    assert 'ev.target.matches("dialog.sheet")' in html and 'closest(".sheet-close")' in html
-    calm = bracketed(html, html.index("{", html.index("@media (prefers-reduced-motion: reduce)")))
-    assert ".sheet[open]" in calm
-    assert ".strip.open" not in html
 
 
 def test_a_phone_whispers_from_one_row_with_a_recipient_chip(game):

@@ -18,7 +18,6 @@ from sleuth.effects import act
 from sleuth.facts import Facts
 from sleuth.feed import MOMENTS
 from sleuth.game import PHASES, Game, Summary
-from sleuth.goals import Goal, audience_of
 from sleuth.hints import Hints
 from sleuth.lineage import Ids, Lineage
 from sleuth.mind import Mind, group_project, mind_project, said_project
@@ -47,8 +46,6 @@ KEPT_WHISPERS = 50
 # How many villagers set off together on their daily round, and how much of each part of the day the round spans.
 ROUTINE_BATCH = 5
 ROUTINE_SPREAD = 0.5
-# How much of a whisper's suspicion a subject takes on, by hops from the whisper.
-TRACE_SCALE = {1: 1, 2: 0.5, 3: 0.25}
 MEETING = "The town meets at town hall and runs the newcomer out of town."
 
 
@@ -65,7 +62,6 @@ class Engine:
         feed,
         mind_factory: Callable[[Villager], Mind] | None = None,
         game: Game | None = None,
-        summary_source: Callable[[Player], list[tuple[str, int]]] = lambda p: [],
         baselines: Baselines | None = None,
         rumors: Rumors | None = None,
         overhear: Overhear | None = None,
@@ -91,12 +87,9 @@ class Engine:
         self.overhear = overhear
         self.routine = routine
         self.cases = cases
-        self.players = Players(feed)
-        # The judge told of each action a player's rumor drove, set once it exists.
-        self.judge = None
+        self.players = Players()
         self.mind_factory = mind_factory or (lambda v: Mind(contex, v, config, baselines))
         self.game = game
-        self.summary_source = summary_source
         self.minds: dict[str, Mind] = {}
         self._tasks: dict[str, list[asyncio.Task]] = {}
         self._read_at: dict[str, float] = {}
@@ -125,30 +118,22 @@ class Engine:
         self._turns = asyncio.Semaphore(config.turn_concurrency)
         # Care checks on the listeners of one-to-one rumor hops.
         self._following: set[asyncio.Task] = set()
-        # The share of a whisper's suspicion each (subject, player, rumor root) has taken on, the goals whose subject has denied, and the denials running.
-        # ponytail: _traced and _denied grow per rumor root and goal for the life of the server; prune with the judge's _forget.
-        self._traced: dict[tuple[str, str, str], float] = {}
-        self._denied: set[str] = set()
-        self._denials: set[asyncio.Task] = set()
         if rumors is not None:
             feed.sinks.append(rumors.on_event)
 
     def to_state(self) -> dict:
-        """Each villager's gossip taste, kept whispers and read keys, traced rumors and denied goals as plain JSON."""
+        """Each villager's gossip taste, kept whispers and read keys as plain JSON."""
         return {"gossip": dict(self._gossip), "kept": {vid: list(kept) for vid, kept in self._kept.items()},
-                "consumed": {vid: list(keys) for vid, keys in self._consumed.items()},
-                "traced": [[*key, x] for key, x in self._traced.items()], "denied": sorted(self._denied)}
+                "consumed": {vid: list(keys) for vid, keys in self._consumed.items()}}
 
     def restore(self, state: dict) -> None:
-        """Replace gossip, kept whispers, read keys, traced rumors and denied goals with a saved state.
+        """Replace gossip, kept whispers and read keys with a saved state.
 
         A whisper a villager had read but not yet answered when the game stopped is told as kept.
         """
         self._gossip = dict(state["gossip"])
         self._kept = {vid: dict.fromkeys(kept) for vid, kept in state["kept"].items()}
         self._consumed = {vid: dict.fromkeys(keys) for vid, keys in state["consumed"].items()}
-        self._traced = {(subject, player, root): x for subject, player, root, x in state["traced"]}
-        self._denied = set(state["denied"])
         for vid, keys in self._consumed.items():
             for wid, name in self.feed.listening(vid):
                 if f"utt:{wid}" in keys:
@@ -262,7 +247,7 @@ class Engine:
                 hop = on_topic and self.lineage.player_of(utterance.id) == player.id
                 try:
                     reason = await self.overhear.keep(
-                        utterance, player.place, hop, goals=[g.id for g in player.goals], listening=player.listening(),
+                        utterance, player.place, hop, listening=player.listening(),
                     )
                 except Exception:
                     log.warning("overhearing %s failed", utterance.id)
@@ -443,43 +428,6 @@ class Engine:
         """Raise the villager's suspicion of player."""
         self.suspicion.bump(vid, player, amount, reason, uid)
 
-    def traced(self, goal: Goal, subject_id: str, uid: str) -> None:
-        """The goal's subject holds a memory descending from the owner's whisper: they suspect the owner of it.
-
-        A rumor adds its closest hop's share in all, by hops from the whisper. A subject who crosses into wariness of the owner denies the
-        rumor to the goal's audience, once per goal.
-        """
-        key = (subject_id, goal.owner, self.lineage.root(uid))
-        scale = TRACE_SCALE.get(self.lineage.depth(uid) + 1, 0)
-        if scale <= self._traced.get(key, 0):
-            return
-        before = self.suspicion.score(subject_id, goal.owner)
-        after = self.suspicion.bump(
-            subject_id, goal.owner, (scale - self._traced.get(key, 0)) * self.config.suspicion_whisper_bump,
-            "traced it to you", uid,
-        )
-        self._traced[key] = scale
-        if before < self.config.warn_threshold <= after and goal.id not in self._denied:
-            self._denied.add(goal.id)
-            task = asyncio.create_task(self._deny(goal, subject_id))
-            self._denials.add(task)
-            task.add_done_callback(self._denials.discard)
-
-    async def _deny(self, goal: Goal, subject_id: str) -> None:
-        """The subject tells the goal's marks the rumor is false, and the owner sees them do it."""
-        try:
-            subject = self.town.get(subject_id)
-            with charging(goal.owner):
-                line = await self.writer.deny(subject, goal.claim_text)
-            utterance = Utterance(
-                self.ids.next("u"), subject_id, subject.name, self.town.place_of(subject_id), line, None, "said",
-            )
-            self.lineage.record(utterance.id, None)
-            await self.deliver(utterance, [v.id for v in audience_of(goal, self.town)])
-            self.feed.on_denied(subject.name, line, player=goal.owner)
-        except Exception:
-            log.exception("denial by %s failed", subject_id)
-
     async def publish_group(self, group: Group) -> None:
         data = {"id": group.id, "name": group.name, "creed": group.creed, "founder": group.founder}
         await self.contex.publish(group_project(self.config.session, group.id), f"group:{group.id}", data)
@@ -657,12 +605,6 @@ class Engine:
         u = Utterance(self.ids.next("u"), "app", APP, crime.place, f"A podcaster is asking around about this: {crime.text}",
                       None, "posted")
         await self.deliver(u, [crime.culprit], addressed=True)
-
-    def acted(self, decision: Decision, vid: str, target: str | None, creed: str | None = None) -> None:
-        """Tell the judge of the villager's action and the player behind it."""
-        player = self._player_behind(decision.source)
-        if self.judge is not None:
-            self.judge.record_action(vid, decision.action, target, player, creed)
 
     def _rumor_of(self, uid: str) -> str:
         """The key her interest is kept under for the player's whisper behind uid."""
@@ -977,7 +919,7 @@ class Engine:
         held[p.id] = held.get(p.id, 0) + 1 if self.suspicion.level(p.id) >= self.config.run_out_level else 0
         if held[p.id] >= self.config.run_out_checks:
             self.feed.say(MEETING, player=p.id)
-            p.end(Summary("lost", self.summary_source(p), self.suspicion.reasons(p.id)))
+            p.end(Summary("lost", self.suspicion.reasons(p.id)))
 
     async def _renew_loop(self) -> None:
         """Renew the lease of every mind not read within renew_seconds."""

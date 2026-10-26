@@ -18,7 +18,6 @@ from starlette.websockets import WebSocketClose
 from sleuth.cases import Cases, case_json
 from sleuth.feed import RESTING, Event, Feed
 from sleuth.game import Game
-from sleuth.goals import Goal, claim, goal_counts, goal_targets
 from sleuth.hints import Hints
 from sleuth.notes import Notes
 from sleuth.player import MAX_WHISPER_CHARS, Player, Refusal
@@ -39,12 +38,11 @@ USAGE_POLL_SECONDS = 3.0
 CLIENT_QUEUE = 256
 BAD_WHISPER = 'Send JSON like {"name": "Marta", "text": "the miller waters his flour"}.'
 BAD_WALK = 'Send JSON like {"place": "bar"}.'
-BAD_SWAP = 'Send JSON like {"goal_id": "g1"}.'
 BAD_ASK = 'Send JSON like {"villager_id": "v1", "topic": "the gym"}.'
 COOKIE = "sleuth_player"
 COOKIE_SECONDS = 365 * 24 * 3600
 RELOAD = "Reload the page to join the village."
-TALLY_KEYS = ("uid", "heard", "frontier", "stopped", "touched", "goals")
+TALLY_KEYS = ("uid", "heard", "frontier", "stopped", "touched")
 LOCAL_HOSTS = ("127.0.0.1", "localhost")
 
 
@@ -80,47 +78,9 @@ def villagers(town: Town) -> list[dict]:
     )
 
 
-def card_view(card: dict, player: Player, judge, rumors: Rumors) -> dict:
-    """The card with the goals it serves for the player, each with how many it convinced, who become believers in touched.
-
-    That is the first claim in the player's hand, and the world goal when the card makes its claim.
-    """
-    claims = rumors.card(card["uid"]).claims
-    hand = {g.id: g for g in player.goals}
-    goals = [hand[c] for c in claims if c in hand][:1]
-    if judge.world.id in claims:
-        goals.append(judge.world)
-    touched = dict(card["touched"])
-    links = []
-    for goal in goals:
-        convinced = [
-            vid for vid, root in judge.roots.get(goal.id, {}).items()
-            if root is not None and (shown := rumors.card(root)) is not None and shown.uid == card["uid"]
-        ]
-        touched.update(dict.fromkeys(convinced, "believes"))
-        links.append({"text": goal.text, "claim": claim(goal), "world": goal is judge.world, "convinced": len(convinced)})
-    return {**card, "touched": touched, "goals": links}
-
-
-def beliefs(judge, player: Player) -> dict[str, list[str]]:
-    """Each villager's claims among the player's goals, then the world goal, that they believe."""
-    found: dict[str, list[str]] = {}
-    for goal in [*player.goals, judge.world]:
-        for vid in judge.roots.get(goal.id, {}):
-            if text := claim(goal):
-                found.setdefault(vid, []).append(text)
-    return found
-
-
-def beliefs_of(judge, players: Players, player_id: str) -> dict[str, list[str]]:
-    """The beliefs of the player with this id."""
-    return beliefs(judge, players.get(player_id))
-
-
-def tallies(rumors: Rumors, judge, players: Players, player_id: str) -> list[dict]:
-    """Each card's counts, frontier and goal links, so the live snapshot changes only when one of them does."""
-    player = players.get(player_id)
-    return [{k: v[k] for k in TALLY_KEYS} for v in (card_view(c, player, judge, rumors) for c in rumors.cards(player_id))]
+def tallies(rumors: Rumors, player_id: str) -> list[dict]:
+    """Each card's counts and frontier, so the live snapshot changes only when one of them does."""
+    return [{k: c[k] for k in TALLY_KEYS} for c in rumors.cards(player_id)]
 
 
 def event_json(event: Event) -> dict:
@@ -132,18 +92,10 @@ def event_json(event: Event) -> dict:
 
 
 def game_json(player: Player) -> dict:
-    """The player's game state and, once it is over, only the outcome, goals and reasons."""
+    """The player's game state and, once it is over, only the outcome and reasons."""
     s = player.summary
-    summary = s and {"outcome": s.outcome, "goals": [[text, percent] for text, percent in s.goals], "reasons": s.reasons}
+    summary = s and {"outcome": s.outcome, "reasons": s.reasons}
     return {"state": player.state, "summary": summary}
-
-
-def goal_json(judge, goal: Goal, met: bool, villagers: int) -> dict:
-    """The goal's text, whole percent, believer counts and doubt, as the page shows it."""
-    believers, needed = goal_counts(goal, judge.counts, villagers) or (None, None)
-    return {"id": goal.id, "text": goal.text, "percent": int(judge.progress.get(goal.id, 0.0) * 100), "met": met,
-            "believers": believers, "needed": needed, "doubt": judge.doubt.get(goal.id), "standing": judge.standing(goal),
-            **goal_targets(goal)}
 
 
 def offer(clients: dict[asyncio.Queue, str], queue: asyncio.Queue, message: dict) -> None:
@@ -181,14 +133,14 @@ async def _payload(request: Request, bad: str, too_long: str) -> dict | JSONResp
 
 
 def create_app(
-    *, players: Players, join: Callable[[str], Player], town: Town, feed: Feed, judge, usage: Usage, port: int,
+    *, players: Players, join: Callable[[str], Player], town: Town, feed: Feed, usage: Usage, port: int,
     suspicion: Suspicion, game: Game, rumors: Rumors, hints: Hints, host: str = "127.0.0.1", cases: Cases | None = None,
 ) -> FastAPI:
     clients: dict[asyncio.Queue, str] = {}
     boot = uuid.uuid4().hex
     notes: dict[str, Notes] = {}
     # What each player's tabs were last sent, by kind.
-    sent: dict[str, dict[str, object]] = {"rumors": {}, "usage": {}, "beliefs": {}}
+    sent: dict[str, dict[str, object]] = {"rumors": {}, "usage": {}}
 
     def notes_of(player: Player) -> Notes:
         if player.id not in notes:
@@ -240,8 +192,7 @@ def create_app(
         watchers = [
             asyncio.create_task(watch("villagers", lambda: villagers(town), VILLAGER_POLL_SECONDS)),
             asyncio.create_task(watch_each("usage", usage.to_json, USAGE_POLL_SECONDS)),
-            asyncio.create_task(watch_each("rumors", partial(tallies, rumors, judge, players), VILLAGER_POLL_SECONDS)),
-            asyncio.create_task(watch_each("beliefs", partial(beliefs_of, judge, players), VILLAGER_POLL_SECONDS)),
+            asyncio.create_task(watch_each("rumors", partial(tallies, rumors), VILLAGER_POLL_SECONDS)),
             asyncio.create_task(watch_rest()),
         ]
         try:
@@ -294,18 +245,14 @@ def create_app(
             "place": player.place,
             "time": game.clock(),
             "talk_hold_seconds": player.config.talk_hold_seconds,
-            "goals": [goal_json(judge, g, g.id in player.met, len(town.villagers)) for g in player.goals],
-            "world_goal": goal_json(judge, judge.world, False, len(town.villagers)),
             "villagers": villagers(town),
             "events": [event_json(e) for e in feed.replay(player.id)],
-            "rumors": [card_view(c, player, judge, rumors) for c in rumors.cards(player.id)],
+            "rumors": rumors.cards(player.id),
             "notes": notes_of(player).all(),
             "usage": usage.to_json(player.id),
-            "beliefs": beliefs(judge, player),
             "heat": (label := suspicion.label(player.id)),
             "heat_line": HEAT_LINES[label],
             "game": game_json(player),
-            "trophies": [t.to_json() for t in players.cases.get(player.owner, [])],
             "resting": usage.resting(),
             "case": case_json(case) if cases and (case := cases.for_player(player.id)) else None,
         }
@@ -337,7 +284,6 @@ def create_app(
                 for o in town.villagers if v.household and o.household == v.household and o.id != v.id
             ],
             "influence": influence(v),
-            "believes": beliefs(judge, player).get(v.id, []),
             "note": notes_of(player).get(v.id),
         }
 
@@ -365,23 +311,6 @@ def create_app(
             return _error(409, RESTING)
         if problem := await (player.whisper_to(vid, text) if vid else player.whisper(name, text)):
             return _error(409 if isinstance(problem, Refusal) else 400, problem)
-        return {"ok": True}
-
-    @app.post("/api/goal/swap")
-    async def swap_goal(request: Request):
-        if (player := player_for(players, request.cookies.get(COOKIE))) is None:
-            return _error(401, RELOAD)
-        payload = await _payload(request, BAD_SWAP, "That request is too long.")
-        if isinstance(payload, JSONResponse):
-            return payload
-        goal_id = payload.get("goal_id")
-        if not isinstance(goal_id, str):
-            return _error(400, BAD_SWAP)
-        if usage.resting():
-            return _error(409, RESTING)
-        player.touch()
-        if problem := await judge.swap(player, goal_id):
-            return _error(409, problem)
         return {"ok": True}
 
     @app.post("/api/walk")
@@ -438,9 +367,8 @@ def create_app(
             await socket.close(1008)
             return
         queue: asyncio.Queue = asyncio.Queue(CLIENT_QUEUE)
-        sent["rumors"].setdefault(player.id, tallies(rumors, judge, players, player.id))
+        sent["rumors"].setdefault(player.id, tallies(rumors, player.id))
         sent["usage"].setdefault(player.id, usage.to_json(player.id))
-        sent["beliefs"].setdefault(player.id, beliefs(judge, player))
         clients[queue] = player.id
         player.connected()
 

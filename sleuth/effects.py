@@ -35,10 +35,6 @@ class Hub(Protocol):
 
     async def reply(self, utterance: Utterance) -> None: ...
 
-    def acted(
-        self, decision: Decision, vid: str, target: str | None, creed: str | None = None,
-    ) -> None: ...
-
     def cover_story(self, vid: str, action: str) -> str | None: ...
 
     def mark_cover(self, vid: str, uid: str) -> None: ...
@@ -119,8 +115,6 @@ async def act(
             audience = town.get(decision.target).name
             text = await writer.say(villager, decision, source_text, audience, names)
             await say(text, [decision.target], ONE, names_newcomer=names)
-            if action == CONFRONT:
-                hub.acted(decision, vid, decision.target)
     elif action == WARN:
         if decision.target in others() and about is not None:
             text = await writer.warn(villager, town.get(decision.target))
@@ -149,13 +143,11 @@ async def act(
     elif action == FOUND_GROUP:
         name, creed = await writer.describe_group(villager, list(inspiration))
         group = town.found_group(vid, name, creed)
-        hub.acted(decision, vid, group.id, creed)
         await hub.publish_group(group)
         await say(f"{villager.name} founded {name}: {creed}", others(), ROOM, "announced")
     elif action == JOIN_GROUP:
         group = next(g for g in town.visible_groups(vid) if g.id == decision.target)
         town.join(vid, group.id)
-        hub.acted(decision, vid, group.id)
         await say(f"{villager.name} joined {group.name}", others(), ROOM, "announced")
     elif action == LEAVE_GROUP:
         town.leave(vid, decision.target)

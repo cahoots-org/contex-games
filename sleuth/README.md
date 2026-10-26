@@ -31,10 +31,10 @@ Room talk that grows from a case's news or a witness's memory is posted to the a
 | `contex_publish` | every line a villager hears (one publish per listener), whispers, group records |
 | `contex_create_subscription` | one per need (each villager has 3 to 5) on the villager's mind project, at that need's threshold |
 | `max_age_seconds` | noticing: a subscription only carries talk from the last `memory_days`, for a villager to react to |
-| `since` | forgetting: the judge counts only lines heard since your last `memory_moves` moves, so idling never costs belief |
+| `since` | forgetting: a villager recalls only lines heard since your last `memory_moves` moves |
 | `subscriptions/listen` | one stream per villager over all their subscriptions; a push is what wakes them |
 | reading the subscription resource | the villager's memories each turn, and lease renewal for quiet villagers |
-| `contex_query` | the check right after a whisper of whether it matched the target's needs; calibrating needs; the judge reading minds and group records to score goals |
+| `contex_query` | the check right after a whisper of whether it matched the target's needs; calibrating needs |
 | semantic matching | a whisper wakes a villager only if it scores clearly above ordinary village talk for one of their needs, and a rumor still reaches people after it is retold in other words |
 | scale | 100 projects, about 400 subscriptions, and 100 listen streams at once |
 
@@ -155,8 +155,6 @@ In the terminal:
 whisper <name>: <text>    the same
 villagers                 everyone in town, with occupation and place
 inspect <name>            personality, any grudge, and relationships
-goals                     your goals, numbered, and how close each one is
-swap <n>                  swap unmet goal n for a new one
 usage                     tokens used so far and their estimated cost
 help                      these commands
 quit
@@ -174,27 +172,7 @@ you where to aim next. If the line can't be
 written, the whisper just says it was brushed off.
 
 The feed shows each hop of a rumor you started, who told whom and in what
-words, and a line when a goal's percent changes.
-
-## Goals
-
-Each goal is a template filled from the village. Code picks who it is about,
-favouring villagers someone holds a grudge against, and Jev fills the rest. A
-hand mixes the kinds at random:
-
-- Belief goals: convince one villager that someone did something, get a share
-  of a circle (a group, or a place's regulars) to believe it, or get a share of
-  the village to believe a claim.
-- Action goals: get a villager to do something because of your rumor, such as
-  confront someone, leave town, start a group against someone, or join a
-  group. "Drive 2 villagers out of town" counts anyone who leaves because of
-  you.
-
-The accusations and claims come from a pool Haiku writes once per village and
-saves beside the village file as `<village>.goals.json`. Belief goals are checked once a
-game day and are met after they hold at 100% for three checks in a row. An
-action goal is met the moment its action happens, if what moved the villager
-traces back to one of your sleuth.
+words.
 
 ## Suspicion
 
@@ -211,8 +189,8 @@ not what was said. A villager who suspects you strongly turns you away: your
 whisper doesn't reach them, and trying again makes them more suspicious.
 
 Suspicion fades a little each day. The village's mood is a mean of everyone's
-suspicion in which the mayor counts for more. You see it as one of four lines, under your
-goals on the browser page and after `goals` in the terminal:
+suspicion in which the mayor counts for more. You see it as one of four lines at the top of the
+browser page:
 
 | Label | What it says |
 |---|---|
@@ -223,15 +201,13 @@ goals on the browser page and after `goals` in the terminal:
 
 The village checks its mood four times a game day. If it is at the run-out
 level for three checks in a row, the town meets at town hall and runs you
-out of town, and you lose. The summary lists your goals with their percent and
-says what gave you away, such as "Marta Hale heard it from you directly." You
-win when every goal is met before that happens. Either way the game is over:
-whispers are refused, and you restart the program to play again.
+out of town, and you lose. The summary says what gave you away, such as "Marta
+Hale heard it from you directly." The game is over: whispers are refused, and
+you restart the program to play again.
 
 ## The browser page
 
-The page has the feed with your goals pinned above it, a whisper box, and the
-village in the sidebar.
+The page has the feed, a whisper box, and the village in the sidebar.
 
 The town is one tile per place (nine public places and three streets), each with how many villagers are there and
 their faces. One tile is open at a time and lists everyone there: face, name,
@@ -273,15 +249,14 @@ most of it was reworded, it underlines the words that survived instead. Hover
 or click a hop to light up its path back to your whisper; Escape clears it.
 When the village starts telling it as something else, the card says "The story
 turned to other things after this." and shows no more of that thread.
-Warnings, refusals, the mood line, and goal changes stay outside the cards.
+Warnings, refusals and the mood line stay outside the cards.
 
 Between the cards is village talk: lines you overhear where you are, which is
 where you last whispered ("You're at the bar" above the feed). You don't
 hear everything, only four kinds of line: heated ones (someone mocking,
 blaming, confronting, or denying), four in ten lively ones (someone telling
 it with relish, worry, or a lowered voice, or exaggerating or embellishing
-it), ones about one of your goals, and one in eight of the rest, picked at
-random.
+it), and one in eight of the rest, picked at random.
 Heated and lively lines are marked as such. A block of village talk shows
 the place, how many lines it holds, and the two newest; "Show all" opens the
 rest. Each line ends with "Talk", which puts the speaker's name in the
@@ -312,18 +287,12 @@ change, and the providers' bills are the real numbers.
 
 Where the tokens go:
 
-- Setup: Haiku writes each new village, the goal pool once beside it, and each newcomer who arrives after someone leaves.
-- Each hand after the first, and each swap: two Jev requests per belief goal
-  about a villager, one for the accusation and one for who it works on, and
-  one per action goal that names who must act.
+- Setup: Haiku writes each new village, and each newcomer who arrives after someone leaves.
 - Each time a villager wakes: one Jev request to decide what they do, plus a
   short Haiku call (at most 80 tokens out) when they speak, and a slightly
   longer one when they found a group.
 - Each shrug: one short Haiku call (at most 80 tokens out) for the brush-off,
   and a second one if the first repeated the villager's concern word for word.
-- The judge: one Jev request per villager whose memories match a belief goal,
-  once a game day. Verdicts are cached until the villager's matching memories
-  change.
 - An answer to you: the turn's Jev request plus one short Haiku line, at
   most `TALK_TURNS` per conversation.
 
@@ -357,7 +326,7 @@ The image listens on `0.0.0.0` and on the `PORT` Railway gives it.
 
 The village thinks only while someone is playing: a player counts while one of
 their tabs is open, and for `SLEUTH_IDLE_AFTER_SECONDS` (10 minutes) after
-their last whisper, walk, question, listen, keystroke, goal swap or closed tab.
+their last whisper, walk, question, listen, keystroke or closed tab.
 A visitor who loads the page but never opens its feed never wakes the village,
 and their run is dropped once it is that old, or sooner once more than
 `SLEUTH_MAX_IDLE_RUNS` such runs pile up. A single open tab keeps the village
@@ -365,7 +334,7 @@ awake, so expect it to spend up to the cap every UTC day.
 
 Once the day's estimated spend reaches `SLEUTH_DAILY_SPEND_CAP` the village
 rests until midnight UTC: villagers stop thinking, the page says so, and
-whispers, questions and goal swaps are refused. Walking and listening still
+whispers and questions are refused. Walking and listening still
 work. Calls already under way finish, so the day can go a little over the cap.
 
 The cap counts spend in the running process only. A restart starts the count
@@ -375,7 +344,7 @@ restarts a crashed game at most 3 times, which bounds a crash loop.
 
 To keep the village across restarts, mount a volume at `/data` and set
 `SLEUTH_DATA_DIR=/data` and a fixed `SLEUTH_SESSION` (such as `village`).
-The village, its goal pool and places, and the need baselines then live on the
+The village, its places, and the need baselines then live on the
 volume, and a start with the same session loads the saved village instead of
 writing a new one. The image's entrypoint runs as root only to give the `sleuth`
 user the volume, then drops to it. Set deployment overlap to 0, so two copies
@@ -384,13 +353,13 @@ never drive the same villagers, and draining to 30 seconds.
 With a fixed `SLEUTH_SESSION`, the game itself is saved to
 `sleuth_worlds/<session>.state.json` every `SLEUTH_SAVE_EVERY_SECONDS` and
 once on SIGTERM or Ctrl-C, and a start with the same session restores it: every
-run, goal, trophy, rumor card and the feed a reload replays. A save that is
+run, rumor card and the feed a reload replays. A save that is
 unreadable, for another version or session, fails to restore, or has lost its
 village file is renamed to `<name>.bad-<time>` and the game starts fresh.
 
 To count players, search the logs for `analytics`. The game prints one line when a run first opens its feed
 (`analytics visit`), one per whisper (`analytics whisper`), and one when a run ends (`analytics end`, with its
-outcome and goals met). Each carries the player's anonymous `owner` id, so distinct owners in `analytics whisper`
+outcome). Each carries the player's anonymous `owner` id, so distinct owners in `analytics whisper`
 lines are the people who played.
 
 ## Settings
@@ -420,8 +389,7 @@ Every field of `Config` can be set with an environment variable.
 | `SLEUTH_TALK_TURNS` | `3` | most times a villager answers you in one conversation |
 | `SLEUTH_COOLDOWN_SECONDS` | `30` | least time between a villager's turns |
 | `SLEUTH_CHECK_LOOKBACK_SECONDS` | `5` | how far before a whisper the check that it landed looks, to absorb clock skew with Contex |
-| `SLEUTH_JUDGE_EVERY_DAYS` | `1` | days between goal checks |
-| `SLEUTH_JUDGE_CONCURRENCY` | `10` | goal-check calls in flight |
+| `SLEUTH_JUDGE_CONCURRENCY` | `10` | routine-planning calls in flight |
 | `SLEUTH_TURN_CONCURRENCY` | `20` | villager turns in flight |
 | `SLEUTH_RENEW_SECONDS` | `1200` | read quiet villagers' subscriptions this often so they don't expire |
 | `SLEUTH_HAIKU_MODEL` | `claude-haiku-5-5` | model for speech and village generation |
@@ -435,7 +403,6 @@ Every field of `Config` can be set with an environment variable.
 | `SLEUTH_SUSPICION_HEAR_MAX` | `0.25` | most suspicion one rumor about the newcomer can add |
 | `SLEUTH_SUSPICION_DECAY_PER_DAY` | `0.05` | suspicion each villager loses per game day |
 | `SLEUTH_WARN_THRESHOLD` | `0.3` | suspicion at which a villager may warn others |
-| `SLEUTH_BELIEF_CUTOFF` | `0.4` | Jev's odds that a villager believes a claim at which they count as a believer |
 | `SLEUTH_REFUSE_THRESHOLD` | `0.7` | suspicion at which a villager turns you away |
 | `SLEUTH_RUN_OUT_LEVEL` | `0.08` | village mood at which the run-out checks start counting |
 | `SLEUTH_RUN_OUT_CHECKS` | `3` | checks in a row at that level before you are run out |

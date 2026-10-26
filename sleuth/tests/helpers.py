@@ -1,20 +1,16 @@
 """Test doubles and helpers shared by the Sleuth tests."""
 
 import asyncio
-import random
 from types import SimpleNamespace
 
 from sleuth.config import Config
 from sleuth.contex_client import Match
 from sleuth.facts import Facts
 from sleuth.feed import Feed
-from sleuth.goal_maker import GoalMaker
 from sleuth.hints import Hints
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Villager
-from sleuth.overhear import Overhear
 from sleuth.player import Player
-from sleuth.pool import DEFAULT_ACCUSATIONS, DEFAULT_CLAIMS, Entry, Pool
 from sleuth.rapport import Rapport
 from sleuth.suspicion import Suspicion
 from sleuth.town import Town
@@ -172,7 +168,7 @@ class FakeEngine:
 def stub_player(pid=PID, place="cafe", listening=False):
     """A player standing at place whose game is not over."""
     return SimpleNamespace(
-        id=pid, owner=pid, place=place, goals=[], over=lambda: False, active=lambda: True, listening=lambda: listening,
+        id=pid, owner=pid, place=place, over=lambda: False, active=lambda: True, listening=lambda: listening,
         holds=lambda vid: False, annoyed=lambda vid: False,
     )
 
@@ -206,32 +202,3 @@ class StubClient:
         self.messages = StubMessages(texts)
 
 
-def default_pool(band=2):
-    """The built-in pool with every entry at one band."""
-    return Pool(tuple(Entry(t, band) for t in DEFAULT_ACCUSATIONS), tuple(Entry(t, band) for t in DEFAULT_CLAIMS))
-
-
-class StubRoutine:
-    """Each villager's work and leisure place, and the square in the afternoon, as Routine.place gives them."""
-
-    def __init__(self, work=None, leisure=None):
-        self.work = work or {}
-        self.leisure = leisure or {}
-
-    def place(self, vid, phase):
-        if vid not in self.work:
-            return None
-        if phase == "afternoon":
-            return "cafe"
-        return self.leisure.get(vid, self.work[vid]) if phase == "evening" else self.work[vid]
-
-
-def goal_maker(town, pool=None, routine=None, jev=None, rng=None, ids=None, baselines=None):
-    """A goal maker for tests: the default pool, no Jev, and a stub Contex behind its overhear."""
-    config = Config(session="s1")
-    baselines = baselines or StubBaselines(0.5)
-    overhear = Overhear(StubContex(), baselines, config, Always(0.99))
-    return GoalMaker(
-        jev, pool or default_pool(), town, routine or StubRoutine(), overhear, baselines, config,
-        rng or random.Random(1), ids or Ids(),
-    )

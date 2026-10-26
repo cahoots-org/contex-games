@@ -6,7 +6,6 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass
 
 from sleuth.game import Summary
-from sleuth.goals import Goal, Trophy, claim, goal_targets
 from sleuth.lineage import Lineage
 from sleuth.models import Utterance
 from sleuth.scenes import Scene
@@ -138,71 +137,12 @@ class Feed:
 
         return seen
 
-    def on_progress(
-        self, goal: Goal, fraction: float, counts: tuple[int, int] | None = None, player: str | None = None,
-        rumor: str | None = None, doubt: dict | None = None, standing: str | None = None,
-    ) -> None:
-        """Progress on a player's goal, or on the world goal when player is None; standing words an action goal's.
-
-        rumor, the player's whisper that moved it, goes out only to that player; doubt is how many heard the claim
-        but don't believe it, and what the closest of them is saying.
-        """
-        percent = int(fraction * 100)
-        believers, needed = counts or (None, None)
-        shown = standing or (f"{believers} of {needed} believe it" if counts else f"{percent}%")
-        self.emit("goal", f'Goal "{goal.text}": {shown}', player=player, goal_id=goal.id, text=goal.text, percent=percent,
-                  met=False, believers=believers, needed=needed, world=player is None, doubt=doubt, standing=standing,
-                  **({} if player is None else {"rumor": rumor}))
-
-    def on_met(self, goal: Goal, player: str | None = None) -> None:
-        """A player's goal met, or the world goal when player is None."""
-        line = f"The whole village now holds that {claim(goal)}." if player is None else f'Goal met: "{goal.text}"'
-        self.emit("goal", line, player=player, goal_id=goal.id, text=goal.text, percent=100, met=True,
-                  world=player is None, line=line)
-
-    def on_deal(self, goals: list[Goal], player: str, counts: dict[str, tuple[int, int]] | None = None) -> None:
-        """A new hand of goals for the player, each belief goal with its believers and how many it needs."""
-        hand = []
-        for g in goals:
-            believers, needed = (counts or {}).get(g.id, (None, None))
-            hand.append({"id": g.id, "text": g.text, "believers": believers, "needed": needed, **goal_targets(g)})
-        self.emit("deal", "\n".join(f"Goal: {g.text}" for g in goals), player=player, goals=hand)
-
-    def on_goal_void(
-        self, old: Goal, new: Goal, reason: str, player: str, counts: tuple[int, int] | None = None,
-    ) -> None:
-        """A goal that can no longer be met, swapped for a new one, told to its player alone."""
-        believers, needed = counts or (None, None)
-        text = f'"{old.text}" is off: {reason}. New goal: "{new.text}"'
-        self.emit("goal_void", text, player=player, goal_id=old.id, text=text,
-                  new={"id": new.id, "text": new.text, "believers": believers, "needed": needed, **goal_targets(new)})
-
-    def on_goal_swapped(self, old: Goal, new: Goal, player: str, counts: tuple[int, int] | None = None) -> None:
-        """A goal the player swapped for a new one, told to that player alone."""
-        believers, needed = counts or (None, None)
-        text = f'New goal: "{new.text}"'
-        self.emit("goal_swapped", text, player=player, goal_id=old.id, text=text,
-                  new={"id": new.id, "text": new.text, "believers": believers, "needed": needed, **goal_targets(new)})
-
-    def on_world(self, goal: Goal, counts: tuple[int, int] | None = None) -> None:
-        """A new world goal, for everyone, with its believers and how many it needs."""
-        believers, needed = counts or (None, None)
-        self.emit("world_goal", f'World goal: "{goal.text}"', goal_id=goal.id, text=goal.text, believers=believers,
-                  needed=needed)
-
-    def on_trophy(self, trophy: Trophy, line: str, player: str) -> None:
-        """A trophy won by the player."""
-        self.emit("trophy", line, player=player, trophy=trophy.to_json(), text=line)
-
     def on_heat(self, label: str, player: str | None = None) -> None:
         self.emit("heat", HEAT_LINES[label], player=player, label=label)
 
     def on_game_over(self, summary: Summary, player: str | None = None) -> None:
-        lines = [GAME_OVER[summary.outcome], *(f"{text}: {percent}%" for text, percent in summary.goals), *summary.reasons]
-        self.emit(
-            "gameover", "\n".join(lines), player=player, outcome=summary.outcome,
-            goals=[[text, percent] for text, percent in summary.goals], reasons=list(summary.reasons),
-        )
+        lines = [GAME_OVER[summary.outcome], *summary.reasons]
+        self.emit("gameover", "\n".join(lines), player=player, outcome=summary.outcome, reasons=list(summary.reasons))
 
     def on_whisper_status(self, whisper_id: str, villager_id: str, name: str, state: str, **extra) -> None:
         """Report where a whisper stands: checking, busy (with until), heard, brushed_off or near_miss (then with hint),

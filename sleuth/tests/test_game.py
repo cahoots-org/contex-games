@@ -2,30 +2,26 @@ import json
 import asyncio
 import logging
 import time
-from types import SimpleNamespace
 
 import pytest
 
 from sleuth import engine as engine_mod
 from sleuth import game as game_mod
-from sleuth.actions import CONFRONT, FOUND_GROUP, IGNORE, MOVE
+from sleuth.actions import IGNORE, MOVE
 from sleuth.config import Config
 from sleuth.contex_client import Match
 from sleuth.decide import Decision
 from sleuth.engine import Engine
 from sleuth.feed import Feed
 from sleuth.game import MEMORY_PLAYERS, Game, Summary
-from sleuth.goals import Goal
-from sleuth.judge import Judge
 from sleuth.lineage import Ids, Lineage
 from sleuth.player import Player
 from sleuth.players import Players
-from sleuth.tests.helpers import PID, FakeMind, StubClient, goal_maker, make, make_player, wait_for
+from sleuth.tests.helpers import PID, FakeMind, StubClient, make, make_player, wait_for
 from sleuth.town import PLACES, Town
 from sleuth.usage import Usage
 from sleuth.writer import Writer
 
-GOALS = [("cat is a spy", 40)]
 MEETING = "The town meets at town hall and runs the newcomer out of town."
 
 
@@ -37,7 +33,7 @@ async def start(*vids, **cfg):
     config = Config(**{**settings, **cfg})
     engine = Engine(
         config, town, None, None, None, lineage, Ids(), feed,
-        mind_factory=FakeMind, game=game, summary_source=lambda p: GOALS,
+        mind_factory=FakeMind, game=game,
     )
     player = Player(engine, town, lineage, Ids(), feed, config, player_id=PID)
     engine.players.add(player)
@@ -131,7 +127,7 @@ async def test_label_event_only_when_it_changes():
 
 
 @pytest.mark.asyncio
-async def test_loss_summary_names_what_gave_you_away_and_includes_goal_progress():
+async def test_loss_summary_names_what_gave_you_away():
     engine, player, feed, lines = await start("v1", "v2", "v3")
     s = engine.suspicion
     s.bump("v1", PID, 0.9, "whispered to them directly")
@@ -142,12 +138,12 @@ async def test_loss_summary_names_what_gave_you_away_and_includes_goal_progress(
     await engine.run()
     await asyncio.wait_for(player.finished.wait(), 2)
     assert player.summary == Summary(
-        "lost", GOALS, ["V1 heard it from you directly.", "V2 was warned about you.", "V3 caught you whispering to them again."],
+        "lost", ["V1 heard it from you directly.", "V2 was warned about you.", "V3 caught you whispering to them again."],
     )
     [over] = kinds(feed, "gameover")
-    assert over.data == {"outcome": "lost", "goals": [["cat is a spy", 40]], "reasons": player.summary.reasons}
+    assert over.data == {"outcome": "lost", "reasons": player.summary.reasons}
     assert not any(n in text for n in ("0.9", "0.6") for text in (str(over.data), over.line))
-    assert lines[-1].splitlines()[1:] == ["cat is a spy: 40%", *player.summary.reasons]
+    assert lines[-1].splitlines()[1:] == player.summary.reasons
     await engine.stop()
 
 
@@ -158,26 +154,6 @@ async def test_unknown_reason_reads_as_growing_suspicion():
     await engine.run()
     await asyncio.wait_for(player.finished.wait(), 2)
     assert player.summary.reasons == ["V1 grew suspicious of you."]
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_a_failed_check_is_logged_and_the_next_one_can_end_the_game(caplog):
-    engine, player, _, _ = await start("v1")
-    calls = []
-
-    def flaky(p):
-        calls.append(1)
-        if len(calls) == 1:
-            raise RuntimeError("judge down")
-        return GOALS
-
-    engine.summary_source = flaky
-    engine.suspicion.bump("v1", PID, 0.9, "whispered to them directly")
-    await engine.run()
-    await asyncio.wait_for(player.finished.wait(), 2)
-    assert (player.state, player.summary.goals, len(calls)) == ("lost", GOALS, 2)
-    assert "town check failed" in caplog.text and "judge down" in caplog.text
     await engine.stop()
 
 
@@ -196,9 +172,9 @@ async def test_empty_town_does_not_lose_by_division():
 
 def test_a_players_game_ends_once():
     player, *_ = make_player("Marta")
-    lost = Summary("lost", GOALS, ["V1 heard it from you directly."])
+    lost = Summary("lost", ["V1 heard it from you directly."])
     player.end(lost)
-    player.end(Summary("won", GOALS, []))
+    player.end(Summary("won", []))
     assert (player.state, player.summary, player.over()) == ("lost", lost, True)
     assert [e.data["outcome"] for e in player.feed.replay(PID) if e.kind == "gameover"] == ["lost"]
 
@@ -209,7 +185,7 @@ def test_nothing_reaches_a_player_after_their_game_is_over():
     lineage.record("w-2", None, player="p-b")
     feed = Feed(lineage, Town(), out=None)
     feed.sinks.append(feed.view("p-a", seen_a.append))
-    feed.on_game_over(Summary("lost", GOALS, []), player="p-a")
+    feed.on_game_over(Summary("lost", []), player="p-a")
     feed.close("p-a")
     assert feed.say("late", player="p-a") is None
     feed.on_whisper_status("w-1", "v1", "Bert", "kept")
@@ -222,7 +198,7 @@ def test_nothing_reaches_a_player_after_their_game_is_over():
 @pytest.mark.asyncio
 async def test_whisper_after_game_over_is_refused():
     player, _, lines, engine, lineage = make_player("Marta")
-    player.end(Summary("lost", [], []))
+    player.end(Summary("lost", []))
     assert await player.whisper_to("v1", "hello") == "The game is over."
     assert await player.whisper("Marta", "hello") == "The game is over."
     await asyncio.sleep(0.05)
@@ -231,33 +207,6 @@ async def test_whisper_after_game_over_is_refused():
     assert engine.suspicion.score("v1", PID) == 0.0
     assert player._tasks == set()
     assert len(lines) == 1
-
-
-GOAL = Goal("g", "cat is a spy", "belief", ("cat spy",), "Does it believe?", 0.5, hold_checks=2)
-
-
-@pytest.mark.asyncio
-async def test_judge_skips_the_goals_of_a_player_whose_game_is_over():
-    player, *_ = make_player()
-    town = Town()
-    judge = Judge(None, None, town, Config(day_seconds=0.01), player.feed, Game(), maker=goal_maker(town))
-    player.goals = [GOAL]
-    player.end(Summary("lost", [], []))
-    everyone = Players(player.feed)
-    everyone.add(player)
-    everyone.add(SimpleNamespace(id="p-2", owner="o-2", goals=[], met=set(), whispered_at=None, over=lambda: False, active=lambda: True))
-    checked = []
-
-    async def check(goal):
-        checked.append(goal.id)
-        return 0.0
-
-    judge.check = check
-    running = asyncio.create_task(judge.run(everyone))
-    await wait_for(lambda: len(checked) >= 2)
-    running.cancel()
-    await asyncio.gather(running, return_exceptions=True)
-    assert set(checked) == {judge.world.id}
 
 
 def test_memory_starts_at_the_oldest_remembered_move():
@@ -452,7 +401,7 @@ async def test_run_out_ends_only_that_players_game():
 async def test_villagers_keep_their_places_while_nobody_is_playing():
     engine, player, _, _ = await start("v1")
     engine.routine = StubRoutine({"v1": "gym"})
-    player.end(Summary("lost", GOALS, []))
+    player.end(Summary("lost", []))
     await engine._walk("morning", 0.0)
     assert engine.town.place_of("v1") == "cafe"
     await engine.stop()
@@ -571,132 +520,10 @@ async def test_an_annoyed_villager_who_stays_does_not_storm_off(monkeypatch):
     await engine.stop()
 
 
-async def traced_engine():
-    """An engine with v1 the subject and v2, v3 the marks of PID's goal, and rumors of PID's at 1 to 4 hops."""
-    engine, player, feed, lines = await start("v1", "v2", "v3", suspicion_decay_per_day=1.0)
-    for n in range(1, 5):
-        parent = None
-        for hop in range(n):
-            uid = f"w{n}" if hop == 0 else f"w{n}-{hop}"
-            engine.lineage.record(uid, parent, player=PID if hop == 0 else None)
-            parent = uid
-    spoken = []
-
-    async def deny(villager, claim):
-        spoken.append((villager.id, claim))
-        return "Never happened."
-
-    engine.writer = SimpleNamespace(deny=deny)
-    goal = Goal(
-        "gen-1", "t", "belief", ("hob steals",), "?", 0.0, audience=("v2", "v3"), subject="v1", owner=PID,
-        claim_text="Hob steals geese",
-    )
-    return engine, goal, feed, spoken
-
-
-@pytest.mark.asyncio
-async def test_subject_hearing_owner_rumor_bumps_by_hops():
-    engine, goal, _, _ = await traced_engine()
-    bump = engine.config.suspicion_whisper_bump
-    for uid, share in (("w1", 1), ("w2-1", 1 / 2), ("w3-2", 1 / 4), ("w4-3", 0)):
-        engine.suspicion.decay(100)
-        engine.traced(goal, "v1", uid)
-        assert engine.suspicion.score("v1", PID) == pytest.approx(bump * share)
-    engine.suspicion.decay(100)
-    engine.traced(goal, "v1", "w1")
-    engine.traced(goal, "v1", "w2")
-    assert engine.suspicion.reasons(PID)[0] == "V1 traced a rumor back to you."
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_trace_bump_once_per_root():
-    engine, goal, _, _ = await traced_engine()
-    engine.traced(goal, "v1", "w3-1")
-    engine.traced(goal, "v1", "w3-1")
-    engine.traced(goal, "v1", "w3-2")
-    assert engine.suspicion.score("v1", PID) == pytest.approx(engine.config.suspicion_whisper_bump / 2)
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_a_closer_memory_of_a_traced_root_tops_up_the_bump():
-    engine, goal, _, _ = await traced_engine()
-    bump = engine.config.suspicion_whisper_bump
-    engine.traced(goal, "v1", "w4-3")
-    assert engine.suspicion.score("v1", PID) == 0
-    engine.traced(goal, "v1", "w4")
-    assert engine.suspicion.score("v1", PID) == pytest.approx(bump)
-    engine.traced(goal, "v1", "w3-2")
-    engine.traced(goal, "v1", "w3")
-    assert engine.suspicion.score("v1", PID) == pytest.approx(bump * 2)
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_a_second_crossing_for_the_same_goal_denies_nothing_more():
-    engine, goal, _, spoken = await traced_engine()
-    engine.suspicion.bump("v1", PID, engine.config.warn_threshold - 0.01, "x")
-    engine.traced(goal, "v1", "w1")
-    await wait_for(lambda: spoken)
-    engine.suspicion.decay(100)
-    engine.suspicion.bump("v1", PID, engine.config.warn_threshold - 0.01, "x")
-    engine.traced(goal, "v1", "w2")
-    await asyncio.sleep(0.05)
-    assert len(spoken) == 1
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_crossing_warn_threshold_denies_to_marks_once():
-    engine, goal, feed, spoken = await traced_engine()
-    engine.suspicion.bump("v1", PID, engine.config.warn_threshold - 0.01, "x")
-    engine.traced(goal, "v1", "w1")
-    await wait_for(lambda: engine.minds["v2"].heard)
-    key, data = engine.minds["v2"].heard[0]
-    assert data["text"] == "V1 said: Never happened." and spoken == [("v1", "Hob steals geese")]
-    assert engine.minds["v3"].heard and not engine.minds["v1"].heard
-    await wait_for(lambda: kinds(feed, "denied"))
-    assert [e.data["line"] for e in kinds(feed, "denied")] == ["Never happened."]
-    engine.traced(goal, "v1", "w2")
-    await asyncio.sleep(0.05)
-    assert len(spoken) == 1 and len(engine.minds["v2"].heard) == 1
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_a_failed_denial_is_logged(caplog):
-    engine, goal, feed, _ = await traced_engine()
-
-    async def boom(villager, claim):
-        raise RuntimeError("down")
-
-    engine.writer = SimpleNamespace(deny=boom)
-    engine.suspicion.bump("v1", PID, engine.config.warn_threshold - 0.01, "x")
-    with caplog.at_level(logging.ERROR):
-        engine.traced(goal, "v1", "w1")
-        await wait_for(lambda: "denial" in caplog.text)
-    assert not kinds(feed, "denied")
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_engine_reports_actions_to_judge():
-    engine, _, _, _ = await start("v1", "v2")
-    engine.lineage.record("u-0", None, PID)
-    reported = []
-    engine.judge = SimpleNamespace(record_action=lambda *a: reported.append(a))
-    rooted, stray = Match("k", {"id": "u-0"}), Match("k2", {"id": "u-9"})
-    engine.acted(Decision(FOUND_GROUP, rooted, None, None), "v1", "g-1", "Hob cheats")
-    engine.acted(Decision(CONFRONT, stray, "v2", None), "v1", "v2")
-    assert reported == [("v1", FOUND_GROUP, "g-1", PID, "Hob cheats"), ("v1", CONFRONT, "v2", None, None)]
-    await engine.stop()
-
-
 @pytest.mark.asyncio
 async def test_no_routine_walks_while_the_only_run_is_away():
     engine, player, feed, _ = await start("v1", "v2")
-    engine.players = Players(feed)
+    engine.players = Players()
     engine.players.add(Player(engine, engine.town, engine.lineage, Ids(), feed, engine.config, player_id="p-away"))
     engine.routine = StubRoutine({"v1": "gym", "v2": "bar"})
     await engine._walk("morning", 0.0)

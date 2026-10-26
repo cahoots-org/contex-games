@@ -817,11 +817,6 @@ async def test_kept_after_an_off_topic_relay_upgrades_on_a_later_on_topic_relay(
     await engine.stop()
 
 
-class RaisingBaselines:
-    def matches(self, need, similarity):
-        raise RuntimeError("no baseline")
-
-
 async def overhearing_engine(overhear, *players):
     lineage, town = Lineage(), Town()
     feed = Feed(lineage, town, out=lambda line: None)
@@ -856,33 +851,17 @@ async def test_a_listening_player_hears_every_line_at_their_place(turns):
 async def test_a_rumor_hop_is_village_talk_to_another_player(turns):
     hops = []
 
-    async def keep(utterance, place, hop, goals=(), listening=False):
-        hops.append((hop, goals))
+    async def keep(utterance, place, hop, listening=False):
+        hops.append(hop)
         return None
 
     overhear = Overhear(StubContex(), StubBaselines(0.5), Config(), random.Random(1))
     overhear.keep = keep
-    pa = stub_player("p-a", "bar")
-    pa.goals = [SimpleNamespace(id="well-cursed")]
-    engine, _ = await overhearing_engine(overhear, pa, stub_player("p-b", "bar"))
+    engine, _ = await overhearing_engine(overhear, stub_player("p-a", "bar"), stub_player("p-b", "bar"))
     engine.lineage.record("w-1", None, player="p-a")
     engine.lineage.record("u-1", "w-1")
     await engine.deliver(Utterance("u-1", "v2", "V2", "bar", "psst again", "w-1", action=SPEAK), ["v1"])
-    assert sorted(hops) == [(False, []), (True, ["well-cursed"])]
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_a_failing_goal_check_still_lets_the_line_be_overheard(turns):
-    contex = StubContex()
-    contex.default = [Match("goal:g", {}, 0.9)]
-    overhear = Overhear(contex, RaisingBaselines(), Config(overhear_rate=1.0), random.Random(1))
-    overhear._evidence = {"goal:g": "the well"}
-    player = stub_player(place="bar")
-    player.goals = [SimpleNamespace(id="g")]
-    engine, feed = await overhearing_engine(overhear, player)
-    await engine.deliver(Utterance("u-1", "v2", "V2", "bar", "the weather", None, action=SPEAK), ["v1"])
-    assert [(e.kind, e.data["reason"]) for e in feed.recent] == [("overheard", "random")]
+    assert sorted(hops) == [False, True]
     await engine.stop()
 
 
@@ -1553,7 +1532,7 @@ def scene_players(feed):
 @pytest.mark.asyncio
 async def test_a_village_talk_scene_shows_only_to_players_at_its_place(talkers):
     engine, _, feed = await talk(talkers, "v1", "v2")
-    engine.players = Players(feed)
+    engine.players = Players()
     engine.players.add(stub_player("p-a"))
     engine.players.add(stub_player("p-b", "library"))
     talkers.plan = {"v2": [(SPEAK, 1.0)]}
@@ -1568,7 +1547,7 @@ async def test_a_village_talk_scene_shows_only_to_players_at_its_place(talkers):
 async def test_a_scene_end_reaches_a_player_who_walked_away(talkers):
     engine, _, feed = await talk(talkers, "v1", "v2", scene_cooldown_seconds=5)
     engine._last_turn["v1"] = time.monotonic()
-    engine.players = Players(feed)
+    engine.players = Players()
     walker = stub_player("p-a")
     engine.players.add(walker)
     talkers.plan = {"v2": [(SPEAK, 1.0)]}
@@ -1864,7 +1843,7 @@ async def test_concurrent_turns_charge_each_their_own_player(monkeypatch):
 @pytest.mark.asyncio
 async def test_no_turn_while_nobody_is_playing_and_turns_resume_when_a_player_joins(turns):
     engine, minds, feed = await setup("v1")
-    engine.players = Players(feed)
+    engine.players = Players()
     push(minds["v1"])
     await asyncio.sleep(SETTLE)
     assert minds["v1"].polls == 0 and turns.views == []
@@ -2150,11 +2129,9 @@ def test_state_round_trips_as_json():
     engine = Engine(Config(), Town(), None, None, None, Lineage(), Ids(), RecordingFeed())
     engine._gossip = {"v1": 0.7}
     engine._kept = {"v1": {"w-2": None, "w-1": None}}
-    engine._traced = {("v2", PID, "w-1"): 0.5}
-    engine._denied = {"gen-1"}
     fresh = Engine(Config(), Town(), None, None, None, Lineage(), Ids(), RecordingFeed())
     fresh.restore(json.loads(json.dumps(engine.to_state())))
-    assert (fresh._gossip, fresh._traced, fresh._denied) == (engine._gossip, engine._traced, engine._denied)
+    assert fresh._gossip == engine._gossip
     assert {vid: list(kept) for vid, kept in fresh._kept.items()} == {"v1": ["w-2", "w-1"]}
 
 

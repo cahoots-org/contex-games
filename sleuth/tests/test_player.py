@@ -1,6 +1,5 @@
 import json
 import asyncio
-from types import SimpleNamespace
 
 import pytest
 
@@ -10,7 +9,6 @@ from datetime import datetime
 
 from sleuth.contex_client import Match
 from sleuth.game import Game, Summary
-from sleuth.goals import Goal, Trophy
 from sleuth.lineage import Ids
 from sleuth.models import Utterance, Villager
 from sleuth.actions import SPEAK, WARN
@@ -200,7 +198,7 @@ async def test_no_brush_off_is_written_once_the_game_is_over():
     writer = StubWriter("Wheel's groaning.")
     player, lines = make_hinting(writer)
     await player.whisper_to("v1", "the tide tables were misprinted")
-    player.end(Summary("lost", [], []))
+    player.end(Summary("lost", []))
     await asyncio.sleep(0.15)
     assert writer.concerns == []
 
@@ -830,13 +828,13 @@ async def test_a_plain_shrug_adds_no_hint():
 
 
 def test_someone_is_playing_only_while_a_connected_player_is_not_over():
-    players = Players(None)
+    players = Players()
     assert not players.any_playing()
     p = make("Ann")[0]
     players.add(p)
     p.connected()
     assert players.any_playing()
-    p.end(Summary("lost", [], []))
+    p.end(Summary("lost", []))
     assert not players.any_playing()
 
 
@@ -855,7 +853,7 @@ def run_of(player, pid):
 
 
 def test_a_run_that_only_loaded_the_page_never_plays(clock):
-    players = Players(None)
+    players = Players()
     p = make("Ann")[0]
     players.add(p)
     assert not players.any_playing() and players.at(p.place) == []
@@ -864,7 +862,7 @@ def test_a_run_that_only_loaded_the_page_never_plays(clock):
 
 
 def test_a_run_plays_while_connected_and_for_idle_after_seconds_after_it_disconnects(clock):
-    players = Players(None)
+    players = Players()
     p = make("Ann")[0]
     players.add(p)
     p.connected()
@@ -881,7 +879,7 @@ def test_a_run_plays_while_connected_and_for_idle_after_seconds_after_it_disconn
 
 @pytest.mark.parametrize("act", [lambda p: p.typing(), lambda p: p.walk("library"), lambda p: p.touch()])
 def test_a_run_plays_for_idle_after_seconds_after_an_action(clock, act):
-    players = Players(None)
+    players = Players()
     p = make("Ann")[0]
     players.add(p)
     act(p)
@@ -893,17 +891,16 @@ def test_a_run_plays_for_idle_after_seconds_after_an_action(clock, act):
 
 def test_a_new_run_prunes_only_stale_runs_that_never_played(clock):
     first = make("Ann")[0]
-    players = Players(None)
-    stale, played, owed = (run_of(first, pid) for pid in ("p-stale", "p-played", "p-owed"))
+    players = Players()
+    stale, played = (run_of(first, pid) for pid in ("p-stale", "p-played"))
     played.typing()
-    players.pending[owed.owner] = [(Trophy("personal", ("a",), 1), "You won.")]
-    for p in (stale, played, owed):
+    for p in (stale, played):
         players.add(p)
     clock[0] += first.config.idle_after_seconds
     recent = run_of(first, "p-recent")
     players.add(recent)
     assert players.prune() == [stale]
-    assert [p.id for p in players] == ["p-played", "p-owed", "p-recent"]
+    assert [p.id for p in players] == ["p-played", "p-recent"]
     assert players.live(stale.owner) is None and players.get("p-stale") is None
 
 
@@ -923,7 +920,7 @@ async def test_walk_refuses_an_unknown_place_the_same_place_and_a_finished_game(
     player, _, _, _, _ = make("Marta")
     assert "There's no moon here" in player.walk("moon")
     assert player.walk("cafe") == "You're already at the cafe."
-    player.end(Summary("lost", [], []))
+    player.end(Summary("lost", []))
     assert player.walk("gym") == GAME_OVER
 
 
@@ -983,7 +980,7 @@ async def test_a_listen_ending_after_game_over_sends_nothing():
     player, _, _, _, _ = make("Marta")
     player.config = Config(listen_seconds=0.05)
     player.listen()
-    player.end(Summary("lost", [], []))
+    player.end(Summary("lost", []))
     assert player.listen() == GAME_OVER
     await asyncio.sleep(0.1)
     assert not any(e.kind == "listen" and e.data["ended"] for e in player.feed.recent)
@@ -1076,7 +1073,7 @@ async def test_ask_checks_the_game_the_villager_and_the_topic():
     assert await player.ask("v9", "the mill") == "No one in town has that id."
     town.remove("v1")
     assert await player.ask("v1", "the mill") == "Marta has left town."
-    player.end(Summary("lost", [], []))
+    player.end(Summary("lost", []))
     assert await player.ask("v1", "the mill") == GAME_OVER
     assert engine.recalls == []
 
@@ -1353,74 +1350,6 @@ async def test_parting_drops_the_whole_exchange():
     assert player._exchange("v1") is None and not player.holds("v1")
 
 
-class NoulJev:
-    """Answers every Noul with one value and records the states asked about."""
-
-    def __init__(self, noul):
-        self.noul = noul
-        self.states = []
-
-    async def system_one(self, state, questions):
-        self.states.append(state)
-        return SimpleNamespace(nouls={k: SimpleNamespace(noul=self.noul) for k in questions})
-
-
-def hold_personal_goal(player, jev, audience=("v1",)):
-    player.engine.jev = jev
-    player.goals = [
-        Goal("g-1", "Marta believes Hob stole", "belief", audience=audience, subject="v2", owner=PID, claim_text="Hob stole")
-    ]
-
-
-def worked_on(player):
-    return [e for e in player.engine.suspicion.top_evidence(PID, 10) if e.reason == "worked on them"]
-
-
-@pytest.mark.asyncio
-async def test_blunt_whisper_to_mark_adds_suspicion():
-    player, _, _, _, _ = make("Marta", "Hob")
-    jev = NoulJev(0.9)
-    hold_personal_goal(player, jev)
-    await player.whisper("Marta", "Hob is a thief, don't trust him")
-    await wait_for(lambda: worked_on(player))
-    await asyncio.sleep(0.05)
-    assert len(worked_on(player)) == 1
-    assert jev.states[0]["about"] == "Hob"
-
-
-@pytest.mark.asyncio
-async def test_subtle_whisper_to_mark_adds_nothing():
-    player, _, _, _, _ = make("Marta", "Hob")
-    jev = NoulJev(0.2)
-    hold_personal_goal(player, jev)
-    await player.whisper("Marta", "Heard Hob was out late")
-    await wait_for(lambda: jev.states)
-    await asyncio.sleep(0.05)
-    assert worked_on(player) == []
-
-
-@pytest.mark.asyncio
-async def test_whisper_to_non_mark_asks_nothing():
-    player, _, _, _, _ = make("Marta", "Hob")
-    jev = NoulJev(0.9)
-    hold_personal_goal(player, jev, audience=("v2",))
-    await player.whisper("Marta", "Hob is a thief")
-    await asyncio.sleep(0.05)
-    assert jev.states == [] and worked_on(player) == []
-
-
-@pytest.mark.asyncio
-async def test_whisper_to_an_action_goals_actor_asks_nothing():
-    player, _, _, _, _ = make("Marta", "Hob")
-    jev = NoulJev(0.9)
-    player.engine.jev = jev
-    player.goals = [Goal("g-1", "Get Marta to confront Hob", "action", audience=("v1",), subject="v2", owner=PID,
-                         action="confront", actor="v1", target="v2")]
-    await player.whisper("Marta", "Hob is a thief, don't trust him")
-    await asyncio.sleep(0.05)
-    assert jev.states == [] and worked_on(player) == []
-
-
 @pytest.mark.asyncio
 async def test_losing_patience_parts_at_once_and_says_the_parting_line_after():
     player = hinted_player("Wheel's groaning.", "I've no time for this.")
@@ -1473,7 +1402,7 @@ async def test_a_retold_rumor_is_annoying_by_its_root_interest():
 def test_past_max_idle_runs_the_oldest_never_played_runs_go_whatever_their_age(clock):
     first = make("Ann")[0]
     first.config = replace(first.config, max_idle_runs=2)
-    players = Players(None)
+    players = Players()
     runs = []
     for pid in ("p-1", "p-2", "p-played", "p-3"):
         clock[0] += 1
@@ -1485,38 +1414,33 @@ def test_past_max_idle_runs_the_oldest_never_played_runs_go_whatever_their_age(c
 
 
 def durable(p):
-    return (p.id, p.owner, p.place, p.state, p.ended_at, p.created_at, p.summary, p.goals, p.met, p.whispered_at,
+    return (p.id, p.owner, p.place, p.state, p.ended_at, p.created_at, p.summary, p.whispered_at,
             p._threads, p._held, p._hinted, p._said_at, p._typed_at, p.over())
 
 
 def test_players_round_trip_as_json_with_no_sockets():
     player, town, _, engine, lineage = make("Bert")
-    goal = Goal("gen-1", "Bert is a spy", "belief", evidence=("bert spies",), audience=("v1",), owner=PID)
-    player.goals, player.met, player.place = [goal], {"gen-1"}, "bar"
+    player.place = "bar"
     player._threads["v1"] = {"id": "w-1", "need": "bread", "at": 5.0}
     player._held["v1"] = ("w-1", "w-1")
     player._hinted["v1"] = {1, 2}
     player._said_at["v1"], player._typed_at, player.whispered_at = 4.0, 6.0, 4.0
     player.connected()
     ended = Player(engine, town, lineage, Ids(), player.feed, player.config, player_id="p-2", owner="o-1")
-    ended.end(Summary("lost", [("Bert is a spy", 40)], ["ran out"]))
-    players = Players(player.feed)
+    ended.end(Summary("lost", ["ran out"]))
+    players = Players()
     players.add(player)
     players.add(ended)
-    trophy = Trophy("personal", ("Bert is a spy",), 2)
-    players.award("o-1", trophy, "well done")
-    players.cases[PID] = [Trophy("world", ("all hold it",), 3, long_shot=True)]
     assert players.any_playing()
 
     def wire(pid, owner):
         return Player(engine, town, lineage, Ids(), player.feed, player.config, player_id=pid, owner=owner)
 
-    fresh = Players(player.feed)
+    fresh = Players()
     fresh.restore(json.loads(json.dumps(players.to_state())), wire)
     assert [durable(p) for p in fresh] == [durable(p) for p in players]
-    assert fresh.get("p-2").finished.is_set() and fresh.get("p-2").summary.goals == [("Bert is a spy", 40)]
+    assert fresh.get("p-2").finished.is_set() and fresh.get("p-2").summary.reasons == ["ran out"]
     assert fresh.live("o-1") is fresh.get("p-2") and fresh.live(PID) is fresh.get(PID)
-    assert fresh.cases == players.cases and fresh.pending == {"o-1": [(trophy, "well done")]}
     assert fresh.get(PID).ever_active() and not fresh.get(PID).listening()
     assert not fresh.any_playing()
     fresh.get(PID).connected()
@@ -1530,9 +1454,9 @@ async def test_a_first_visit_each_whisper_and_the_end_are_logged_for_counting(ca
     player.disconnected()
     player.connected()
     assert await player.whisper("Marta", "the miller waters his flour") is None
-    player.end(Summary("lost", [], []))
+    player.end(Summary("lost", []))
     lines = [line for line in capsys.readouterr().out.splitlines() if line.startswith("analytics")]
     tag = f"owner={player.owner} run={player.id}"
     assert lines == [f"analytics visit {tag}", f"analytics whisper {tag}",
-                     f"analytics end {tag} outcome=lost met=0/{len(player.goals)}"]
+                     f"analytics end {tag} outcome=lost"]
     player.close()
