@@ -750,6 +750,7 @@ function addEvents(events, fresh) {
   if (learned) {
     learned = false;
     refreshVillagers();
+    updateCard();
   }
   if (!rover) setRover(roveItems()[0] || null);
   $("empty").hidden = feed.children.length > 0;
@@ -951,6 +952,7 @@ function setVillagers(list) {
   villagersKey = key;
   setCulprits();
   refreshVillagers();
+  updateCard();
   setAsk();
 }
 function flushVillagers() {
@@ -1010,6 +1012,7 @@ async function inspect(id, opener) {
     card.replaceChildren(...cardBody(body));
   }
   card.hidden = false;
+  updateCard();
   setAsk();
   const top = cardOpener ? cardOpener.top - 8 : 8;
   card.style.setProperty("--top", `${Math.max(8, Math.min(top, innerHeight - card.offsetHeight - 8))}px`);
@@ -1023,10 +1026,9 @@ function cardBody(body) {
   const rels = body.relationships.length
     ? body.relationships.flatMap((r, i) => [i ? ", " : "", el("button", { className: "rel", type: "button", textContent: r.name, onclick: () => inspect(r.id) }), ` (${r.kind})`])
     : ["none"];
-  const answers = noteOf(body.id);
   return [
     el("h3", { id: "card-title", tabIndex: -1, textContent: body.name }),
-    el("p", { className: "meta", textContent: `${body.occupation}, at the ${body.place}` }),
+    el("p", { className: "meta card-place", dataset: { occupation: body.occupation } }),
     el("dl", {},
       looks ? el("dt", { textContent: "Looks" }) : null,
       looks ? el("dd", { textContent: capital(looks) }) : null,
@@ -1038,13 +1040,25 @@ function cardBody(body) {
       body.grudge ? el("dt", { textContent: "Grudge" }) : null,
       body.grudge ? el("dd", { textContent: body.grudge }) : null,
       el("dt", { textContent: "Relationships" }), el("dd", {}, ...rels),
-      el("dt", { textContent: "What you know" }), el("dd", {},
-        answers.length ? null : el("span", { className: "known nothing", textContent: "Nothing yet." }),
-        ...answers.map((h) => el("span", { className: "brush", textContent: `“${h}”` })))),
+      el("dt", { textContent: "What you know" }), el("dd", { className: "card-known" })),
     el("div", { className: "ask-slot", dataset: { id: body.id, name: body.name, place: body.place } }),
     el("div", { className: "actions" },
       el("button", { className: "linkish", type: "button", textContent: "Close", onclick: closeCard })),
   ];
+}
+
+// The open card's place and what the player knows, kept current as residents move and answer.
+function updateCard() {
+  const slot = $("card").hidden ? null : $("card").querySelector(".ask-slot");
+  if (!slot) return;
+  const { id } = slot.dataset;
+  const place = villagers.find((v) => v.id === id)?.place || slot.dataset.place;
+  const meta = $("card").querySelector(".card-place");
+  meta.textContent = `${meta.dataset.occupation}, at the ${place}`;
+  const answers = noteOf(id);
+  $("card").querySelector(".card-known").replaceChildren(
+    ...(answers.length ? answers.map((h) => el("span", { className: "brush", textContent: `“${h}”` }))
+      : [el("span", { className: "known nothing", textContent: "Nothing yet." })]));
 }
 
 function closeCard() {
