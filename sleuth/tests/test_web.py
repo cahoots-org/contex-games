@@ -241,6 +241,7 @@ def test_the_tutorial_is_an_overlay_apart_from_the_game_and_the_page_starts_clea
     page = game.client.get("/").text
     coach = page[page.index('<section class="tut coach" id="coach"'):page.index("<script>")]
     assert 'id="coach-skip">Skip tutorial</button>' in coach and '"/api/skip"' in page
+    assert '<dialog class="tut tut-modal" id="intro"' in page and '<dialog class="tut tut-modal" id="handoff"' in page
     game_ui = page[page.index('<div class="app" id="app">'):page.index('<section class="tut coach"')]
     for gone in ('id="skip"', 'id="steps"', "Skip this case", "tut"):
         assert gone not in game_ui, gone

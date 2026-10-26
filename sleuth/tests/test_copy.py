@@ -57,7 +57,7 @@ def test_no_medieval_village_in_copy_or_prompts():
 
 
 META = re.compile(r"\b(practi[cs]e|tutorial|real town|you're in)\b", re.I)
-OVERLAY = ("replay", "coach-tag", "coach-skip")
+OVERLAY = ("replay", "coach-tag", "coach-skip", "intro-tag", "handoff-tag")
 
 
 def test_no_talk_of_a_tutorial_in_copy():
