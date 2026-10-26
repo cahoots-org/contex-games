@@ -19,7 +19,7 @@ from sleuth.game import Game
 from sleuth.interview import Route, exchanges, route
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
-from sleuth.town import PLACES, START_PLACE, Town, at, neighbours
+from sleuth.town import PLACES, START_PLACE, Town, at, neighbours, subject
 from sleuth.usage import charging
 from sleuth.traits import TRAITS
 from sleuth.writer import invents, strangers
@@ -140,7 +140,8 @@ class Player:
             self._starting = False
 
     def steps(self) -> list[dict] | None:
-        """The guided case's checklist, each step done or not with the person or action it needs; None off one."""
+        """The guided case's checklist, each step with why it matters, done or not, and the person or action it needs;
+        None off one."""
         file = self.engine.cases.private(self.id) if self.engine.cases else None
         if file is None:
             return None
@@ -148,17 +149,30 @@ class Player:
         mine = {r.kind for r in self.notebook.values() if r.case == crime.id}
         witness = next((r.holder for r in file.records.values() if r.kind == "memory"), None)
         scene = {"place": crime.place}
+        victim = self.town.get(crime.victim).name
         return [
-            {"text": f"Ask {self.town.get(crime.victim).name}, the victim, what happened",
+            {"text": f"Ask {victim}, the victim, what happened", "why": f"{victim} reported it. Ask what happened.",
              "done": crime.victim in self.threads, "person": crime.victim},
-            {"text": f"Ask {self.town.get(witness).name} what they saw", "done": "memory" in mine, "person": witness}
+            {"text": f"Ask {self.town.get(witness).name} what they saw", "why": self._witness_why(crime, witness),
+             "done": "memory" in mine, "person": witness}
             if witness else
-            {"text": f"Pull the records {at(crime.place)}", "done": bool(mine & {"clip", "log"}), "action": "pull",
-             **scene},
-            {"text": f"Search the scene {at(crime.place)}", "done": crime.id in self.searched, "action": "search",
-             **scene},
-            {"text": "Publish an episode naming who did it", "done": self.id in file.published, "action": "publish"},
+            {"text": f"Pull the records {at(crime.place)}", "why": f"{subject(crime.place)} keeps records. See what they caught.",
+             "done": bool(mine & {"clip", "log"}), "action": "pull", **scene},
+            {"text": f"Search the scene {at(crime.place)}",
+             "why": "The culprit may have left something behind. Search where it happened.",
+             "done": crime.id in self.searched, "action": "search", **scene},
+            {"text": "Publish an episode naming who did it", "why": "Name who the evidence points to, and cite what backs it.",
+             "done": self.id in file.published, "action": "publish"},
         ]
+
+    def _witness_why(self, crime: Crime, witness: str) -> str:
+        """Why to ask the witness: their routine puts them at the scene when it happened, if it does."""
+        name, routine = self.town.get(witness).name, self.engine.routine
+        if routine is None or routine.place(witness, crime.phase) != crime.place:
+            return f"{name} may have seen something {at(crime.place)}."
+        phase = "at night" if crime.phase == "night" else f"in the {crime.phase}"
+        return (f"{name} is usually {at(crime.place)} {phase}, when it happened. "
+                "People nearby may have seen something.")
 
     def _tick(self) -> None:
         """Send the guided case's checklist to the player, if they are on one."""

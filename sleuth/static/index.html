@@ -114,7 +114,7 @@ h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
 /* The first case's checklist, and the one control or person its current step needs. */
 .steps { list-style: none; margin: .9rem 0 0; padding: 0; counter-reset: step; }
 .steps li {
-  counter-increment: step; display: flex; align-items: center; gap: .65rem;
+  counter-increment: step; display: flex; align-items: flex-start; gap: .65rem;
   padding: .35rem .6rem; border-radius: 6px; color: var(--muted);
 }
 .steps li::before {
@@ -123,7 +123,9 @@ h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
 }
 .steps .now { color: var(--ink); font-weight: 700; background: color-mix(in srgb, var(--mark) 45%, transparent); }
 .steps .now::before { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.steps .done { text-decoration: line-through; }
+.steps .done .step-text { text-decoration: line-through; }
+.steps .why { display: block; font-size: .85rem; font-weight: 400; color: var(--muted); }
+.steps .done .why { display: none; }
 .steps .done::before { content: "✓"; border-color: var(--muted); }
 .lit { outline: 3px solid var(--sun); outline-offset: 2px; }
 .person.lit, .plain-button.lit { background: color-mix(in srgb, var(--mark) 35%, transparent); }
@@ -586,7 +588,8 @@ function setSteps(list) {
   const now = step();
   $("steps").hidden = !steps;
   $("steps").replaceChildren(...(steps || []).map((s) => el("li", {
-    className: s.done ? "done" : s === now ? "now" : "", ariaCurrent: s === now ? "step" : "false", textContent: s.text })));
+    className: s.done ? "done" : s === now ? "now" : "", ariaCurrent: s === now ? "step" : "false" },
+  el("span", {}, el("span", { className: "step-text", textContent: s.text }), el("small", { className: "why", textContent: s.why })))));
   drawPeople();
   drawWhere();
 }

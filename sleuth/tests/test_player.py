@@ -19,6 +19,7 @@ from sleuth.feed import Feed
 from sleuth.game import Game
 from sleuth.lineage import Lineage
 from sleuth.tests.helpers import PID, FakeEngine, StubJev, StubRoutine, StubWriter, wait_for
+from sleuth.tests.test_case import make_routine
 from sleuth.tests.test_cases import culprit_file, make_cases
 from sleuth.tests.helpers import make_player as make
 
@@ -818,10 +819,16 @@ async def test_checklist_ticks_each_step_from_what_the_player_did():
     memory_of(file, player.ids)
     await player.start()
     assert steps_sent(player)[-1] == [
-        {"text": "Ask Dana Reyes, the victim, what happened", "done": False, "person": "v1"},
-        {"text": "Ask Eli Reyes what they saw", "done": False, "person": "v2"},
-        {"text": "Search the scene on Elm Street", "done": False, "action": "search", "place": "elm street"},
-        {"text": "Publish an episode naming who did it", "done": False, "action": "publish"},
+        {"text": "Ask Dana Reyes, the victim, what happened", "why": "Dana Reyes reported it. Ask what happened.",
+         "done": False, "person": "v1"},
+        {"text": "Ask Eli Reyes what they saw",
+         "why": "Eli Reyes is usually on Elm Street at night, when it happened. People nearby may have seen something.",
+         "done": False, "person": "v2"},
+        {"text": "Search the scene on Elm Street",
+         "why": "The culprit may have left something behind. Search where it happened.", "done": False,
+         "action": "search", "place": "elm street"},
+        {"text": "Publish an episode naming who did it", "why": "Name who the evidence points to, and cite what backs it.",
+         "done": False, "action": "publish"},
     ]
     await ask(player, "v1", "none")
     assert done(steps_sent(player)[-1]) == [True, False, False, False]
@@ -839,10 +846,25 @@ async def test_checklist_without_a_witness_pulls_the_records_at_the_scene():
     player, file, engine = guided()
     place_record(file, "clip", "elm street", "r-11")
     await player.start()
-    assert steps_sent(player)[-1][1] == {"text": "Pull the records on Elm Street", "done": False, "action": "pull",
-                                         "place": "elm street"}
+    assert steps_sent(player)[-1][1] == {"text": "Pull the records on Elm Street",
+                                         "why": "Elm Street keeps records. See what they caught.", "done": False,
+                                         "action": "pull", "place": "elm street"}
     assert player.pull() is None
     assert done(steps_sent(player)[-1]) == [False, True, False, False]
+
+
+@pytest.mark.asyncio
+async def test_checklist_reason_for_a_witness_who_is_usually_elsewhere():
+    player, file, engine = guided()
+    engine.routine = make_routine(night={"v2": "gym"})
+    memory_of(file, player.ids)
+    await player.start()
+    assert steps_sent(player)[-1][1]["why"] == "Eli Reyes may have seen something on Elm Street."
+    file.crime.phase, file.crime.place = "evening", "grocery"
+    engine.routine = StubRoutine({"v2": {"evening": "grocery"}})
+    assert player.steps()[1]["why"] == ("Eli Reyes is usually at the grocery in the evening, when it happened. "
+                                        "People nearby may have seen something.")
+    assert player.steps()[2]["text"] == "Search the scene at the grocery"
 
 
 @pytest.mark.asyncio

@@ -19,6 +19,13 @@ def place_name(place: str) -> str:
 def at(place: str) -> str:
     """Where someone is, like "at the cafe" or "on Elm Street"."""
     return f"on {place_name(place)}" if place in STREETS else f"at the {place}"
+
+
+def subject(place: str) -> str:
+    """The place opening a sentence, like "The cafe" or "Elm Street"."""
+    return place_name(place) if place in STREETS else f"The {place}"
+
+
 NEWCOMER = "newcomer"
 
 
