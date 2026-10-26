@@ -45,7 +45,9 @@ podcaster is asking around, and they may start covering their tracks.
 **Pull records** at a place to copy the case's footage and logs there into your notebook.
 
 **Publish** an episode: choose a resident and tick between 1 and 5 notebook entries. It holds up when it names the
-culprit and every cited entry is true evidence from this case. One episode per podcaster per case.
+culprit, every cited entry is true evidence from this case, and at least one points at the culprit: a memory or clip
+whose traits all fit them, a log that puts them at the crime place, or a housemate's word that breaks their alibi.
+Otherwise the evidence doesn't back it. One episode per podcaster per case.
 
 - A right episode closes the case for everyone, and every resident thinks better of you (`reputation_right`). Any
   other podcaster with evidence from that case is told another podcaster cracked it first.

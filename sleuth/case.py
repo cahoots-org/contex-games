@@ -50,7 +50,7 @@ class Record:
     text: str
     holder: str = ""  # vid who saw or said it ("" for place records)
     traits: dict[str, str] = field(default_factory=dict)  # what was seen
-    who: str | None = None  # a log's named resident
+    who: str | None = None  # a log's named resident; whom a household word is about
     sound: bool = True  # traces to the truth
     utterance: str | None = None  # memory: its delivered utterance id; statement: source record id
 

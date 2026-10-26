@@ -265,8 +265,9 @@ class Player:
         crime, vid, name = file.crime, villager.id, villager.name
         records = [replace(r) for r in file.records.values() if r.kind == "memory" and r.holder == vid]
 
-        def statement(text: str, sound: bool, source: str | None = None) -> Record:
-            return Record("", crime.id, "statement", self.place, self._clock(), text, vid, sound=sound, utterance=source)
+        def statement(text: str, sound: bool, source: str | None = None, who: str | None = None) -> Record:
+            return Record("", crime.id, "statement", self.place, self._clock(), text, vid, who=who, sound=sound,
+                          utterance=source)
 
         places, sound = claim(file, vid, self.engine.routine)
         if places:
@@ -279,7 +280,7 @@ class Player:
                 log.exception("household word from %s failed", vid)
                 continue
             if word:
-                records.append(statement(f"{name}: {word[0]}", word[1]))
+                records.append(statement(f"{name}: {word[0]}", word[1], who=mate.id))
         talk = []
         for m in await self.engine.recall_heard(vid, crime.text):
             if (heard := self.engine.facts.get(m.data.get("id"))) is None:
@@ -360,7 +361,7 @@ class Player:
         everyone = [v.id for v in self.town.villagers]
         accused, victim = self.town.get(culprit_id), self.town.get(crime.victim)
         named = f"{accused.name} {TEMPLATES[crime.template][0]} {victim.name}'s {crime.item}"
-        held = holds(crime, culprit_id, [self.notebook[i] for i in record_ids])
+        held = holds(crime, culprit_id, accused.traits, [self.notebook[i] for i in record_ids])
         if held and crime.owner is None:
             for rival in self.engine.players:
                 if rival is not self and any(r.case == crime.id for r in rival.notebook.values()):
