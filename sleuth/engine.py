@@ -6,10 +6,9 @@ import random
 import time
 from collections.abc import Callable, Sequence
 from contextlib import aclosing, suppress
-from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
-from sleuth.actions import ANSWER, LEAVE_TOWN, MOVE, WARN
+from sleuth.actions import ANSWER, MOVE, WARN
 from sleuth.calibration import Baselines
 from sleuth.config import Config
 from sleuth.contex_client import ContexClient, Match
@@ -26,7 +25,6 @@ from sleuth.models import Group, Utterance, Villager
 from sleuth.overhear import Overhear
 from sleuth.player import Player
 from sleuth.players import Players
-from sleuth.pressure import Pressure
 from sleuth.rapport import Rapport, taken_words
 from sleuth.routine import Routine
 from sleuth.rumors import Rumors
@@ -48,8 +46,6 @@ KEPT_WHISPERS = 50
 # How many villagers set off together on their daily round, and how much of each part of the day the round spans.
 ROUTINE_BATCH = 5
 ROUTINE_SPREAD = 0.5
-# Slack under pressure_leave so pressure that adds up to the mark in floating point still counts as reaching it.
-LEAVE_TOLERANCE = 1e-9
 # How much of a whisper's suspicion a subject takes on, by hops from the whisper.
 TRACE_SCALE = {1: 1, 2: 0.5, 3: 0.25}
 MEETING = "The village meets in the square and runs the newcomer out of town."
@@ -87,7 +83,6 @@ class Engine:
         self.hints = Hints(contex, config)
         self.suspicion = Suspicion(config, town)
         self.rapport = Rapport(config)
-        self.pressure = Pressure(config)
         self.scenes = Scenes(config, town, random.Random())
         self.baselines = baselines
         self.rumors = rumors
@@ -100,7 +95,6 @@ class Engine:
         self.game = game
         self.summary_source = summary_source
         self.minds: dict[str, Mind] = {}
-        self.departures: asyncio.Queue[str] = asyncio.Queue()
         self._tasks: dict[str, list[asyncio.Task]] = {}
         self._read_at: dict[str, float] = {}
         self._wakes: dict[str, asyncio.Event] = {}
@@ -171,8 +165,7 @@ class Engine:
 
     async def remove_villager(self, vid: str) -> None:
         """Stop the villager's tasks; the subscription is left to expire."""
-        if self.minds.pop(vid, None) is not None:
-            self.departures.put_nowait(vid)
+        self.minds.pop(vid, None)
         self._read_at.pop(vid, None)
         self._wakes.pop(vid, None)
         self._pending.pop(vid, None)
@@ -184,7 +177,6 @@ class Engine:
         self._kept.pop(vid, None)
         self._latest.pop(vid, None)
         self._chose_move.discard(vid)
-        self.pressure.drop(vid)
         self._leave_scene(vid)
         self.end_conversation(vid)
         for wid, name in self.feed.listening(vid):
@@ -578,7 +570,6 @@ class Engine:
             ask_keen=self.scenes.of(v.id) is not None or any(self._exchange(m, v.id, place) for m in new),
             held=any(not p.annoyed(v.id) for p in holders),
             taken=self._taken(v.id, new),
-            breaking=self.pressure.words(v.id),
         )
         action = answered = None
         # The turn answers to the player behind the first of its new items that a player started, if any.
@@ -588,21 +579,15 @@ class Engine:
             async with self._turns:
                 with charging(payer):
                     decision = await decide(self.jev, view)
-                # An ignored turn has no source; its pressure comes from the latest thing heard.
-                pressed_by = decision.source or new[-1]
-                forced = self._press(v, pressed_by, decision)
-                if forced:
-                    decision = replace(decision, action=LEAVE_TOWN, source=pressed_by, target=None)
                 action = decision.action
                 if decision.suspicion_strength is not None:
                     self._rate(v.id, decision.suspicion_strength, view.names_newcomer)
                 if decision.gossip is not None:
                     self._gossip[v.id] = decision.gossip
-                if action in (MOVE, LEAVE_TOWN):
+                if action == MOVE:
                     for p in holders:
-                        annoyed = p.annoyed(v.id)
-                        if forced or annoyed:
-                            await self._storm_off(v, p, suspect=annoyed)
+                        if p.annoyed(v.id):
+                            await self._storm_off(v, p)
                 with charging(self._player_behind(decision.source) or payer):
                     scene, joined = await self._enter_scene(v, decision, place)
                     await act(
@@ -631,9 +616,9 @@ class Engine:
             )
         return True
 
-    async def _storm_off(self, v: Villager, player: Player, suspect: bool = True) -> None:
+    async def _storm_off(self, v: Villager, player: Player) -> None:
         """The villager breaks off with player: parting words to them alone, their exchange ended, and a little
-        suspicion when suspect."""
+        suspicion."""
         with charging(player.id):
             try:
                 line = await self.writer.storm_off(v) or None
@@ -642,29 +627,13 @@ class Engine:
                 line = None
         self.feed.on_storm_off(v.id, v.name, line, player=player.id)
         player.part(v.id)
-        if suspect:
-            self.suspicion.bump(v.id, player.id, self.config.suspicion_whisper_bump / 2, "stormed off")
+        self.suspicion.bump(v.id, player.id, self.config.suspicion_whisper_bump / 2, "stormed off")
 
-    def acted(
-        self, decision: Decision, vid: str, target: str | None, creed: str | None = None, farewell: str | None = None,
-    ) -> None:
-        """Tell the judge of the villager's action and the player behind it: for leaving town, the one who pressed
-        them most, else the one behind the line that broke them; otherwise the one whose rumor it is."""
+    def acted(self, decision: Decision, vid: str, target: str | None, creed: str | None = None) -> None:
+        """Tell the judge of the villager's action and the player behind it."""
         player = self._player_behind(decision.source)
-        if decision.action == LEAVE_TOWN:
-            player = self.pressure.culprit(vid) or player
-            log.info("%s left town, credited to %s", vid, player)
-            self.feed.on_departure(vid, self.town.name_of(vid) or vid, farewell)
         if self.judge is not None:
             self.judge.record_action(vid, decision.action, target, player, creed)
-
-    def _press(self, v: Villager, m: Match, decision: Decision) -> bool:
-        """Raise the villager's pressure by how much m stung and frightened them, crediting the player behind it;
-        returns whether it is enough to drive them out of town."""
-        line = self.facts.get(m.data.get("id"))
-        tie = self.config.pressure_tie_factor if line is not None and line.speaker in v.relationships else 1.0
-        amount = self.config.pressure_per_hearing * ((decision.sting or 0.0) * tie + (decision.fear or 0.0))
-        return self.pressure.add(v.id, amount, self._player_behind(m)) >= self.config.pressure_leave - LEAVE_TOLERANCE
 
     def _rumor_of(self, uid: str) -> str:
         """The key her interest is kept under for the player's whisper behind uid."""
@@ -892,7 +861,6 @@ class Engine:
         while True:
             await asyncio.sleep(phase_seconds)
             self.game.tick()
-            self.pressure.decay()
             self.feed.on_time(self.game.day, self.game.phase)
             self._chose_move.clear()
             self._end_stalled_scenes()

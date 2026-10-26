@@ -399,7 +399,6 @@ Every field of `Config` can be set with an environment variable.
 | `SLEUTH_TALK_TURNS` | `3` | most times a villager answers you in one conversation |
 | `SLEUTH_COOLDOWN_SECONDS` | `30` | least time between a villager's turns |
 | `SLEUTH_CHECK_LOOKBACK_SECONDS` | `5` | how far before a whisper the check that it landed looks, to absorb clock skew with Contex |
-| `SLEUTH_ARRIVAL_DELAY_SECONDS` | `60` | wait after a departure before newcomers arrive |
 | `SLEUTH_JUDGE_EVERY_DAYS` | `1` | days between goal checks |
 | `SLEUTH_JUDGE_CONCURRENCY` | `10` | goal-check calls in flight |
 | `SLEUTH_TURN_CONCURRENCY` | `20` | villager turns in flight |

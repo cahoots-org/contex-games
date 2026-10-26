@@ -8,7 +8,7 @@ import pytest
 
 from sleuth import engine as engine_mod
 from sleuth import game as game_mod
-from sleuth.actions import CONFRONT, FOUND_GROUP, IGNORE, LEAVE_TOWN, MOVE
+from sleuth.actions import CONFRONT, FOUND_GROUP, IGNORE, MOVE
 from sleuth.config import Config
 from sleuth.contex_client import Match
 from sleuth.decide import Decision
@@ -18,7 +18,6 @@ from sleuth.game import MEMORY_PLAYERS, Game, Summary
 from sleuth.goals import Goal
 from sleuth.judge import Judge
 from sleuth.lineage import Ids, Lineage
-from sleuth.models import Utterance
 from sleuth.player import Player
 from sleuth.players import Players
 from sleuth.tests.helpers import PID, FakeMind, StubClient, goal_maker, make, make_player, wait_for
@@ -566,141 +565,9 @@ async def test_an_annoyed_villager_who_walks_off_storms_off_on_the_player(monkey
 
 
 @pytest.mark.asyncio
-async def test_an_annoyed_villager_who_leaves_town_storms_off_first(monkeypatch):
-    engine, feed, _ = await storming(monkeypatch, LEAVE_TOWN)
-    assert [e.data["line"] for e in kinds(feed, "stormed_off")] == ["I've heard quite enough from you."]
-    assert "v1" not in engine.town
-    await engine.stop()
-
-
-@pytest.mark.asyncio
 async def test_an_annoyed_villager_who_stays_does_not_storm_off(monkeypatch):
     engine, feed, _ = await storming(monkeypatch, IGNORE)
     assert kinds(feed, "stormed_off") == [] and ("v1", PID) in engine.conversations
-    await engine.stop()
-
-
-def pressing(monkeypatch, *scores):
-    """Make each turn ignore what it heard, scoring it (sting, fear) from scores in turn; returns each turn's view."""
-    views = []
-
-    async def decide(jev, view):
-        sting, fear = scores[len(views)]
-        views.append(view)
-        return Decision(IGNORE, None, None, None, sting=sting, fear=fear)
-
-    monkeypatch.setattr(engine_mod, "decide", decide)
-    return views
-
-
-def heard(engine, uid, speaker, player=PID):
-    """A line uid spoken by speaker and rooted in player's whisper, for v1's next turn."""
-    engine.lineage.record(f"w-{uid}", None, player=player)
-    engine.lineage.record(uid, f"w-{uid}")
-    engine.facts.record(Utterance(uid, speaker, speaker.upper(), "square", "news", f"w-{uid}"))
-    engine.minds["v1"].results.append([Match(f"k-{uid}", {"id": uid, "text": "news"})])
-    engine.minds["v1"].queue.put_nowait(None)
-
-
-async def leaving(monkeypatch, *shares, score=(0.0, 0.0)):
-    """v1 under the given (amount, player) shares of pressure, held by PID, takes a turn on a line rooted in p-b's
-    that scores (sting, fear).
-
-    Returns the engine, feed, turn views, the judge's reports, and whether v1 was still in town at each storm-off.
-    """
-    views = pressing(monkeypatch, score)
-    engine, player, feed, _ = await start("v1", "v2")
-    in_town = []
-    storm_off = engine._storm_off
-
-    async def storming_off(v, p, **kw):
-        in_town.append(v.id in engine.town)
-        await storm_off(v, p, **kw)
-
-    monkeypatch.setattr(engine, "_storm_off", storming_off)
-    engine.writer = Writer(StubClient("I've heard quite enough from you.", "Farewell, all."), "haiku-test")
-    reported = []
-    engine.judge = SimpleNamespace(record_action=lambda *a: reported.append(a))
-    for amount, who in shares:
-        engine.pressure.add("v1", amount, who)
-    talking(engine, player)
-    heard(engine, "h-1", "v2", player="p-b")
-    await wait_for(lambda: "v1" not in engine.minds)
-    return engine, feed, views, reported, in_town
-
-
-@pytest.mark.asyncio
-async def test_tie_factor_scales_sting_only(monkeypatch, caplog):
-    pressing(monkeypatch, (1.0, 0.0), (0.0, 1.0), (1.0, 0.0))
-    engine, _, _, _ = await start("v1", "v2", "v3", pressure_leave=10.0)
-    engine.town.get("v1").relationships["v2"] = "sister"
-    steps = []
-    for uid, speaker in (("h-1", "v2"), ("h-2", "v2"), ("h-3", "v3")):
-        heard(engine, uid, speaker)
-        await wait_for(lambda: engine.minds["v1"].polls == len(steps) + 1 and not engine._turning)
-        steps.append(engine.pressure.level("v1"))
-        engine._last_turn.clear()
-    assert steps == pytest.approx([0.45, 0.75, 1.05])
-    assert "v1" in engine.town and "turn failed" not in caplog.text
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_breaking_words_reach_the_turn(monkeypatch, caplog):
-    views = pressing(monkeypatch, (0.0, 0.0))
-    engine, _, _, _ = await start("v1", "v2")
-    engine.pressure.add("v1", 0.5, PID)
-    heard(engine, "h-1", "v2")
-    await wait_for(lambda: views)
-    await wait_for(lambda: not engine._turning)
-    assert views[0].breaking == "shaken" and "turn failed" not in caplog.text
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_pressure_at_the_mark_forces_leave_town_and_credits_the_culprit(monkeypatch, caplog):
-    engine, _, _, reported, _ = await leaving(monkeypatch, (0.7, PID), (0.3, "p-b"))
-    assert "turn failed" not in caplog.text
-    assert "v1" not in engine.town
-    assert reported == [("v1", LEAVE_TOWN, None, PID, None)]
-    assert engine.pressure.level("v1") == 0.0
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_forced_departure_overrides_a_hold(monkeypatch, caplog):
-    engine, feed, views, _, in_town = await leaving(monkeypatch, (1.0, PID))
-    assert "turn failed" not in caplog.text
-    assert views[0].held and views[0].breaking == "at the end of their rope"
-    assert [e.data["line"] for e in kinds(feed, "stormed_off")] == ["I've heard quite enough from you."]
-    assert in_town == [True] and "v1" not in engine.town
-    assert ("v1", PID) not in engine.conversations
-    assert not [e for e in engine.suspicion._evidence if e.reason == "stormed off"]
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_departure_with_no_player_pressure_credits_the_player_behind_the_last_straw(monkeypatch, caplog):
-    caplog.set_level(logging.INFO, logger="sleuth.engine")
-    engine, _, _, reported, _ = await leaving(monkeypatch, (1.0, None))
-    assert reported == [("v1", LEAVE_TOWN, None, "p-b", None)] and "turn failed" not in caplog.text
-    assert "left town, credited to p-b" in caplog.text
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_pressure_that_adds_up_to_the_mark_forces_leave_town(monkeypatch, caplog):
-    engine, _, _, reported, _ = await leaving(monkeypatch, (0.2, PID), (0.7, PID), score=(0.0, 1 / 3))
-    assert reported == [("v1", LEAVE_TOWN, None, PID, None)] and "turn failed" not in caplog.text
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_the_clock_wears_pressure_down():
-    engine, _, _, _ = await start("v1")
-    engine.pressure.add("v1", 0.5, PID)
-    await engine.run()
-    await wait_for(lambda: engine.pressure.level("v1") < 0.5)
     await engine.stop()
 
 
@@ -823,37 +690,6 @@ async def test_engine_reports_actions_to_judge():
     engine.acted(Decision(FOUND_GROUP, rooted, None, None), "v1", "g-1", "Hob cheats")
     engine.acted(Decision(CONFRONT, stray, "v2", None), "v1", "v2")
     assert reported == [("v1", FOUND_GROUP, "g-1", PID, "Hob cheats"), ("v1", CONFRONT, "v2", None, None)]
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_drive_out_holds_through_a_void_pass_during_the_farewell(monkeypatch):
-    engine, player, _, _ = await start("v1", "v2")
-    engine.lineage.record("u-0", None, PID)
-    engine.pressure.add("v1", 0.5, PID)
-    engine.writer = Writer(StubClient("Farewell, all."), "haiku-test", Usage(engine.config))
-    judge = Judge(None, None, engine.town, engine.config, engine.feed, Game(), maker=goal_maker(engine.town))
-    engine.judge = judge
-    goal = Goal("d", "Drive V1 out of town", "action", hold_checks=1, subject="v1", owner=PID, action=LEAVE_TOWN,
-                target="v1")
-    player.goals = [goal]
-    judge._players = engine.players
-    delivered = engine.deliver
-
-    async def deliver(utterance, listener_ids, addressed=False):
-        judge._replace_void(player)
-        await delivered(utterance, listener_ids, addressed)
-
-    monkeypatch.setattr(engine, "deliver", deliver)
-
-    async def decide(jev, view):
-        return Decision(LEAVE_TOWN, view.new[0], None, None)
-
-    monkeypatch.setattr(engine_mod, "decide", decide)
-    await engine.run()
-    engine.minds["v1"].queue.put_nowait(None)
-    await wait_for(lambda: "v1" not in engine.town and not engine._turning)
-    assert player.goals == [goal] and await judge.check(goal) == 1.0
     await engine.stop()
 
 

@@ -12,7 +12,7 @@ from sleuth.town_gen import WORLDS_DIR
 
 log = logging.getLogger(__name__)
 
-STATE_VERSION = 1
+STATE_VERSION = 2
 # Every id the game's Ids counters hand out, as prefix and number.
 ID = re.compile(r"\b(world|goal|u|w)-(\d+)\b")
 SCENE_ID = re.compile(r"s-(\d+)")
@@ -31,7 +31,7 @@ def components(engine) -> dict:
     return {
         "town": engine.town, "ids": engine.ids, "lineage": engine.lineage, "facts": engine.facts, "feed": engine.feed,
         "game": engine.game, "usage": engine.players.usage, "suspicion": engine.suspicion, "rapport": engine.rapport,
-        "pressure": engine.pressure, "engine": engine, "rumors": engine.rumors, "players": engine.players,
+        "engine": engine, "rumors": engine.rumors, "players": engine.players,
         "judge": engine.judge, "hints": engine.hints,
     }
 

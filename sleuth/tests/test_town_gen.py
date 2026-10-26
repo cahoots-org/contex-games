@@ -5,7 +5,7 @@ import random
 import pytest
 
 from sleuth.town_gen import (
-    MAX_FAILED_BATCHES, SeedMismatch, generate_newcomer, generate_villagers, load_or_generate,
+    MAX_FAILED_BATCHES, SeedMismatch, generate_villagers, load_or_generate,
     wire_relationships, world_path,
 )
 from sleuth.models import Villager
@@ -113,15 +113,6 @@ async def test_generation_names_the_taken_first_names_and_skips_a_repeat():
 
 
 @pytest.mark.asyncio
-async def test_newcomer_with_a_taken_first_name_is_asked_again_then_refused():
-    taken = json.dumps({**entry(99), "name": "N1 Newman"})
-    writer = SequenceWriter(taken, json.dumps(entry(99)))
-    assert (await generate_newcomer(writer, ring(3), random.Random(3))).name == "Name99"
-    with pytest.raises(ValueError, match="reuses a first name"):
-        await generate_newcomer(StubWriter(taken), ring(3), random.Random(3))
-
-
-@pytest.mark.asyncio
 async def test_every_villager_has_three_to_five_needs():
     villagers = await generate_villagers(StubWriter(fenced(5)), 5, random.Random(1))
 
@@ -165,19 +156,6 @@ async def test_seed_of_another_size_is_rejected(tmp_path):
         await load_or_generate(str(path), StubWriter(fenced(10)), 20, random.Random(1))
 
 
-@pytest.mark.asyncio
-async def test_newcomer_relates_to_one_or_two_existing():
-    existing = ring(10)
-    writer = StubWriter(json.dumps(entry(99)))
-
-    newcomer = await generate_newcomer(writer, existing, random.Random(3))
-
-    assert newcomer.id == "v011"
-    assert 1 <= len(newcomer.relationships) <= 2
-    assert set(newcomer.relationships) <= {v.id for v in existing}
-    assert all(v.relationships == {} for v in existing)
-
-
 class SequenceWriter:
     def __init__(self, *texts):
         self.texts = list(texts)
@@ -207,12 +185,6 @@ async def test_generate_villagers_retries_invalid_replies():
 
     assert len(villagers) == 3
     assert writer.calls == 3
-
-
-@pytest.mark.asyncio
-async def test_newcomer_rejects_empty_list():
-    with pytest.raises(ValueError):
-        await generate_newcomer(StubWriter("[]"), ring(3), random.Random(1))
 
 
 @pytest.mark.asyncio
@@ -247,18 +219,6 @@ async def test_one_sentence_needs_string_is_rejected():
 
 
 @pytest.mark.asyncio
-async def test_newcomer_relates_only_to_living_and_keeps_ids_unique():
-    living, gone = ring(3), [Villager(f"v{i:03d}", f"Gone{i}", "baker", "x", "y", [], {}) for i in range(10, 60)]
-
-    for seed in range(20):
-        newcomer = await generate_newcomer(
-            StubWriter(json.dumps(entry(99))), living, random.Random(seed), departed=gone,
-        )
-        assert newcomer.id == "v060"
-        assert set(newcomer.relationships) <= {v.id for v in living}
-
-
-@pytest.mark.asyncio
 async def test_an_empty_or_null_grudge_is_a_valid_villager():
     writer = StubWriter(json.dumps([{**entry(0), "grudge": ""}, {**entry(1), "grudge": None}]))
 
@@ -277,16 +237,10 @@ async def test_generation_asks_for_mostly_kindly_villagers_and_a_few_sour_ones()
             return json.dumps([entry(i) for i in range(10)])
 
     await generate_villagers(RecordingWriter(), 10, random.Random(1))
-    for seed in range(20):
-        await generate_newcomer(RecordingWriter(), ring(3), random.Random(seed))
 
     assert "Most villagers are good-natured" in prompts[0]
     assert "one villager in five is sour" in prompts[0]
     assert 'empty grudge ""' in prompts[0]
-    newcomers = prompts[1:]
-    sour = [p for p in newcomers if "Make this villager sour" in p]
-    assert sour and len(sour) < len(newcomers) / 2
-    assert all("Make this villager good-natured" in p for p in newcomers if p not in sour)
 
 
 @pytest.mark.asyncio

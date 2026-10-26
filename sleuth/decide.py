@@ -30,7 +30,7 @@ ACTION_INSTRUCTIONS = (
     "They do nothing about news that does not concern them, or that they have already "
     "heard: if the same story is among their recent memories, they have dealt with it. "
     "News that alarms or inspires them can move them to walk elsewhere, start or join a "
-    "group, or leave town for good."
+    "group."
 )
 
 SUSPICION_LEVELS = ["not at all", "a little", "quite a bit", "convinced"]
@@ -77,12 +77,10 @@ class TurnView:
     ask_gossip: bool = False
     # Whether to ask how keen the villager is to keep a scene going.
     ask_keen: bool = False
-    # Whether a player talking with the villager keeps them from walking off or leaving town.
+    # Whether a player talking with the villager keeps them from walking off.
     held: bool = False
     # How taken the villager was with the newcomer's whisper behind the turn's new items, if any is.
     taken: str | None = None
-    # How close the villager is to breaking under the pressure to leave town, in words.
-    breaking: str | None = None
 
 
 @dataclass(frozen=True)
@@ -138,8 +136,6 @@ def _state(view: TurnView) -> dict:
     }
     if view.taken:
         state["how taken they were with the newcomer's story"] = view.taken
-    if view.breaking:
-        state["how close they are to breaking"] = view.breaking
     if view.said:
         state["things_i_said_recently"] = [_text(m) for m in view.said[:MAX_SAID]]
     if view.heard:

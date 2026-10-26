@@ -179,16 +179,6 @@ async def test_stop_leaves_no_pending_tasks(turns):
 
 
 @pytest.mark.asyncio
-async def test_remove_villager_enqueues_departure_once(turns):
-    engine, _, _ = await setup("v1", "v2")
-    await engine.remove_villager("v1")
-    await engine.remove_villager("v1")
-    assert engine.departures.qsize() == 1
-    assert engine.departures.get_nowait() == "v1"
-    await engine.stop()
-
-
-@pytest.mark.asyncio
 async def test_failed_open_leaves_town_and_engine_unchanged(turns):
     engine, _, _ = await setup("v1")
 

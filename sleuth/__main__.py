@@ -30,7 +30,6 @@ from sleuth.persist import components, resume_game, save_every, save_quietly, se
 from sleuth.player import Player
 from sleuth.pool import load_pool
 from sleuth.players import LOCAL_OWNER, Players, new_player_id
-from sleuth.population import Replenisher
 from sleuth.routine import Routine
 from sleuth.rumors import Rumors
 from sleuth.town import GATE, PLACES, Town
@@ -103,7 +102,6 @@ async def play(web: bool) -> None:
             villagers = town.villagers
         else:
             feed.on_world(judge.world, judge.counts_of(judge.world))
-        replenisher = asyncio.create_task(Replenisher(engine, town, writer, config, rng).run())
         places = [p for p in PLACES if p != GATE]
         judging = saving = None
         try:
@@ -150,7 +148,7 @@ async def play(web: bool) -> None:
                 await until_over(repl(player, town, feed, judge, usage, engine.suspicion, players), player)
         finally:
             print(usage.summary())
-            tasks = [t for t in (replenisher, judging, saving) if t is not None]
+            tasks = [t for t in (judging, saving) if t is not None]
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)

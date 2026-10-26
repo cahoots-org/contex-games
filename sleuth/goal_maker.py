@@ -24,12 +24,10 @@ log = logging.getLogger(__name__)
 
 HAND = 3
 CLAIM_TEMPLATES = ("personal", "circle", "village")
-ACTION_TEMPLATES = ("confront", "leave_town", "found_group", "join_group", "exodus")
+ACTION_TEMPLATES = ("confront", "found_group", "join_group")
 TEMPLATES = CLAIM_TEMPLATES + ACTION_TEMPLATES
-EXODUS_SIZES = (2, 3)
-LONG_SHOT_ACTIONS = ("leave_town", "exodus")
 # Action templates filled by a subject alone.
-SUBJECT_ONLY = ("leave_town", "found_group")
+SUBJECT_ONLY = ("found_group",)
 # How much likelier a villager named in another's grudge, or holding a rival tie, is to be a goal's subject.
 GRUDGE_WEIGHT = 3
 REGULAR_PLACES = tuple(p for p in ROUTINE_PLACES if p != START_PLACE)
@@ -84,7 +82,6 @@ class Slot:
     audiences: tuple[Audience, ...] = ()
     audience: Audience | None = None
     group: Group | None = None
-    count: int = 1
 
 
 class GoalMaker:
@@ -156,7 +153,7 @@ class GoalMaker:
         """Size slots, fewer if none can be filled.
 
         Each template is drawn from those that can still be filled: claims and actions carry half the weight each,
-        shared evenly within each. No action is drawn twice at the same target, and Exodus at most once.
+        shared evenly within each. No action is drawn twice at the same target.
         """
         taken, subjects = set(taken), set(subjects)
         used = {(g.action, g.target) for g in held if g.action}
@@ -171,8 +168,6 @@ class GoalMaker:
             claims = sum(s.kind in CLAIM_TEMPLATES for s in fillable)
             weights = [1 / claims if s.kind in CLAIM_TEMPLATES else 1 / (len(fillable) - claims) for s in fillable]
             slot = self.rng.choices(fillable, weights=weights)[0]
-            if slot.kind == "exodus":
-                slot = replace(slot, count=self.rng.choice([n for n in EXODUS_SIZES if n <= len(self.town.villagers)]))
             slots.append(slot)
             if slot.kind in ACTION_TEMPLATES:
                 used.add(_key(slot))
@@ -188,8 +183,6 @@ class GoalMaker:
             claims = tuple(e for e in self.pool.claims if e.text.lower() not in taken)
             return Slot(kind, claims, self.rng.choice(claims)) if claims else None
         villagers = self.town.villagers
-        if kind == "exodus":
-            return Slot(kind) if len(villagers) >= min(EXODUS_SIZES) else None
         if kind == "join_group":
             return self._join(villagers, used)
         circles = self._circles() if kind == "circle" else []
@@ -343,8 +336,7 @@ class GoalMaker:
     def _action_goal(self, slot: Slot, owner: str | None, id: str) -> Goal:
         """The slot's action goal, with its actor as its audience when it names one."""
         goal = Goal(
-            id=id, text="", kind="action", hold_checks=1, owner=owner, long_shot=slot.kind in LONG_SHOT_ACTIONS,
-            action=slot.kind, count=slot.count,
+            id=id, text="", kind="action", hold_checks=1, owner=owner, action=slot.kind,
         )
         if slot.audience:
             actor = slot.audience
@@ -354,11 +346,7 @@ class GoalMaker:
             subject = self._call(slot.subject)
         if slot.kind == "confront":
             return replace(goal, text=f"Get {goal.audience_label} to confront {subject}")
-        if slot.kind == "leave_town":
-            return replace(goal, text=f"Drive {subject} out of town")
         if slot.kind == "found_group":
             return replace(goal, text=f"Get someone to start a group against {subject}")
-        if slot.kind == "join_group":
-            group = THE.sub("", slot.group.name)
-            return replace(goal, text=f"Get {goal.audience_label} to join the {group}", target=slot.group.id)
-        return replace(goal, text=f"Drive {slot.count} villagers out of town")
+        group = THE.sub("", slot.group.name)
+        return replace(goal, text=f"Get {goal.audience_label} to join the {group}", target=slot.group.id)

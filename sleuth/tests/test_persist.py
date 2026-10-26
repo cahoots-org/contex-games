@@ -252,3 +252,7 @@ async def test_the_game_is_saved_every_interval():
 def test_setting_aside_a_missing_save_does_nothing(tmp_path):
     persist.set_aside(state_path(SESSION, str(tmp_path)))
     assert not os.listdir(tmp_path)
+
+
+def test_components_have_no_pressure():
+    assert "pressure" not in build().parts

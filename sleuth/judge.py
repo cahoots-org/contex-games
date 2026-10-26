@@ -8,7 +8,7 @@ from dataclasses import asdict
 
 from typesafe_sdk import Noul
 
-from sleuth.actions import CONFRONT, FOUND_GROUP, JOIN_GROUP, LEAVE_TOWN
+from sleuth.actions import CONFRONT, FOUND_GROUP, JOIN_GROUP
 from sleuth.config import Config
 from sleuth.contex_client import ContexClient, Match
 from sleuth.facts import Facts
@@ -205,14 +205,10 @@ class Judge:
 
     def _matches(self, goal: Goal, actor: str, action: str, target: str | None, creed: str | None) -> bool:
         """Whether the action is the goal's, by the villagers and group it names."""
-        if goal.action == "exodus":
-            return action == LEAVE_TOWN
         if goal.action != action:
             return False
         if action == CONFRONT:
             return actor == goal.actor and target == goal.subject
-        if action == LEAVE_TOWN:
-            return actor == goal.subject
         if action == FOUND_GROUP:
             return bool(creed) and actor != goal.subject and goal.subject in self.town and names(self.town.get(goal.subject), creed)
         return action == JOIN_GROUP and actor == goal.actor and target == goal.target
@@ -426,7 +422,7 @@ class Judge:
         if self.engine is None:
             return None
         for g in player.goals:
-            if g.subject and g.action != LEAVE_TOWN and self.engine.suspicion.score(g.subject, player.id) < self.config.warn_threshold:
+            if g.subject and self.engine.suspicion.score(g.subject, player.id) < self.config.warn_threshold:
                 return self.town.name_of(g.subject)
         return None
 
@@ -467,10 +463,6 @@ class Judge:
         """Where an action goal stands, in words; None for a goal of belief."""
         if goal.kind != "action":
             return None
-        if goal.action == "exodus":
-            return f"{self._acted.get(goal.id, 0)} of {goal.count} gone"
-        if goal.action == "leave_town" and self.engine is not None and goal.subject in self.town:
-            return f"{self.town.get(goal.subject).name.split()[0]} is {self.engine.pressure.words(goal.subject)}"
         return "Not yet"
 
     def _forget(self, in_play: list[Goal], holds: dict[str, int]) -> None:

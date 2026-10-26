@@ -983,7 +983,8 @@ async def test_swap_replaces_the_goal_in_place():
 
 
 @pytest.mark.asyncio
-async def test_swap_draws_any_template():
+async def test_swap_draws_any_template(monkeypatch):
+    monkeypatch.setattr("sleuth.goal_maker.TEMPLATES", ("village",))
     judge, _, _, feed, _ = make(n=1)
     old = generated("gen-old", "personal")
     judge.maker.overhear._evidence[f"goal:{old.id}"] = old.claim_text
@@ -1099,22 +1100,10 @@ async def test_confront_met_when_actor_confronts_subject_from_player_rumor():
 
 @pytest.mark.asyncio
 async def test_unattributed_action_meets_nothing():
-    goal = action_goal("leave_town", subject="v1", target="v1")
+    goal = action_goal("confront", "v0", "v1", "v1")
     judge, *_ = acting(goal)
-    judge.record_action("v1", "leave_town", None, None)
+    judge.record_action("v0", "confront", "v1", None)
     assert await judge.check(goal) == 0.0
-
-
-@pytest.mark.asyncio
-async def test_drive_out_met_not_voided_when_subject_leaves():
-    goal = action_goal("leave_town", subject="v1", target="v1")
-    judge, _, feed, town, mine = acting(goal, QUIET)
-    feed.voids = []
-    feed.on_goal_void = lambda old, new, reason, player, counts=None: feed.voids.append(old.id)
-    town.remove("v1")
-    judge.record_action("v1", "leave_town", None, PID)
-    await run_until(judge, players(mine), lambda: feed.met)
-    assert feed.met[0] == (goal.id, PID) and feed.voids == []
 
 
 @pytest.mark.asyncio
@@ -1146,17 +1135,6 @@ async def test_join_group_met():
     assert void_reason(action_goal("join_group", "v3", target=group.id), town) == "That group has broken up"
     town.remove("v3")
     assert void_reason(action_goal("join_group", "v3", target=group.id), town) == "Vi Name3 has left town"
-
-
-@pytest.mark.asyncio
-async def test_exodus_counts_to_n():
-    goal = action_goal("exodus", count=2)
-    judge, *_ = acting(goal)
-    judge.record_action("v1", "leave_town", None, PID)
-    assert await judge.check(goal) == 0.5
-    judge.record_action("v2", "leave_town", None, PID)
-    judge.record_action("v3", "leave_town", None, PID)
-    assert await judge.check(goal) == 1.0
 
 
 @pytest.mark.asyncio
@@ -1216,7 +1194,7 @@ class ReplyMaker(SwapMaker):
 @pytest.mark.asyncio
 async def test_a_swap_excludes_the_old_goal_then_falls_back_to_any_different_text():
     judge, *_ = make()
-    old = action_goal("exodus", count=2)
+    old = action_goal("found_group", subject="v1", target="v1")
     other = replace(action_goal("confront", "v0", "v1", "v1"), text="confront")
     judge.maker = ReplyMaker(old, other)
     mine = holder(PID, old)
@@ -1234,14 +1212,6 @@ async def test_a_swap_of_an_action_already_done_is_refused():
     judge.record_action("v0", "confront", "v1", PID)
     assert await judge.swap(mine, goal.id) == "That goal is already met."
     assert mine.goals == [goal]
-
-
-@pytest.mark.asyncio
-async def test_no_one_never_knew_after_a_drive_out_goal():
-    judge, feed, pa = clean_win_judge({})
-    pa.goals[0] = replace(pa.goals[0], action="leave_town", kind="belief")
-    judge.engine.suspicion.score = lambda *a: pytest.fail("scored")
-    assert judge._unseen(pa) is None
 
 
 @pytest.mark.asyncio
@@ -1296,14 +1266,8 @@ async def test_judge_gives_no_taken_word_for_a_rumor_heard_second_hand():
 
 
 def test_action_goals_say_where_they_stand_in_words():
-    drive = action_goal("leave_town", subject="v1", target="v1")
-    exodus = action_goal("exodus", count=3)
     confront = action_goal("confront", "v0", "v1", "v1")
-    judge, *_ = acting(drive, exodus, confront)
-    judge.engine = SimpleNamespace(pressure=SimpleNamespace(words=lambda vid: "shaken"))
-    judge.record_action("v2", "leave_town", None, PID)
-    assert judge.standing(drive) == "Vi is shaken"
-    assert judge.standing(exodus) == "1 of 3 gone"
+    judge, *_ = acting(confront)
     assert judge.standing(confront) == "Not yet"
     assert judge.standing(Goal("b", "A third believes it", "belief")) is None
 

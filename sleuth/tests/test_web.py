@@ -215,11 +215,6 @@ def test_page_shows_a_goal_waiting_for_its_swap(game):
     assert "Finding a new goal…" in html and "swap turning" in html and "swapping.delete(e.goal_id)" in html
 
 
-def test_page_shows_departures_and_arrivals(game):
-    html = game.client.get("/").text
-    assert 'case "departure"' in html and 'case "arrival"' in html
-
-
 def test_page_has_the_walk_listen_and_ask_controls(game):
     html = game.client.get("/").text
     for needle in ("Walk here", "Listen here", "/api/walk", "/api/listen", "/api/ask", 'case "listen"', 'case "asked"'):

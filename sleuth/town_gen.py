@@ -21,8 +21,6 @@ REVERSE = {
 ROLES = ("mayor", "miller")
 # Weighted draw, so friends are commoner than spouses.
 KINDS = ["friend", "friend", "rival", "debtor", "creditor", "spouse"]
-# The share of villagers who are sour and hold a grudge.
-SOUR_SHARE = 0.2
 
 SYSTEM = (
     "You invent villagers for a small medieval village. Reply with only JSON, no prose."
@@ -99,10 +97,6 @@ def _villager(vid: str, raw: dict) -> Villager:
         personality=raw["personality"], grudge=raw["grudge"] or "",
         needs=list(raw["needs"])[:5], relationships={},
     )
-
-
-# How many times to ask for a newcomer whose first name is already taken.
-NEWCOMER_TRIES = 3
 
 
 # Where new villages are saved, one file per world.
@@ -231,33 +225,3 @@ async def load_or_generate(
     with open(path, "w") as f:
         json.dump([asdict(v) for v in villagers], f, indent=2)
     return villagers
-
-
-async def generate_newcomer(
-    writer: Writer, existing: list[Villager], rng: random.Random,
-    departed: list[Villager] = (),
-) -> Villager:
-    """A new villager related to one or two living ones; departed ones only reserve their id and name."""
-    everyone = [*departed, *existing]
-    taken = _first_names_taken(everyone)
-    temper = f"Make this villager {SOUR if rng.random() < SOUR_SHARE else GOOD}. "
-    used = {_first(v.name) for v in everyone}
-    for _ in range(NEWCOMER_TRIES):
-        text = await writer.complete(SYSTEM, PROMPT.format(n=1, temper=temper, roles="", taken=taken), max_tokens=800)
-        raw = extract_json(text)
-        if isinstance(raw, list):
-            raw = raw[0] if raw else None
-        raw = _prepare(raw)
-        if not _valid(raw):
-            raise ValueError(f"newcomer reply is not a valid villager: {text[:200]!r}")
-        if _first(raw["name"]) not in used:
-            break
-    else:
-        raise ValueError(f"newcomer reuses a first name: {raw['name']!r}")
-    last = max((int(v.id[1:]) for v in everyone), default=0)
-    newcomer = _villager(f"v{last + 1:03d}", raw)
-    for other in rng.sample(existing, min(rng.randint(1, 2), len(existing))):
-        newcomer.relationships[other.id] = rng.choice(
-            [k for k in KINDS if k != "spouse"]
-        )
-    return newcomer

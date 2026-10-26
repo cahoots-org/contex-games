@@ -10,7 +10,6 @@ FOUND_GROUP = "found_group"
 JOIN_GROUP = "join_group"
 LEAVE_GROUP = "leave_group"
 PREACH = "preach"
-LEAVE_TOWN = "leave_town"
 WARN = "warn"
 ANSWER = "answer"
 
@@ -25,7 +24,6 @@ ACTIONS = {
     JOIN_GROUP: "Join a group that has members nearby and a cause you share.",
     LEAVE_GROUP: "Quit a group you belong to that you no longer believe in.",
     PREACH: "Speak up for one of your groups' beliefs to the people nearby.",
-    LEAVE_TOWN: "Leave town for good: ruined, disgraced, frightened, or fed up.",
     WARN: "Warn one specific person nearby that the newcomer is behind the rumors.",
     ANSWER: "Answer the newcomer, who just spoke to you about something you care about.",
 }
@@ -82,7 +80,7 @@ def available_actions(view) -> list[str]:
             continue
         if a == ANSWER and not view.answerable:
             continue
-        if a in (MOVE, LEAVE_TOWN) and view.held:
+        if a == MOVE and view.held:
             continue
         out.append(a)
     return out

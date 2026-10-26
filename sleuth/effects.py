@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from sleuth.actions import (
-    ANSWER, CONFRONT, DENY, FOUND_GROUP, IGNORE, JOIN_GROUP, LEAVE_GROUP, LEAVE_TOWN, MOVE,
+    ANSWER, CONFRONT, DENY, FOUND_GROUP, IGNORE, JOIN_GROUP, LEAVE_GROUP, MOVE,
     PREACH, RETELL, SPEAK, WARN,
 )
 from sleuth.config import Config
@@ -153,9 +153,3 @@ async def act(
         group = next(g for g in town.member_groups(vid) if g.id == decision.target)
         text = await writer.say(villager, decision, source_text, group.name, names)
         await say(text, list(group.members), ROOM, "preached", names_newcomer=names)
-    elif action == LEAVE_TOWN:
-        farewell = await writer.say(villager, decision, source_text, "the square")
-        town.remove(vid)
-        hub.acted(decision, vid, None, farewell=farewell)
-        listeners = [v.id for v in town.present("square")]
-        await say(f"{villager.name} is leaving town for good: {farewell}", listeners, ROOM, "announced")

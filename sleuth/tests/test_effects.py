@@ -1,7 +1,7 @@
 import pytest
 
 from sleuth.actions import (
-    ANSWER, CONFRONT, FOUND_GROUP, JOIN_GROUP, LEAVE_TOWN, MOVE, PREACH, RETELL, SPEAK, WARN,
+    ANSWER, FOUND_GROUP, JOIN_GROUP, MOVE, PREACH, RETELL, SPEAK, WARN,
 )
 from sleuth.config import Config
 from sleuth.contex_client import Match
@@ -52,9 +52,8 @@ class RecordingHub:
         self.replies = []
         self.acts = []
 
-    def acted(self, decision, vid, target, creed=None, farewell=None):
+    def acted(self, decision, vid, target, creed=None):
         self.acts.append((decision.action, vid, target, creed))
-        self.farewell = farewell
 
     async def reply(self, utterance):
         self.replies.append(utterance)
@@ -132,7 +131,6 @@ async def test_speaker_never_receives_own_utterance():
     await s.act("v1", Decision(SPEAK, None, None, None))
     s.town.found_group("v1", "G", "c")
     await s.act("v1", Decision(PREACH, None, "g-1", None))
-    await s.act("v1", Decision(LEAVE_TOWN, None, None, None))
     assert all("v1" not in ids for _, ids in s.hub.delivered)
 
 
@@ -158,19 +156,6 @@ async def test_preach_reaches_members_in_other_places():
     utt, listeners = s.hub.delivered[0]
     assert listeners == ["v2"]
     assert s.writer.say_calls == [(PREACH, None, "Chapel Circle")]
-
-
-@pytest.mark.asyncio
-async def test_leave_town_removes_villager_and_announces_in_square():
-    s = Setup()
-    s.town.move("v3", "tavern")
-    await s.act("v1", Decision(LEAVE_TOWN, None, None, None))
-    assert s.town.alive_count == 2
-    utt, listeners = s.hub.delivered[0]
-    assert listeners == ["v2"]
-    assert "leaving town" in utt.text and "words" in utt.text
-    assert s.writer.say_calls == [(LEAVE_TOWN, None, "the square")]
-    assert s.hub.farewell and s.hub.farewell in utt.text
 
 
 @pytest.mark.asyncio
@@ -367,12 +352,7 @@ async def test_actions_are_reported_before_their_announcement():
     s.hub.deliver = recording
     await s.act("v1", Decision(FOUND_GROUP, None, None, None), inspiration=["a rumor"])
     await s.act("v2", Decision(JOIN_GROUP, None, "g-1", None))
-    await s.act("v3", Decision(CONFRONT, None, "v2", None))
-    await s.act("v1", Decision(LEAVE_TOWN, None, None, None))
-    assert s.hub.acts == [
-        (FOUND_GROUP, "v1", "g-1", "be kind"), (JOIN_GROUP, "v2", "g-1", None),
-        (CONFRONT, "v3", "v2", None), (LEAVE_TOWN, "v1", None, None),
-    ]
+    assert s.hub.acts == [(FOUND_GROUP, "v1", "g-1", "be kind"), (JOIN_GROUP, "v2", "g-1", None)]
     assert seen[0] == s.hub.acts[:1] and seen[-1] == s.hub.acts
 
 

@@ -4,7 +4,7 @@ import random
 import pytest
 
 from sleuth.actions import (
-    ANSWER, CONFRONT, DENY, FOUND_GROUP, IGNORE, JOIN_GROUP, LEAVE_GROUP, LEAVE_TOWN, MOVE,
+    ANSWER, CONFRONT, DENY, FOUND_GROUP, IGNORE, JOIN_GROUP, LEAVE_GROUP, MOVE,
     PREACH, RETELL, SPEAK, WARN,
 )
 from sleuth.contex_client import Match
@@ -113,7 +113,7 @@ async def test_style_kept_for_speech_actions(action):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("action", [JOIN_GROUP, LEAVE_TOWN, FOUND_GROUP, IGNORE])
+@pytest.mark.parametrize("action", [JOIN_GROUP, FOUND_GROUP, IGNORE])
 async def test_style_none_for_non_speech(action):
     g = Group("g-1", "Circle", "pray", "v9", {"v9"})
     jev = StubJev({"action": action, "place_target": "well", "join_target": "g-1", "style": "mock"})
@@ -328,13 +328,13 @@ async def test_keen_is_asked_only_when_requested_and_scaled():
 
 
 @pytest.mark.asyncio
-async def test_a_held_villager_cannot_walk_off_or_leave_town():
+async def test_a_held_villager_cannot_walk_off():
     jev = StubJev({"action": IGNORE})
     await decide(jev, view(held=True))
     criteria = jev.questions["action"].criteria
-    assert MOVE not in criteria and LEAVE_TOWN not in criteria and IGNORE in criteria
+    assert MOVE not in criteria and IGNORE in criteria
     await decide(jev, view())
-    assert MOVE in jev.questions["action"].criteria and LEAVE_TOWN in jev.questions["action"].criteria
+    assert MOVE in jev.questions["action"].criteria
 
 
 @pytest.mark.asyncio
@@ -361,12 +361,3 @@ async def test_sting_and_fear_asked_only_with_new_lines():
     d = await decide(jev, view(new=[]))
     assert not {"sting", "fear"} & set(jev.questions)
     assert (d.sting, d.fear) == (None, None)
-
-
-@pytest.mark.asyncio
-async def test_breaking_words_reach_the_state():
-    jev = StubJev({"action": IGNORE})
-    await decide(jev, view())
-    assert "how close they are to breaking" not in jev.state
-    await decide(jev, view(breaking="shaken"))
-    assert jev.state["how close they are to breaking"] == "shaken"

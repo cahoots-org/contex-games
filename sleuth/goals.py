@@ -26,7 +26,7 @@ class Goal:
     owner: str | None = None
     claim_text: str = ""
     long_shot: bool = False
-    # What a villager must do for an action goal: confront, leave_town, found_group, join_group or exodus.
+    # What a villager must do for an action goal: confront, found_group or join_group.
     action: str | None = None
     # The villager who must do it, where the goal names one.
     actor: str | None = None

@@ -265,10 +265,8 @@ def test_goals_name_villagers_in_full():
 
 ACTION_CASES = (
     ("confront", r"Get Agnes Thatch to confront Hob Miller"),
-    ("leave_town", r"Drive Hob Miller out of town"),
     ("found_group", r"Get someone to start a group against Hob Miller"),
     ("join_group", r"Get Agnes Thatch to join the Plough Guild"),
-    ("exodus", r"Drive [23] villagers out of town"),
 )
 
 
@@ -281,14 +279,12 @@ def test_draw_fills_action_templates(monkeypatch, kind, pattern):
     (goal,) = goal_maker(town).draw("p-1", set(), 1, subjects={AGNES.id, COB.id})
     assert re.fullmatch(pattern, goal.text)
     assert (goal.kind, goal.action, goal.hold_checks, goal.claim_text, goal.evidence) == ("action", kind, 1, "", ())
-    assert goal.long_shot == (kind in ("leave_town", "exodus"))
+    assert not goal.long_shot
     if kind in ("confront", "join_group"):
         assert (goal.actor, goal.audience, goal.audience_label) == (AGNES.id, (AGNES.id,), "Agnes Thatch")
     else:
         assert goal.actor is None and goal.audience == ()
-    if kind == "exodus":
-        assert goal.count in (2, 3) and goal.subject is None
-    elif kind == "join_group":
+    if kind == "join_group":
         assert goal.target == group.id and goal.subject is None
     else:
         assert goal.subject == goal.target == HOB.id
@@ -330,23 +326,12 @@ def test_claims_and_actions_come_up_about_equally():
 
 
 def test_no_action_is_drawn_twice_in_a_hand(monkeypatch):
-    monkeypatch.setattr(goal_maker_mod, "TEMPLATES", ("exodus", "join_group"))
+    monkeypatch.setattr(goal_maker_mod, "TEMPLATES", ("join_group",))
     town = town_of(AGNES, HOB, COB, DOT)
     group = town.found_group(HOB.id, "The Plough Guild", "fair prices")
     town.join(COB.id, group.id)
     for seed in range(30):
         maker = goal_maker(town, rng=random.Random(seed))
         hand = maker.draw("p-1", set())
-        assert sorted(g.action for g in hand) == ["exodus", "join_group"]
+        assert sorted(g.action for g in hand) == ["join_group"]
         assert maker.draw("p-1", set(), 1, held=hand) == []
-
-
-def test_exodus_n_is_drawn_only_when_exodus_is_picked(monkeypatch):
-    monkeypatch.setattr(goal_maker_mod, "TEMPLATES", ("village", "exodus"))
-    for seed in range(20):
-        rng = random.Random(seed)
-        sizes = []
-        choice = rng.choice
-        monkeypatch.setattr(rng, "choice", lambda seq: sizes.append(set(seq) <= {2, 3}) or choice(seq))
-        (goal,) = goal_maker(town_of(AGNES, HOB), ALE, rng=rng).draw("p-1", set(), 1)
-        assert sizes.count(True) == (goal.action == "exodus")

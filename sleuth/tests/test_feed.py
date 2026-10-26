@@ -372,19 +372,6 @@ def test_progress_on_an_action_goal_shows_where_it_stands():
     assert event.line == 'Goal "Drive Vi out of town": Vi is shaken' and event.data["standing"] == "Vi is shaken"
 
 
-def test_departures_and_arrivals_are_told_to_everyone():
-    feed = Feed(Lineage(), Town(), out=None)
-    feed.on_departure("v1", "Jocelin Pennyfeather", "I will not stay where I am slandered.")
-    feed.on_departure("v2", "Odo Fennelwhite", None)
-    feed.on_arrival("v9", "Hawise Marlowe", "tanner")
-    left, gone, came = list(feed.recent)[-3:]
-    assert (left.kind, left.player) == ("departure", None)
-    assert left.line == 'Jocelin Pennyfeather has left town for good: "I will not stay where I am slandered."'
-    assert gone.line == "Odo Fennelwhite has left town for good."
-    assert (came.kind, came.player, came.line) == ("arrival", None, "Hawise Marlowe, a tanner, has arrived at the gate.")
-    assert (left.data["text"], came.data["text"]) == (left.line, came.line)
-
-
 def test_state_round_trips_as_json_and_ids_go_on_past_it():
     feed, _ = make()
     feed.on_delivery(utt("u-1"), ["v2"])
