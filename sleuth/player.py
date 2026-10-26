@@ -34,14 +34,33 @@ def _denials(text: str) -> set[str]:
     return set(DENIAL.findall(text.lower().replace("\u2019", "'")))
 
 
+def _plain(text: str) -> str:
+    """text with its looks spelled one way: "Gray-haired" reads as "grey hair"."""
+    return text.lower().replace("-", " ").replace("gray", "grey").replace("haired", "hair")
+
+
 def conveys(line: str, records: list[Record]) -> bool:
     """Whether an answer keeps to its records: no denial the records don't make themselves, and every trait a memory
     saw."""
     if not records:
         return True
     hedged = set().union(*(_denials(r.text) for r in records))
-    said = line.lower()
-    return not _denials(line) - hedged and all(value in said for r in records for value in r.traits.values())
+    said = _plain(line)
+    return not _denials(line) - hedged and all(_plain(v) in said for r in records for v in r.traits.values())
+
+
+# How a line opening with its teller's name reads in their own voice.
+VOICES = ((" says they were ", "I was "), (" says they're ", "I'm "), (" says they saw ", "I saw "), (" says ", ""),
+          (" heard from (.+?): ", r"\1 told me: "), (": ", ""))
+
+
+def voiced(text: str, name: str) -> str:
+    """A record or talk line about what name knows, as name says it."""
+    for third, first in VOICES:
+        said, n = re.subn(rf"^{re.escape(name)}{third}", first, text)
+        if n:
+            return said.replace(name, "me")
+    return text.replace(f"{name} found the ", "I found my ").replace(name, "me")
 
 
 def adds_nothing(line: str, names: set[str]) -> bool:
@@ -343,7 +362,7 @@ class Player:
             mates = villager.household and about.household == villager.household
             tie = villager.relationships.get(about.id) or ("housemate" if mates else None)
             feeling = warmth_words(villager.warmth.get(about.id, 0.0))
-            return [], [f"{about.name} is {name}'s {tie}, and they are on {feeling} terms."] if tie else []
+            return [], [f"{about.name} is my {tie}, and we are on {feeling} terms."] if tie else []
         return [], []
 
     def _seen(self, file: CaseFile, vid: str) -> list[Record]:
@@ -371,7 +390,7 @@ class Player:
                 text = f"{name} heard from {heard.speaker_name}: {retime(heard.text, WHEN)}"
                 return [self._statement(file, vid, text, rooted[1] == "memory", source)], []
             if rooted[1] == "news" and not talk:
-                talk.append(f"{heard.speaker_name}: {self._told(retime(heard.text, WHEN), crime)}")
+                talk.append(f"{heard.speaker_name} told me: {self._told(retime(heard.text, WHEN), crime)}")
         return [], talk
 
     async def _phrase(self, villager: Villager, file: CaseFile, question: str, thread: list[dict],
@@ -397,7 +416,8 @@ class Player:
                     return line
             except Exception:
                 log.exception("reply from %s failed", villager.id)
-        return f"{villager.name} says: {' '.join(texts)}"
+        return " ".join([*(f"I saw it myself. {r.text}" if r.kind == "memory" else voiced(r.text, villager.name)
+                           for r in records), *talk])
 
     async def _shrug(self, villager: Villager, file: CaseFile, question: str, thread: list[dict]) -> str:
         """The resident's reply when they know nothing for the question: the writer's, if it adds nothing, else a

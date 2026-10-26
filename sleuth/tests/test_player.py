@@ -10,7 +10,7 @@ from dataclasses import replace
 from sleuth.contex_client import Match
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
-from sleuth.player import GUIDED_WRONG, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, Player, Refusal, conveys
+from sleuth.player import GUIDED_WRONG, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, Player, Refusal, conveys, voiced
 from sleuth.players import Players
 from sleuth.config import Config
 from sleuth.case import WHEN, Record
@@ -293,7 +293,7 @@ async def test_a_reply_that_says_the_crime_time_as_it_was_then_falls_back():
     player.game.day = 4
     writer.line = "I was at the bar this afternoon."
     await ask(player, "v2", "where_were_you", when="afternoon")
-    assert replies(player)[-1] == "Eli Reyes says: Eli Reyes says they were at the bar two days ago, in the afternoon."
+    assert replies(player)[-1] == "I was at the bar two days ago, in the afternoon."
 
 
 @pytest.mark.asyncio
@@ -375,7 +375,7 @@ async def test_what_do_you_think_of_someone_is_phrased_from_the_tie_but_not_reco
     player.place = "oak street"
     await ask(player, "v5", "what_do_you_think_of", who="v1")
     assert player.notebook == {}
-    assert writer.calls[0][4] == ["Dana Reyes is Hal Burke's rival, and they are on hostile terms."]
+    assert writer.calls[0][4] == ["Dana Reyes is my rival, and we are on hostile terms."]
     await ask(player, "v5", "what_do_you_think_of", who="v8")
     assert writer.calls[-1][4] == [] and len(writer.calls) == 2
 
@@ -519,7 +519,7 @@ async def test_news_hearsay_is_phrased_but_not_recorded():
     player, file, engine, writer = interviewing()
     hearsay(player, engine, "news", file)
     await ask(player, "v6", "who_told_you")
-    assert notebook(player) == [] and writer.calls[0][4] == ["Kit Tran: someone tall took a bike"]
+    assert notebook(player) == [] and writer.calls[0][4] == ["Kit Tran told me: someone tall took a bike"]
 
 
 @pytest.mark.asyncio
@@ -575,7 +575,7 @@ async def test_a_reply_falls_back_to_the_records_text_when_phrasing_fails():
 
     player.writer = SimpleNamespace(reply=down)
     await ask(player, "v2", "what_did_you_see")
-    assert replies(player)[-1] == f"Eli Reyes says: {MEMORY}"
+    assert replies(player)[-1] == f"I saw it myself. {MEMORY}"
 
 
 @pytest.mark.asyncio
@@ -586,7 +586,7 @@ async def test_a_reply_that_denies_drops_or_names_beyond_its_records_falls_back(
     memory_of(file, player.ids)
     writer.line = reply
     await ask(player, "v2", "what_did_you_see", "Who was it?")
-    assert replies(player)[-1] == f"Eli Reyes says: {MEMORY}"
+    assert replies(player)[-1] == f"I saw it myself. {MEMORY}"
 
 
 
@@ -937,6 +937,31 @@ async def test_publish_refuses_a_repeated_citation_without_spending_the_episode(
     assert file.published == [] and engine.delivered == []
 
 
+@pytest.mark.parametrize("text, said", [
+    ("Eli Reyes says they were at the bar last night.", "I was at the bar last night."),
+    ("Eli Reyes says they're usually at the library in the morning.", "I'm usually at the library in the morning."),
+    ("Eli Reyes says they saw Hal Burke at the bar last night.", "I saw Hal Burke at the bar last night."),
+    ("Eli Reyes says Hal Burke has never got on with Eli Reyes.", "Hal Burke has never got on with me."),
+    ("Eli Reyes: Fay Okafor was home with me all night.", "Fay Okafor was home with me all night."),
+    ("Eli Reyes heard from Kit Tran: someone tall took a bike", "Kit Tran told me: someone tall took a bike"),
+    ("Around 11:58pm, Eli Reyes found the bike missing on Elm Street.",
+     "Around 11:58pm, I found my bike missing on Elm Street."),
+    ("Kit Tran told me: someone tall took a bike", "Kit Tran told me: someone tall took a bike"),
+])
+def test_a_fallback_line_is_said_in_the_resident_s_own_voice(text, said):
+    assert voiced(text, "Eli Reyes") == said
+
+
+@pytest.mark.parametrize("line", ["Someone tall in a gray hoodie walked off with it.",
+                                  "Someone TALL, in a grey-hoodie, walked off."])
+def test_a_reply_conveys_a_look_in_a_close_spelling(line):
+    memory = Record("r-1", "case-1", "memory", "elm street", "11:40pm", MEMORY, "v2",
+                    {"height": "tall", "coat": "grey hoodie"})
+    assert conveys(line, [memory])
+    hair = replace(memory, traits={"hair": "dark-haired"})
+    assert conveys("Someone with dark hair.", [hair]) and not conveys("Someone with red hair.", [hair])
+
+
 def test_a_hedge_the_records_make_themselves_still_conveys_them():
     hedge = Record("r-1", "case-1", "statement", "elm street", "9:00am", "Eli Reyes: I can't say where Dana was.", "v2")
     assert conveys("I can't say where Dana was, honestly.", [hedge])
@@ -985,4 +1010,4 @@ async def test_what_happened_gives_anyone_else_what_they_heard():
     assert said.text == "Ivy Burke heard from Kit Tran: someone tall took a bike"
     hearsay(player, engine, "news", file)
     await ask(player, "v6", "what_happened")
-    assert writer.calls[-1][4] == ["Kit Tran: someone tall took a bike"]
+    assert writer.calls[-1][4] == ["Kit Tran told me: someone tall took a bike"]

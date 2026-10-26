@@ -45,6 +45,8 @@ DAYS_AGO = ("two", "three", "four", "five", "six")
 # A time as ago() or a resident says it.
 SAID_TIME = re.compile(r"\b(?:this (?:morning|afternoon|evening)|tonight|last night|yesterday (?:morning|afternoon|evening)|"
                        r"\w+ days ago, (?:in the (?:morning|afternoon|evening)|at night))\b", re.IGNORECASE)
+# How people say an evening too.
+EVENING = {"last night": "yesterday evening", "tonight": "this evening"}
 
 
 @dataclass
@@ -113,8 +115,9 @@ def retime(text: str, said: str) -> str:
 
 
 def misdated(line: str, allowed: str) -> bool:
-    """Whether the line gives a time allowed does not."""
-    return any(t.lower() not in allowed.lower() for t in SAID_TIME.findall(line))
+    """Whether the line gives a time allowed does not; "last night" and "tonight" may say an evening."""
+    allowed = allowed.lower()
+    return any(t not in allowed and EVENING.get(t, t) not in allowed for t in map(str.lower, SAID_TIME.findall(line)))
 
 
 def motive_of(culprit, victim) -> str:

@@ -180,6 +180,11 @@ def test_misdated_is_a_said_time_the_allowed_text_does_not_give():
     assert not misdated("Around 2pm, someone tall.", allowed)
 
 
+def test_last_night_and_tonight_may_stand_for_the_evening_they_say():
+    assert not misdated("It was last night.", "yesterday evening") and not misdated("Tonight, I think.", "this evening")
+    assert misdated("It was last night.", "yesterday afternoon") and misdated("Tonight.", "yesterday evening")
+
+
 def test_clock_at_formats_twelve_hour_time():
     assert clock_at(1422) == "11:42pm" and clock_at(1500) == "1:00am" and clock_at(720) == "12:00pm"
     assert clock_at(0) == "12:00am"
