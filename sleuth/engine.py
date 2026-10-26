@@ -11,7 +11,7 @@ from sleuth.calibration import Baselines
 from sleuth.cases import APP, CaseFile, Cases
 from sleuth.config import Config
 from sleuth.contex_client import ContexClient, Match
-from sleuth.decide import Decision, TurnView, decide
+from sleuth.decide import Decision, TurnView, decide, warmth_words
 from sleuth.effects import act
 from sleuth.facts import Facts
 from sleuth.game import PHASES, Game
@@ -32,6 +32,8 @@ CONSUMED_KEYS = 500
 # How many villagers set off together on their daily round, and how much of each part of the day the round spans.
 ROUTINE_BATCH = 5
 ROUTINE_SPREAD = 0.5
+WARNING = "The podcaster is stirring up trouble."
+COLDER = "Someone in town seems colder toward you."
 
 
 class Engine:
@@ -272,6 +274,7 @@ class Engine:
             ask_gossip=v.id not in self._gossip,
             case=own_case.crime.text if own_case else None,
             night=self.game is not None and self.game.phase == "night",
+            warn=own_case is not None and bool(own_case.pressed_by) and own_case.warned != self._part(),
         )
         phase = self.game.phase if self.game is not None else None
         async with self._turns:
@@ -297,9 +300,29 @@ class Engine:
         if self.cases is not None:
             self.cases.mark_cover(vid, uid)
 
-    async def press(self, file: CaseFile) -> None:
+    def warn(self, vid: str, target: str) -> str | None:
+        """The pressed culprit's warning about the podcaster, told to someone close, at most once a part of the day.
+
+        The target thinks less of that podcaster, who hears only that someone seems colder.
+        """
+        case = self.cases.culprit_case(vid) if self.cases is not None else None
+        if case is None or not case.pressed_by or case.warned == self._part():
+            return None
+        if warmth_words(self.town.get(vid).warmth.get(target, 0.0)) != "close":
+            return None
+        case.warned = self._part()
+        self.reputation.nudge(target, case.pressed_by, self.config.reputation_warned)
+        self.feed.say(COLDER, player=case.pressed_by)
+        return WARNING
+
+    def _part(self) -> str:
+        """The part of the day as "day:phase"; empty without a game."""
+        return f"{self.game.day}:{self.game.phase}" if self.game is not None else ""
+
+    async def press(self, file: CaseFile, player_id: str) -> None:
         """Tell the culprit a podcaster is asking around, at most once a part of the day."""
-        now = f"{self.game.day}:{self.game.phase}"
+        file.pressed_by = player_id
+        now = self._part()
         if file.pressed == now:
             return
         crime = file.crime

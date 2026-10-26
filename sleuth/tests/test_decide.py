@@ -4,7 +4,7 @@ import random
 import pytest
 
 from sleuth.actions import (
-    CONFRONT, DENY, IGNORE, MOVE, RETELL, SPEAK,
+    CONFRONT, DENY, IGNORE, MOVE, RETELL, SPEAK, WARN,
 )
 from sleuth.contex_client import Match
 from sleuth.decide import (
@@ -224,3 +224,14 @@ async def test_a_culprits_state_holds_their_crime_and_no_one_elses_does():
     assert news in jev.state["your_secret"]
     await decide(jev, view())
     assert "your_secret" not in jev.state and news not in str(jev.state)
+
+
+@pytest.mark.asyncio
+async def test_warning_is_offered_only_to_a_pressed_culprit_with_someone_nearby():
+    jev = StubJev({"action": IGNORE})
+    await decide(jev, view(case="x"))
+    assert WARN not in jev.questions["action"].criteria
+    await decide(jev, view(case="x", warn=True, present=[]))
+    assert WARN not in jev.questions["action"].criteria
+    await decide(jev, view(case="x", warn=True))
+    assert WARN in jev.questions["action"].criteria

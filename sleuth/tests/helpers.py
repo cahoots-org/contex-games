@@ -161,7 +161,7 @@ class FakeEngine:
         self.recalls.append((vid, text))
         return self.heard
 
-    async def press(self, file):
+    async def press(self, file, player_id):
         self.pressed.append(file)
 
 

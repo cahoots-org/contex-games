@@ -254,7 +254,7 @@ class Player:
         self.feed.on_interview(vid, villager.name, line, [record_json(r, self.town) for r in new], player=self.id)
         self._guide(1)
         try:
-            await self.engine.press(file)
+            await self.engine.press(file, self.id)
         except Exception:
             log.exception("pressing the culprit of %s failed", file.crime.id)
         return None

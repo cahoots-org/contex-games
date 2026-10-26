@@ -1,7 +1,7 @@
 import pytest
 
 from sleuth.actions import (
-    ALIBI, BLAME, MOVE, RETELL, SPEAK,
+    ALIBI, BLAME, MOVE, RETELL, SPEAK, WARN,
 )
 from sleuth.contex_client import Match
 from sleuth.decide import Decision
@@ -28,6 +28,12 @@ class RecordingHub:
         self.addressed = []
         self.facts = {}
         self.covers = []
+        self.warning = None
+        self.warned = []
+
+    def warn(self, vid, target):
+        self.warned.append((vid, target))
+        return self.warning
 
     def cover_story(self, vid, action):
         return self.facts.get(action)
@@ -188,3 +194,18 @@ async def test_cover_is_marked_before_delivery_so_a_failed_delivery_stays_marked
     with pytest.raises(RuntimeError):
         await s.act("v1", Decision(ALIBI, None, "v2", None))
     assert [vid for vid, _ in s.hub.covers] == ["v1"]
+
+
+@pytest.mark.asyncio
+async def test_a_warning_is_told_to_the_target_as_a_new_line_not_a_cover():
+    s = Setup()
+    await s.act("v1", Decision(WARN, source("u-0"), "v2", "worried"))
+    assert s.hub.delivered == [] and s.hub.warned == [("v1", "v2")]
+    s.hub.warning = "The podcaster is stirring up trouble."
+    s.town.move("v3", "bar")
+    await s.act("v1", Decision(WARN, None, "v3", None))
+    assert s.hub.warned == [("v1", "v2")]
+    await s.act("v1", Decision(WARN, source("u-0"), "v2", "worried"))
+    [(utt, listeners)] = s.hub.delivered
+    assert listeners == ["v2"] and utt.parent is None and s.lineage.root(utt.id) == utt.id
+    assert s.writer.say_calls[-1] == (WARN, "The podcaster is stirring up trouble.", "Ada") and s.hub.covers == []

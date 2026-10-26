@@ -48,6 +48,8 @@ class TurnView:
     case: str | None = None
     # At night residents stay home, so they can't walk off.
     night: bool = False
+    # Whether the culprit, pressed by a podcaster, may warn someone about them now.
+    warn: bool = False
 
 
 @dataclass(frozen=True)

@@ -4,7 +4,7 @@ import random
 from typing import Protocol
 
 from sleuth.actions import (
-    ALIBI, BLAME, CONFRONT, DENY, IGNORE, MOVE, RETELL, SPEAK,
+    ALIBI, BLAME, CONFRONT, DENY, IGNORE, MOVE, RETELL, SPEAK, WARN,
 )
 from sleuth.decide import Decision
 from sleuth.facts import Facts
@@ -24,6 +24,8 @@ class Hub(Protocol):
     def cover_story(self, vid: str, action: str) -> str | None: ...
 
     def mark_cover(self, vid: str, uid: str) -> None: ...
+
+    def warn(self, vid: str, target: str) -> str | None: ...
 
 
 async def act(
@@ -89,6 +91,10 @@ async def act(
         if decision.target in others() and (fact := hub.cover_story(vid, action)) is not None:
             text = await writer.say(villager, decision, fact, town.get(decision.target).name)
             await say(text, [decision.target], ONE, root=True, cover=True)
+    elif action == WARN:
+        if decision.target in others() and (fact := hub.warn(vid, decision.target)) is not None:
+            text = await writer.say(villager, decision, fact, town.get(decision.target).name)
+            await say(text, [decision.target], ONE, root=True)
     elif action == SPEAK:
         text = await writer.say(villager, decision, source_text, place)
         await say(text, others(), ROOM)

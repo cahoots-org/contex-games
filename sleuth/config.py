@@ -24,6 +24,8 @@ class Config:
     reputation_right: float = 0.3
     reputation_wrong: float = -0.4
     reputation_accused: float = -0.4
+    # How a resident's regard moves when the culprit warns them about the podcaster.
+    reputation_warned: float = -0.2
     # How far every regard drifts back toward 0 each part of the day.
     reputation_decay: float = 0.02
     # Below this regard a resident won't talk to the podcaster.

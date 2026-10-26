@@ -40,7 +40,10 @@ Statements can be lies: the culprit gives a false alibi, and a housemate may cov
 
 **Interview** a resident where you both stand. The game decides what they can give and adds anything new to your
 notebook; Haiku only phrases the answer. Every interview tells the culprit, at most once a part of the day, that a
-podcaster is asking around, and they may start covering their tracks.
+podcaster is asking around, and they may start covering their tracks. Once pressed, the culprit may also warn
+someone they're close to that the podcaster is stirring up trouble, at most once a part of the day per case: that
+resident thinks less of the podcaster who last asked around (`reputation_warned`), and the warning spreads like any
+other line. You only hear that someone in town seems colder toward you.
 
 **Pull records** at a place to copy the case's footage and logs there into your notebook. A place's records are
 kept by the residents who work there, or for a street by those who live on it; they're shared unless every keeper
@@ -133,6 +136,7 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_REPUTATION_RIGHT` | `0.3` | regard every resident gains for a right episode |
 | `SLEUTH_REPUTATION_WRONG` | `-0.4` | regard every resident loses for a wrong episode |
 | `SLEUTH_REPUTATION_ACCUSED` | `-0.4` | further regard the wrongly accused loses |
+| `SLEUTH_REPUTATION_WARNED` | `-0.2` | regard a resident loses when the culprit warns them about you |
 | `SLEUTH_REPUTATION_DECAY` | `0.02` | how far regard drifts back toward 0 each part of the day |
 | `SLEUTH_GUARDED_AT` | `-0.3` | below this regard a resident won't talk to you or share records |
 | `SLEUTH_TRUSTED_AT` | `0.2` | at or above this regard a witness recalls one more of the culprit's traits |

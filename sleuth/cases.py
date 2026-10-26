@@ -31,6 +31,8 @@ class CaseFile:
     published: list[str] = field(default_factory=list)
     solved_by: str | None = None
     pressed: str = ""  # "day:phase" last pressed
+    pressed_by: str = ""  # the podcaster who last asked around
+    warned: str = ""  # "day:phase" the culprit last warned someone
     words: dict[str, list] = field(default_factory=dict)  # "speaker:about" → [household word, sound]
 
 

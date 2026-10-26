@@ -620,10 +620,10 @@ async def test_press_wakes_the_culprit_once_a_phase(turns):
     engine, minds, _ = await setup("v1", "v2", game=game)
     engine.cases = Cases(Config(), engine.town, None, random.Random(1), engine.ids)
     file = engine.cases.files["case-1"] = case_file("open")
-    await engine.press(file)
-    await engine.press(file)
+    await engine.press(file, "p-1")
+    await engine.press(file, "p-1")
     game.tick()
-    await engine.press(file)
+    await engine.press(file, "p-1")
     heard = [data for _, data in minds["v1"].heard]
     line = "The neighborhood app posted: A podcaster is asking around about this: Someone stole V2's bike."
     assert [d["text"] for d in heard] == [line, line]
@@ -642,6 +642,29 @@ async def test_a_failed_press_is_tried_again_the_same_phase(turns):
 
     minds["v1"].hear = down
     with pytest.raises(RuntimeError):
-        await engine.press(file)
+        await engine.press(file, "p-1")
     assert file.pressed == ""
+    await engine.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_pressed_culprit_may_warn_someone_close_once_a_phase(turns):
+    game = Game()
+    engine, minds, feed = await setup("v1", "v2", "v3", game=game)
+    engine.cases = Cases(Config(), engine.town, None, random.Random(1), engine.ids)
+    file = engine.cases.files["case-1"] = case_file("open")
+    engine.town.get("v1").warmth.update({"v2": 0.7, "v3": 0.3})
+    assert engine.warn("v1", "v2") is None
+    await engine.press(file, "p-1")
+    await wait_for(lambda: turns.views)
+    assert turns.views[-1].warn and file.pressed_by == "p-1"
+    assert engine.warn("v1", "v3") is None
+    assert engine.warn("v1", "v2") == "The podcaster is stirring up trouble."
+    assert engine.reputation.get("v2", "p-1") == engine.config.reputation_warned
+    [colder] = [e for e in feed.recent if e.kind == "system"]
+    assert colder.player == "p-1" and colder.data["text"] == "Someone in town seems colder toward you."
+    assert engine.warn("v1", "v2") is None and engine.warn("v2", "v1") is None
+    game.tick()
+    assert engine.warn("v1", "v2") is not None
+    assert engine.reputation.get("v2", "p-1") == 2 * engine.config.reputation_warned
     await engine.stop()

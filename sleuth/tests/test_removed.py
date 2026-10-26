@@ -12,5 +12,5 @@ def test_rumor_game_module_is_gone(name):
 
 
 def test_residents_have_no_groups():
-    assert set(ACTIONS) == {"ignore", "retell", "deny", "confront", "speak", "move", "alibi", "blame"}
+    assert set(ACTIONS) == {"ignore", "retell", "deny", "confront", "speak", "move", "alibi", "blame", "warn"}
     assert not hasattr(Town, "found_group")

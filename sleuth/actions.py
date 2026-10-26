@@ -8,6 +8,7 @@ SPEAK = "speak"
 MOVE = "move"
 ALIBI = "alibi"
 BLAME = "blame"
+WARN = "warn"
 
 ACTIONS = {
     IGNORE: "Do nothing; carry on with the day.",
@@ -18,6 +19,7 @@ ACTIONS = {
     MOVE: "Walk off to a different place in town, taking the news with you.",
     ALIBI: "Tell one specific person nearby where you supposedly were when the crime happened.",
     BLAME: "Hint to one specific person nearby that someone else had a reason to do the crime.",
+    WARN: "Warn one specific person nearby you are close to that the podcaster asking around is stirring up trouble.",
 }
 
 # Option details where two actions are easy to confuse.
@@ -47,12 +49,13 @@ TARGET_KIND = {
     MOVE: "place",
     ALIBI: "villager",
     BLAME: "villager",
+    WARN: "villager",
 }
 
 # Speech actions, which carry a style.
-STYLED = (RETELL, DENY, CONFRONT, SPEAK, ALIBI, BLAME)
+STYLED = (RETELL, DENY, CONFRONT, SPEAK, ALIBI, BLAME, WARN)
 
-NEEDS_SOMEONE = (RETELL, DENY, CONFRONT, SPEAK, ALIBI, BLAME)
+NEEDS_SOMEONE = (RETELL, DENY, CONFRONT, SPEAK, ALIBI, BLAME, WARN)
 
 
 def available_actions(view) -> list[str]:
@@ -62,6 +65,8 @@ def available_actions(view) -> list[str]:
         if a in NEEDS_SOMEONE and not view.present:
             continue
         if a in (ALIBI, BLAME) and not view.case:
+            continue
+        if a == WARN and not view.warn:
             continue
         if a == MOVE and view.night:
             continue
