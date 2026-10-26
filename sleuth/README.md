@@ -34,13 +34,18 @@ they play the town's shared case like everyone else. No new private case is open
 | memory | a witness recalls a few of the culprit's traits, never a name |
 | clip | a camera at the grocery, bar, town hall or elm street catches the culprit's height and coat at the exact minute |
 | log | a gym check-in, bar tab, grocery receipt or library checkout puts a named resident somewhere |
-| statement | what a resident tells you in an interview: where they were, whether a housemate was home, what they heard |
+| statement | what a resident tells you in an interview: where they or someone else were, what they heard, who'd have a reason |
 
 Statements can be lies: the culprit gives a false alibi, and a housemate may cover for them.
 
-**Interview** a resident where you both stand. The game decides what they can give and adds anything new to your
-notebook; Haiku only phrases the answer. Every interview tells the culprit, at most once a part of the day, that a
-podcaster is asking around, and they may start covering their tracks. Once pressed, the culprit may also warn
+**Interview** a resident where you both stand by asking a question in your own words, like "Where were you last
+night?". Each resident keeps one conversation with you, which you can reopen from their card. Jev reads the question
+with the conversation so far and routes it to where the resident was, where someone else was, what they saw, who
+they heard something from, who'd have a reason (a feud or grudge with the victim), or what they think of someone.
+The game answers from what that resident knows and adds anything new to your notebook; Haiku only phrases the
+reply. A question the game can't answer, or one the resident knows nothing about, gets "I wouldn't know about that."
+You can ask each resident 4 questions a part of the day, then they'd rather talk later. Every question tells the
+culprit, at most once a part of the day, that a podcaster is asking around, and they may start covering their tracks. Once pressed, the culprit may also warn
 someone they're close to that the podcaster is stirring up trouble, at most once a part of the day per case: that
 resident thinks less of the podcaster who last asked around (`reputation_warned`), and the warning spreads like any
 other line. You only hear that someone in town seems colder toward you.
@@ -64,7 +69,7 @@ of the day. A resident below `guarded_at` won't talk to you or share the records
 `trusted_at` recalls one more of the culprit's traits in an interview, a fuller memory that goes in your notebook as
 a new entry.
 
-Everything is done on the page: open a place's tile to walk there or look around, open a resident's card to interview
+Everything is done on the page: open a place's tile to walk there or look around, open a resident's card to talk with
 them, and use the case panel to pull records and publish. Click a face to see a resident's trade, looks, home and
 household.
 
@@ -99,8 +104,9 @@ a new town and saves it as `sleuth_worlds/<session>.json`; set `SLEUTH_SEED_PATH
 ## What it costs
 
 The game counts the tokens it sends to Haiku and Jev and multiplies them by list prices you can change; the page shows
-your share in the menu. Haiku writes each new town, phrases what residents say and each interview answer. Jev decides
-what a woken resident does, plans routines, and answers one question per housemate in an interview.
+your share in the menu. Haiku writes each new town, phrases what residents say and each interview reply. Jev decides
+what a woken resident does, plans routines, and routes each interview question. A question costs at most one call to
+each.
 
 Once the day's estimated spend reaches `SLEUTH_DAILY_SPEND_CAP` the town rests until midnight UTC: residents stop
 thinking, and interviews, pulls and episodes are refused. Walking and looking around still work.

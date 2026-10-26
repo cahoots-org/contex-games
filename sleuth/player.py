@@ -62,8 +62,8 @@ HELD = "It holds up. Case closed."
 RIVAL = "Another podcaster cracked the case first."
 GUIDE = (
     "This one's yours. Walk to {place} and {then}.",
-    "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Pull records where a "
-    "place has a camera or keeps logs.",
+    "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Ask anyone where they "
+    "were {when}, or who'd have a reason. Pull records where a place has a camera or keeps logs.",
     "When the evidence points to one person, publish an episode. Name them and cite what backs it up.",
     "The town's open case is yours to crack too. Other podcasters are on it, and the first episode that holds up wins.",
 )
@@ -131,10 +131,11 @@ class Player:
                 return
             if case := await self.engine.cases.open_guided(self.engine, self.id, self.game.day, self.game.phase):
                 crime = case.crime
-                there = any(r.kind == "memory" and self.town.place_of(r.holder) == crime.place
-                            for r in case.records.values())
+                witness = next((r.holder for r in case.records.values()
+                                if r.kind == "memory" and self.town.place_of(r.holder) == crime.place), None)
                 self._guide(0, place=place_name(crime.place) if crime.place in STREETS else f"the {crime.place}",
-                            then="interview whoever is there" if there else "pull the records there")
+                            then=f"ask {self.town.get(witness).name} what they saw" if witness
+                            else "pull the records there")
         except Exception:
             log.exception("opening a guided case for %s failed", self.id)
         finally:
@@ -273,7 +274,7 @@ class Player:
         del thread[:-THREAD_KEPT]
         self.feed.on_interview(vid, villager.name, question, line, [record_json(r, self.town) for r in new],
                                case_id=file.crime.id, player=self.id)
-        self._guide(1)
+        self._guide(1, when=when(file.crime.phase))
         try:
             await self.engine.press(file, self.id)
         except Exception:

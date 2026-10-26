@@ -747,9 +747,9 @@ async def test_guide_walks_a_new_player_through_interview_pull_and_publish():
     assert player.pull() is None
     assert await player.publish("v3", [memory.id]) is None
     assert guides(player) == [
-        "This one's yours. Walk to Elm Street and interview whoever is there.",
-        "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Pull records where "
-        "a place has a camera or keeps logs.",
+        "This one's yours. Walk to Elm Street and ask Eli Reyes what they saw.",
+        "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Ask anyone where "
+        "they were last night, or who'd have a reason. Pull records where a place has a camera or keeps logs.",
         "When the evidence points to one person, publish an episode. Name them and cite what backs it up.",
         "The town's open case is yours to crack too. Other podcasters are on it, and the first episode that holds up "
         "wins.",
