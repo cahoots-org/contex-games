@@ -222,6 +222,7 @@ def create_app(
             "case": case_json(case, town, game.day) if case else None,
             "notebook": [record_json(r, town, case.crime, game.day) for r in player.notebook.values()
                          if case and r.case == case.crime.id],
+            "steps": player.steps(),
         }
 
     @app.get("/api/case")

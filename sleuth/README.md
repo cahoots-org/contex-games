@@ -25,8 +25,9 @@ case shows at the top of the Hear panel and goes cold after `case_days`.
 
 **Your first case.** A new podcaster gets an easy private case of their own, opened at once at a place with a
 camera: one witness, a clip showing the culprit's height, coat and hair, a clue or two at the scene, and no logs but a receipt's. Only
-they see its news. Short hints walk them through interviewing, pulling records, searching the scene and publishing;
-once it closes, by an episode or by going cold, they play the town's shared case like everyone else. No new private case is opened while the town is
+they see its news. A checklist in the case header walks them through it: ask the victim what happened, ask the
+witness what they saw (or, with no witness, pull the records at the scene), search the scene, and publish. The game
+ticks each step from what they have actually done and lights the person or button the current step needs; once it closes, by an episode or by going cold, they play the town's shared case like everyone else. No new private case is opened while the town is
 resting.
 
 **Evidence** is held by the game as records with ids like `r-12`; the models never invent any of it.
@@ -79,7 +80,7 @@ of the day. A resident below `guarded_at` won't talk to you or share the records
 `trusted_at` recalls one more of the culprit's traits in an interview, a fuller memory that goes in your notebook as
 a new entry.
 
-Everything is done on one page, built around the case. On the left: the case with its current hint and Publish,
+Everything is done on one page, built around the case. On the left: the case with Publish (and, on a first case, its checklist),
 which opens the form in place (choose a resident, tick notebook entries); the notebook grouped by kind (Seen, Clip,
 Logs, Said, Found, Heard), newest first; where you are, with Search here and Pull records when they apply and the
 places you can go; and town talk, one strip that stays closed until you open it and counts what's new. On the right:

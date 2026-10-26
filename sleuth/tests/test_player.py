@@ -788,19 +788,23 @@ async def test_publishing_the_guided_case_onboards_the_owner_and_costs_no_regard
     assert not [e for e in player.feed.recent if e.kind == "system"]
 
 
-def guides(player):
-    return [e.line for e in player.feed.recent if e.kind == "guide"]
+def steps_sent(player):
+    return [e.data["steps"] for e in player.feed.recent if e.kind == "steps"]
+
+
+def done(steps):
+    return [s["done"] for s in steps]
 
 
 def guided():
     """A new podcaster on Elm Street whose guided case is open: Fay (v3) stole Dana's (v1) bike there."""
     player, file, engine, writer = interviewing()
-    file.crime.owner = PID
     player.game = Game()
     opened = []
 
     async def open_guided(*args):
         opened.append(args[1:])
+        file.crime.owner = PID
         return file
 
     engine.cases.open_guided = open_guided
@@ -809,41 +813,48 @@ def guided():
 
 
 @pytest.mark.asyncio
-async def test_guide_walks_a_new_player_through_interview_pull_and_publish():
+async def test_checklist_ticks_each_step_from_what_the_player_did():
     player, file, engine = guided()
-    player.game.day = 2
-    memory = memory_of(file, player.ids)
-    place_record(file, "clip", "elm street", "r-11")
+    memory_of(file, player.ids)
     await player.start()
-    await ask(player, "v2", "what_did_you_see")
-    await ask(player, "v2", "what_did_you_see")
-    assert player.pull() is None
-    assert player.pull() is None
-    assert await player.publish("v3", [memory.id]) is None
-    assert guides(player) == [
-        "This one's yours. Ask Eli Reyes what they saw; you can reach anyone from anywhere. Then go to Elm Street to "
-        "search the scene and pull the records there.",
-        "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Ask anyone where "
-        "they were last night, or who'd have a reason. Pull records where a place has a camera or keeps logs, and "
-        "search the crime scene once for anything left behind.",
-        "When the evidence points to one person, publish an episode. Name them and cite what backs it up.",
-        "The town's open case is yours to crack too. Other podcasters are on it, and the first episode that holds up "
-        "wins.",
+    assert steps_sent(player)[-1] == [
+        {"text": "Ask Dana Reyes, the victim, what happened", "done": False, "person": "v1"},
+        {"text": "Ask Eli Reyes what they saw", "done": False, "person": "v2"},
+        {"text": "Search the scene on Elm Street", "done": False, "action": "search", "place": "elm street"},
+        {"text": "Publish an episode naming who did it", "done": False, "action": "publish"},
     ]
-    assert all(e.player == PID for e in player.feed.recent if e.kind == "guide")
+    await ask(player, "v1", "none")
+    assert done(steps_sent(player)[-1]) == [True, False, False, False]
+    assert player.search() is None
+    assert done(steps_sent(player)[-1]) == [True, False, True, False]
+    await ask(player, "v2", "what_did_you_see")
+    assert done(steps_sent(player)[-1]) == [True, True, True, False]
+    file.published.append(PID)
+    assert done(player.steps()) == [True, True, True, True]
+    assert all(e.player == PID for e in player.feed.recent if e.kind == "steps")
 
 
 @pytest.mark.asyncio
-async def test_guide_skips_steps_out_of_order():
+async def test_checklist_without_a_witness_pulls_the_records_at_the_scene():
     player, file, engine = guided()
     place_record(file, "clip", "elm street", "r-11")
     await player.start()
+    assert steps_sent(player)[-1][1] == {"text": "Pull the records on Elm Street", "done": False, "action": "pull",
+                                         "place": "elm street"}
     assert player.pull() is None
-    assert len(guides(player)) == 1 and player.guide_step == 1
+    assert done(steps_sent(player)[-1]) == [False, True, False, False]
 
 
 @pytest.mark.asyncio
-async def test_no_guide_without_a_guided_case():
+async def test_no_checklist_off_a_guided_case():
+    player, file, engine, _ = interviewing()
+    memory_of(file, player.ids)
+    await ask(player, "v2", "what_did_you_see")
+    assert player.steps() is None and steps_sent(player) == []
+
+
+@pytest.mark.asyncio
+async def test_no_checklist_without_a_guided_case():
     player, file, engine = guided()
     async def nothing(*args):
         return None
@@ -851,15 +862,7 @@ async def test_no_guide_without_a_guided_case():
     engine.cases.open_guided = nothing
     await player.start()
     await ask(player, "v2", "none")
-    assert guides(player) == [] and player.guide_step == 0
-
-
-def test_guide_step_round_trips():
-    player, *_ = make()
-    player.guide_step = 2
-    fresh, *_ = make()
-    fresh.restore(json.loads(json.dumps(player.to_state())))
-    assert fresh.guide_step == 2
+    assert steps_sent(player) == []
 
 
 @pytest.mark.asyncio
@@ -881,7 +884,7 @@ async def test_onboarded_owner_gets_no_guided_case():
     player, file, engine = guided()
     engine.players.onboarded.add(player.owner)
     await player.start()
-    assert engine.opened == [] and guides(player) == []
+    assert engine.opened == [] and steps_sent(player) == []
 
 
 @pytest.mark.asyncio
@@ -889,7 +892,7 @@ async def test_no_guided_case_while_the_town_rests():
     player, file, engine = guided()
     engine.players.usage = SimpleNamespace(resting=lambda: True)
     await player.start()
-    assert engine.opened == [] and guides(player) == []
+    assert engine.opened == [] and steps_sent(player) == []
 
 
 @pytest.mark.asyncio
@@ -897,7 +900,7 @@ async def test_the_first_connect_opens_the_guided_case_in_the_background():
     player, file, engine = guided()
     player.connected()
     assert engine.opened == []
-    await wait_for(lambda: player.guide_step == 1)
+    await wait_for(lambda: steps_sent(player))
     player.disconnected()
     player.connected()
     await asyncio.sleep(0)
@@ -910,23 +913,6 @@ async def test_publish_refuses_a_repeated_citation_without_spending_the_episode(
     ids = cite(player, file, memory_of(file, player.ids))
     assert await player.publish("v3", ids * 2) == "Cite each entry once."
     assert file.published == [] and engine.delivered == []
-
-
-@pytest.mark.asyncio
-async def test_a_witness_anywhere_is_named_in_the_first_line():
-    player, file, engine = guided()
-    player.town.move("v2", "gym")
-    memory_of(file, player.ids)
-    await player.start()
-    assert guides(player)[0].startswith("This one's yours. Ask Eli Reyes what they saw;")
-
-
-@pytest.mark.asyncio
-async def test_with_no_witness_the_first_line_points_to_the_scene():
-    player, file, engine = guided()
-    await player.start()
-    assert guides(player) == [
-        "This one's yours. Go to Elm Street to search the scene and pull the records there."]
 
 
 def test_a_hedge_the_records_make_themselves_still_conveys_them():
@@ -946,15 +932,6 @@ async def test_interviewing_the_victim_gives_what_they_found():
     assert await ask(player, "v1", "what_did_you_see") is None
     assert player.notebook[found.id] == found
     assert found.text in writer.calls[-1][4]
-
-
-@pytest.mark.asyncio
-async def test_a_search_brings_the_publish_hint():
-    player, file, engine = guided()
-    await player.start()
-    await ask(player, "v2", "what_did_you_see")
-    assert player.search() is None
-    assert guides(player)[-1].startswith("When the evidence points to one person")
 
 
 @pytest.mark.asyncio

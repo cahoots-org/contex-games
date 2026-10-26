@@ -178,6 +178,16 @@ def open_case(game, culprit="v2"):
     return game.cases.files["case-1"]
 
 
+def test_state_and_case_carry_the_guided_checklist(game):
+    assert game.client.get("/api/state").json()["steps"] is None
+    open_case(game).crime.owner = game.player.id
+    for path in ("/api/state", "/api/case"):
+        steps = game.client.get(path).json()["steps"]
+        assert [s["text"] for s in steps] == ["Ask Marta Hale, the victim, what happened",
+                                              "Pull the records at the library", "Search the scene at the library",
+                                              "Publish an episode naming who did it"]
+
+
 def test_interview_reports_problems_and_answers_through_the_feed(game):
     post = game.client.post
     post("/api/walk", json={"place": "library"})
@@ -602,7 +612,7 @@ def test_page_is_built_around_the_case(game):
     order = ['id="case"', 'id="notebook"', 'id="here"', 'id="talk"', 'id="people"', 'id="convo"']
     assert [html.index(n) for n in order] == sorted(html.index(n) for n in order)
     for needle in ('id="publish-open"', 'id="culprit"', "/api/publish", "/api/interview", "/api/walk", "/api/pull",
-                   "/api/search", 'case "interview"', 'case "pulled"', 'case "searched"', 'case "guide"',
+                   "/api/search", 'case "interview"', 'case "pulled"', 'case "searched"', 'case "steps"',
                    "@media (max-width: 600px)"):
         assert needle in html, needle
     for gone in ("/api/listen", "Look around", "tiles", "card-title", 'role="tablist"', "innerHTML"):

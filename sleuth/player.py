@@ -19,7 +19,7 @@ from sleuth.game import Game
 from sleuth.interview import Route, exchanges, route
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
-from sleuth.town import PLACES, START_PLACE, STREETS, Town, at, neighbours, place_name
+from sleuth.town import PLACES, START_PLACE, Town, at, neighbours
 from sleuth.usage import charging
 from sleuth.traits import TRAITS
 from sleuth.writer import invents, strangers
@@ -71,14 +71,6 @@ WRONG = "Your episode didn't hold up. The town now believes it, and people are w
 GUIDED_WRONG = "Your episode didn't hold up: the evidence doesn't back it."
 HELD = "It holds up. Case closed."
 RIVAL = "Another podcaster cracked the case first."
-GUIDE = (
-    "This one's yours. {go} to {place} to search the scene and pull the records there.",
-    "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Ask anyone where they "
-    "were {when}, or who'd have a reason. Pull records where a place has a camera or keeps logs, and search the "
-    "crime scene once for anything left behind.",
-    "When the evidence points to one person, publish an episode. Name them and cite what backs it up.",
-    "The town's open case is yours to crack too. Other podcasters are on it, and the first episode that holds up wins.",
-)
 
 
 class Refusal(str):
@@ -103,8 +95,6 @@ class Player:
         self.game = game
         self.place = START_PLACE
         self.notebook: dict[str, Record] = {}
-        # The next GUIDE line to send.
-        self.guide_step = 0
         self._starting = False
         self._tasks: set[asyncio.Task] = set()
         # Each resident's conversation with the player, oldest first, and how many messages the player sent each
@@ -123,14 +113,13 @@ class Player:
         return {
             "id": self.id, "owner": self.owner, "place": self.place, "created_at": self.created_at,
             "active_at": self._active_at, "notebook": [asdict(r) for r in self.notebook.values()],
-            "guide_step": self.guide_step, "threads": self.threads, "searched": self.searched,
+            "threads": self.threads, "searched": self.searched,
         }
 
     def restore(self, state: dict) -> None:
         """Fill the run from a saved state; with no tab open it is idle until its player reconnects."""
         self.place, self.created_at = state["place"], state["created_at"]
         self.notebook = {r["id"]: Record(**r) for r in state["notebook"]}
-        self.guide_step = state["guide_step"]
         self.threads = state["threads"]
         self.searched = state["searched"]
         active_at = state["active_at"]
@@ -140,24 +129,41 @@ class Player:
         """Open a guided first case for a new, not yet onboarded owner while the town is awake, and tell them."""
         players = self.engine.players
         try:
-            if self.owner in players.onboarded or players.resting():
+            cases = self.engine.cases
+            if self.owner in players.onboarded or players.resting() or cases.private(self.id):
                 return
-            if case := await self.engine.cases.open_guided(self.engine, self.id, self.game.day, self.game.phase):
-                crime = case.crime
-                witness = next((r.holder for r in case.records.values() if r.kind == "memory"), None)
-                go = (f"Ask {self.town.get(witness).name} what they saw; you can reach anyone from anywhere. Then go"
-                      if witness else "Go")
-                self._guide(0, go=go, place=place_name(crime.place) if crime.place in STREETS else f"the {crime.place}")
+            if await cases.open_guided(self.engine, self.id, self.game.day, self.game.phase):
+                self._tick()
         except Exception:
             log.exception("opening a guided case for %s failed", self.id)
         finally:
             self._starting = False
 
-    def _guide(self, step: int, **fields) -> None:
-        """Send GUIDE[step] to the player when it is the next one due."""
-        if self.guide_step == step:
-            self.guide_step += 1
-            self.feed.on_guide(GUIDE[step].format(**fields), player=self.id)
+    def steps(self) -> list[dict] | None:
+        """The guided case's checklist, each step done or not with the person or action it needs; None off one."""
+        file = self.engine.cases.private(self.id) if self.engine.cases else None
+        if file is None:
+            return None
+        crime = file.crime
+        mine = {r.kind for r in self.notebook.values() if r.case == crime.id}
+        witness = next((r.holder for r in file.records.values() if r.kind == "memory"), None)
+        scene = {"place": crime.place}
+        return [
+            {"text": f"Ask {self.town.get(crime.victim).name}, the victim, what happened",
+             "done": crime.victim in self.threads, "person": crime.victim},
+            {"text": f"Ask {self.town.get(witness).name} what they saw", "done": "memory" in mine, "person": witness}
+            if witness else
+            {"text": f"Pull the records {at(crime.place)}", "done": bool(mine & {"clip", "log"}), "action": "pull",
+             **scene},
+            {"text": f"Search the scene {at(crime.place)}", "done": crime.id in self.searched, "action": "search",
+             **scene},
+            {"text": "Publish an episode naming who did it", "done": self.id in file.published, "action": "publish"},
+        ]
+
+    def _tick(self) -> None:
+        """Send the guided case's checklist to the player, if they are on one."""
+        if (steps := self.steps()) is not None:
+            self.feed.on_steps(steps, player=self.id)
 
     def connected(self) -> None:
         """A tab opened its feed."""
@@ -165,7 +171,7 @@ class Player:
             analytics("visit", owner=self.owner, run=self.id)
         self._sockets += 1
         self.touch()
-        if self.guide_step == 0 and not self._starting and self.engine.cases is not None and self.game is not None:
+        if not self._starting and self.engine.cases is not None and self.game is not None:
             self._starting = True
             self._track(asyncio.create_task(self.start()))
 
@@ -252,7 +258,7 @@ class Player:
         del thread[:-THREAD_KEPT]
         self.feed.on_interview(vid, villager.name, question, line, [self._record_json(r) for r in new],
                                case_id=file.crime.id, player=self.id)
-        self._guide(1, when=when(file.crime, self._today()))
+        self._tick()
         try:
             await self.engine.press(file, self.id)
         except Exception:
@@ -410,7 +416,7 @@ class Player:
             self.notebook[r.id] = r
         self.feed.on_pulled(self.place, [self._record_json(r) for r in new], case_id=file.crime.id,
                             player=self.id)
-        self._guide(2)
+        self._tick()
         return None
 
     def search(self) -> str | None:
@@ -430,7 +436,7 @@ class Player:
             self.notebook[r.id] = r
         self.feed.on_searched(self.place, [self._record_json(r) for r in found], case_id=file.crime.id,
                               player=self.id)
-        self._guide(2)
+        self._tick()
         return None
 
     def _keepers(self) -> list[str]:
@@ -498,7 +504,6 @@ class Player:
             await self.engine.deliver(u, list(dict.fromkeys(listeners)))
         except Exception:
             log.exception("delivering the episode on %s failed", crime.id)
-        self._guide(3)
         return None
 
     def _case(self) -> CaseFile | None:
