@@ -62,6 +62,8 @@ META = re.compile(r"\b(practi[cs]e|tutorial|real town|you're in)\b", re.I)
 def test_no_talk_of_a_tutorial_in_copy():
     found = [s for f in ROOT.glob("*.py") for s in _sentences(f)]
     page = Copy()
-    page.feed((ROOT / "static" / "index.html").read_text())
+    # The one exception, the owner's call: the menu control that plays the first case again.
+    html = (ROOT / "static" / "index.html").read_text()
+    page.feed(html.replace('id="replay">Tutorial</button>', 'id="replay"></button>'))
     found += page.found
     assert not [s for s in found if META.search(s)]

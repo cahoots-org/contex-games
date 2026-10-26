@@ -224,6 +224,19 @@ def test_state_carries_the_first_case_handoff_until_it_is_dismissed(game):
     assert game.client.get("/api/state").json()["handoff"] is None
 
 
+def test_replay_plays_the_first_case_again_then_returns_to_the_town(game):
+    real = game.client.get("/api/state").json()
+    assert game.client.post("/api/replay").json() == {"ok": True}
+    state = game.client.get("/api/state").json()
+    assert state["boot"].endswith(":practice") and state["case"]["private"] and state["steps"]
+    assert game.client.post("/api/replay").json() == {"error": "That case is already open."}
+    game.client.post("/api/skip")
+    back = game.client.get("/api/state").json()
+    assert back["boot"] == real["boot"] and back["handoff"] is None and back["place"] == real["place"]
+    page = game.client.get("/").text
+    assert 'id="replay">Tutorial</button>' in page and '"/api/replay"' in page
+
+
 def test_the_page_offers_skip_on_the_practice_case_and_starts_clean_in_the_real_town(game):
     page = game.client.get("/").text
     assert 'id="skip"' in page and "Skip this case" in page and '"/api/skip"' in page

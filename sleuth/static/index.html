@@ -91,6 +91,7 @@ h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
 .sky .moon, .sky .star { fill: var(--moon); }
 
 .usage { font-size: .75rem; color: var(--muted); }
+#replay { font-size: .85rem; }
 .usage:empty { display: none; }
 .conn { font-size: .875rem; color: var(--muted); }
 .conn::before {
@@ -331,6 +332,7 @@ select, input[type="text"], input[type="search"] {
       <button class="menu-toggle" id="menu-toggle" type="button" aria-label="More" aria-expanded="false" aria-controls="menu">⋯</button>
       <div class="menu" id="menu">
         <p class="usage" id="usage"></p>
+        <button type="button" class="linkish" id="replay">Tutorial</button>
       </div>
     </div>
     <span class="conn" id="conn" data-state="connecting" role="status">Connecting</span>
@@ -487,6 +489,7 @@ function setCase(c) {
   $("case-text").textContent = open ? open.text : "The neighborhood app posts the news when something happens.";
   $("publish-open").hidden = !open;
   $("skip").hidden = !(open && open.private);
+  $("replay").hidden = Boolean(open && open.private);
   // The first case keeps the page small: no town talk.
   $("talk").hidden = Boolean(open && open.private);
   drawNotebook();
@@ -523,6 +526,12 @@ $("culprit").addEventListener("change", () => {
   light();
 });
 $("skip").addEventListener("click", () => act("skip", "/api/skip"));
+$("replay").addEventListener("click", async () => {
+  setMenu(false);
+  const { ok, error } = await post("/api/replay", {});
+  if (ok) loadState().catch(() => {});
+  else say("case-status", error, true);
+});
 
 function cited() {
   return [...$("notebook").querySelectorAll("input:checked")].map((box) => box.value);

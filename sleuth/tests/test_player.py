@@ -1043,3 +1043,49 @@ def test_skipping_the_first_case_hands_off_with_no_payoff():
     player, *_ = practising()
     player.skip()
     assert player.handoff == {"head": None, "line": None}
+
+
+async def in_town_with_progress():
+    """A podcaster in the town with a notebook entry, a conversation and a searched scene, and the town's events."""
+    player, file, engine, writer = interviewing()
+    player.game = Game()
+    engine.players.add(player)
+    memory = memory_of(file, player.ids)
+    await ask(player, "v2", "what_did_you_see")
+    player.notebook[memory.id] = memory
+    player.searched.append(file.crime.id)
+    player.feed.say("Only you heard this.", player=PID)
+    return player, file, engine
+
+
+@pytest.mark.parametrize("close", ["skip", "publish"])
+@pytest.mark.asyncio
+async def test_replaying_the_first_case_starts_it_fresh_and_gives_the_town_back(close):
+    player, file, engine = await in_town_with_progress()
+    before = json.loads(json.dumps(player.to_state()))
+    events = [e.id for e in player.feed.replay(PID)]
+    assert player.replay() is None and player.practising
+    assert player.notebook == {} and player.threads == {} and player.place == "cafe"
+    assert not any(done(player.steps())) and player.replay() == "That case is already open."
+    if close == "skip":
+        player.skip()
+    else:
+        await player.publish("t5", await solve(player))
+    after = json.loads(json.dumps(player.to_state()))
+    assert not player.practising and player.engine is engine and player.handoff is None
+    assert {k: after[k] for k in ("place", "notebook", "threads", "searched")} == \
+        {k: before[k] for k in ("place", "notebook", "threads", "searched")}
+    assert [e.id for e in player.feed.replay(PID)][:len(events)] == events and file.state == "open"
+
+
+@pytest.mark.asyncio
+async def test_a_replay_survives_a_restart_and_still_gives_the_town_back():
+    player, file, engine = await in_town_with_progress()
+    place, notebook = player.place, dict(player.notebook)
+    player.replay()
+    back = Player(engine, engine.cases.town, Lineage(), player.ids, player.feed, player.config, StubWriter(), Game(),
+                  player_id=PID)
+    back.restore(json.loads(json.dumps(player.to_state())))
+    assert back.practising
+    back.skip()
+    assert (back.place, back.notebook) == (place, notebook)

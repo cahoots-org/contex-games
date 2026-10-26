@@ -307,6 +307,14 @@ def create_app(
             return _error(400, problem)
         return {"ok": True}
 
+    @app.post("/api/replay")
+    async def replay(request: Request):
+        if (player := player_for(players, request.cookies.get(COOKIE))) is None:
+            return _error(401, RELOAD)
+        if problem := player.replay():
+            return _error(400, problem)
+        return {"ok": True}
+
     @app.post("/api/handoff")
     async def handoff(request: Request):
         if (player := player_for(players, request.cookies.get(COOKIE))) is None:

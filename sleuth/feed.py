@@ -99,9 +99,9 @@ class Feed:
             return event.player == player
         return player not in self.practising or event.kind == "rest"
 
-    def forget(self, player: str) -> None:
-        """Drop the events meant only for that player."""
-        kept = [e for e in self.recent if e.player != player]
+    def forget(self, player: str, since: int = 0) -> None:
+        """Drop the events meant only for that player, after event since."""
+        kept = [e for e in self.recent if e.player != player or e.id <= since]
         self.recent.clear()
         self.recent.extend(kept)
 

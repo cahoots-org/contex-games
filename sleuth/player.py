@@ -151,27 +151,36 @@ class Player:
         self._active_at: float | None = None
         # How the first case ended, for the page to tell once the player arrives in town; None once dismissed.
         self.handoff: dict | None = None
+        # While the first case is played again: where the player was in town, and the last feed event before it.
+        self._town_run: dict | None = None
 
     def to_state(self) -> dict:
         """The run's durable fields as plain JSON; tabs and tasks are left out."""
         return {
-            "id": self.id, "owner": self.owner, "place": self.place, "created_at": self.created_at,
-            "active_at": self._active_at, "notebook": [asdict(r) for r in self.notebook.values()],
-            "threads": self.threads, "searched": self.searched, "handoff": self.handoff,
+            "id": self.id, "owner": self.owner, "created_at": self.created_at, "active_at": self._active_at,
+            **self._progress(), "handoff": self.handoff, "town_run": self._town_run,
             "tutorial": self.engine.cases.to_state() if self.practising else None,
         }
 
     def restore(self, state: dict) -> None:
         """Fill the run from a saved state; with no tab open it is idle until its player reconnects."""
-        self.place, self.created_at = state["place"], state["created_at"]
-        self.notebook = {r["id"]: Record(**r) for r in state["notebook"]}
-        self.threads = state["threads"]
-        self.searched = state["searched"]
-        self.handoff = state["handoff"]
+        self.created_at = state["created_at"]
+        self._resume(state)
+        self.handoff, self._town_run = state["handoff"], state["town_run"]
         active_at = state["active_at"]
         self._active_at = None if active_at is None else min(active_at, time.time() - self.config.idle_after_seconds)
         if state["tutorial"] is not None:
             self.begin_tutorial(state["tutorial"])
+
+    def _progress(self) -> dict:
+        """Where the player is, their notebook, conversations and searched scenes, as plain JSON."""
+        return {"place": self.place, "notebook": [asdict(r) for r in self.notebook.values()],
+                "threads": self.threads, "searched": self.searched}
+
+    def _resume(self, progress: dict) -> None:
+        """Put back what _progress saved."""
+        self.place, self.threads, self.searched = progress["place"], progress["threads"], progress["searched"]
+        self.notebook = {r["id"]: Record(**r) for r in progress["notebook"]}
 
     @property
     def practising(self) -> bool:
@@ -185,32 +194,49 @@ class Player:
         self.engine, self.town, self.game = practice, practice.town, practice.game
         self.feed.practising.add(self.id)
 
+    def replay(self) -> str | None:
+        """Play the first case again in its own town; the player's place in this town comes back when it closes."""
+        self.touch()
+        if self.practising:
+            return "That case is already open."
+        self._town_run = {**self._progress(), "since": self.feed.recent[-1].id if self.feed.recent else 0}
+        self._talked = {vid: said for vid, said in self._talked.items() if vid in self.town}
+        self.notebook, self.threads, self.searched, self.place = {}, {}, [], START_PLACE
+        self.begin_tutorial()
+        self._tick()
+        return None
+
     def skip(self) -> str | None:
         """Leave the practice case unsolved for the real town; returns why it could not be done."""
         self.touch()
         file = self.engine.cases.private(self.id) if self.practising else None
         if file is None:
             return "There's no case to skip."
-        self._graduate(file, None)
-        self.handoff = {"head": None, "line": None}
+        self._graduate(file, None, handoff={"head": None, "line": None})
         return None
 
     def dismiss_handoff(self) -> None:
         """The player has read how the first case ended."""
         self.handoff = None
 
-    def _graduate(self, file: CaseFile, solved_by: str | None, line: str = "") -> None:
-        """Close the practice case with its closing line, and move into the real town with a clean notebook and
-        feed, told its open case."""
+    def _graduate(self, file: CaseFile, solved_by: str | None, line: str = "", handoff: dict | None = None) -> None:
+        """Close the practice case with its closing line and move into the real town: back where they were after a
+        replay, else with a clean notebook and feed, told its open case and handed off."""
         self.engine.cases.close(file, solved_by)
         self.feed.on_case_closed(file.crime.id, line, player=self.id)
         self.engine, self.town, self.game = self._real
         self._real = None
+        self.feed.practising.discard(self.id)
+        if (run := self._town_run) is not None:
+            self._town_run = None
+            self.feed.forget(self.id, since=run["since"])
+            self._resume(run)
+            return
         self.engine.players.onboarded.add(self.owner)
+        self.handoff = handoff
         self.notebook, self.threads, self.searched, self._talked = {}, {}, [], {}
         self.place = START_PLACE
         self.feed.forget(self.id)
-        self.feed.practising.discard(self.id)
         self.engine.cases.brief(self.feed, self.id, self._today())
 
     def steps(self) -> list[dict] | None:
@@ -557,11 +583,11 @@ class Player:
             line = "Your episode held up." if held else f"Your episode didn't hold up. It was {self.town.get(crime.culprit).name}."
             if held:
                 payoff = f"Your episode is out. By morning, half the town has heard it, and {victim.name} has the {crime.item} back."
-                self.handoff = {"head": "Case closed.", "line": payoff}
+                handoff = {"head": "Case closed.", "line": payoff}
             else:
                 payoff = f"By morning, half the town is talking about it, and {victim.name} is still missing the {crime.item}."
-                self.handoff = {"head": line, "line": payoff}
-            self._graduate(file, self.id if held else None, line)
+                handoff = {"head": line, "line": payoff}
+            self._graduate(file, self.id if held else None, line, handoff)
             return None
         everyone = [v.id for v in self.town.villagers]
         named = f"{accused.name} {TEMPLATES[crime.template][0]} {victim.name}'s {crime.item}"
