@@ -10,8 +10,6 @@ from sleuth.feed import Feed
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Villager
 from sleuth.player import Player
-from sleuth.rapport import Rapport
-from sleuth.suspicion import Suspicion
 from sleuth.town import Town
 
 PID = "p-1"
@@ -130,11 +128,9 @@ class StubContex:
 
 
 class FakeEngine:
-    def __init__(self, suspicion=None, contex=None, baselines=None):
-        self.suspicion = suspicion
+    def __init__(self, contex=None, baselines=None):
         self.contex = contex or StubContex()
         self.baselines = baselines or StubBaselines(0.5)
-        self.rapport = Rapport(Config())
         self.facts = Facts()
         self.heard = []
         self.recalls = []
@@ -145,16 +141,16 @@ class FakeEngine:
 
 
 def stub_player(pid=PID, place="cafe", listening=False):
-    """A player standing at place whose game is not over."""
+    """An active player standing at place."""
     return SimpleNamespace(
-        id=pid, owner=pid, place=place, over=lambda: False, active=lambda: True, listening=lambda: listening,
+        id=pid, owner=pid, place=place, active=lambda: True, listening=lambda: listening,
     )
 
 
 def make_player(*names, cooldown=0.0):
     town, lines = Town(), []
     config = Config(cooldown_seconds=cooldown)
-    engine = FakeEngine(Suspicion(config, town))
+    engine = FakeEngine()
     lineage = Lineage()
     for i, name in enumerate(names, 1):
         town.add(Villager(f"v{i}", name, "baker", "calm", "none", [], {}), "bar")

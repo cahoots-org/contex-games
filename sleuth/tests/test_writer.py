@@ -56,17 +56,6 @@ async def test_complete_records_usage():
 
 
 @pytest.mark.asyncio
-async def test_turn_away_prompts_with_profile_and_returns_one_line():
-    client = StubClient('"I will not hear you out."\nSecond line.')
-    line = await Writer(client, "haiku-test").turn_away(villager())
-    assert line == "I will not hear you out."
-    call = client.messages.calls[0]
-    assert all(s in call["system"] for s in ("Ada", "baker", "sharp-tongued", "Refuse"))
-    assert "owes me flour" not in call["system"]
-    assert call["max_tokens"] == 60
-
-
-@pytest.mark.asyncio
 async def test_say_mentions_a_grudge_only_when_there_is_one():
     client = StubClient("Hm.", "Hm.")
     writer = Writer(client, "haiku-test")
@@ -104,7 +93,7 @@ async def test_answer_names_the_topic_and_what_was_heard_in_one_line():
     user = call["messages"][0]["content"]
     assert call["max_tokens"] == SAY_MAX_TOKENS
     assert "the mill" in user and "Tom at the mill: the mill is haunted" in user
-    assert "Ada" in call["system"] and "Never mention suspicion" in call["system"]
+    assert "Ada" in call["system"]
     await writer.answer(villager(), "the well", [])
     assert "nothing about it" in client.messages.calls[1]["messages"][0]["content"]
     assert "You know everyone in the town" in call["system"]

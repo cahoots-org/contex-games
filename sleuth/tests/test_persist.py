@@ -70,7 +70,7 @@ def build(contex=None):
 async def api_state(g, owner):
     app = create_app(
         players=g.players, join=None, town=g.engine.town, feed=g.feed, usage=g.players.usage, port=8023,
-        suspicion=g.engine.suspicion, game=g.engine.game,
+        game=g.engine.game,
     )
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8023") as client:
@@ -140,12 +140,11 @@ async def test_counters_resume_past_every_id_in_use_even_when_saved_counters_lag
     state = load_game(path, SESSION)
     state["ids"] = {}
     state["feed"]["last_id"] = 0
-    state["feed"]["closed"] = {"p-old": 999}
 
     fresh = build()
     assert restore_game(state, fresh.parts, fresh.make)
     assert_next_ids_are_new(fresh, g, player)
-    assert fresh.feed.say("next").id == 1000
+    assert fresh.feed.say("next").id == g.feed.recent[-1].id + 1
 
 
 def test_a_save_is_written_whole_or_not_at_all(tmp_path, monkeypatch):

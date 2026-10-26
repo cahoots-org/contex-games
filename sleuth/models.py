@@ -29,14 +29,9 @@ class Utterance:
     parent: str | None
     verb: str = "said"
     depth: int = 0
-    names_newcomer: bool = False
     audience: str = "one"
     action: str | None = None
     style: str | None = None
-    # The first whisper of the rumor a newcomer's whisper joins: a reply, or the same words told to someone new.
-    conversation: str | None = None
-    # The player a warning is about.
-    about: str | None = None
 
     def to_data(self) -> dict:
         """Payload for Contex, which embeds every field, so it holds only what the game reads back.

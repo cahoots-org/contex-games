@@ -7,28 +7,23 @@ import pytest
 
 from sleuth import engine as engine_mod
 from sleuth import game as game_mod
-from sleuth.actions import IGNORE, MOVE
+from sleuth.actions import MOVE
 from sleuth.config import Config
 from sleuth.contex_client import Match
-from sleuth.decide import Decision
 from sleuth.engine import Engine
 from sleuth.feed import Feed
-from sleuth.game import MEMORY_PLAYERS, Game, Summary
+from sleuth.game import MEMORY_PLAYERS, Game
 from sleuth.lineage import Ids, Lineage
 from sleuth.player import Player
 from sleuth.players import Players
-from sleuth.tests.helpers import PID, FakeMind, make, make_player, wait_for
+from sleuth.tests.helpers import PID, FakeMind, make, wait_for
 from sleuth.town import PLACES, Town
-
-MEETING = "The town meets at town hall and runs the newcomer out of town."
-
 
 async def start(*vids, **cfg):
     town, lineage, lines = Town(), Lineage(), []
     feed = Feed(lineage, town, out=lines.append)
     game = Game()
-    settings = dict(day_seconds=0.05, suspicion_check_days=0.2, run_out_checks=2, suspicion_decay_per_day=0.0)
-    config = Config(**{**settings, **cfg})
+    config = Config(**{"day_seconds": 0.05, **cfg})
     engine = Engine(
         config, town, None, None, None, lineage, Ids(), feed,
         mind_factory=FakeMind, game=game,
@@ -39,24 +34,6 @@ async def start(*vids, **cfg):
     for vid in vids:
         await engine.add_villager(make(vid))
     return engine, player, feed, lines
-
-
-def script(engine, scores):
-    """Set v1's score before each check from scores (then zero); returns the list of checks seen.
-
-    Needs a positive suspicion_decay_per_day so the reset to zero works.
-    """
-    seen = []
-    decay, suspicion = engine.suspicion.decay, engine.suspicion
-
-    def scripted(days):
-        decay(100)
-        score = scores[len(seen)] if len(seen) < len(scores) else 0.0
-        seen.append(days)
-        suspicion.bump("v1", PID, score, "whispered to them directly")
-
-    suspicion.decay = scripted
-    return seen
 
 
 class StubRoutine:
@@ -84,123 +61,6 @@ def record_moves(monkeypatch, engine, delay=0.0):
 
 def kinds(feed, kind):
     return [e for e in feed.replay(PID) if e.kind == kind]
-
-
-@pytest.mark.asyncio
-async def test_run_out_after_consecutive_checks_at_the_level():
-    engine, player, feed, lines = await start("v1", suspicion_decay_per_day=1.0)
-    seen = script(engine, [0.5] * 10)
-    await engine.run()
-    await asyncio.wait_for(player.finished.wait(), 2)
-    assert player.state == "lost"
-    assert len(seen) == engine.config.run_out_checks
-    assert [e.kind for e in feed.replay(PID)][-2:] == ["system", "gameover"]
-    assert feed.replay(PID)[-2].line == MEETING
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_a_dip_resets_the_count():
-    engine, player, _, _ = await start("v1", suspicion_decay_per_day=1.0)
-    seen = script(engine, [0.5, 0.0, 0.5, 0.5])
-    await engine.run()
-    await asyncio.wait_for(player.finished.wait(), 2)
-    assert len(seen) == 4
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_label_event_only_when_it_changes():
-    engine, player, feed, lines = await start("v1", run_out_checks=10, suspicion_decay_per_day=1.0)
-    seen = script(engine, [0.0, 0.5, 0.5, 0.0])
-    await engine.run()
-    await wait_for(lambda: len(seen) >= 6)
-    await engine.stop()
-    heat = kinds(feed, "heat")
-    assert [e.data for e in heat] == [{"label": "hunted"}, {"label": "quiet"}]
-    assert [e.line for e in heat] == ["The village is hunting for you.", "Folk are not talking about you."]
-    clock = {e.line for e in kinds(feed, "time")}
-    assert [line for line in lines if line not in clock] == [e.line for e in heat]
-    assert player.state == "playing"
-
-
-@pytest.mark.asyncio
-async def test_loss_summary_names_what_gave_you_away():
-    engine, player, feed, lines = await start("v1", "v2", "v3")
-    s = engine.suspicion
-    s.bump("v1", PID, 0.9, "whispered to them directly")
-    s.bump("v2", PID, 0.6, "was warned about the newcomer")
-    s.bump("v3", PID, 0.5, "tried to whisper again")
-    s.bump("v3", PID, 0.1, "a reason the summary has no words for")
-    engine.town.remove("v2")
-    await engine.run()
-    await asyncio.wait_for(player.finished.wait(), 2)
-    assert player.summary == Summary(
-        "lost", ["V1 heard it from you directly.", "V2 was warned about you.", "V3 caught you whispering to them again."],
-    )
-    [over] = kinds(feed, "gameover")
-    assert over.data == {"outcome": "lost", "reasons": player.summary.reasons}
-    assert not any(n in text for n in ("0.9", "0.6") for text in (str(over.data), over.line))
-    assert lines[-1].splitlines()[1:] == player.summary.reasons
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_unknown_reason_reads_as_growing_suspicion():
-    engine, player, _, _ = await start("v1")
-    engine.suspicion.bump("v1", PID, 0.9, "something new")
-    await engine.run()
-    await asyncio.wait_for(player.finished.wait(), 2)
-    assert player.summary.reasons == ["V1 grew suspicious of you."]
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_empty_town_does_not_lose_by_division():
-    engine, player, feed, _ = await start()
-    seen = []
-    decay = engine.suspicion.decay
-    engine.suspicion.decay = lambda days: (seen.append(days), decay(days))
-    await engine.run()
-    await wait_for(lambda: len(seen) >= 4)
-    await engine.stop()
-    assert player.state == "playing"
-    assert kinds(feed, "heat") == []
-
-
-def test_a_players_game_ends_once():
-    player, *_ = make_player("Marta")
-    lost = Summary("lost", ["V1 heard it from you directly."])
-    player.end(lost)
-    player.end(Summary("won", []))
-    assert (player.state, player.summary, player.over()) == ("lost", lost, True)
-    assert [e.data["outcome"] for e in player.feed.replay(PID) if e.kind == "gameover"] == ["lost"]
-
-
-def test_nothing_reaches_a_player_after_their_game_is_over():
-    lineage, seen_a = Lineage(), []
-    lineage.record("w-1", None, player="p-a")
-    lineage.record("w-2", None, player="p-b")
-    feed = Feed(lineage, Town(), out=None)
-    feed.sinks.append(feed.view("p-a", seen_a.append))
-    feed.on_game_over(Summary("lost", []), player="p-a")
-    feed.close("p-a")
-    assert feed.say("late", player="p-a") is None
-    feed.say("mine", player="p-a")
-    feed.on_time(2, "morning")
-    feed.say("theirs", player="p-b")
-    assert seen_a[-1].kind == "gameover" and feed.replay("p-a")[-1].kind == "gameover"
-    assert [e.kind for e in feed.replay("p-b")][-2:] == ["time", "system"]
-
-
-@pytest.mark.asyncio
-async def test_asking_after_game_over_is_refused():
-    player, _, lines, engine, _ = make_player("Marta")
-    player.end(Summary("lost", []))
-    assert await player.ask("v1", "hello") == "The game is over."
-    assert engine.recalls == [] and engine.suspicion.score("v1", PID) == 0.0
-    assert player._tasks == set()
-    assert len(lines) == 1
 
 
 def test_memory_starts_at_the_oldest_remembered_move():
@@ -377,29 +237,6 @@ async def test_phases_stay_evenly_spaced_with_a_routine(monkeypatch):
     assert all(b - a < 1.0 for a, b in zip(ticks, ticks[1:4]))
 
 
-@pytest.mark.asyncio
-async def test_run_out_ends_only_that_players_game():
-    engine, pa, feed, _ = await start("v1")
-    pb = Player(engine, engine.town, engine.lineage, Ids(), feed, engine.config, player_id="p-b")
-    engine.players.add(pb)
-    engine.suspicion.bump("v1", PID, 0.9, "whispered to them directly")
-    await engine.run()
-    await asyncio.wait_for(pa.finished.wait(), 2)
-    await engine.stop()
-    assert pa.state == "lost" and pb.state == "playing"
-    assert MEETING in [e.line for e in feed.replay(PID)] and MEETING not in [e.line for e in feed.replay("p-b")]
-
-
-@pytest.mark.asyncio
-async def test_villagers_keep_their_places_while_nobody_is_playing():
-    engine, player, _, _ = await start("v1")
-    engine.routine = StubRoutine({"v1": "gym"})
-    player.end(Summary("lost", []))
-    await engine._walk("morning", 0.0)
-    assert engine.town.place_of("v1") == "cafe"
-    await engine.stop()
-
-
 def test_the_clock_says_how_far_through_the_day_it_is(monkeypatch):
     now = [1000.0]
     monkeypatch.setattr(game_mod.time, "time", lambda: now[0])
@@ -411,24 +248,6 @@ def test_the_clock_says_how_far_through_the_day_it_is(monkeypatch):
     assert game.clock()["fraction"] == 0.5
 
 
-def talking(engine, player, vid="v1"):
-    """player in an open conversation with vid where they both stand, having just spoken to them."""
-    engine.conversations[(vid, player.id)] = {"id": f"w-{player.id}", "answered": [f"w-{player.id}"]}
-    player._said_at[vid] = time.time()
-
-
-def deciding(monkeypatch, action=IGNORE, target=None):
-    """Make every turn take action (at target) and record each turn's view."""
-    views = []
-
-    async def decide(jev, view):
-        views.append(view)
-        return Decision(action, None, target, None)
-
-    monkeypatch.setattr(engine_mod, "decide", decide)
-    return views
-
-
 @pytest.mark.asyncio
 async def test_no_routine_walks_while_the_only_run_is_away():
     engine, player, feed, _ = await start("v1", "v2")
@@ -437,19 +256,6 @@ async def test_no_routine_walks_while_the_only_run_is_away():
     engine.routine = StubRoutine({"v1": "gym", "v2": "bar"})
     await engine._walk("morning", 0.0)
     assert (engine.town.place_of("v1"), engine.town.place_of("v2")) == ("cafe", "cafe")
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_a_run_nobody_is_playing_is_not_run_out():
-    engine, here, feed, _ = await start("v1")
-    away = Player(engine, engine.town, engine.lineage, Ids(), feed, engine.config, player_id="p-away")
-    engine.players.add(away)
-    engine.suspicion.bump("v1", PID, 0.9, "whispered to them directly")
-    engine.suspicion.bump("v1", away.id, 0.9, "whispered to them directly")
-    await engine.run()
-    await asyncio.wait_for(here.finished.wait(), 2)
-    assert not away.over()
     await engine.stop()
 
 

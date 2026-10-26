@@ -19,7 +19,7 @@ def test_recent_lists_lines_said_at_a_place_since_a_time(monkeypatch):
 def test_state_round_trips_as_json_in_order(monkeypatch):
     kept = Facts()
     monkeypatch.setattr(facts.time, "time", lambda: 100.0)
-    kept.record(Utterance("u-2", "v1", "Bert", "cafe", "news", "u-1", names_newcomer=True, about="p-1"))
+    kept.record(Utterance("u-2", "v1", "Bert", "cafe", "news", "u-1", depth=1, audience="room"))
     kept.record(Utterance("u-1", "v2", "Ada", "bar", "more", None))
     fresh = Facts()
     fresh.restore(json.loads(json.dumps(kept.to_state())))

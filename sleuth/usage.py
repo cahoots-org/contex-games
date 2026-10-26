@@ -10,7 +10,7 @@ from sleuth.config import Config
 
 PROVIDERS = ("haiku", "jev")
 
-# The player whose whisper set off the model calls made here; None is village overhead.
+# The player whose action set off the model calls made here; None is village overhead.
 charged_to: ContextVar[str | None] = ContextVar("charged_to", default=None)
 
 

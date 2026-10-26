@@ -15,12 +15,11 @@ from sleuth.case import Crime
 from sleuth.cases import CaseFile, Cases
 from sleuth.config import Config
 from sleuth.feed import Feed
-from sleuth.game import Game, Summary
+from sleuth.game import Game
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Villager
 from sleuth.player import Player
-from sleuth.players import RUN_OUT_LOCKOUT_SECONDS, Players, new_player_id
-from sleuth.suspicion import HEAT_LINES, Suspicion
+from sleuth.players import Players, new_player_id
 from sleuth.town import PLACES, Town
 from sleuth.tests import helpers
 from sleuth.usage import Usage
@@ -50,8 +49,8 @@ def game(monkeypatch):
     town.add(Villager("v2", "Bert Cole", "miller", "jolly", "none", ["OTHER NEED"], {}), "gym")
     feed = Feed(lineage, town, out=None)
     config = Config()
-    suspicion, game = Suspicion(config, town), Game()
-    engine = helpers.FakeEngine(suspicion)
+    game = Game()
+    engine = helpers.FakeEngine()
     players = Players()
 
     def join(owner):
@@ -64,13 +63,13 @@ def game(monkeypatch):
     cases = Cases(config, town, None, random.Random(1), Ids())
     app = create_app(
         players=players, join=join, town=town, feed=feed, usage=usage, port=PORT,
-        suspicion=suspicion, game=game, cases=cases,
+        game=game, cases=cases,
     )
     with TestClient(app, base_url=BASE) as client:
         client.get("/")
         player = players.live(client.cookies[web.COOKIE])
         yield SimpleNamespace(
-            client=client, town=town, feed=feed, app=app, usage=usage, suspicion=suspicion, player=player, config=config,
+            client=client, town=town, feed=feed, app=app, usage=usage, player=player, config=config,
             players=players, join=join, engine=engine, cases=cases,
         )
     for p in players:
@@ -176,8 +175,6 @@ def test_ask_reports_problems_and_answers_through_the_feed(game):
     assert (away.status_code, away.json()) == (400, {"error": "Bert Cole is at the gym. Walk there to ask them."})
     bad = post("/api/ask", json={"villager_id": "v1"})
     assert (bad.status_code, bad.json()) == (400, {"error": web.BAD_ASK})
-    game.suspicion.bump("v1", game.player.id, 0.9, "whispered to them directly")
-    assert post("/api/ask", json={"villager_id": "v1", "topic": "the mill"}).status_code == 409
 
 
 def eventually(check, timeout=5.0):
@@ -268,61 +265,6 @@ def test_each_session_sees_only_its_own_cost(game):
     assert game.client.get("/api/state").json()["usage"]["summary"] == "Your rumors have cost about $3.00 so far"
 
 
-LOSS = Summary("lost", ["Marta Hale heard it from you directly."])
-
-
-def test_state_carries_the_label_and_no_scores(game):
-    state = game.client.get("/api/state").json()
-    assert (state["heat"], state["heat_line"]) == ("quiet", HEAT_LINES["quiet"])
-    assert state["game"] == {"state": "playing", "summary": None}
-    game.suspicion.bump("v1", game.player.id, 0.11, "whispered to them directly")
-    response = game.client.get("/api/state")
-    assert (response.json()["heat"], response.json()["heat_line"]) == ("watched", HEAT_LINES["watched"])
-    assert "0.11" not in response.text and "0.055" not in response.text
-
-
-def test_heat_event_carries_its_sentence(game):
-    with game.client.websocket_connect(WS) as ws:
-        game.feed.on_heat("watched")
-        event = receive(ws)
-    assert (event["kind"], event["label"], event["text"]) == ("heat", "watched", HEAT_LINES["watched"])
-    assert game.client.get("/api/state").json()["events"][-1]["text"] == HEAT_LINES["watched"]
-
-
-def test_gameover_event_reaches_the_websocket(game):
-    with game.client.websocket_connect(WS) as ws:
-        game.player.end(LOSS)
-        event = receive(ws)
-    assert event["kind"] == "gameover"
-    assert (event["outcome"], event["reasons"]) == ("lost", LOSS.reasons)
-
-
-def test_state_after_loss_carries_the_summary(game):
-    game.player.end(LOSS)
-    state = game.client.get("/api/state").json()
-    assert state["game"] == {
-        "state": "lost",
-        "summary": {"outcome": "lost", "reasons": LOSS.reasons},
-    }
-    assert state["events"][-1]["kind"] == "gameover"
-
-
-def test_nothing_reaches_the_page_after_the_game_is_over(game):
-    with game.client.websocket_connect(WS) as ws:
-        game.player.end(LOSS)
-        assert receive(ws)["kind"] == "gameover"
-        game.feed.on_time(2, "morning")
-        game.usage.record("haiku", 100_000, 20_000, player=game.player.id)
-        assert receive(ws)["kind"] == "usage"
-    assert game.client.get("/api/state").json()["events"][-1]["kind"] == "gameover"
-
-
-def test_walking_after_game_over_is_refused(game):
-    game.player.end(LOSS)
-    response = game.client.post("/api/walk", json={"place": "library"})
-    assert (response.status_code, response.json()) == (400, {"error": "The game is over."})
-
-
 def test_first_visit_sets_an_owner_cookie(game):
     game.client.cookies.clear()
     response = game.client.get("/")
@@ -372,19 +314,9 @@ def test_an_unknown_cookie_asks_for_a_reload(game):
     assert game.client.get("/").cookies[web.COOKIE] != "p-forged"
 
 
-def test_a_run_out_player_starts_over_only_after_the_lockout(game):
-    game.player.end(LOSS)
-    assert web.COOKIE not in game.client.get("/").cookies
-    assert game.players.live(game.player.owner) is game.player
-    game.player.ended_at -= RUN_OUT_LOCKOUT_SECONDS
-    game.client.get("/")
-    assert game.players.live(game.player.owner).id != game.player.id
-
-
 def test_a_new_run_resets_the_page(game):
     boot = game.client.get("/api/state").json()["boot"]
-    game.player.end(LOSS)
-    game.player.ended_at -= RUN_OUT_LOCKOUT_SECONDS
+    game.client.cookies.clear()
     game.client.get("/")
     assert game.client.get("/api/state").json()["boot"] != boot
 
@@ -397,20 +329,11 @@ def test_state_never_names_or_counts_other_players(game):
     assert "players" not in response.json()
 
 
-def test_villagers_carry_influence_words_and_no_weights(game):
-    villagers = game.client.get("/api/state").json()["villagers"]
-    assert all("influence" in v for v in villagers)
-    assert "2.0" not in json.dumps(villagers) and "3.0" not in json.dumps(villagers)
-    game.town.add(Villager("v3", "Padre Ox", "Mayor", "calm", "none", [], {}), "library")
-    assert game.client.get("/api/villagers/v3").json()["influence"] == "folk listen to the mayor"
-    assert game.client.get("/api/villagers/v1").json()["influence"] is None
-
-
-def test_the_feed_has_three_kinds_of_line(game):
+def test_the_feed_has_speech_and_quiet_lines(game):
     html = game.client.get("/").text
     rove = re.search(r"const ROVE = \"(.*)\";", html).group(1)
     assert rove == ".fold-more"
-    for needle in ('"loud"', '"speech"', '"quiet"'):
+    for needle in ('"speech"', '"quiet"'):
         assert needle in html
     for gone in ("moved by", "rails", "toggleThread", "cardScene", "innerHTML"):
         assert gone not in html
@@ -440,7 +363,7 @@ def test_no_replace_children_call_can_render_null(game):
     """replaceChildren, unlike el, writes a null child as the text "null"."""
     html = game.client.get("/").text
     calls = [bracketed(html, m.end() - 1) for m in re.finditer(r"replaceChildren\(", html)]
-    assert len(calls) > 5
+    assert calls
     for args in calls:
         assert "null" not in outside_brackets(args), args
         for spread in re.finditer(r"\.\.\.\[", args):
@@ -451,7 +374,7 @@ def test_no_replace_children_call_can_render_null(game):
 
 def test_the_panel_has_a_sort(game):
     html = game.client.get("/").text
-    for text in ('id="sort"', "By what you know", "By influence"):
+    for text in ('id="sort"', "By what you know"):
         assert text in html
     assert "innerHTML" not in html
 
@@ -508,7 +431,7 @@ def test_everyone_hears_when_the_village_rests_and_wakes(game, monkeypatch):
         assert event["resting"] is False and event["text"]
 
 
-def test_the_page_shows_a_resting_banner_and_locks_the_composer(game):
+def test_the_page_shows_a_resting_banner(game):
     html = game.client.get("/").text
     for needle in ('id="resting"', 'case "rest"', "state.resting", "setResting(", RESTING):
         assert needle in html
@@ -612,8 +535,9 @@ def phone_css(html: str) -> str:
 
 def test_a_phone_header_is_one_line_with_a_menu(game):
     html = game.client.get("/").text
-    for needle in ('id="mood"', 'id="menu-toggle"', 'aria-controls="menu"', 'class="menu" id="menu"', "setHeat(e.text, e.label)"):
+    for needle in ('id="menu-toggle"', 'aria-controls="menu"', 'class="menu" id="menu"'):
         assert needle in html
+    assert 'id="mood"' not in html and 'id="heat"' not in html and 'id="gameover"' not in html
     menu = re.search(r'<div class="menu" id="menu">(.*?)</div>', html, re.S).group(1)
     assert 'id="usage"' in menu and "trophies" not in menu
     phone = phone_css(html)

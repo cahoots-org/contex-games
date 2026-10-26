@@ -22,8 +22,6 @@ Evidence is held by the game as records with ids like `r-12`, and the models nev
 | clip | a camera at the grocery, bar, town hall or elm street catches the culprit's height and coat at the exact minute |
 | log | a gym check-in, bar tab, grocery receipt or library checkout puts a named resident somewhere that part of the day |
 
-the same face every game. A "!" on the face means they turned you away.
-
 Room talk that grows from a case's news or a witness's memory is posted to the app and shows in the feed with an App tag.
 
 ## How it uses Contex
@@ -147,37 +145,6 @@ Everything is done on the page:
   goes in the feed and on their card.
 - Inspect: click a face to see a villager's trade, looks, home, household, personality, grudge and relationships.
 
-## Suspicion
-
-Each villager keeps their own suspicion of the newcomer. It goes up when:
-
-- you whisper to them: every whisper tells them it came from you;
-- they hear a line that names the newcomer: only a faithful retelling of your
-  whisper keeps your part in it, so talk that has drifted from it never does;
-- someone warns them about you.
-
-A villager who suspects you enough may warn someone else about you. The feed
-shows that a warning happened ("Bert Cole warned Marta Hale about you."), but
-not what was said. A villager who suspects you strongly turns you away: your
-whisper doesn't reach them, and trying again makes them more suspicious.
-
-Suspicion fades a little each day. The village's mood is a mean of everyone's
-suspicion in which the mayor counts for more. You see it as one of four lines at the top of the
-browser page:
-
-| Label | What it says |
-|---|---|
-| quiet | Folk are not talking about you. |
-| murmurs | There are murmurs. |
-| watched | Folk are watching you. |
-| hunted | The village is hunting for you. |
-
-The village checks its mood four times a game day. If it is at the run-out
-level for three checks in a row, the town meets at town hall and runs you
-out of town, and you lose. The summary says what gave you away, such as "Marta
-Hale heard it from you directly." The game is over: questions are refused, and
-you restart the program to play again.
-
 ## The browser page
 
 The page has the feed and the village in the sidebar.
@@ -193,6 +160,8 @@ Click a face, or press Enter on a name, to open the villager's card: occupation,
 personality, grudge if they have one, relationships, and what you know. Escape closes the card.
 
 A face is generated from the villager's id and trade, so the same villager has
+the same face every game.
+
 Room talk that grows from a case is posted to the neighborhood app and shows in
 the feed. Listen at a place to hear the last few lines said there.
 
@@ -310,14 +279,6 @@ Every field of `Config` can be set with an environment variable.
 | `SLEUTH_IDLE_AFTER_SECONDS` | `600` | how long a player counts as playing after their last action or closed tab |
 | `SLEUTH_MAX_IDLE_RUNS` | `200` | most runs kept that never played; past it the oldest are dropped |
 | `SLEUTH_DAILY_SPEND_CAP` | `5.0` | estimated dollars per UTC day before the village rests until midnight; `0` for no cap |
-| `SLEUTH_SUSPICION_WHISPER_BUMP` | `0.12` | suspicion a whisper adds to the villager you whisper to |
-| `SLEUTH_SUSPICION_HEAR_MAX` | `0.25` | most suspicion one rumor about the newcomer can add |
-| `SLEUTH_SUSPICION_DECAY_PER_DAY` | `0.05` | suspicion each villager loses per game day |
-| `SLEUTH_WARN_THRESHOLD` | `0.3` | suspicion at which a villager may warn others |
-| `SLEUTH_REFUSE_THRESHOLD` | `0.7` | suspicion at which a villager turns you away |
-| `SLEUTH_RUN_OUT_LEVEL` | `0.08` | village mood at which the run-out checks start counting |
-| `SLEUTH_RUN_OUT_CHECKS` | `3` | checks in a row at that level before you are run out |
-| `SLEUTH_SUSPICION_CHECK_DAYS` | `0.25` | game days between mood checks |
 
 `MATCH_MARGIN` matters most; see [How a line wakes a villager](#how-a-line-wakes-a-villager). Lower it and villagers react to more of what they hear; raise it and the village goes quiet.
 
@@ -330,12 +291,6 @@ of 6 to 9 of them. With the defaults, replays of that whisper gave 1 to 4
 retellings, each over within a minute, and the village stayed quiet. Raise
 the fatigue for a quieter village; lower the overheard margin and room talk
 runs on.
-
-The mood is a mean over the whole village, so the same whispers count for more
-in a small one. In a village of 100, a player who whispered to someone
-every few seconds was run out on the fourth game day, while one who picked a
-dozen villagers whose worries matched stayed at quiet or murmurs. In a village
-of 30, eight well-aimed whispers reached watched.
 
 ## Tests
 

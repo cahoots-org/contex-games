@@ -10,7 +10,6 @@ from sleuth.models import Villager
 from sleuth.usage import charged_to
 
 SAY_MAX_TOKENS = 80
-TURN_AWAY_MAX_TOKENS = 60
 
 
 STAGE_DIRECTION = re.compile(r"\*[^*]*\*")
@@ -82,20 +81,6 @@ class Writer:
             lines.append("Do not say or hint who started this story.")
         return first_line(await self.complete(system, "\n".join(lines), max_tokens=SAY_MAX_TOKENS))
 
-    async def turn_away(self, villager: Villager) -> str:
-        """The villager refusing to hear the newcomer any more, in one line."""
-        system = (
-            f"You are {villager.name}, a {villager.occupation} in a small town. "
-            f"Your personality: {villager.personality}. "
-            "You have grown wary of the newcomer who keeps whispering to you. Refuse to hear "
-            "them out in one short sentence, about 15 words, in your own voice. "
-            "Never mention suspicion or why. "
-            "No stage directions, no quotation marks, no preamble."
-        )
-        return first_line(
-            await self.complete(system, "The newcomer is whispering to you again.", max_tokens=TURN_AWAY_MAX_TOKENS)
-        )
-
     async def answer(self, villager: Villager, topic: str, heard: Sequence[str], known: Sequence[str] = ()) -> str:
         """The villager telling the newcomer what folk have said about the topic, in one line.
 
@@ -107,7 +92,7 @@ class Writer:
             "You know everyone in the town by name and trade. "
             "The newcomer asks what folk have been saying about something. Answer in one short sentence, "
             "under 30 words, in your own voice, naming who told you and where. If you heard nothing about it, "
-            "say so. Never mention suspicion. No stage directions, no quotation marks, no preamble."
+            "say so. No stage directions, no quotation marks, no preamble."
         )
         said = "What you heard: " + " / ".join(heard) if heard else "What you heard: nothing about it."
         user = f"The newcomer asks about: {topic}\n{said}"

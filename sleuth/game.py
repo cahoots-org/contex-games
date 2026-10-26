@@ -1,20 +1,13 @@
-"""The village clock and memory, and how a player's game ended."""
+"""The village clock and memory."""
 
 import time
 from collections import deque
-from dataclasses import dataclass
 from datetime import UTC, datetime
 
 
 # The parts of a game day, in order; the clock moves through them evenly.
 PHASES = ("morning", "afternoon", "evening", "night")
 MEMORY_PLAYERS = 20
-
-
-@dataclass(frozen=True)
-class Summary:
-    outcome: str
-    reasons: list[str]
 
 
 class Game:

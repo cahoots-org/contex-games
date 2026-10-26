@@ -5,10 +5,8 @@ from collections import deque
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 
-from sleuth.game import Summary
 from sleuth.lineage import Lineage
 from sleuth.models import Utterance
-from sleuth.suspicion import HEAT_LINES
 from sleuth.town import Town
 
 REPLAY_EVENTS = 500
@@ -18,7 +16,6 @@ TIME_LINES = {
     "evening": "Evening falls, and lamps are lit.",
     "night": "Night settles over the village.",
 }
-GAME_OVER = {"lost": "Game over: you were run out of town."}
 RESTING = "The village is resting for today. Come back after midnight UTC."
 WAKING = "The village wakes for a new day."
 
@@ -56,28 +53,23 @@ class Feed:
         self.sinks: list[Sink] = [terminal(out)] if out else []
         self.recent: deque[Event] = deque(maxlen=REPLAY_EVENTS)
         self._last_id = 0
-        # Each closed player's id, with the id of the last event they see.
-        self._closed: dict[str, int] = {}
 
     def to_state(self) -> dict:
-        """Recent events, the last event id and closed players as plain JSON."""
-        return {"recent": [asdict(e) for e in self.recent], "last_id": self._last_id, "closed": dict(self._closed)}
+        """Recent events and the last event id as plain JSON."""
+        return {"recent": [asdict(e) for e in self.recent], "last_id": self._last_id}
 
     def restore(self, state: dict) -> None:
-        """Replace the events and closed players with a saved state."""
+        """Replace the events with a saved state."""
         self.recent.clear()
         self.recent.extend(Event(**e) for e in state["recent"])
         self._last_id = state["last_id"]
-        self._closed = dict(state["closed"])
 
     def ensure_past(self, n: int) -> None:
         """Make the next event id come after n."""
         self._last_id = max(self._last_id, n)
 
-    def emit(self, kind: str, line: str = "", /, player: str | None = None, **data) -> Event | None:
-        """Send an event to every sink; drop one addressed to a closed player and return None."""
-        if player in self._closed:
-            return None
+    def emit(self, kind: str, line: str = "", /, player: str | None = None, **data) -> Event:
+        """Send an event to every sink."""
         self._last_id += 1
         event = Event(self._last_id, time.time(), kind, line, data, player)
         self.recent.append(event)
@@ -85,19 +77,12 @@ class Feed:
             sink(event)
         return event
 
-    def say(self, line: str, player: str | None = None) -> Event | None:
+    def say(self, line: str, player: str | None = None) -> Event:
         """Send a plain line of text."""
         return self.emit("system", line, player=player, text=line)
 
-    def close(self, player: str) -> None:
-        """Send that player nothing newer than what has been sent so far."""
-        self._closed[player] = self.recent[-1].id if self.recent else 0
-
     def sees(self, player: str, event: Event) -> bool:
-        """Whether the event is meant for that player and came before their feed closed."""
-        closed_at = self._closed.get(player)
-        if closed_at is not None and event.id > closed_at:
-            return False
+        """Whether the event is meant for that player."""
         return event.player is None or event.player == player
 
     def replay(self, player: str) -> list[Event]:
@@ -111,17 +96,6 @@ class Feed:
                 sink(event)
 
         return seen
-
-    def on_heat(self, label: str, player: str | None = None) -> None:
-        self.emit("heat", HEAT_LINES[label], player=player, label=label)
-
-    def on_game_over(self, summary: Summary, player: str | None = None) -> None:
-        lines = [GAME_OVER[summary.outcome], *summary.reasons]
-        self.emit("gameover", "\n".join(lines), player=player, outcome=summary.outcome, reasons=list(summary.reasons))
-
-    def on_refusal(self, villager_id: str, name: str, line: str | None = None, player: str | None = None) -> None:
-        text = f'{name} turns away from you: "{line}"' if line else f"{name} turns away from you."
-        self.emit("refusal", text, player=player, villager_id=villager_id, name=name, line=line)
 
     def on_answer(self, villager_id: str, name: str, topic: str, line: str, *, player: str) -> None:
         """The villager's answer to the player asking what folk say about the topic."""

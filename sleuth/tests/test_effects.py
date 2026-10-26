@@ -9,7 +9,6 @@ from sleuth.effects import act
 from sleuth.facts import Facts
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
-from sleuth.tests.helpers import PID
 from sleuth.town import Town
 
 
@@ -78,7 +77,7 @@ def source(uid="u-0"):
 @pytest.mark.asyncio
 async def test_retell_delivers_to_target_with_parent_lineage():
     s = Setup()
-    s.lineage.record("u-0", None, player=PID)
+    s.lineage.record("u-0", None)
     await s.act("v1", Decision(RETELL, source("u-0"), "v2", "faithful"))
     utt, listeners = s.hub.delivered[0]
     assert listeners == ["v2"]
@@ -186,7 +185,7 @@ async def test_act_records_depth_audience_action_style():
 
 
 def test_payload_unchanged():
-    u = Utterance("u-1", "v1", "Bert", "cafe", "hi", None, depth=4, names_newcomer=True,
+    u = Utterance("u-1", "v1", "Bert", "cafe", "hi", None, depth=4,
                   audience="room", action=SPEAK, style="sly")
     assert u.to_data() == {"id": "u-1", "text": "Bert said: hi"}
 

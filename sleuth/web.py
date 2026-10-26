@@ -3,7 +3,6 @@
 import asyncio
 import json
 import logging
-import time
 import uuid
 from collections.abc import Callable
 from contextlib import asynccontextmanager
@@ -17,9 +16,8 @@ from starlette.websockets import WebSocketClose
 from sleuth.cases import Cases, case_json
 from sleuth.feed import RESTING, Event, Feed
 from sleuth.game import Game
-from sleuth.player import Player, Refusal
-from sleuth.players import RUN_OUT_LOCKOUT_SECONDS, Players, new_owner_id
-from sleuth.suspicion import HEAT_LINES, Suspicion, influence
+from sleuth.player import Player
+from sleuth.players import Players, new_owner_id
 from sleuth.town import PLACES, Town
 from sleuth.traits import describe
 from sleuth.usage import Usage
@@ -65,26 +63,9 @@ class Guard:
 
 def villagers(town: Town) -> list[dict]:
     return sorted(
-        ({"id": v.id, "name": v.name, "occupation": v.occupation, "place": town.place_of(v.id),
-          "influence": influence(v)}
-         for v in town.villagers),
+        ({"id": v.id, "name": v.name, "occupation": v.occupation, "place": town.place_of(v.id)} for v in town.villagers),
         key=lambda v: v["name"],
     )
-
-
-def event_json(event: Event) -> dict:
-    """The event as the page gets it; a heat event also carries its sentence."""
-    data = event.to_json()
-    if event.kind == "heat":
-        data["text"] = HEAT_LINES[event.data["label"]]
-    return data
-
-
-def game_json(player: Player) -> dict:
-    """The player's game state and, once it is over, only the outcome and reasons."""
-    s = player.summary
-    summary = s and {"outcome": s.outcome, "reasons": s.reasons}
-    return {"state": player.state, "summary": summary}
 
 
 def offer(clients: dict[asyncio.Queue, str], queue: asyncio.Queue, message: dict) -> None:
@@ -123,7 +104,7 @@ async def _payload(request: Request, bad: str, too_long: str) -> dict | JSONResp
 
 def create_app(
     *, players: Players, join: Callable[[str], Player], town: Town, feed: Feed, usage: Usage, port: int,
-    suspicion: Suspicion, game: Game, host: str = "127.0.0.1", cases: Cases | None = None,
+    game: Game, host: str = "127.0.0.1", cases: Cases | None = None,
 ) -> FastAPI:
     clients: dict[asyncio.Queue, str] = {}
     boot = uuid.uuid4().hex
@@ -137,7 +118,7 @@ def create_app(
     def on_event(event: Event) -> None:
         for queue, pid in list(clients.items()):
             if feed.sees(pid, event):
-                offer(clients, queue, event_json(event))
+                offer(clients, queue, event.to_json())
 
     async def watch(kind: str, snapshot, seconds: float) -> None:
         """Send the snapshot whenever it has changed, checking every few seconds."""
@@ -196,13 +177,10 @@ def create_app(
 
     @app.get("/")
     async def page(request: Request):
-        """Serve the page, starting a run for a new visitor or for one whose lockout has passed."""
-        owner = request.cookies.get(COOKIE)
-        player = player_for(players, owner)
-        fresh = player is None
+        """Serve the page, starting a run for a new visitor."""
+        fresh = player_for(players, request.cookies.get(COOKIE)) is None
         if fresh:
             owner = new_owner_id()
-        if fresh or (player.over() and time.time() - player.ended_at >= RUN_OUT_LOCKOUT_SECONDS):
             join(owner)
             # Joining may have pruned runs; forget what their tabs were shown.
             kept = {p.id for p in players}
@@ -226,11 +204,8 @@ def create_app(
             "place": player.place,
             "time": game.clock(),
             "villagers": villagers(town),
-            "events": [event_json(e) for e in feed.replay(player.id)],
+            "events": [e.to_json() for e in feed.replay(player.id)],
             "usage": usage.to_json(player.id),
-            "heat": (label := suspicion.label(player.id)),
-            "heat_line": HEAT_LINES[label],
-            "game": game_json(player),
             "resting": usage.resting(),
             "case": case_json(case) if cases and (case := cases.for_player(player.id)) else None,
         }
@@ -261,7 +236,6 @@ def create_app(
                 {"id": o.id, "name": o.name, "kind": v.relationships.get(o.id, "")}
                 for o in town.villagers if v.household and o.household == v.household and o.id != v.id
             ],
-            "influence": influence(v),
         }
 
     @app.post("/api/walk")
@@ -291,7 +265,7 @@ def create_app(
         if usage.resting():
             return _error(409, RESTING)
         if problem := await player.ask(vid, topic):
-            return _error(409 if isinstance(problem, Refusal) else 400, problem)
+            return _error(400, problem)
         return {"ok": True}
 
     @app.post("/api/listen")

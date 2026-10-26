@@ -7,10 +7,6 @@ from collections.abc import Callable, Iterator
 from sleuth.player import Player
 from sleuth.usage import Usage
 
-# Real seconds a run-out player waits before a reload starts them over.
-RUN_OUT_LOCKOUT_SECONDS = 600
-
-
 def new_player_id() -> str:
     return "p-" + secrets.token_hex(8)
 
@@ -47,25 +43,25 @@ class Players:
         return self._by_id.get(player_id)
 
     def live(self, owner: str) -> Player | None:
-        """The owner's current run, over or not."""
+        """The owner's current run."""
         return self._latest.get(owner)
 
     def __iter__(self) -> Iterator[Player]:
         return iter(self._by_id.values())
 
     def any_playing(self) -> bool:
-        """Whether some active player's game is not over, and the village is not resting for the day."""
+        """Whether some player is active and the village is not resting for the day."""
         if self.resting():
             return False
-        return any(p.active() and not p.over() for p in self._by_id.values())
+        return any(p.active() for p in self._by_id.values())
 
     def resting(self) -> bool:
         """Whether the village is resting for the day."""
         return self.usage is not None and self.usage.resting()
 
     def at(self, place: str) -> list[Player]:
-        """The active players at place whose game is not over."""
-        return [p for p in self._by_id.values() if p.place == place and p.active() and not p.over()]
+        """The active players at place."""
+        return [p for p in self._by_id.values() if p.place == place and p.active()]
 
     def prune(self) -> list[Player]:
         """Drop and return the runs that never played: those older than idle_after_seconds, and the oldest past the

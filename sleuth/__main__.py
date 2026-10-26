@@ -103,7 +103,7 @@ async def play() -> None:
             host, port = config.address()
             app = create_app(
                 players=players, join=join, town=town, feed=feed, usage=usage, port=port,
-                suspicion=engine.suspicion, game=game, host=host, cases=engine.cases,
+                game=game, host=host, cases=engine.cases,
             )
             server = uvicorn.Server(uvicorn.Config(
                 app, host=host, port=port, log_level="warning", timeout_graceful_shutdown=1,

@@ -12,7 +12,7 @@ from sleuth.town_gen import WORLDS_DIR
 
 log = logging.getLogger(__name__)
 
-STATE_VERSION = 9
+STATE_VERSION = 10
 # Every id the game's Ids counters hand out, as prefix and number.
 ID = re.compile(r"\b(u|w|r|case)-(\d+)\b")
 # How far a restore skips each id that also keys Contex data past the last one saved, so ids handed out after a save
@@ -29,7 +29,7 @@ def components(engine) -> dict:
     """The game's stateful parts by name, in the order they are restored."""
     return {
         "town": engine.town, "ids": engine.ids, "lineage": engine.lineage, "facts": engine.facts, "feed": engine.feed,
-        "game": engine.game, "usage": engine.players.usage, "suspicion": engine.suspicion, "rapport": engine.rapport,
+        "game": engine.game, "usage": engine.players.usage,
         "engine": engine, "players": engine.players,
         "cases": engine.cases,
     }
@@ -117,8 +117,7 @@ def _restore(state: dict, components: dict, make: Callable, margin: int = 0) -> 
         last[prefix] = max(last.get(prefix, 0), int(n))
     for prefix, n in last.items():
         ids.ensure_past(prefix, n + margin)
-    feed = state["feed"]
-    components["feed"].ensure_past(max([e["id"] for e in feed["recent"]] + list(feed["closed"].values()), default=0))
+    components["feed"].ensure_past(max((e["id"] for e in state["feed"]["recent"]), default=0))
 
 
 def save_quietly(path: str, components: dict, session: str) -> None:

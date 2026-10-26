@@ -11,7 +11,7 @@ def make():
     town, lines, lineage = Town(), [], Lineage()
     for vid, name in (("v1", "Bert"), ("v2", "Marta")):
         town.add(Villager(vid, name, "baker", "calm", "none", [], {}))
-    lineage.record("w-1", None, player=PID)
+    lineage.record("w-1", None)
     lineage.record("u-1", "w-1")
     lineage.record("u-2", None)
     return Feed(lineage, town, out=lines.append), lines
@@ -37,16 +37,6 @@ def test_replay_is_bounded():
         feed.say("x")
     assert len(feed.recent) == REPLAY_EVENTS
     assert feed.recent[-1].id == REPLAY_EVENTS
-
-
-def test_refusal_event_and_terminal_lines():
-    feed, lines = make()
-    feed.on_refusal("v1", "Bert", "Not a word more.")
-    feed.on_refusal("v2", "Marta", None)
-    assert lines == ['Bert turns away from you: "Not a word more."', "Marta turns away from you."]
-    first, second = feed.recent
-    assert (first.kind, first.data) == ("refusal", {"name": "Bert", "villager_id": "v1", "line": "Not a word more."})
-    assert second.data["line"] is None
 
 
 def test_time_lines_name_the_day_at_dawn():
@@ -95,11 +85,9 @@ def test_state_round_trips_as_json_and_ids_go_on_past_it():
     feed, _ = make()
     feed.say("hello")
     feed.say("for one", player="p-2")
-    feed.close("p-2")
     fresh, _ = make()
     fresh.restore(json.loads(json.dumps(feed.to_state())))
     assert list(fresh.recent) == list(feed.recent)
-    assert fresh._closed == feed._closed
     assert fresh.say("next").id == feed.say("next").id
     fresh.ensure_past(40)
     assert fresh.say("later").id == 41

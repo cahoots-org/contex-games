@@ -1,4 +1,4 @@
-"""Id generation and rumor ancestry tracking."""
+"""Id generation and line ancestry tracking."""
 
 from collections import defaultdict
 
@@ -27,22 +27,18 @@ class Ids:
 class Lineage:
     def __init__(self) -> None:
         self._parent: dict[str, str | None] = {}
-        self._player: dict[str, str] = {}
 
-    def record(self, uid: str, parent: str | None, player: str | None = None) -> None:
-        """Record uid's parent; player is the id of the player whose whisper uid is."""
+    def record(self, uid: str, parent: str | None) -> None:
+        """Record uid's parent."""
         self._parent[uid] = parent
-        if player is not None:
-            self._player[uid] = player
 
     def to_state(self) -> dict:
-        """Parents and players as plain JSON."""
-        return {"parent": dict(self._parent), "player": dict(self._player)}
+        """Parents as plain JSON."""
+        return {"parent": dict(self._parent)}
 
     def restore(self, state: dict) -> None:
-        """Replace parents and players with a saved state."""
+        """Replace parents with a saved state."""
         self._parent = dict(state["parent"])
-        self._player = dict(state["player"])
 
     def root(self, uid: str) -> str:
         while self._parent.get(uid) is not None:
@@ -56,13 +52,3 @@ class Lineage:
             uid, n = self._parent[uid], n + 1
         return n
 
-    def player_of(self, uid: str | None) -> str | None:
-        """The player whose whisper uid's lineage roots in."""
-        return None if uid is None else self._player.get(self.root(uid))
-
-    def is_player_rooted(self, uid: str) -> bool:
-        return self.player_of(uid) is not None
-
-    def is_whisper(self, uid: str) -> bool:
-        """Whether uid is a player's own whisper."""
-        return self.is_player_rooted(uid) and self.root(uid) == uid

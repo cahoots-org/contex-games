@@ -14,15 +14,12 @@ from sleuth.contex_client import ContexClient, Match
 from sleuth.decide import Decision, TurnView, decide
 from sleuth.effects import act
 from sleuth.facts import Facts
-from sleuth.game import PHASES, Game, Summary
+from sleuth.game import PHASES, Game
 from sleuth.lineage import Ids, Lineage
 from sleuth.mind import Mind, group_project, mind_project
 from sleuth.models import Group, Utterance, Villager
-from sleuth.player import Player
 from sleuth.players import Players
-from sleuth.rapport import Rapport
 from sleuth.routine import Routine
-from sleuth.suspicion import Suspicion
 from sleuth.town import START_PLACE, Town
 from sleuth.writer import Writer
 
@@ -34,7 +31,6 @@ CONSUMED_KEYS = 500
 # How many villagers set off together on their daily round, and how much of each part of the day the round spans.
 ROUTINE_BATCH = 5
 ROUTINE_SPREAD = 0.5
-MEETING = "The town meets at town hall and runs the newcomer out of town."
 
 
 class Engine:
@@ -64,8 +60,6 @@ class Engine:
         self.ids = ids
         self.feed = feed
         self.facts = facts or Facts()
-        self.suspicion = Suspicion(config, town)
-        self.rapport = Rapport(config)
         self.baselines = baselines
         self.routine = routine
         self.cases = cases
@@ -84,7 +78,6 @@ class Engine:
         # How readily each villager passes news on, asked once per villager.
         self._gossip: dict[str, float] = {}
         self._renewal: asyncio.Task | None = None
-        self._checks: asyncio.Task | None = None
         self._clock: asyncio.Task | None = None
         self._walking: asyncio.Task | None = None
         # The last new item of each villager's last turn, which a routine move may carry.
@@ -133,17 +126,16 @@ class Engine:
         await _cancel(tasks)
 
     async def run(self) -> None:
-        """Start lease renewal and, with a game, the town check; returns at once."""
+        """Start lease renewal and, with a game, the clock; returns at once."""
         self._renewal = asyncio.create_task(self._renew_loop())
         if self.game is not None:
-            self._checks = asyncio.create_task(self._suspicion_loop())
             self._clock = asyncio.create_task(self._clock_loop())
 
     async def stop(self) -> None:
         tasks = [t for ts in self._tasks.values() for t in ts]
-        tasks += [t for t in (self._renewal, self._checks, self._clock, self._walking) if t]
+        tasks += [t for t in (self._renewal, self._clock, self._walking) if t]
         self._tasks.clear()
-        self._renewal = self._checks = self._clock = self._walking = None
+        self._renewal = self._clock = self._walking = None
         await _cancel(tasks)
 
     async def deliver(self, utterance: Utterance, listener_ids: list[str], addressed: bool = False) -> None:
@@ -205,10 +197,6 @@ class Engine:
         if last is None:
             return time.time()
         return time.time() + last + cooldown - time.monotonic()
-
-    def suspect(self, vid: str, player: str, amount: float, reason: str, uid: str | None = None) -> None:
-        """Raise the villager's suspicion of player."""
-        self.suspicion.bump(vid, player, amount, reason, uid)
 
     async def publish_group(self, group: Group) -> None:
         data = {"id": group.id, "name": group.name, "creed": group.creed, "founder": group.founder}
@@ -397,31 +385,6 @@ class Engine:
             )
         except Exception:
             log.exception("routine move failed for %s", vid)
-
-    async def _suspicion_loop(self) -> None:
-        """Decay suspicion, then check where each player someone is playing stands with the town."""
-        days = self.config.suspicion_check_days
-        labels: dict[str, str] = {}
-        held: dict[str, int] = {}
-        while True:
-            await asyncio.sleep(days * self.config.day_seconds)
-            try:
-                self.suspicion.decay(days)
-                for p in self.players:
-                    if p.active() and not p.over():
-                        self._check(p, labels, held)
-            except Exception:
-                log.exception("town check failed")
-
-    def _check(self, p: Player, labels: dict[str, str], held: dict[str, int]) -> None:
-        """Report the player's label if it changed, and run them out after enough checks at the run-out level."""
-        if (now := self.suspicion.label(p.id)) != labels.get(p.id, "quiet"):
-            labels[p.id] = now
-            self.feed.on_heat(now, player=p.id)
-        held[p.id] = held.get(p.id, 0) + 1 if self.suspicion.level(p.id) >= self.config.run_out_level else 0
-        if held[p.id] >= self.config.run_out_checks:
-            self.feed.say(MEETING, player=p.id)
-            p.end(Summary("lost", self.suspicion.reasons(p.id)))
 
     async def _renew_loop(self) -> None:
         """Renew the lease of every mind not read within renew_seconds."""

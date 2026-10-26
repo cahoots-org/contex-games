@@ -3,12 +3,11 @@
 import asyncio
 import logging
 import time
-from dataclasses import asdict
 
 from sleuth.config import Config
 from sleuth.contex_client import Match
 from sleuth.facts import audible
-from sleuth.game import Game, Summary
+from sleuth.game import Game
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
 from sleuth.town import PLACES, START_PLACE, Town, neighbours
@@ -23,15 +22,10 @@ def analytics(event: str, **fields) -> None:
 
 
 MAX_ASK_CHARS = 500
-GAME_OVER = "The game is over."
 LISTEN_OPENING = 5
 LISTEN_LOOKBACK_DAYS = 1 / 4
 ALREADY_LISTENING = "You're already listening."
 ASK_LINES = 3
-
-
-class Refusal(str):
-    """The message for a question a suspicious villager turned away; the feed has already shown it."""
 
 
 class Player:
@@ -51,10 +45,6 @@ class Player:
         self.writer = writer
         self.game = game
         self.place = START_PLACE
-        self.state = "playing"
-        self.summary: Summary | None = None
-        self.finished = asyncio.Event()
-        self.ended_at: float | None = None
         self._tasks: set[asyncio.Task] = set()
         # When the running listen ends, or None when the player is not listening.
         self._listen_until: float | None = None
@@ -66,20 +56,15 @@ class Player:
     def to_state(self) -> dict:
         """The run's durable fields as plain JSON; listens, tabs and tasks are left out."""
         return {
-            "id": self.id, "owner": self.owner, "place": self.place, "state": self.state, "ended_at": self.ended_at,
-            "created_at": self.created_at, "summary": self.summary and asdict(self.summary), "active_at": self._active_at,
+            "id": self.id, "owner": self.owner, "place": self.place, "created_at": self.created_at,
+            "active_at": self._active_at,
         }
 
     def restore(self, state: dict) -> None:
         """Fill the run from a saved state; with no tab open it is idle until its player reconnects."""
-        self.place, self.state, self.ended_at = state["place"], state["state"], state["ended_at"]
-        self.created_at = state["created_at"]
-        summary = state["summary"]
-        self.summary = summary and Summary(summary["outcome"], summary["reasons"])
+        self.place, self.created_at = state["place"], state["created_at"]
         active_at = state["active_at"]
         self._active_at = None if active_at is None else min(active_at, time.time() - self.config.idle_after_seconds)
-        if self.state != "playing":
-            self.finished.set()
 
     def connected(self) -> None:
         """A tab opened its feed."""
@@ -109,8 +94,6 @@ class Player:
     def walk(self, place: str) -> str | None:
         """Move to place for free; returns why it could not be done, if it couldn't."""
         self.touch()
-        if self.over():
-            return GAME_OVER
         if place not in PLACES:
             return f"There's no {place} here. Try one of: {', '.join(PLACES)}."
         if place == self.place:
@@ -124,8 +107,6 @@ class Player:
         It opens with the last few lines said here in this part of the day.
         """
         self.touch()
-        if self.over():
-            return GAME_OVER
         if self.listening():
             return ALREADY_LISTENING
         now = time.time()
@@ -159,15 +140,13 @@ class Player:
     async def ask(self, villager_id: str, topic: str) -> str | None:
         """Ask the villager what folk have been saying about the topic; returns why it could not be done, if it couldn't.
 
-        A villager turning the question away comes back as a Refusal. The model call is charged to this player.
+        The model call is charged to this player.
         """
         self.touch()
         with charging(self.id):
             return await self._ask(villager_id, topic)
 
     async def _ask(self, villager_id: str, topic: str) -> str | None:
-        if self.over():
-            return GAME_OVER
         if villager_id not in self.town:
             gone = self.town.name_of(villager_id)
             return f"{gone} has left town." if gone else "No one in town has that id."
@@ -180,10 +159,6 @@ class Player:
         place = self.town.place_of(villager_id)
         if place != self.place:
             return f"{villager.name} is at the {place}. Walk there to ask them."
-        if self.engine.suspicion.score(villager_id, self.id) >= self.config.refuse_threshold:
-            self.feed.on_refusal(villager_id, villager.name, await self._turn_away(villager), player=self.id)
-            return Refusal(f"{villager.name} turns away from you.")
-        self.engine.suspicion.bump(villager_id, self.id, self.config.suspicion_whisper_bump / 2, "asked questions")
         recalled = await self.engine.recall_heard(villager_id, topic)
         heard = [u for u in map(self._tellable, recalled) if u is not None][:ASK_LINES]
         line = await self._answer(villager, topic, heard)
@@ -208,30 +183,6 @@ class Player:
         if heard:
             return f"{villager.name} heard {heard[0].speaker_name} talking about it at the {heard[0].place}."
         return f"{villager.name} hasn't heard anything about that."
-
-    async def _turn_away(self, villager: Villager) -> str | None:
-        """An in-character refusal line, or None when there is no writer or it fails."""
-        if self.writer is None:
-            return None
-        try:
-            return await self.writer.turn_away(villager) or None
-        except Exception:
-            log.exception("turn-away for %s failed", villager.id)
-            return None
-
-    def over(self) -> bool:
-        """Whether this player's game is over."""
-        return self.finished.is_set()
-
-    def end(self, summary: Summary) -> None:
-        """End this player's game once; announce it to them, then send them nothing more."""
-        if self.over():
-            return
-        self.state, self.summary, self.ended_at = summary.outcome, summary, time.time()
-        self.finished.set()
-        analytics("end", owner=self.owner, run=self.id, outcome=summary.outcome)
-        self.feed.on_game_over(summary, player=self.id)
-        self.feed.close(self.id)
 
     def close(self) -> None:
         """Cancel every background task this player started."""
