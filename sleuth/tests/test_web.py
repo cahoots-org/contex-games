@@ -11,7 +11,7 @@ import pytest
 from fastapi import FastAPI, WebSocketDisconnect
 from fastapi.testclient import TestClient
 
-from sleuth.case import Crime, Record
+from sleuth.case import WHEN, Crime, Record
 from sleuth.cases import CaseFile, Cases
 from sleuth.config import Config
 from sleuth.feed import Feed
@@ -71,7 +71,7 @@ def game(monkeypatch):
         player = players.live(client.cookies[web.COOKIE])
         yield SimpleNamespace(
             client=client, town=town, feed=feed, app=app, usage=usage, player=player, config=config,
-            players=players, join=join, engine=engine, cases=cases,
+            players=players, join=join, engine=engine, cases=cases, game=game,
         )
     for p in players:
         p.close()
@@ -215,6 +215,21 @@ def test_a_guarded_resident_is_a_conflict(game):
     game.engine.reputation.nudge("v1", game.player.id, -1)
     refused = game.client.post("/api/interview", json=ASK)
     assert refused.status_code == 409 and "Marta Hale" in refused.json()["error"]
+
+
+def test_the_case_and_notebook_say_the_crime_time_from_today(game):
+    crime = Crime("case-1", "steal", "bike", "v2", "v1", "library", 2, "afternoon", 800, "rival",
+                  f"Someone stole Marta Hale's bike at the library {WHEN}.")
+    game.cases.files["case-1"] = CaseFile(crime, {}, "open")
+    said = Record("r-1", "case-1", "statement", "gym", "9:00am", f"Bert Cole says they were at the gym {WHEN}.", "v2")
+    game.player.notebook = {said.id: said}
+    for day, when in ((2, "this afternoon"), (3, "yesterday afternoon"), (4, "two days ago, in the afternoon")):
+        game.game.day = day
+        body = game.client.get("/api/case").json()
+        assert body["case"]["text"] == f"Someone stole Marta Hale's bike at the library {when}."
+        assert [r["text"] for r in body["notebook"]] == [f"Bert Cole says they were at the gym {when}."]
+    html = game.client.get("/").text
+    assert 'fetch("/api/case")' in html
 
 
 def test_state_notebook_hides_soundness(game):

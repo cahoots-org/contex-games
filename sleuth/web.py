@@ -201,7 +201,6 @@ def create_app(
     async def state(request: Request):
         if (player := player_for(players, request.cookies.get(COOKIE))) is None:
             return _error(401, RELOAD)
-        case = cases.for_player(player.id) if cases else None
         return {
             "boot": f"{boot}:{player.id}",
             "places": list(PLACES),
@@ -211,10 +210,23 @@ def create_app(
             "events": [e.to_json(player.id) for e in feed.replay(player.id)],
             "usage": usage.to_json(player.id),
             "resting": usage.resting(),
+            **case_of(player),
+        }
+
+    def case_of(player: Player) -> dict:
+        """The player's open case and its notebook, their times said today."""
+        case = cases.for_player(player.id) if cases else None
+        return {
             "case": case_json(case, town, game.day) if case else None,
             "notebook": [record_json(r, town, case.crime, game.day) for r in player.notebook.values()
                          if case and r.case == case.crime.id],
         }
+
+    @app.get("/api/case")
+    async def case(request: Request):
+        if (player := player_for(players, request.cookies.get(COOKIE))) is None:
+            return _error(401, RELOAD)
+        return case_of(player)
 
     @app.get("/api/villagers/{vid}")
     async def inspect(vid: str, request: Request):

@@ -632,18 +632,23 @@ function clockMinutes(clock) {
 }
 
 // The evidence the player has gathered, once each and in day and clock order, as "kind · from · clock · text", each
-// with a box to cite it. The day shows once the entries span more than one.
+// with a box to cite it. The day shows once the entries span more than one. An entry already there takes the new text.
 function note(records) {
   const book = $("notebook");
   for (const r of records) {
-    if (book.querySelector(`[data-id="${CSS.escape(r.id)}"]`)) continue;
+    const shown = book.querySelector(`[data-id="${CSS.escape(r.id)}"] .note-text`);
+    if (shown) {
+      shown.textContent = [r.clock, r.text].filter(Boolean).join(" · ");
+      continue;
+    }
     const minutes = clockMinutes(r.clock);
     const at = r.day * 1440 + minutes;
     // The page's clock turns the day at midnight, 18 hours into the game's day.
     const day = r.day + (minutes >= 1080 ? 1 : 0);
     const item = el("li", { dataset: { id: r.id, at, day } }, el("label", {},
       el("input", { type: "checkbox", value: r.id }), " ", [r.kind, r.from].filter(Boolean).join(" · "), " · ",
-      el("span", { className: "note-day", textContent: `Day ${day}, ` }), [r.clock, r.text].filter(Boolean).join(" · ")));
+      el("span", { className: "note-day", textContent: `Day ${day}, ` }),
+      el("span", { className: "note-text", textContent: [r.clock, r.text].filter(Boolean).join(" · ") })));
     book.insertBefore(item, [...book.children].find((li) => Number(li.dataset.at) > at) || null);
   }
   book.classList.toggle("days", new Set([...book.children].map((li) => li.dataset.day)).size > 1);
@@ -682,7 +687,10 @@ function render(e, fresh) {
       return listened(e, fresh);
     case "time":
       // A replayed tick would wind the clock back to the start of its part of the day.
-      if (fresh) setClock(e);
+      if (fresh) {
+        setClock(e);
+        retell();
+      }
       return null;
     case "system":
       return line("quiet", e.text);
@@ -1385,6 +1393,16 @@ function reset() {
   headedCase = null;
   rover = null;
   setStatus("");
+}
+
+// The case and notebook again, so their times read from the new part of the day.
+async function retell() {
+  const res = await fetch("/api/case");
+  if (!res.ok) return;
+  const now = await res.json();
+  if (now.case) caseInfo[now.case.id] = now.case;
+  setCase(now.case);
+  note(now.notebook);
 }
 
 async function loadState() {
