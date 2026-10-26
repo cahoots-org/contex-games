@@ -28,6 +28,8 @@ class Config:
     reputation_decay: float = 0.02
     # Below this regard a resident won't talk to the podcaster.
     guarded_at: float = -0.3
+    # At or above this regard a witness recalls one more of the culprit's traits.
+    trusted_at: float = 0.2
     # How many routine questions Jev is asked at once.
     routine_concurrency: int = 10
     turn_concurrency: int = 20

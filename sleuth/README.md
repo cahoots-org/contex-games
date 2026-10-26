@@ -42,7 +42,9 @@ Statements can be lies: the culprit gives a false alibi, and a housemate may cov
 notebook; Haiku only phrases the answer. Every interview tells the culprit, at most once a part of the day, that a
 podcaster is asking around, and they may start covering their tracks.
 
-**Pull records** at a place to copy the case's footage and logs there into your notebook.
+**Pull records** at a place to copy the case's footage and logs there into your notebook. A place's records are
+kept by the residents who work there, or for a street by those who live on it; they're shared unless every keeper
+regards you below `guarded_at`.
 
 **Publish** an episode: choose a resident and tick between 1 and 5 notebook entries. It holds up when it names the
 culprit, every cited entry is true evidence from this case, and at least one points at the culprit: a memory or clip
@@ -55,8 +57,9 @@ Otherwise the evidence doesn't back it. One episode per podcaster per case.
   (`reputation_wrong`), and the accused most of all (`reputation_accused`).
 
 **Reputation** is each resident's regard for you, in [-1, 1], drifting back toward 0 by `reputation_decay` each part
-of the day. A resident below `guarded_at` won't talk to you, and when the town's average is below it nobody shares
-records.
+of the day. A resident below `guarded_at` won't talk to you or share the records they keep. A witness at or above
+`trusted_at` recalls one more of the culprit's traits in an interview, a fuller memory that goes in your notebook as
+a new entry.
 
 Everything is done on the page: open a place's tile to walk there or look around, open a resident's card to interview
 them, and use the case panel to pull records and publish. Click a face to see a resident's trade, looks, home and
@@ -131,7 +134,8 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_REPUTATION_WRONG` | `-0.4` | regard every resident loses for a wrong episode |
 | `SLEUTH_REPUTATION_ACCUSED` | `-0.4` | further regard the wrongly accused loses |
 | `SLEUTH_REPUTATION_DECAY` | `0.02` | how far regard drifts back toward 0 each part of the day |
-| `SLEUTH_GUARDED_AT` | `-0.3` | below this regard a resident won't talk to you |
+| `SLEUTH_GUARDED_AT` | `-0.3` | below this regard a resident won't talk to you or share records |
+| `SLEUTH_TRUSTED_AT` | `0.2` | at or above this regard a witness recalls one more of the culprit's traits |
 | `SLEUTH_LISTEN_SECONDS` | `20` | how long one look around lasts |
 | `SLEUTH_MEMORY_DAYS` | `2` | how many days a resident keeps what they heard to react to |
 | `SLEUTH_MATCH_MARGIN` | `0.015` | how far above a need's baseline a line must score to match it |

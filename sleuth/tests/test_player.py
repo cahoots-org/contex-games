@@ -20,7 +20,7 @@ from sleuth.cases import CaseFile
 from sleuth.feed import Feed
 from sleuth.game import Game
 from sleuth.lineage import Lineage
-from sleuth.tests.helpers import PID, FakeEngine, StubClient, StubJev, StubWriter, wait_for
+from sleuth.tests.helpers import PID, FakeEngine, StubClient, StubJev, StubRoutine, StubWriter, wait_for
 from sleuth.tests.test_cases import culprit_file, make_cases
 from sleuth.tests.helpers import make_player as make
 from sleuth.town import NEWCOMER
@@ -299,6 +299,19 @@ async def test_interview_gives_a_witness_their_memory_record():
 
 
 @pytest.mark.asyncio
+async def test_a_trusting_witness_recalls_one_more_of_the_culprit_s_traits():
+    player, file, engine, _ = interviewing()
+    memory = memory_of(file, player.ids)
+    engine.reputation.nudge("v2", PID, player.config.trusted_at)
+    await player.interview("v2")
+    [fuller] = notebook(player, "memory")
+    assert fuller.id not in (memory.id, "") and fuller.sound and fuller.holder == "v2"
+    hair = player.town.get("v3").traits["hair"]
+    assert fuller.traits == {"height": "tall", "hair": hair, "coat": "grey hoodie"}
+    assert fuller.text == f"Around 11:40pm, on Elm Street, someone tall, {hair}, in a grey hoodie walked off with something."
+
+
+@pytest.mark.asyncio
 async def test_interview_records_an_alibi_claim_with_soundness():
     player, file, *_ = interviewing()
     file.whereabouts = {"v2": ["elm street", "bar"]}
@@ -487,12 +500,27 @@ def test_pull_adds_the_clip_and_logs_at_the_place():
     assert player.pull() == "There's no open case."
 
 
-def test_pull_refused_when_the_town_is_wary():
+def test_pull_refused_when_no_one_who_lives_on_the_street_trusts_you():
     player, file, engine, _ = interviewing()
     place_record(file, "clip", "elm street", "r-11")
-    engine.reputation.nudge_all(PID, player.config.guarded_at - 0.1, [v.id for v in player.town.villagers])
-    assert player.pull() == "People here won't share records with you right now."
+    engine.reputation.nudge_all(PID, player.config.guarded_at - 0.1, ["v1", "v2", "v3", "v4"])
+    engine.reputation.nudge_all(PID, 0.5, ["v5", "v6", "v7", "v8"])
+    assert player.pull() == "No one who keeps the records here will share them with you."
     assert player.notebook == {}
+    engine.reputation.nudge("v2", PID, 0.5)
+    assert player.pull() is None and "r-11" in player.notebook
+
+
+def test_a_place_s_records_are_kept_by_those_who_work_there():
+    player, file, engine, _ = interviewing()
+    engine.routine = StubRoutine({"v5": {"morning": "grocery"}})
+    place_record(file, "log", "grocery", "r-11")
+    player.place = "grocery"
+    engine.reputation.nudge_all(PID, player.config.guarded_at - 0.1, ["v1", "v2", "v3", "v4", "v6", "v7", "v8"])
+    assert player.pull() is None
+    player.notebook.clear()
+    engine.reputation.nudge("v5", PID, player.config.guarded_at - 0.1)
+    assert player.pull() == "No one who keeps the records here will share them with you."
 
 
 def cite(player, file, *records):

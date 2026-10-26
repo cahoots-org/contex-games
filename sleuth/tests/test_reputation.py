@@ -13,10 +13,10 @@ def test_nudge_clamps_and_decay_moves_toward_zero():
     rep.nudge("v1", "p-1", -0.8)
     assert rep.get("v1", "p-1") == -1
     rep.nudge_all("p-1", 0.05, ["v2", "v3"])
-    assert rep.mean("p-1", ["v1", "v2", "v3"]) == pytest.approx(-0.3)
+    assert rep.get("v2", "p-1") == pytest.approx(0.05)
     rep.decay()
     assert rep.get("v1", "p-1") == pytest.approx(-0.9) and rep.get("v2", "p-1") == 0
-    assert rep.get("v1", "p-2") == 0 and rep.mean("p-1", []) == 0
+    assert rep.get("v1", "p-2") == 0
 
 
 def test_reputation_round_trips():

@@ -21,10 +21,6 @@ class Reputation:
         for vid in vids:
             self.nudge(vid, player, delta)
 
-    def mean(self, player: str, vids: Iterable[str]) -> float:
-        values = [self.get(vid, player) for vid in vids]
-        return sum(values) / len(values) if values else 0.0
-
     def decay(self) -> None:
         """Move every regard reputation_decay toward 0."""
         step = self.config.reputation_decay

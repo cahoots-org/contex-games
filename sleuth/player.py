@@ -7,7 +7,7 @@ import time
 from dataclasses import asdict, replace
 
 from sleuth.alibi import claim, household_word
-from sleuth.case import TEMPLATES, Record, clock_at, record_json, when
+from sleuth.case import TEMPLATES, Record, clock_at, recall_more, record_json, when
 from sleuth.cases import CaseFile
 from sleuth.config import Config
 from sleuth.episode import MAX_CITED, holds
@@ -264,6 +264,9 @@ class Player:
         as records, and news-rooted hearsay as talk."""
         crime, vid, name = file.crime, villager.id, villager.name
         records = [replace(r) for r in file.records.values() if r.kind == "memory" and r.holder == vid]
+        if self.engine.reputation.get(vid, self.id) >= self.config.trusted_at:
+            culprit = self.town.get(crime.culprit).traits
+            records = [recall_more(crime, r, culprit) for r in records]
 
         def statement(text: str, sound: bool, source: str | None = None, who: str | None = None) -> Record:
             return Record("", crime.id, "statement", self.place, self._clock(), text, vid, who=who, sound=sound,
@@ -321,8 +324,8 @@ class Player:
         file = self.engine.cases.for_player(self.id) if self.engine.cases else None
         if file is None:
             return "There's no open case."
-        if self.engine.reputation.mean(self.id, (v.id for v in self.town.villagers)) < self.config.guarded_at:
-            return "People here won't share records with you right now."
+        if max((self.engine.reputation.get(vid, self.id) for vid in self._keepers()), default=0.0) < self.config.guarded_at:
+            return "No one who keeps the records here will share them with you."
         found = [replace(r) for r in file.records.values() if r.kind in ("clip", "log") and r.place == self.place]
         if not found:
             return "There's no footage or log for the case here."
@@ -331,6 +334,12 @@ class Player:
         self.feed.on_pulled(self.place, [record_json(r, self.town) for r in found], player=self.id)
         self._guide(2)
         return None
+
+    def _keepers(self) -> list[str]:
+        """Who keeps this place's records: those who live on it, for a street, or work at it."""
+        routine = self.engine.routine
+        return [v.id for v in self.town.villagers
+                if v.home == self.place or (routine is not None and routine.place(v.id, "morning") == self.place)]
 
     async def publish(self, culprit_id: str, record_ids: list[str]) -> str | None:
         """Publish an episode naming culprit_id on the evidence cited; returns why it could not be done.

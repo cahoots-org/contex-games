@@ -1,7 +1,7 @@
 """Staging a petty crime from where the town expects its residents to be, and the evidence it leaves."""
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from random import Random
 
 from sleuth.lineage import Ids
@@ -99,11 +99,24 @@ def record_json(r: Record, town: Town) -> dict:
             "from": town.get(r.holder).name if r.holder else ""}
 
 
+def _memory_text(crime: Crime, clock: str, seen: dict[str, str]) -> str:
+    return f"Around {clock}, {at(crime.place)}, someone {describe(seen)} {WITNESS_ACTION[crime.template]}."
+
+
 def _memory(crime: Crime, witness: str, seen: dict[str, str], rng: Random, ids: Ids) -> Record:
     lo, hi = PHASE_MINUTES[crime.phase]
     clock = clock_at(min(max(crime.minute + rng.randint(-WITNESS_DRIFT, WITNESS_DRIFT), lo), hi - 1))
-    text = f"Around {clock}, {at(crime.place)}, someone {describe(seen)} {WITNESS_ACTION[crime.template]}."
-    return Record(ids.next("r"), crime.id, "memory", crime.place, clock, text, witness, seen, day=crime.day)
+    return Record(ids.next("r"), crime.id, "memory", crime.place, clock, _memory_text(crime, clock, seen), witness, seen,
+                  day=crime.day)
+
+
+def recall_more(crime: Crime, memory: Record, culprit: dict[str, str]) -> Record:
+    """The memory with one more of the culprit's traits, unnumbered, or as it was when it already has them all."""
+    extra = next((c for c in culprit if c not in memory.traits), None)
+    if extra is None:
+        return replace(memory)
+    seen = {**memory.traits, extra: culprit[extra]}
+    return replace(memory, id="", traits=seen, text=_memory_text(crime, memory.clock, seen))
 
 
 def _bystanders(crime: Crime, town: Town, routine) -> list[str]:
