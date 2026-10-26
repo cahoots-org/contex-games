@@ -298,6 +298,14 @@ def create_app(
             return _error(400, problem)
         return {"ok": True}
 
+    @app.post("/api/skip")
+    async def skip(request: Request):
+        if (player := player_for(players, request.cookies.get(COOKIE))) is None:
+            return _error(401, RELOAD)
+        if problem := player.skip():
+            return _error(400, problem)
+        return {"ok": True}
+
     @app.post("/api/publish")
     async def publish(request: Request):
         if (player := player_for(players, request.cookies.get(COOKIE))) is None:
