@@ -32,6 +32,8 @@ from sleuth.usage import CountingJev, Usage
 from sleuth.web import create_app
 from sleuth.writer import Writer
 
+SIGNALS = (signal.SIGTERM, signal.SIGINT)
+
 
 async def play() -> None:
     config = Config.from_env()
@@ -93,13 +95,14 @@ async def play() -> None:
             ))
 
             def save() -> None:
-                save_quietly(saves, parts, config.session)
+                if fixed:
+                    save_quietly(saves, parts, config.session)
 
             if fixed:
                 saving = asyncio.create_task(save_every(config.save_every_seconds, save))
-                loop, main_task = asyncio.get_running_loop(), asyncio.current_task()
-                for sig in (signal.SIGTERM, signal.SIGINT):
-                    loop.add_signal_handler(sig, stop, save, main_task)
+            loop, main_task = asyncio.get_running_loop(), asyncio.current_task()
+            for sig in SIGNALS:
+                loop.add_signal_handler(sig, stop, save, main_task)
             await engine.run()
             host, port = config.address()
             app = create_app(
@@ -111,6 +114,9 @@ async def play() -> None:
                 # Behind a TLS proxy such as Railway's, the forwarded scheme says the page was served over https.
                 proxy_headers=True, forwarded_allow_ips="*",
             ))
+            # Cancelling the main task mid-serve would orphan the server's lifespan task and log a traceback.
+            for sig in SIGNALS:
+                loop.add_signal_handler(sig, stop, save, main_task, server)
             print(f"Sleuth is running at http://{host}:{port} (Ctrl-C to stop)")
             await server.serve()
         finally:

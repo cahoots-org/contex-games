@@ -135,7 +135,10 @@ async def save_every(seconds: float, save: Callable[[], None]) -> None:
         save()
 
 
-def stop(save: Callable[[], None], task: asyncio.Task) -> None:
-    """On a stop signal: save, then cancel the game's main task so it shuts down."""
+def stop(save: Callable[[], None], task: asyncio.Task, server=None) -> None:
+    """On a stop signal: save, then let the web server shut down, or cancel the game's main task before it serves."""
     save()
-    task.cancel()
+    if server is None:
+        task.cancel()
+    else:
+        server.should_exit = True

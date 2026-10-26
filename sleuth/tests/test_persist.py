@@ -212,6 +212,15 @@ async def test_a_stop_signal_saves_then_cancels_the_game(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_a_stop_signal_while_serving_shuts_the_server_down_instead():
+    saves, server = [], SimpleNamespace(should_exit=False)
+    task = asyncio.create_task(asyncio.Event().wait())
+    stop(lambda: saves.append(1), task, server)
+    assert saves == [1] and server.should_exit and not task.cancelled()
+    task.cancel()
+
+
+@pytest.mark.asyncio
 async def test_the_game_is_saved_every_interval():
     saves = []
     task = asyncio.create_task(save_every(0, lambda: saves.append(1)))
