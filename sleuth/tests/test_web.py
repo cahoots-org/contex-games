@@ -190,7 +190,9 @@ def test_state_offers_the_intro_until_the_player_starts_or_is_onboarded(game):
 def test_state_and_case_carry_the_guided_checklist(game):
     assert game.client.get("/api/state").json()["steps"] is None
     open_case(game).crime.owner = game.player.id
+    game.cases.routine = helpers.StubRoutine({"v1": {"night": "library"}, "v2": {"night": "library"}})
     for path in ("/api/state", "/api/case"):
+        assert game.client.get(path).json()["case"]["nearby"] == ["v2"]
         steps = game.client.get(path).json()["steps"]
         assert [s["text"] for s in steps] == ["Ask Marta Hale, the victim, what happened",
                                               "Pull the records at the library", "Search the scene at the library",
@@ -593,10 +595,13 @@ def test_state_shows_the_case_without_its_culprit(game):
     assert game.client.get("/api/state").json()["case"] is None
     crime = Crime("case-1", "steal", "bike", "v2", "v1", "library", 1, "night", 1422, "rival",
                   "Someone stole Marta Hale's bike at the library last night.")
-    game.cases.files["case-1"] = CaseFile(crime, {}, "open")
+    game.cases.files["case-1"] = CaseFile(crime, {}, "open", whereabouts={"v2": ["library"]})
+    game.cases.routine = helpers.StubRoutine({"v2": {"night": "gym"}})
+    game.town.move("v2", "library")
     body = game.client.get("/api/state").json()
     assert body["case"] == {"id": "case-1", "text": crime.text, "place": "library", "phase": "night", "day": 1,
-                            "state": "open", "private": False, "title": "Marta Hale's bike", "victim": "v1"}
+                            "state": "open", "private": False, "title": "Marta Hale's bike", "victim": "v1",
+                            "nearby": []}
     assert "culprit" not in json.dumps(body["case"]) and "Bert Cole" not in json.dumps(body["case"])
 
 
@@ -621,7 +626,7 @@ def test_page_is_built_around_the_case(game):
     order = ['id="case"', 'id="notebook"', 'id="here"', 'id="talk"', 'id="people"', 'id="convo"']
     assert [html.index(n) for n in order] == sorted(html.index(n) for n in order)
     for needle in ('id="publish-open"', 'id="culprit"', "/api/publish", "/api/interview", "/api/walk", "/api/pull",
-                   "/api/search", 'case "interview"', 'case "pulled"', 'case "searched"', 'case "steps"', 'id="intro"',
+                   "/api/search", 'case "interview"', 'case "pulled"', 'case "searched"', 'case "steps"', "usually nearby", 'id="intro"',
                    "@media (max-width: 600px)"):
         assert needle in html, needle
     for gone in ("/api/listen", "Look around", "tiles", "card-title", 'role="tablist"', "innerHTML"):

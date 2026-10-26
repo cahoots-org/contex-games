@@ -130,6 +130,7 @@ h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
 .lit { outline: 3px solid var(--sun); outline-offset: 2px; }
 .person.lit, .plain-button.lit { background: color-mix(in srgb, var(--mark) 35%, transparent); }
 .person.lit { outline-offset: -3px; }
+.role.lit { outline-width: 2px; outline-offset: 1px; background: var(--sun); border-color: var(--sun); color: var(--ink); }
 @media (prefers-reduced-motion: no-preference) {
   .lit { animation: beckon 1.6s ease-in-out infinite; }
   @keyframes beckon { 50% { outline-color: color-mix(in srgb, var(--sun) 40%, transparent); } }
@@ -225,6 +226,7 @@ select, input[type="text"], input[type="search"] {
 .role { margin-left: .4rem; padding: 0 .35rem; border-radius: 3px; font-size: .72rem; font-weight: 700; vertical-align: .1rem; }
 .role.victim { border: 1px solid var(--danger); color: var(--danger); }
 .role.witness { background: var(--mark); color: var(--ink); }
+.role.nearby { border: 1px solid var(--edge); color: var(--muted); font-weight: 400; }
 .talked { font-size: .75rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .face { display: inline-block; flex: none; line-height: 0; }
 .face canvas {
@@ -383,7 +385,7 @@ select, input[type="text"], input[type="search"] {
   <aside class="side" aria-label="People">
     <section class="people" aria-labelledby="people-title">
       <h2 id="people-title">People</h2>
-      <input type="search" id="find" placeholder="Find by name or looks, like red-haired" aria-label="Find someone" autocomplete="off">
+      <input type="search" id="find" placeholder="Find by name, looks like red-haired, or nearby" aria-label="Find someone" autocomplete="off">
       <p class="status" id="find-status" role="status"></p>
       <ul class="list" id="people"></ul>
     </section>
@@ -609,6 +611,7 @@ function light() {
     : s.place && s.place !== here ? $("go").querySelector(`[data-place="${CSS.escape(s.place)}"]`)
     : $(ACTION_BUTTON[s.action]);
   target?.classList.add("lit");
+  if (s.person) target?.querySelector(".nearby")?.classList.add("lit");
 }
 
 async function walkTo(place) {
@@ -631,7 +634,8 @@ function gained(text, records, none) {
   say("where-status", `${text} ${records.length ? `${plural(records.length, "new notebook entry", "new notebook entries")}.` : none}`);
 }
 
-// People: the victim, then witnesses the player has heard from, then whoever they've talked to, then everyone else.
+// People: the victim, then witnesses the player has heard from, then those usually at the scene when it happened, then
+// whoever they've talked to, then everyone else.
 function roles() {
   const role = {};
   for (const r of notebook.values()) if (r.kind === "memory" && r.holder) role[r.holder] = "witness";
@@ -643,25 +647,29 @@ function drawPeople() {
   const q = $("find").value.trim().toLowerCase();
   const role = roles();
   const wanted = step()?.person;
-  const rank = (v) => v.id === wanted ? -1 : { victim: 0, witness: 1 }[role[v.id]] ?? (talked[v.id] ? 2 : 3);
+  const nearby = new Set(caseNow?.nearby);
+  const rank = (v) => v.id === wanted ? -1 : { victim: 0, witness: 1 }[role[v.id]]
+    ?? (nearby.has(v.id) ? 2 : talked[v.id] ? 3 : 4);
   const shown = residents.filter((v) => !q || v.name.toLowerCase().includes(q) || v.looks.includes(q)
-    || v.occupation.toLowerCase().includes(q));
+    || v.occupation.toLowerCase().includes(q) || (nearby.has(v.id) && NEARBY.includes(q)));
   shown.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
   const focused = document.activeElement?.closest?.(".person")?.dataset.id;
-  $("people").replaceChildren(...shown.map((v) => person(v, role[v.id])));
+  $("people").replaceChildren(...shown.map((v) => person(v, role[v.id], nearby.has(v.id))));
   if (focused) $("people").querySelector(`[data-id="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
   $("find-status").textContent = !q ? "" : shown.length ? `${plural(shown.length, "match", "matches")}.`
     : "No one matches. Try part of a name or a look like red-haired.";
   light();
 }
 
-function person(v, role) {
+const NEARBY = "usually nearby";
+function person(v, role, nearby) {
   const n = talked[v.id] || 0;
   return el("li", {}, el("button", {
     type: "button", className: "person", dataset: { id: v.id }, ariaCurrent: String(v.id === selected),
     onclick: () => choose(v.id),
   }, faceWith(v), el("span", { className: "who" }, el("b", { textContent: v.name }),
     role ? el("span", { className: `role ${role}`, textContent: role }) : null,
+    nearby ? el("span", { className: "role nearby", textContent: NEARBY, title: "Usually at the scene at that time of day" }) : null,
     el("small", { textContent: v.looks || v.occupation })),
   n ? el("span", { className: "talked", textContent: `talked ×${n}` }) : null));
 }

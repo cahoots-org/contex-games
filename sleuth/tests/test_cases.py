@@ -9,7 +9,7 @@ import pytest
 from sleuth import cases as cases_mod
 from sleuth.alibi import claim
 from sleuth.case import CAMERA_PLACES, WHEN, Crime, Record, told
-from sleuth.cases import GUIDED_CLIP_TRAITS, CaseFile, Cases
+from sleuth.cases import GUIDED_CLIP_TRAITS, CaseFile, Cases, case_json
 from sleuth.config import Config
 from sleuth.feed import Feed
 from sleuth.lineage import Ids, Lineage
@@ -91,7 +91,9 @@ async def test_news_breaks_on_the_next_tick_after_the_solvability_check():
     assert event.data["case"] == {"id": case.crime.id, "text": said, "place": case.crime.place,
                                   "phase": "night", "day": 1, "state": "open", "private": False,
                                   "title": f"{town.name_of(case.crime.victim)}'s {case.crime.item}",
-                                  "victim": case.crime.victim}
+                                  "victim": case.crime.victim,
+                                  "nearby": [v.id for v in town.villagers
+                                             if v.id != case.crime.victim and v.home == case.crime.place]}
     assert case.opened == 2.75 and cases.for_player("p-1") is case
     news, listeners, _ = next(d for d in engine.delivered if cases.root_kind(d[0].id)[1] == "news")
     victim = town.get(case.crime.victim)
@@ -188,6 +190,17 @@ def culprit_file(cases, culprit="v3", victim="v1", phase="night"):
                   "Someone stole Dana Reyes's bike on Elm Street last night.")
     cases.files[crime.id] = CaseFile(crime, {}, "open")
     return cases.files[crime.id]
+
+
+def test_case_lists_who_is_usually_at_the_scene_from_routine_alone():
+    cases, _, town = make_cases()
+    cases.routine = make_routine(night={"v4": "gym"})
+    file = culprit_file(cases, culprit="v5")
+    town.move("v5", "elm street")
+    town.move("v2", "gym")
+    file.whereabouts = {"v5": ["elm street"], "v3": ["gym"]}
+    assert case_json(file, town, cases.routine)["nearby"] == ["v2", "v3"]
+    assert case_json(file, town, None)["nearby"] == []
 
 
 def test_alibi_claim_is_the_culprits_expected_place():

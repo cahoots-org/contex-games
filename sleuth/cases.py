@@ -39,11 +39,15 @@ class CaseFile:
     words: dict[str, list] = field(default_factory=dict)  # "speaker:about" → [household word, sound]
 
 
-def case_json(case: CaseFile, town: Town, today: int | None = None) -> dict:
-    """What a player sees of a case on today, titled like "Ada Reyes's bike"."""
+def case_json(case: CaseFile, town: Town, routine, today: int | None = None) -> dict:
+    """What a player sees of a case on today, titled like "Ada Reyes's bike", with who besides the victim is usually
+    at the scene in its part of the day: a lead from routine alone, never from where anyone actually was."""
     c = case.crime
+    nearby = [v.id for v in town.villagers
+              if v.id != c.victim and routine is not None and routine.place(v.id, c.phase) == c.place]
     return {"id": c.id, "text": told(c.text, c, today), "place": c.place, "phase": c.phase, "day": c.day, "state": case.state,
-            "private": c.owner is not None, "title": f"{town.name_of(c.victim)}'s {c.item}", "victim": c.victim}
+            "private": c.owner is not None, "title": f"{town.name_of(c.victim)}'s {c.item}", "victim": c.victim,
+            "nearby": nearby}
 
 
 class Cases:
@@ -203,7 +207,7 @@ class Cases:
                    *(v.id for v in self.town.present(crime.place))]
         case.roots[news.id] = "news"
         await engine.deliver(news, list(dict.fromkeys(hearers)))
-        engine.feed.on_case(case_json(case, self.town, int(now)), player=crime.owner)
+        engine.feed.on_case(case_json(case, self.town, self.routine, int(now)), player=crime.owner)
         engine.feed.on_post(news, crime.id, player=crime.owner)
 
     def _drop(self, case: CaseFile, now: float) -> None:
