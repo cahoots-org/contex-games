@@ -81,6 +81,10 @@ class Feed:
         """Send a plain line of text."""
         return self.emit("system", line, player=player, text=line)
 
+    def on_guide(self, line: str, *, player: str) -> Event:
+        """A hint walking a new player through their first case."""
+        return self.emit("guide", line, player=player, text=line)
+
     def sees(self, player: str, event: Event) -> bool:
         """Whether the event is meant for that player."""
         return event.player is None or event.player == player

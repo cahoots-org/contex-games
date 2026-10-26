@@ -1,3 +1,4 @@
+import asyncio
 import json
 from types import SimpleNamespace
 
@@ -17,6 +18,7 @@ from sleuth.alibi import claim
 from sleuth.case import Record
 from sleuth.cases import CaseFile
 from sleuth.feed import Feed
+from sleuth.game import Game
 from sleuth.lineage import Lineage
 from sleuth.tests.helpers import PID, FakeEngine, StubClient, StubJev, StubWriter, wait_for
 from sleuth.tests.test_cases import culprit_file, make_cases
@@ -549,3 +551,79 @@ async def test_publishing_the_guided_case_onboards_the_owner(named):
     assert engine.cases.last_closed == float("-inf")
     [closed] = [e for e in player.feed.recent if e.kind == "case_closed"]
     assert closed.player == PID
+
+
+def guides(player):
+    return [e.line for e in player.feed.recent if e.kind == "guide"]
+
+
+def guided(answer="honest"):
+    """A new podcaster on elm street whose guided case is open: Fay (v3) stole Dana's (v1) bike there."""
+    player, file, engine, writer = interviewing(answer)
+    file.crime.owner = PID
+    player.game = Game()
+    engine.cases.open_guided = lambda *a: asyncio.sleep(0, file)
+    return player, file, engine
+
+
+@pytest.mark.asyncio
+async def test_guide_walks_a_new_player_through_interview_pull_and_publish():
+    player, file, engine = guided()
+    memory = memory_of(file, player.ids)
+    place_record(file, "clip", "elm street", "r-11")
+    await player.start()
+    await player.interview("v2")
+    await player.interview("v2")
+    assert player.pull() is None
+    assert player.pull() is None
+    assert await player.publish("v3", [memory.id]) is None
+    assert guides(player) == [
+        "A case just for you: Someone stole Dana Reyes's bike on elm street last night. Watch the neighborhood app, "
+        "then walk on elm street and interview whoever is there.",
+        "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Pull records where "
+        "a place has a camera or keeps logs.",
+        "When the evidence points to one person, publish an episode. Name them and cite what backs it up.",
+        "The town's open case is yours to crack too. Other podcasters are on it, and the first episode that holds up "
+        "wins.",
+    ]
+    assert all(e.player == PID for e in player.feed.recent if e.kind == "guide")
+
+
+@pytest.mark.asyncio
+async def test_guide_skips_steps_out_of_order():
+    player, file, engine = guided()
+    place_record(file, "clip", "elm street", "r-11")
+    await player.start()
+    assert player.pull() is None
+    assert len(guides(player)) == 1 and player.guide_step == 1
+
+
+@pytest.mark.asyncio
+async def test_no_guide_without_a_guided_case():
+    player, file, engine = guided()
+    engine.cases.open_guided = lambda *a: asyncio.sleep(0, None)
+    await player.start()
+    await player.interview("v2")
+    assert guides(player) == [] and player.guide_step == 0
+
+
+def test_guide_step_round_trips():
+    player, *_ = make()
+    player.guide_step = 2
+    fresh, *_ = make()
+    fresh.restore(json.loads(json.dumps(player.to_state())))
+    assert fresh.guide_step == 2
+
+
+@pytest.mark.asyncio
+async def test_rival_hears_the_case_was_cracked_first():
+    player, file, engine, _ = interviewing()
+    rival, bystander = run_of(player, "p-2"), run_of(player, "p-3")
+    for p in (player, rival, bystander):
+        engine.players.add(p)
+    memory = memory_of(file, player.ids)
+    cite(rival, file, memory)
+    assert await player.publish("v3", cite(player, file, memory)) is None
+    told = [e for e in player.feed.recent if e.kind in ("system", "episode")]
+    assert [(e.kind, e.player) for e in told] == [("system", "p-2"), ("episode", None)]
+    assert told[0].line == "Another podcaster cracked the case first."

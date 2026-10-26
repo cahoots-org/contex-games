@@ -22,6 +22,11 @@ checks that the evidence narrows to the culprit alone, adding a witness if that 
 nothing can. A solvable case opens: its witnesses are told what they saw, and the neighborhood app posts the news. The
 case shows at the top of the Hear panel and goes cold after `case_days`.
 
+**Your first case.** A new podcaster gets an easy private case of their own, opened at once at a place with a
+camera: one witness, a clip showing the culprit's height, coat and hair, and no logs. Only they see its news. Short
+hints walk them through interviewing, pulling records and publishing; once it closes, by an episode or by going cold,
+they play the town's shared case like everyone else. No new private case is opened while the town is resting.
+
 **Evidence** is held by the game as records with ids like `r-12`; the models never invent any of it.
 
 | Kind | What it is |
@@ -42,7 +47,8 @@ podcaster is asking around, and they may start covering their tracks.
 **Publish** an episode: choose a resident and tick between 1 and 5 notebook entries. It holds up when it names the
 culprit and every cited entry is true evidence from this case. One episode per podcaster per case.
 
-- A right episode closes the case for everyone, and every resident thinks better of you (`reputation_right`).
+- A right episode closes the case for everyone, and every resident thinks better of you (`reputation_right`). Any
+  other podcaster with evidence from that case is told another podcaster cracked it first.
 - A wrong one leaves the case open for others. The town hears the accusation anyway, everyone thinks less of you
   (`reputation_wrong`), and the accused most of all (`reputation_accused`).
 

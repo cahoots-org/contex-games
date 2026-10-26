@@ -130,6 +130,7 @@ main {
 .line-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .line.speech .line-text { font: italic 1.05rem/1.4 var(--serif); }
 .line.quiet, .fold-head { font-size: .875rem; color: var(--muted); }
+.line.hint { font-size: .875rem; color: var(--ink); border-left: 3px solid var(--accent); padding-left: .6rem; }
 .fold-words { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .fold-more { flex: none; }
 .fold:not(.open) .fold-lines { display: none; }
@@ -447,7 +448,7 @@ function plural(n, word) {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
-// One feed line: loud, speech or quiet.
+// One feed line: loud, speech, quiet or hint.
 function line(tone, ...children) {
   return el("li", { className: `line ${tone}` }, el("span", { className: "line-text" }, ...children));
 }
@@ -610,6 +611,8 @@ function render(e, fresh) {
       return line("quiet", e.text);
     case "system":
       return line("quiet", e.text);
+    case "guide":
+      return line("hint", e.text);
     case "rest":
       setResting(e.resting);
       return line("quiet", e.text);

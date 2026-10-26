@@ -32,6 +32,14 @@ ALREADY_LISTENING = "You just looked around."
 EVIDENCE_ROOTS = ("memory", "cover")
 PODCAST = "A true-crime podcast"
 WRONG = "Your episode didn't hold up. The town now believes it, and people are warier of you."
+RIVAL = "Another podcaster cracked the case first."
+GUIDE = (
+    "A case just for you: {case}. Watch the neighborhood app, then walk {place} and interview whoever is there.",
+    "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Pull records where a "
+    "place has a camera or keeps logs.",
+    "When the evidence points to one person, publish an episode. Name them and cite what backs it up.",
+    "The town's open case is yours to crack too. Other podcasters are on it, and the first episode that holds up wins.",
+)
 
 
 class Refusal(str):
@@ -56,6 +64,8 @@ class Player:
         self.game = game
         self.place = START_PLACE
         self.notebook: dict[str, Record] = {}
+        # The next GUIDE line to send.
+        self.guide_step = 0
         self._tasks: set[asyncio.Task] = set()
         # When the running listen ends, or None when the player is not listening.
         self._listen_until: float | None = None
@@ -69,14 +79,27 @@ class Player:
         return {
             "id": self.id, "owner": self.owner, "place": self.place, "created_at": self.created_at,
             "active_at": self._active_at, "notebook": [asdict(r) for r in self.notebook.values()],
+            "guide_step": self.guide_step,
         }
 
     def restore(self, state: dict) -> None:
         """Fill the run from a saved state; with no tab open it is idle until its player reconnects."""
         self.place, self.created_at = state["place"], state["created_at"]
         self.notebook = {r["id"]: Record(**r) for r in state["notebook"]}
+        self.guide_step = state["guide_step"]
         active_at = state["active_at"]
         self._active_at = None if active_at is None else min(active_at, time.time() - self.config.idle_after_seconds)
+
+    async def start(self) -> None:
+        """Open a guided first case for this run, and tell the player about it, if one fits."""
+        if case := await self.engine.cases.open_guided(self.engine, self.id, self.game.day, self.game.phase):
+            self._guide(0, case=case.crime.text.rstrip("."), place=at(case.crime.place))
+
+    def _guide(self, step: int, **fields) -> None:
+        """Send GUIDE[step] to the player when it is the next one due."""
+        if self.guide_step == step:
+            self.guide_step += 1
+            self.feed.on_guide(GUIDE[step].format(**fields), player=self.id)
 
     def connected(self) -> None:
         """A tab opened its feed."""
@@ -182,6 +205,7 @@ class Player:
                 new.append(r)
         line = await self._phrase(villager, file, [r.text for r in found] + talk)
         self.feed.on_interview(vid, villager.name, line, [record_json(r, self.town) for r in new], player=self.id)
+        self._guide(1)
         try:
             await self.engine.press(file)
         except Exception:
@@ -254,6 +278,7 @@ class Player:
         for r in found:
             self.notebook[r.id] = r
         self.feed.on_pulled(self.place, [record_json(r, self.town) for r in found], player=self.id)
+        self._guide(2)
         return None
 
     async def publish(self, culprit_id: str, record_ids: list[str]) -> str | None:
@@ -286,6 +311,10 @@ class Player:
         accused, victim = self.town.get(culprit_id), self.town.get(crime.victim)
         named = f"{accused.name} {TEMPLATES[crime.template][0]} {victim.name}'s {crime.item}"
         held = holds(crime, culprit_id, [self.notebook[i] for i in record_ids])
+        if held and crime.owner is None:
+            for rival in self.engine.players:
+                if rival is not self and any(r.case == crime.id for r in rival.notebook.values()):
+                    self.feed.say(RIVAL, player=rival.id)
         self.feed.on_episode(crime.id, accused.name, held, player=crime.owner)
         if held or crime.owner:
             self.engine.cases.close(file, self.id if held else None)
@@ -308,6 +337,7 @@ class Player:
             await self.engine.deliver(u, list(dict.fromkeys(listeners)))
         except Exception:
             log.exception("delivering the episode on %s failed", crime.id)
+        self._guide(3)
         return None
 
     def _case(self) -> CaseFile | None:

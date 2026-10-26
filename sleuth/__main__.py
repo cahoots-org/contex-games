@@ -72,7 +72,7 @@ async def play() -> None:
             for gone in players.prune():
                 gone.close()
             if owner not in players.onboarded and not players.resting():
-                await engine.cases.open_guided(engine, player.id, game.day, game.phase)
+                await player.start()
             return player
 
         parts = components(engine)
