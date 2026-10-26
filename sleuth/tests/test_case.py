@@ -12,6 +12,7 @@ from sleuth.case import (
     camera_clip,
     clock_at,
     discovery,
+    found_it,
     logs,
     make_solvable,
     points_at,
@@ -269,6 +270,7 @@ def test_the_victim_finds_the_crime_after_it_and_names_no_one():
     found = discovery(crime, town, Random(0), Ids())
     assert (found.kind, found.holder, found.case, found.place, found.day) == ("discovery", "v1", "case-1", "elm street", 1)
     assert found.text == f"Around {found.clock}, Dana Reyes found the bike missing on Elm Street."
+    assert found_it(crime, found.clock) == f"Around {found.clock}, I found my bike missing on Elm Street."
     assert found.traits == {} and found.sound and not points_at(crime, crime.culprit, town.get(crime.culprit).traits, found)
     assert crime.minute < [m for m in range(1320, 1740) if clock_at(m) == found.clock][0] < 1740
     assert not any(v.name in found.text for v in town.villagers if v.id != "v1")

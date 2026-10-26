@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from random import Random
 
 from sleuth.case import (
-    CAMERA_PLACES, Crime, Record, camera_clip, discovery, logs, make_solvable, stage_crime, when, witness_memories,
+    CAMERA_PLACES, Crime, Record, camera_clip, discovery, found_it, logs, make_solvable, stage_crime, when, witness_memories,
 )
 from sleuth.config import Config
 from sleuth.game import PHASES
@@ -220,8 +220,9 @@ class Cases:
         self.files[crime.id] = CaseFile(crime, {r.id: r for r in [*records, *([clip] if clip else [])]}, "setup")
 
     async def _remember(self, engine, case: CaseFile, m: Record) -> None:
-        """Tell the witness or victim what they saw or found, rooted in the case."""
-        u = Utterance(self.ids.next("u"), "memory", self.town.get(m.holder).name, case.crime.place, m.text, None, "saw")
+        """Tell the witness what they saw, or the victim in their own words what they found, rooted in the case."""
+        text = found_it(case.crime, m.clock) if m.kind == "discovery" else m.text
+        u = Utterance(self.ids.next("u"), "memory", self.town.get(m.holder).name, case.crime.place, text, None, "saw")
         case.roots[u.id] = "memory"
         m.utterance = u.id
         await engine.deliver(u, [m.holder], addressed=True)

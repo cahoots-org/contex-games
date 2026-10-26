@@ -154,6 +154,11 @@ def discovery(crime: Crime, town: Town, rng: Random, ids: Ids) -> Record:
     return Record(ids.next("r"), crime.id, "discovery", crime.place, clock, text, crime.victim, day=crime.day)
 
 
+def found_it(crime: Crime, clock: str) -> str:
+    """The discovery in the victim's own words."""
+    return f"Around {clock}, I found my {crime.item} {FOUND[crime.template]} {at(crime.place)}."
+
+
 def camera_clip(crime: Crime, town: Town, ids: Ids, traits: tuple[str, ...] = CLIP_TRAITS) -> Record | None:
     """The scene's camera footage at the crime minute, if the place has a camera."""
     if crime.place not in CAMERA_PLACES:

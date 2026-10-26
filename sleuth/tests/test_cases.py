@@ -350,11 +350,13 @@ async def test_guided_case_falls_back_to_an_earlier_part_of_the_day():
 
 @pytest.mark.asyncio
 async def test_the_victim_is_told_what_they_found_when_the_case_opens():
-    cases, engine, _ = make_cases()
+    cases, engine, town = make_cases()
     await tick(cases, engine)
     await tick(cases, engine, day=2)
     [case] = cases.files.values()
     [found] = [r for r in case.records.values() if r.kind == "discovery"]
     assert found.holder == case.crime.victim
     u, ids, addressed = next(d for d in engine.delivered if d[0].id == found.utterance)
-    assert ids == [case.crime.victim] and addressed and u.text == found.text and cases.root_kind(u.id)[1] == "memory"
+    assert ids == [case.crime.victim] and addressed and cases.root_kind(u.id)[1] == "memory"
+    assert u.text.startswith(f"Around {found.clock}, I found my {case.crime.item} ")
+    assert town.name_of(case.crime.victim) not in u.text
