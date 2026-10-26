@@ -676,8 +676,7 @@ async def test_guide_walks_a_new_player_through_interview_pull_and_publish():
     assert player.pull() is None
     assert await player.publish("v3", [memory.id]) is None
     assert guides(player) == [
-        "A case just for you: Someone stole Dana Reyes's bike on Elm Street last night. Watch the neighborhood app, "
-        "then walk to Elm Street and interview whoever is there.",
+        "This one's yours. Walk to Elm Street and interview whoever is there.",
         "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Pull records where "
         "a place has a camera or keeps logs.",
         "When the evidence points to one person, publish an episode. Name them and cite what backs it up.",
@@ -772,8 +771,7 @@ async def test_with_no_witness_at_the_scene_the_first_line_points_to_the_records
     memory_of(file, player.ids, holder="v5")
     await player.start()
     assert guides(player) == [
-        "A case just for you: Someone stole Dana Reyes's bike on Elm Street last night. Watch the neighborhood app, "
-        "then walk to Elm Street and pull the records there."]
+        "This one's yours. Walk to Elm Street and pull the records there."]
 
 
 def test_a_hedge_the_records_make_themselves_still_conveys_them():

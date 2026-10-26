@@ -54,7 +54,7 @@ GUIDED_WRONG = "Your episode didn't hold up: the evidence doesn't back it."
 HELD = "It holds up. Case closed."
 RIVAL = "Another podcaster cracked the case first."
 GUIDE = (
-    "A case just for you: {case}. Watch the neighborhood app, then walk to {place} and {then}.",
+    "This one's yours. Walk to {place} and {then}.",
     "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Pull records where a "
     "place has a camera or keeps logs.",
     "When the evidence points to one person, publish an episode. Name them and cite what backs it up.",
@@ -124,7 +124,7 @@ class Player:
                 crime = case.crime
                 there = any(r.kind == "memory" and self.town.place_of(r.holder) == crime.place
                             for r in case.records.values())
-                self._guide(0, case=crime.text.rstrip("."), place=place_name(crime.place) if crime.place in STREETS else f"the {crime.place}",
+                self._guide(0, place=place_name(crime.place) if crime.place in STREETS else f"the {crime.place}",
                             then="interview whoever is there" if there else "pull the records there")
         except Exception:
             log.exception("opening a guided case for %s failed", self.id)
