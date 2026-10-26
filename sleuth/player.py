@@ -301,7 +301,7 @@ class Player:
         """Publish an episode naming culprit_id on the evidence cited; returns why it could not be done.
 
         Code judges it. A right one closes the case and wins the town's regard; a wrong one spreads the accusation
-        and costs it. Either way the town hears it.
+        and costs it. A guided case closes either way and moves no regard. The town always hears it.
         """
         self.touch()
         file = self._case()
@@ -338,12 +338,14 @@ class Player:
         if crime.owner:
             self.engine.players.onboarded.add(self.owner)
         if held:
-            reputation.nudge_all(self.id, self.config.reputation_right, everyone)
+            if not crime.owner:
+                reputation.nudge_all(self.id, self.config.reputation_right, everyone)
             text = f"{named}, and the evidence holds up."
         else:
-            reputation.nudge_all(self.id, self.config.reputation_wrong, everyone)
-            reputation.nudge(culprit_id, self.id, self.config.reputation_accused)
-            self.feed.say(WRONG, player=self.id)
+            if not crime.owner:
+                reputation.nudge_all(self.id, self.config.reputation_wrong, everyone)
+                reputation.nudge(culprit_id, self.id, self.config.reputation_accused)
+                self.feed.say(WRONG, player=self.id)
             text = f"{named}."
         u = Utterance(self.ids.next("u"), "podcast", PODCAST, self.place, text, None, "reported")
         file.roots[u.id] = "episode"

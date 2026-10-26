@@ -541,7 +541,7 @@ async def test_publish_citing_a_cover_story_statement_is_accepted_but_does_not_h
 
 @pytest.mark.parametrize("named", ["v3", "v5"])
 @pytest.mark.asyncio
-async def test_publishing_the_guided_case_onboards_the_owner(named):
+async def test_publishing_the_guided_case_onboards_the_owner_and_costs_no_regard(named):
     player, file, engine, _ = interviewing()
     file.crime.owner = PID
     ids = cite(player, file, memory_of(file, player.ids))
@@ -550,6 +550,8 @@ async def test_publishing_the_guided_case_onboards_the_owner(named):
     assert engine.cases.last_closed == float("-inf")
     [closed] = [e for e in player.feed.recent if e.kind == "case_closed"]
     assert closed.player == PID
+    assert all(regard(engine, v.id) == 0 for v in player.town.villagers)
+    assert not [e for e in player.feed.recent if e.kind == "system"]
 
 
 def guides(player):
