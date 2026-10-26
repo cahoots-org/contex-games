@@ -421,7 +421,7 @@ let boot = null;
 let lastId = 0;
 let selected = null;
 let rover = null;
-let pointing = false;
+let pressing = false;
 let peopleStale = false;
 let notes = {};
 let cardOpener = null;
@@ -900,6 +900,8 @@ function focusKey(node) {
 function renderVillagers() {
   const people = $("people");
   const key = people.contains(document.activeElement) ? focusKey(document.activeElement) : null;
+  const rows = people.querySelector(".open .rows");
+  const kept = rows ? { place: rows.closest(".tile").querySelector(".place").dataset.place, top: rows.scrollTop } : null;
   const query = $("search").value;
   const found = matches(query);
   const hits = new Set(found.map((v) => v.id));
@@ -932,12 +934,14 @@ function renderVillagers() {
     : "No one matches. Try part of a name, a job, or a look like \"red-haired\".";
   if ($("find-status").textContent !== said) $("find-status").textContent = said;
   const again = key && people.querySelector(key);
-  if (again) again.focus();
+  if (again) again.focus({ preventScroll: true });
+  const list = kept && kept.place === open && people.querySelector(".open .rows");
+  if (list) list.scrollTop = kept.top;
 }
 
-// Moves and notes arrive every second; hold them while someone is pointing at or tabbing through the tiles.
+// Moves and notes redraw the tiles at once, except mid-press, so a click lands on what was pressed.
 function refreshVillagers() {
-  if (pointing || $("people").contains(document.activeElement)) peopleStale = true;
+  if (pressing) peopleStale = true;
   else renderVillagers();
 }
 function setVillagers(list) {
@@ -950,14 +954,15 @@ function setVillagers(list) {
   setAsk();
 }
 function flushVillagers() {
-  if (peopleStale && !pointing && !$("people").contains(document.activeElement)) {
+  pressing = false;
+  if (peopleStale) {
     peopleStale = false;
     renderVillagers();
   }
 }
-$("people").addEventListener("pointerenter", () => { pointing = true; });
-$("people").addEventListener("pointerleave", () => { pointing = false; setTimeout(flushVillagers); });
-$("people").addEventListener("focusout", () => setTimeout(flushVillagers));
+$("people").addEventListener("pointerdown", () => { pressing = true; });
+document.addEventListener("pointerup", () => setTimeout(flushVillagers));
+document.addEventListener("pointercancel", () => setTimeout(flushVillagers));
 $("people").addEventListener("keydown", (ev) => {
   const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[ev.key];
   const face = ev.target.closest(".faces .pick");
