@@ -11,6 +11,7 @@ from sleuth.cases import CaseFile, Cases, case_json
 from sleuth.config import Config
 from sleuth.feed import Feed
 from sleuth.lineage import Ids, Lineage
+from sleuth.models import Utterance
 from sleuth.players import Players
 from sleuth.tests.test_case import make_routine, make_town
 from sleuth.traits import assign_traits
@@ -265,6 +266,15 @@ async def test_a_player_off_the_practice_case_is_told_the_town_s_open_case():
     shared.state = "closed"
     cases.brief(engine.feed, "p-1", 2)
     assert len(engine.feed.recent) == 2
+
+
+@pytest.mark.asyncio
+async def test_the_brief_leaves_out_news_the_feed_still_replays():
+    cases, engine, _ = make_cases()
+    shared = culprit_file(cases)
+    engine.feed.on_post(Utterance("u-9", "app", "The neighborhood app", "elm street", "news", None), shared.crime.id)
+    cases.brief(engine.feed, "p-1", 2)
+    assert [e.kind for e in engine.feed.recent] == ["post", "case"]
 
 
 def test_for_player_prefers_the_private_case():

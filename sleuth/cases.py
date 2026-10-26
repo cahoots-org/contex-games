@@ -126,12 +126,15 @@ class Cases:
         self.last_closed = self.now
 
     def brief(self, feed, player_id: str, today: float | None) -> None:
-        """Tell a player just off the practice case the town's open case and its news, hidden from them till now."""
+        """Tell a player just off the practice case the town's open case and, unless the feed still replays it, its
+        news."""
         case = self.shared()
         if case is None or case.state != "open":
             return
         crime = case.crime
         feed.on_case(case_json(case, self.town, self.routine, today), player=player_id)
+        if any(e.kind == "post" and e.data["app"] and e.data["case_id"] == crime.id for e in feed.recent):
+            return
         news = Utterance("", "app", APP, crime.place, told(crime.text, crime, today), None, "posted")
         feed.on_post(news, crime.id, player=player_id)
 
