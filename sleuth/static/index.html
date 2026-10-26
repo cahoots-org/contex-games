@@ -2302,14 +2302,8 @@ async function inspect(id, opener) {
   $("card-title").focus({ preventScroll: true });
 }
 
-const TRAIT_PHRASES = [["height", "%"], ["hair", "%"], ["coat", "in a %"], ["car", "with a %"]];
-
-function describeTraits(traits) {
-  return TRAIT_PHRASES.filter(([k]) => traits[k]).map(([k, p]) => p.replace("%", traits[k])).join(", ");
-}
-
 function cardBody(body) {
-  const looks = describeTraits(body.traits);
+  const looks = body.traits_text;
   const street = body.home.replace(/\b\w/g, (c) => c.toUpperCase());
   const household = body.household.flatMap((h, i) => [i ? ", " : "", el("button", { className: "rel", type: "button", textContent: h.name, onclick: () => inspect(h.id) }), ` (${h.kind})`]);
   const rels = body.relationships.length

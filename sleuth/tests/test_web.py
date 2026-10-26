@@ -146,6 +146,7 @@ def test_inspect_shows_traits_home_and_household_not_warmth(game):
     response = game.client.get("/api/villagers/v1")
     body = response.json()
     assert body["traits"] == marta.traits and body["home"] == "elm street"
+    assert body["traits_text"] == "tall, bald, in a grey hoodie, with a bicycle"
     assert body["household"] == [{"id": "v2", "name": "Bert Cole", "kind": "sibling"}]
     assert "warmth" not in json.dumps(body) and "0.73" not in response.text
 

@@ -25,6 +25,7 @@ from sleuth.players import RUN_OUT_LOCKOUT_SECONDS, Players, new_owner_id
 from sleuth.rumors import Rumors
 from sleuth.suspicion import HEAT_LINES, Suspicion, influence
 from sleuth.town import PLACES, Town
+from sleuth.traits import describe
 from sleuth.usage import Usage, charging
 
 log = logging.getLogger(__name__)
@@ -327,6 +328,7 @@ def create_app(
                 for rid, kind in v.relationships.items()
             ],
             "traits": v.traits,
+            "traits_text": describe(v.traits),
             "home": v.home,
             "household": [
                 {"id": o.id, "name": o.name, "kind": v.relationships.get(o.id, "")}

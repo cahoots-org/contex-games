@@ -276,6 +276,7 @@ def test_form_households_keeps_streets_balanced_and_numbers_households():
 def test_parent_and_child_ties_point_both_ways():
     kinds = {k for k, *_ in HOUSEHOLDS}
     assert "parent and adult child" in kinds
+    seen = set()
     for seed in range(20):
         vs = ring(50)
         form_households(vs, random.Random(seed))
@@ -283,6 +284,8 @@ def test_parent_and_child_ties_point_both_ways():
             for other, kind in v.relationships.items():
                 back = next(o for o in vs if o.id == other).relationships[v.id]
                 assert back == {"parent": "child", "child": "parent"}.get(kind, kind)
+                seen.add(kind)
+    assert {"parent", "child"} <= seen
 
 
 def test_rival_ties_are_cold_and_household_ties_warm():
