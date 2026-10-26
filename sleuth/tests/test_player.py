@@ -513,3 +513,26 @@ async def test_publish_after_case_closed_is_refused():
     assert all(regard(engine, v.id) == 0 for v in player.town.villagers) and file.published == ["p-2"]
     player.notebook = {}
     assert await player.publish("v3", ["r-1"]) == "There's no open case."
+
+
+@pytest.mark.asyncio
+async def test_publish_rejects_duplicate_and_other_case_citations_without_spending_the_episode():
+    player, file, engine, _ = interviewing()
+    ids = cite(player, file, memory_of(file, player.ids))
+    other = Record("r-50", "case-9", "clip", "grocery", "9:00am", "a clip from another case")
+    player.notebook[other.id] = other
+    assert await player.publish("v3", ids * 2) == "Cite each entry once."
+    assert await player.publish("v3", ids + [other.id]) == "Cite only evidence from this case."
+    assert file.published == [] and engine.delivered == []
+    assert await player.publish("v3", ids) is None and file.state == "closed"
+
+
+@pytest.mark.asyncio
+async def test_publish_citing_a_cover_story_statement_is_accepted_but_does_not_hold():
+    player, file, engine, _ = interviewing()
+    cover = Record("r-60", file.crime.id, "statement", "elm street", "9:00am", "Fay Okafor: I was home.", "v3",
+                   sound=False)
+    assert await player.publish("v3", cite(player, file, cover)) is None
+    assert file.published == [PID] and file.state == "open"
+    [episode] = [e for e in player.feed.recent if e.kind == "episode"]
+    assert episode.data["held"] is False

@@ -274,6 +274,10 @@ class Player:
             return f"Cite between 1 and {MAX_CITED} notebook entries."
         if any(i not in self.notebook for i in record_ids):
             return "Cite only entries from your notebook."
+        if len(set(record_ids)) != len(record_ids):
+            return "Cite each entry once."
+        if any(self.notebook[i].case != file.crime.id for i in record_ids):
+            return "Cite only evidence from this case."
         if culprit_id not in self.town:
             return "No one in town has that id."
         file.published.append(self.id)
