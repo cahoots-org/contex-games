@@ -49,7 +49,7 @@ async def test_no_walking_off_at_night():
 
 @pytest.mark.asyncio
 async def test_single_new_item_skips_source_question_and_is_the_source():
-    jev = StubJev({"action": RETELL, "villager_target": "v2", "style": "mock"})
+    jev = StubJev({"action": RETELL, "villager_target": "v2", "style": "delighted"})
     d = await decide(jev, view())
     assert "source" not in jev.questions
     assert d.source == match("m1")
@@ -57,7 +57,7 @@ async def test_single_new_item_skips_source_question_and_is_the_source():
 
 @pytest.mark.asyncio
 async def test_multiple_new_items_ask_source():
-    jev = StubJev({"action": RETELL, "source": "m2", "villager_target": "v2", "style": "mock"})
+    jev = StubJev({"action": RETELL, "source": "m2", "villager_target": "v2", "style": "delighted"})
     d = await decide(jev, view(new=[match("m1"), match("m2")]))
     assert set(jev.questions["source"].criteria) == {"m1", "m2"}
     assert d.source.data_key == "m2"
@@ -107,7 +107,7 @@ async def test_style_kept_for_speech_actions(action):
 
 @pytest.mark.asyncio
 async def test_style_none_for_non_speech():
-    jev = StubJev({"action": IGNORE, "style": "mock"})
+    jev = StubJev({"action": IGNORE, "style": "delighted"})
     assert (await decide(jev, view())).style is None
 
 

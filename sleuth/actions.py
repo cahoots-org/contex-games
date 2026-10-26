@@ -36,7 +36,6 @@ STYLES = {
     "shift_blame": "Change who is responsible for it.",
     "add_detail": "Embellish it with an invented but plausible detail.",
     "soften": "Play it down and make it sound less serious.",
-    "mock": "Retell it with scorn or ridicule.",
     "delighted": "Tell it with relish and delight.",
     "worried": "Tell it anxiously, worried for those involved.",
 }

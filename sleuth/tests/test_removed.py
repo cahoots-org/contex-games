@@ -2,7 +2,7 @@ import importlib.util
 
 import pytest
 
-from sleuth.actions import ACTIONS
+from sleuth.actions import ACTIONS, STYLES
 from sleuth.town import Town
 
 
@@ -14,3 +14,7 @@ def test_rumor_game_module_is_gone(name):
 def test_residents_have_no_groups():
     assert set(ACTIONS) == {"ignore", "retell", "deny", "confront", "speak", "move", "alibi", "blame", "warn"}
     assert not hasattr(Town, "found_group")
+
+
+def test_no_sarcastic_manner():
+    assert "mock" not in STYLES and not any("scorn" in d or "ridicule" in d for d in STYLES.values())
