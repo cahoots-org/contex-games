@@ -669,7 +669,7 @@ def test_whisper_endpoint_is_gone(game):
 
 def test_page_is_built_around_the_case(game):
     html = game.client.get("/").text
-    order = ['id="case"', 'id="notebook"', 'id="here"', 'id="talk"', 'id="people"', 'id="convo"']
+    order = ['id="case"', 'id="here"', 'id="notebook"', 'id="talk"', 'id="people"', 'id="convo"']
     assert [html.index(n) for n in order] == sorted(html.index(n) for n in order)
     for needle in ('id="publish-open"', 'id="culprit"', "/api/publish", "/api/interview", "/api/walk", "/api/pull",
                    "/api/search", 'case "interview"', 'case "pulled"', 'case "searched"', 'case "steps"', "usually nearby", 'id="intro"',

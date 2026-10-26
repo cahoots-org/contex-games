@@ -119,7 +119,7 @@ h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
   background: color-mix(in srgb, var(--mark) 45%, transparent);
 }
 .steps b { flex: 1; min-width: 12rem; }
-.steps .why { display: block; font-size: .85rem; color: var(--muted); }
+.steps .why { display: block; font-size: .85rem; font-weight: 400; color: var(--muted); }
 .steps .tally { font-size: .8rem; color: var(--muted); white-space: nowrap; }
 .lit { outline: 3px solid var(--sun); outline-offset: 2px; }
 .person.lit, .plain-button.lit { background: color-mix(in srgb, var(--mark) 35%, transparent); }
@@ -174,15 +174,9 @@ select, input[type="text"], input[type="search"] {
 .by { color: var(--muted); }
 .empty { margin: .5rem 0 0; color: var(--muted); font-size: .9rem; }
 
-/* Where you are. */
-.where { border-top: 1px solid var(--rail); padding-top: 1rem; }
-.where-line { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
-.here { margin: 0 .5rem 0 0; }
-.go { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .9rem; margin: .5rem 0 0; font-size: .9rem; }
-.go span { color: var(--muted); }
-.go button { background: none; border: 0; padding: .15rem 0; color: var(--accent); cursor: pointer; }
-.go button:hover { text-decoration: underline; }
-.go .scene { font-weight: 700; }
+/* Where you are, and what you can do there. */
+.where-line { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .75rem 0 0; }
+.where-line select { max-width: 100%; }
 
 /* The town's talk: one strip, closed until opened. */
 .talk { border: 1px solid var(--rail); border-radius: 6px; background: var(--panel); }
@@ -283,7 +277,6 @@ select, input[type="text"], input[type="search"] {
   .menu.open { display: block; }
   .desk { padding: 1rem 1rem 1.5rem; }
   .case-title { font-size: 1.5rem; }
-  .go button { padding: .45rem 0; }
   .side { display: block; border-left: 0; border-top: 1px solid var(--edge); }
   .list { max-height: 55dvh; }
   .person { min-height: 48px; }
@@ -347,6 +340,12 @@ select, input[type="text"], input[type="search"] {
       <h2 class="case-title" id="case-title">Waiting for the next crime</h2>
       <p class="case-text" id="case-text">The neighborhood app posts the news when something happens.</p>
       <div class="steps" id="steps" role="group" aria-label="Your first case" hidden></div>
+      <div class="where-line">
+        <select id="here" aria-label="Where you are"></select>
+        <button type="button" class="plain-button" id="pull-here" hidden>Pull records</button>
+        <button type="button" class="plain-button" id="search-here" hidden>Search here</button>
+      </div>
+      <p class="status" id="where-status" role="status"></p>
       <p class="resting" id="resting" role="status" hidden></p>
       <form class="publish" id="publish" hidden>
         <label for="culprit">Who did it</label>
@@ -361,16 +360,6 @@ select, input[type="text"], input[type="search"] {
       <div class="book-head"><h2 id="book-title">Notebook</h2><small>by kind, newest first</small></div>
       <div id="notebook"></div>
       <p class="empty" id="book-empty">Nothing yet. Ask people what they saw, search the scene and pull records.</p>
-    </section>
-
-    <section class="where" aria-label="Where you are">
-      <div class="where-line">
-        <p class="here" id="here"></p>
-        <button type="button" class="plain-button" id="search-here" hidden>Search here</button>
-        <button type="button" class="plain-button" id="pull-here" hidden>Pull records</button>
-      </div>
-      <p class="status" id="where-status" role="status"></p>
-      <nav class="go" id="go" aria-label="Go to"></nav>
     </section>
 
     <details class="talk" id="talk">
@@ -577,18 +566,24 @@ function entry(r, ticked) {
     el("span", {}, r.text, by)));
 }
 
-// Where the player is, what they can do there, and everywhere else they can go.
+// Where the player is, as a choice of every place with the scene marked, and what they can do there.
+let whereKey = "";
 function drawWhere() {
   if (!here) return;
-  $("here").replaceChildren("You're ", el("b", { textContent: atPlace(here) }));
   $("search-here").hidden = !(caseNow && caseNow.place === here && !searched.has(caseNow.id));
   $("pull-here").hidden = !(caseNow && recordsAt.includes(here));
   const scene = caseNow && caseNow.place;
-  $("go").replaceChildren(el("span", { textContent: "Go to" }), ...places.filter((p) => p !== here).map((p) =>
-    el("button", { type: "button", className: p === scene ? "scene" : "", textContent: p === scene ? `${capital(p)} (the scene)` : capital(p),
-      dataset: { place: p }, onclick: () => walkTo(p) })));
+  const key = [here, scene, ...places].join("|");
+  if (key !== whereKey) {
+    whereKey = key;
+    $("here").replaceChildren(...places.map((p) => el("option", { value: p,
+      textContent: atPlace(p).replace(/^./, (c) => c.toUpperCase()) + (p === scene ? " (the scene)" : "") })));
+    $("here").value = here;
+  }
   light();
 }
+
+$("here").addEventListener("change", () => walkTo($("here").value));
 
 function setSteps(list) {
   steps = list;
@@ -613,7 +608,7 @@ function light() {
   const s = step();
   if (!s) return;
   const target = s.person ? $("people").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
-    : s.place && s.place !== here ? $("go").querySelector(`[data-place="${CSS.escape(s.place)}"]`)
+    : s.place && s.place !== here ? $("here")
     : s.action === "publish" && !$("publish").hidden ? publishNext()
     : $(ACTION_BUTTON[s.action]);
   target?.classList.add("lit");
@@ -628,7 +623,10 @@ function publishNext() {
 async function walkTo(place) {
   say("where-status", "");
   const { ok, error } = await post("/api/walk", { place });
-  if (!ok) say("where-status", error, true);
+  if (!ok) {
+    $("here").value = here;
+    say("where-status", error, true);
+  }
 }
 
 // Search or pull here, the button off until the game answers.
