@@ -9,7 +9,7 @@ from sleuth.actions import (
 )
 from sleuth.contex_client import Match
 from sleuth.decide import (
-    GOSSIP_LEVELS, KEEN_LEVELS, SUSPICION_LEVELS, Decision, TurnView, decide,
+    GOSSIP_LEVELS, KEEN_LEVELS, SUSPICION_LEVELS, Decision, TurnView, decide, warmth_words,
 )
 from sleuth.models import Group, Villager
 from sleuth.tests.helpers import StubJev
@@ -152,8 +152,23 @@ async def test_relationships_are_named_for_people_present():
     ada = Villager("v1", "Ada", "baker", "gossipy", "", [], {"v2": "rival", "v9": "spouse"})
     jev = StubJev({"action": IGNORE})
     await decide(jev, view(villager=ada))
-    assert jev.state["relationships_here"] == {"Bo": "rival"}
+    assert jev.state["relationships_here"] == {"Bo": "rival, cool"}
     assert jev.questions["villager_target"].criteria["v2"] == "Bo, baker, their rival"
+
+
+@pytest.mark.asyncio
+async def test_turn_state_shows_tie_warmth_in_words():
+    ada = Villager("v1", "Ada", "baker", "gossipy", "", [], {"v2": "spouse"}, warmth={"v2": 0.8})
+    dana = Villager("v2", "Dana", "baker", "calm", "", [], {})
+    jev = StubJev({"action": IGNORE})
+    await decide(jev, view(villager=ada, present=[dana]))
+    assert jev.state["relationships_here"] == {"Dana": "spouse, close"}
+
+
+def test_warmth_words():
+    assert [warmth_words(w) for w in (0.6, 0.59, 0.2, 0.19, -0.19, -0.2, -1)] == [
+        "close", "friendly", "friendly", "cool", "cool", "hostile", "hostile",
+    ]
 
 
 @pytest.mark.asyncio

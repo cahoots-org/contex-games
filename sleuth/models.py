@@ -12,6 +12,11 @@ class Villager:
     grudge: str
     needs: list[str]
     relationships: dict[str, str]
+    traits: dict[str, str] = field(default_factory=dict)
+    home: str = ""
+    household: str = ""
+    # How warmly they feel toward each tie, keyed like relationships, in [-1, 1].
+    warmth: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass

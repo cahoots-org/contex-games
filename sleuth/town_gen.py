@@ -7,37 +7,43 @@ import re
 from dataclasses import asdict
 
 from sleuth.models import Villager
+from sleuth.town import STREETS
+from sleuth.traits import assign_traits
 from sleuth.writer import Writer, extract_json
 
 BATCH = 10
 MAX_FAILED_BATCHES = 5
 REQUIRED = ("name", "occupation", "personality", "grudge", "needs")
 MAX_RELATIONSHIPS = 4
-REVERSE = {
-    "spouse": "spouse", "rival": "rival", "friend": "friend",
-    "debtor": "creditor", "creditor": "debtor",
-}
-# Villagers the default goal pool talks about, asked for until the village has them.
-ROLES = ("mayor", "miller")
-# Weighted draw, so friends are commoner than spouses.
-KINDS = ["friend", "friend", "rival", "debtor", "creditor", "spouse"]
-
-SYSTEM = (
-    "You invent villagers for a small medieval village. Reply with only JSON, no prose."
+REVERSE = {"parent": "child", "child": "parent"}
+# Weighted draw, so friends are commoner than the rest.
+KINDS = ["friend", "friend", "coworker", "neighbor", "rival"]
+# (kind, size, tie, weight); a pair tie is the same both ways unless given as (first's, second's).
+HOUSEHOLDS = (
+    ("alone", 1, None, 3), ("married", 2, "spouse", 3), ("partners", 2, "partner", 2),
+    ("roommates", 2, "roommate", 2), ("parent and adult child", 2, ("parent", "child"), 1),
+    ("siblings", 2, "sibling", 1),
 )
+WARMTH = {
+    "spouse": (0.7, 1.0), "partner": (0.6, 0.95), "parent": (0.5, 0.9), "child": (0.5, 0.9),
+    "sibling": (0.4, 0.9), "roommate": (0.2, 0.6), "friend": (0.4, 0.8), "coworker": (0.1, 0.5),
+    "neighbor": (0.0, 0.4), "rival": (-0.9, -0.4),
+}
+
+SYSTEM = "You invent residents of a small modern American town. Reply with only JSON, no prose."
 PROMPT = (
     "Invent {n} distinct villagers as a top-level JSON array of objects, not wrapped in "
     "another object. Each item has: name (a full name), occupation, personality (one "
     "short phrase), grudge (a string, empty for most villagers), and needs: a JSON array of 3 to 5 strings, each one sentence in the villager's own voice "
     "about news they would prick up their ears at: one about their trade, one about a "
     "person they love or resent, one about their standing or money, and one about an odd "
-    "fascination or fear of their own (omens, ghosts, the stars, the church, strangers, "
-    "curses, the lord's taxes, or anything else). Make needs particular to this person and "
+    "fascination or fear of their own (break-ins, layoffs, gossip, their health, the town "
+    "changing, or anything else). Make needs particular to this person and "
     "different from the other villagers', never generic topics like news or gossip. "
-    "{temper}{roles}{taken}"
+    "{temper}{taken}"
 )
 GOOD = (
-    "good-natured, with a temperament such as warm, curious, cheerful, timid, nosy, pious, "
+    "good-natured, with a temperament such as warm, curious, cheerful, timid, nosy, "
     'absent-minded, or kindly, and an empty grudge ""'
 )
 SOUR = (
@@ -85,12 +91,6 @@ def _valid(raw) -> bool:
     )
 
 
-def _missing_roles(villagers: list[Villager]) -> str:
-    """A prompt line asking for the ROLES no villager has yet, or nothing."""
-    missing = [r for r in ROLES if not any(r in v.occupation.lower() for v in villagers)]
-    return f"Include the village {' and the '.join(missing)} among them. " if missing else ""
-
-
 def _villager(vid: str, raw: dict) -> Villager:
     return Villager(
         id=vid, name=raw["name"], occupation=raw["occupation"],
@@ -132,7 +132,7 @@ async def generate_villagers(writer: Writer, count: int, rng: random.Random) -> 
         if villagers:
             jobs = ", ".join(v.occupation for v in villagers[-30:])
             taken = f"Do not reuse these occupations: {jobs}. {_first_names_taken(villagers)}"
-        text = await writer.complete(SYSTEM, PROMPT.format(n=n, temper=MIX, roles=_missing_roles(villagers), taken=taken), max_tokens=4000)
+        text = await writer.complete(SYSTEM, PROMPT.format(n=n, temper=MIX, taken=taken), max_tokens=4000)
         try:
             parsed = extract_json(text)
         except ValueError:
@@ -154,14 +154,33 @@ async def generate_villagers(writer: Writer, count: int, rng: random.Random) -> 
     return villagers
 
 
+def _tie(a: Villager, b: Villager, kind: str, rng: random.Random) -> None:
+    """Tie a to b as kind, b back to a as its reverse, with one warmth drawn for both."""
+    a.relationships[b.id], b.relationships[a.id] = kind, REVERSE.get(kind, kind)
+    a.warmth[b.id] = b.warmth[a.id] = rng.uniform(*WARMTH[kind])
+
+
 def _link(a: Villager, b: Villager, rng: random.Random) -> None:
-    """Add a reciprocal relationship; a spouse only if neither already has one."""
-    kinds = KINDS
-    if "spouse" in a.relationships.values() or "spouse" in b.relationships.values():
-        kinds = [k for k in KINDS if k != "spouse"]
-    kind = rng.choice(kinds)
-    a.relationships[b.id] = kind
-    b.relationships[a.id] = REVERSE[kind]
+    """Add a drawn reciprocal tie; neighbors on different streets are friends instead."""
+    kind = rng.choice(KINDS)
+    if kind == "neighbor" and a.home != b.home:
+        kind = "friend"
+    _tie(a, b, kind, rng)
+
+
+def form_households(villagers: list[Villager], rng: random.Random) -> None:
+    """Group residents into households of one or two, ids h01..., dealt round robin onto STREETS."""
+    left = rng.sample(villagers, len(villagers))
+    weights = [h[3] for h in HOUSEHOLDS]
+    n = 0
+    while left:
+        _, size, tie, _ = rng.choices(HOUSEHOLDS, weights=weights)[0]
+        members = [left.pop() for _ in range(min(size, len(left)))]
+        n += 1
+        for v in members:
+            v.household, v.home = f"h{n:02d}", STREETS[(n - 1) % len(STREETS)]
+        if len(members) == 2:
+            _tie(*members, tie[0] if isinstance(tie, tuple) else tie, rng)
 
 
 def _partner(v: Villager, villagers: list[Villager], rng: random.Random) -> Villager | None:
@@ -200,19 +219,21 @@ def wire_relationships(villagers: list[Villager], rng: random.Random) -> None:
 
 
 class SeedMismatch(ValueError):
-    """The seed file holds a different number of villagers than the configured population."""
+    """The seed file is not a village this game can use: another size, or one from before Sleuth."""
 
 
 async def load_or_generate(
     path: str, writer: Writer, count: int, rng: random.Random,
 ) -> list[Villager]:
-    """Load the seed file if present, else generate, wire, and write it."""
+    """Load the seed file if present, else generate, settle, wire, and write it."""
     try:
         with open(path) as f:
             villagers = [Villager(**raw) for raw in json.load(f)]
     except FileNotFoundError:
         pass
     else:
+        if any(not v.traits for v in villagers):
+            raise SeedMismatch(f"{path} is a village from before Sleuth's town; delete it")
         if len(villagers) != count:
             raise SeedMismatch(
                 f"{path} has {len(villagers)} villagers but population is {count}; "
@@ -220,6 +241,8 @@ async def load_or_generate(
             )
         return villagers
     villagers = await generate_villagers(writer, count, rng)
+    form_households(villagers, rng)
+    assign_traits(villagers, rng)
     wire_relationships(villagers, rng)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "w") as f:

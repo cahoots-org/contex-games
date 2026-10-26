@@ -106,6 +106,17 @@ def _suspicion_words(view: TurnView) -> str:
     return "convinced"
 
 
+def warmth_words(w: float) -> str:
+    """How a tie's warmth reads to Jev."""
+    if w >= 0.6:
+        return "close"
+    if w >= 0.2:
+        return "friendly"
+    if w > -0.2:
+        return "cool"
+    return "hostile"
+
+
 def _state(view: TurnView) -> dict:
     v = view.villager
     state = {
@@ -113,7 +124,10 @@ def _state(view: TurnView) -> dict:
             "name": v.name, "occupation": v.occupation, "personality": v.personality,
             "grudge": v.grudge,
         },
-        "relationships_here": {p.name: v.relationships[p.id] for p in view.present if p.id in v.relationships},
+        "relationships_here": {
+            p.name: f"{v.relationships[p.id]}, {warmth_words(v.warmth.get(p.id, 0.0))}"
+            for p in view.present if p.id in v.relationships
+        },
         "place": view.place,
         "present": [p.name for p in view.present],
         "just_heard": [_text(m) for m in view.new],

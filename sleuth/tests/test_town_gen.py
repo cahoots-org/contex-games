@@ -1,14 +1,19 @@
 import json
 import os
 import random
+from collections import defaultdict
+from dataclasses import asdict
 
 import pytest
 
-from sleuth.town_gen import (
-    MAX_FAILED_BATCHES, SeedMismatch, generate_villagers, load_or_generate,
-    wire_relationships, world_path,
-)
 from sleuth.models import Villager
+from sleuth.town import STREETS
+from sleuth.town_gen import (
+    HOUSEHOLDS, MAX_FAILED_BATCHES, SeedMismatch, form_households, generate_villagers,
+    load_or_generate, wire_relationships, world_path,
+)
+
+HOUSEHOLD_TIES = {"spouse", "partner", "roommate", "parent", "child", "sibling"}
 
 
 def entry(i):
@@ -72,28 +77,6 @@ async def test_generate_villagers_makes_more_batches_than_the_failure_cap():
 
 
 @pytest.mark.asyncio
-async def test_generation_asks_for_the_mayor_and_miller_until_the_village_has_them():
-    prompts = []
-    batches = [
-        [{**entry(i), "occupation": "Miller" if i == 0 else "baker"} for i in range(10)],
-        [{**entry(i), "occupation": "Mayor of the village" if i == 10 else "baker"} for i in range(10, 20)],
-        [entry(i) for i in range(20, 30)],
-    ]
-
-    class RecordingWriter:
-        async def complete(self, system, user, max_tokens=400):
-            prompts.append(user)
-            return json.dumps(batches[len(prompts) - 1])
-
-    await generate_villagers(RecordingWriter(), 30, random.Random(1))
-
-    assert "village mayor and the miller among" in prompts[0]
-    assert "village mayor among" in prompts[1]
-    assert "Include the village" not in prompts[2]
-    assert "Mayor of the village" in prompts[2] and "Name10" in prompts[2]
-
-
-@pytest.mark.asyncio
 async def test_generation_names_the_taken_first_names_and_skips_a_repeat():
     prompts = []
     batches = [
@@ -123,8 +106,7 @@ def test_wire_relationships_bounds_and_reciprocity():
     villagers = ring(30)
     wire_relationships(villagers, random.Random(7))
     by_id = {v.id: v for v in villagers}
-    reverse = {"spouse": "spouse", "rival": "rival", "friend": "friend",
-               "debtor": "creditor", "creditor": "debtor"}
+    reverse = {"friend": "friend", "coworker": "coworker", "neighbor": "neighbor", "rival": "rival"}
 
     for v in villagers:
         assert 2 <= len(v.relationships) <= 4
@@ -262,3 +244,93 @@ async def test_a_fixed_session_reuses_its_saved_village(tmp_path):
     first = await load_or_generate(path, FreshBatches(10), 10, random.Random(1))
     again = await load_or_generate(path, FreshBatches(0), 10, random.Random(2))
     assert [v.id for v in again] == [v.id for v in first]
+
+
+def households(vs):
+    by = defaultdict(list)
+    for v in vs:
+        by[v.household].append(v)
+    return by
+
+
+def test_form_households_puts_everyone_in_one_household_on_a_street():
+    vs = ring(50)
+    form_households(vs, random.Random(2))
+    assert all(v.household and v.home in STREETS for v in vs)
+    by = households(vs)
+    assert all(len({v.home for v in h}) == 1 and len(h) <= 2 for h in by.values())
+    pair = next(h for h in by.values() if len(h) == 2)
+    assert pair[0].relationships[pair[1].id] in HOUSEHOLD_TIES
+    assert pair[0].warmth[pair[1].id] == pair[1].warmth[pair[0].id] > 0
+
+
+def test_form_households_keeps_streets_balanced_and_numbers_households():
+    vs = ring(50)
+    form_households(vs, random.Random(2))
+    ids = sorted(households(vs))
+    assert ids == [f"h{i:02d}" for i in range(1, len(ids) + 1)]
+    per_street = [sum(1 for h in ids if households(vs)[h][0].home == s) for s in STREETS]
+    assert max(per_street) - min(per_street) <= 1
+
+
+def test_parent_and_child_ties_point_both_ways():
+    kinds = {k for k, *_ in HOUSEHOLDS}
+    assert "parent and adult child" in kinds
+    for seed in range(20):
+        vs = ring(50)
+        form_households(vs, random.Random(seed))
+        for v in vs:
+            for other, kind in v.relationships.items():
+                back = next(o for o in vs if o.id == other).relationships[v.id]
+                assert back == {"parent": "child", "child": "parent"}.get(kind, kind)
+
+
+def test_rival_ties_are_cold_and_household_ties_warm():
+    vs = ring(50)
+    rng = random.Random(5)
+    form_households(vs, rng)
+    wire_relationships(vs, rng)
+    by_id = {v.id: v for v in vs}
+    kinds = [(v, o, k) for v in vs for o, k in v.relationships.items()]
+    assert any(k == "rival" for _, _, k in kinds)
+    for v, o, kind in kinds:
+        assert -1 <= v.warmth[o] <= 1 and v.warmth[o] == by_id[o].warmth[v.id]
+        if kind == "rival":
+            assert v.warmth[o] < 0
+        if kind in HOUSEHOLD_TIES:
+            assert v.warmth[o] >= 0.2
+        if kind == "neighbor":
+            assert v.home == by_id[o].home
+        assert len(v.relationships) <= 4
+
+
+@pytest.mark.asyncio
+async def test_village_generation_is_deterministic_after_the_model(tmp_path):
+    a = await load_or_generate(str(tmp_path / "a.json"), FreshBatches(10), 20, random.Random(9))
+    b = await load_or_generate(str(tmp_path / "b.json"), FreshBatches(10), 20, random.Random(9))
+    assert a == b
+    assert all(v.traits and v.household and v.home for v in a)
+
+
+@pytest.mark.asyncio
+async def test_load_or_generate_rejects_a_village_without_traits(tmp_path):
+    path = tmp_path / "old.json"
+    path.write_text(json.dumps([asdict(Villager("v001", "Ada", "miller", "calm", "", ["a", "b", "c"], {}, traits={}))]))
+    with pytest.raises(SeedMismatch, match="before Sleuth"):
+        await load_or_generate(str(path), FreshBatches(1), 1, random.Random(1))
+
+
+@pytest.mark.asyncio
+async def test_generation_asks_for_a_modern_town():
+    prompts = []
+
+    class RecordingWriter:
+        async def complete(self, system, user, max_tokens=400):
+            prompts.append((system, user))
+            return json.dumps([entry(i) for i in range(10)])
+
+    await generate_villagers(RecordingWriter(), 10, random.Random(1))
+    system, user = prompts[0]
+    assert "small modern American town" in system
+    assert "break-ins, layoffs, gossip" in user
+    assert "pious" not in user and "church" not in user and "mayor" not in user

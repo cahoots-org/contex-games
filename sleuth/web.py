@@ -326,6 +326,12 @@ def create_app(
                 {"id": rid, "name": town.name_of(rid) or "someone who left", "kind": kind}
                 for rid, kind in v.relationships.items()
             ],
+            "traits": v.traits,
+            "home": v.home,
+            "household": [
+                {"id": o.id, "name": o.name, "kind": v.relationships.get(o.id, "")}
+                for o in town.villagers if v.household and o.household == v.household and o.id != v.id
+            ],
             "influence": influence(v),
             "believes": beliefs(judge, player).get(v.id, []),
             "note": notes_of(player).get(v.id),

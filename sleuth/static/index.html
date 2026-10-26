@@ -2303,7 +2303,16 @@ async function inspect(id, opener) {
   $("card-title").focus({ preventScroll: true });
 }
 
+const TRAIT_PHRASES = [["height", "%"], ["hair", "%"], ["coat", "in a %"], ["car", "with a %"]];
+
+function describeTraits(traits) {
+  return TRAIT_PHRASES.filter(([k]) => traits[k]).map(([k, p]) => p.replace("%", traits[k])).join(", ");
+}
+
 function cardBody(body) {
+  const looks = describeTraits(body.traits);
+  const street = body.home.replace(/\b\w/g, (c) => c.toUpperCase());
+  const household = body.household.flatMap((h, i) => [i ? ", " : "", el("button", { className: "rel", type: "button", textContent: h.name, onclick: () => inspect(h.id) }), ` (${h.kind})`]);
   const rels = body.relationships.length
     ? body.relationships.flatMap((r, i) => [i ? ", " : "", el("button", { className: "rel", type: "button", textContent: r.name, onclick: () => inspect(r.id) }), ` (${r.kind})`])
     : ["none"];
@@ -2315,6 +2324,12 @@ function cardBody(body) {
     el("h3", { id: "card-title", tabIndex: -1, textContent: body.name }),
     el("p", { className: "meta", textContent: `${body.occupation}, at the ${body.place}` }),
     el("dl", {},
+      looks ? el("dt", { textContent: "Looks" }) : null,
+      looks ? el("dd", { textContent: capital(looks) }) : null,
+      street ? el("dt", { textContent: "Home" }) : null,
+      street ? el("dd", { textContent: `Lives on ${street}` }) : null,
+      household.length ? el("dt", { textContent: "Household" }) : null,
+      household.length ? el("dd", {}, ...household) : null,
       el("dt", { textContent: "Personality" }), el("dd", { textContent: body.personality }),
       body.grudge ? el("dt", { textContent: "Grudge" }) : null,
       body.grudge ? el("dd", { textContent: body.grudge }) : null,

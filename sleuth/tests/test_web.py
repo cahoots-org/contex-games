@@ -136,6 +136,24 @@ def test_inspect_card_never_includes_needs(game):
     assert game.client.get("/api/villagers/v9").status_code == 404
 
 
+def test_inspect_shows_traits_home_and_household_not_warmth(game):
+    marta, bert = game.town.get("v1"), game.town.get("v2")
+    marta.traits = {"height": "tall", "hair": "bald", "coat": "grey hoodie", "car": "bicycle"}
+    for v in (marta, bert):
+        v.home, v.household = "elm street", "h01"
+    marta.relationships["v2"], bert.relationships["v1"] = "sibling", "sibling"
+    marta.warmth["v2"] = bert.warmth["v1"] = 0.73
+    response = game.client.get("/api/villagers/v1")
+    body = response.json()
+    assert body["traits"] == marta.traits and body["home"] == "elm street"
+    assert body["household"] == [{"id": "v2", "name": "Bert Cole", "kind": "sibling"}]
+    assert "warmth" not in json.dumps(body) and "0.73" not in response.text
+
+
+def test_inspect_shows_no_household_for_a_villager_without_one(game):
+    assert game.client.get("/api/villagers/v2").json()["household"] == []
+
+
 def test_state_and_card_carry_notes_without_needs_or_numbers(game):
     game.feed.on_whisper_status("w-1", "v1", "Marta Hale", "brushed_off", hint="The well keeps me up.")
     game.feed.on_whisper_status("w-2", "v2", "Bert Cole", "took_the_bait", told=3)
