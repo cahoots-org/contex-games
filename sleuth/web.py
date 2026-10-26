@@ -209,6 +209,7 @@ def create_app(
             "case": case_json(case, town, cases.routine, game.day) if case else None,
             "notebook": [record_json(r, town, book.crime, game.day) for r in player.notebook.values()
                          if book and r.case == book.crime.id],
+            "searched": player.searched,
             "steps": player.steps(),
         }
 

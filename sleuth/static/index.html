@@ -430,6 +430,8 @@ let selected = null;
 let unread = 0;
 // Whether this page has shown the intro; the server says whether the player still needs it.
 let introShown = false;
+// The cases whose scene the player has searched.
+let searched = new Set();
 // The guided case's checklist from the server; null off a guided case.
 let steps = null;
 // The notebook by record id, in the order the player got each entry.
@@ -479,6 +481,7 @@ function setCase(c) {
     openPublish(false);
     // A verdict or error belongs to the case it came with; it stays only while no other case is open.
     if (open) say("case-status", "");
+    say("where-status", "");
   }
   caseNow = open;
   $("case-whose").textContent = open ? (open.private ? "Your case" : "The town's case") : "No open case";
@@ -578,8 +581,8 @@ function entry(r, ticked) {
 function drawWhere() {
   if (!here) return;
   $("here").replaceChildren("You're ", el("b", { textContent: atPlace(here) }));
-  $("search-here").hidden = !(caseNow && caseNow.place === here);
-  $("pull-here").hidden = !recordsAt.includes(here);
+  $("search-here").hidden = !(caseNow && caseNow.place === here && !searched.has(caseNow.id));
+  $("pull-here").hidden = !(caseNow && recordsAt.includes(here));
   const scene = caseNow && caseNow.place;
   $("go").replaceChildren(el("span", { textContent: "Go to" }), ...places.filter((p) => p !== here).map((p) =>
     el("button", { type: "button", className: p === scene ? "scene" : "", textContent: p === scene ? `${capital(p)} (the scene)` : capital(p),
@@ -622,15 +625,16 @@ async function walkTo(place) {
   if (!ok) say("where-status", error, true);
 }
 
-$("search-here").addEventListener("click", async () => {
-  const { ok, error } = await post("/api/search", {});
+// Search or pull here, the button off until the game answers.
+async function act(button, path) {
+  $(button).disabled = true;
+  const { ok, error } = await post(path, {});
+  $(button).disabled = false;
   if (!ok) say("where-status", error, true);
-});
+}
 
-$("pull-here").addEventListener("click", async () => {
-  const { ok, error } = await post("/api/pull", {});
-  if (!ok) say("where-status", error, true);
-});
+$("search-here").addEventListener("click", () => act("search-here", "/api/search"));
+$("pull-here").addEventListener("click", () => act("pull-here", "/api/pull"));
 
 function gained(text, records, none) {
   say("where-status", `${text} ${records.length ? `${plural(records.length, "new notebook entry", "new notebook entries")}.` : none}`);
@@ -812,6 +816,7 @@ function render(e, fresh) {
       if (fresh) gained(e.text, e.records, "Nothing new there.");
       break;
     case "searched":
+      searched.add(e.case_id);
       note(e.records);
       if (fresh) gained(e.text, e.records, "You found nothing.");
       break;
@@ -999,6 +1004,7 @@ async function retell() {
   const res = await fetch("/api/case");
   if (!res.ok) return;
   const now = await res.json();
+  searched = new Set(now.searched);
   setCase(now.case);
   note(now.notebook);
   setSteps(now.steps);
@@ -1020,6 +1026,7 @@ async function loadState() {
   setResidents(state.villagers);
   addEvents(state.events, false);
   setResting(state.resting);
+  searched = new Set(state.searched);
   setCase(state.case);
   notebook.clear();
   note(state.notebook);

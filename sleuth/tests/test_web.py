@@ -670,3 +670,14 @@ def test_a_verdict_clears_when_another_case_opens(game):
     page = game.client.get("/").text
     changed = page[page.index("function setCase(c)"):page.index("caseNow = open;")]
     assert 'if (open) say("case-status", "");' in changed
+
+
+def test_search_and_pull_show_only_while_they_can_be_used(game):
+    file = open_case(game)
+    game.player.place = "library"
+    assert game.client.get("/api/state").json()["searched"] == []
+    assert game.client.post("/api/search").status_code == 200
+    assert game.client.get("/api/case").json()["searched"] == [file.crime.id]
+    page = game.client.get("/").text
+    where = page[page.index("function drawWhere()"):page.index("function setSteps")]
+    assert "!searched.has(caseNow.id)" in where and "caseNow && recordsAt.includes(here)" in where
