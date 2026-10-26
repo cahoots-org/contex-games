@@ -5,13 +5,18 @@ from dataclasses import dataclass, field, replace
 from random import Random
 
 from sleuth.lineage import Ids
-from sleuth.town import Town, at, place_name
+from sleuth.town import STREETS, Town, at, place_name
 from sleuth.traits import describe, figure
 
 TEMPLATES = {"steal": ("stole", ("bike", "tote bag", "thermos")), "vandalize": ("vandalized", ("car", "bike")),
-             "sabotage": ("sabotaged", ("county fair pumpkin", "prize jam", "fair quilt")),
+             "sabotage": ("sabotaged", ("county-fair pumpkin", "county-fair jam", "county-fair quilt")),
              "dog": ("let out", ("dog",)), "trailer": ("drove off with", ("marching band trailer",))}
-REPORTED = {"steal": "stolen", "vandalize": "vandalized", "sabotage": "sabotaged", "dog": "let out", "trailer": "taken"}
+# Where each item plausibly is. Residents are on a street only at night, at home.
+FAIR_PLACES = (*STREETS, "town hall", "library")
+ITEM_PLACES = {"bike": (*STREETS, "gym", "school"), "tote bag": ("cafe", "gym", "library", "grocery"),
+               "thermos": ("cafe", "gym", "school", "library"), "car": (*STREETS, "grocery", "hardware store", "gym", "bar"),
+               "county-fair pumpkin": FAIR_PLACES, "county-fair jam": FAIR_PLACES, "county-fair quilt": FAIR_PLACES,
+               "dog": STREETS, "marching band trailer": ("school",)}
 FOUND = {"steal": "missing", "vandalize": "damaged", "sabotage": "spoiled", "dog": "loose", "trailer": "missing"}
 # How many minutes after the crime the victim finds it.
 NOTICED = (10, 45)
@@ -79,21 +84,25 @@ def _motive(culprit, victim) -> str:
 
 def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id: str, *,
                 places=None, exclude=frozenset()) -> Crime | None:
-    """Draw a culprit and a victim from different households, the culprit expected elsewhere; None if none fit."""
+    """Draw a crime, then a culprit and a victim from different households, the victim where the item plausibly is and
+    the culprit expected elsewhere; None if no crime fits."""
     residents = [v for v in town.villagers if v.id not in exclude and routine.place(v.id, phase) is not None]
-    pairs = [(c, w, _motive(c, w)) for w in residents for c in residents
-             if c.household != w.household
-             and (places is None or routine.place(w.id, phase) in places)
-             and routine.place(c.id, phase) != routine.place(w.id, phase)]
-    if not pairs:
+    crimes = [(t, item) for t, (_, items) in TEMPLATES.items() for item in items]
+    for template, item in rng.sample(crimes, len(crimes)):
+        pairs = [(c, w, _motive(c, w)) for w in residents for c in residents
+                 if c.household != w.household
+                 and routine.place(w.id, phase) in ITEM_PLACES[item]
+                 and (places is None or routine.place(w.id, phase) in places)
+                 and routine.place(c.id, phase) != routine.place(w.id, phase)]
+        if pairs:
+            break
+    else:
         return None
     culprit, victim, motive = rng.choices(pairs, [1 if m == "opportunity" else MOTIVE_WEIGHT for *_, m in pairs])[0]
-    template = rng.choice(list(TEMPLATES))
-    item = rng.choice(TEMPLATES[template][1])
     minute = rng.randrange(*PHASE_MINUTES[phase])
     place = routine.place(victim.id, phase)
     return Crime(case_id, template, item, culprit.id, victim.id, place, day, phase, minute, motive,
-                 f"{victim.name} reported their {item} {REPORTED[template]} {at(place)} {when(phase)}.")
+                 f"Someone {TEMPLATES[template][0]} {victim.name}'s {item} {at(place)} {when(phase)}.")
 
 
 def record_json(r: Record, town: Town) -> dict:
@@ -141,7 +150,7 @@ def witness_memories(crime: Crime, town: Town, routine, rng: Random, ids: Ids) -
 def discovery(crime: Crime, town: Town, rng: Random, ids: Ids) -> Record:
     """The victim finding the crime a little after it, which says nothing of who did it."""
     clock = clock_at(min(crime.minute + rng.randint(*NOTICED), PHASE_MINUTES[crime.phase][1] - 1))
-    text = f"Around {clock}, {town.get(crime.victim).name} found their {crime.item} {FOUND[crime.template]} {at(crime.place)}."
+    text = f"Around {clock}, {town.get(crime.victim).name} found the {crime.item} {FOUND[crime.template]} {at(crime.place)}."
     return Record(ids.next("r"), crime.id, "discovery", crime.place, clock, text, crime.victim, day=crime.day)
 
 

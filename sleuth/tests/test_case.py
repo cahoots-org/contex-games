@@ -1,9 +1,11 @@
+import re
 from random import Random
 
 import pytest
 
 from sleuth.case import (
     CLIP_TRAITS,
+    ITEM_PLACES,
     WITNESS_ACTION,
     Crime,
     Record,
@@ -21,7 +23,7 @@ from sleuth.case import (
 from sleuth.lineage import Ids
 from sleuth.models import Villager
 from sleuth.tests.helpers import StubRoutine
-from sleuth.town import Town
+from sleuth.town import PLACES, Town
 from sleuth.traits import assign_traits
 
 RESIDENTS = [
@@ -108,21 +110,36 @@ def test_news_names_victim_place_and_time_not_culprit():
                  if (c := stage_crime(town, routine, Random(seed), 1, "night", "case-1")).victim == "v1"
                  and c.template == "steal" and c.item == "bike")
     culprit = town.get(crime.culprit)
-    assert crime.text == "Dana Reyes reported their bike stolen on Elm Street last night." and culprit.name not in crime.text
+    assert crime.text == "Someone stole Dana Reyes's bike on Elm Street last night." and culprit.name not in crime.text
     assert isinstance(crime, Crime) and crime.id == "case-1" and crime.day == 1 and crime.owner is None
     assert 1320 <= crime.minute < 1740
 
 
-@pytest.mark.parametrize("template, text", [
-    ("dog", "Dana Reyes reported their dog let out on Elm Street last night."),
-    ("trailer", "Dana Reyes reported their marching band trailer taken on Elm Street last night."),
+@pytest.mark.parametrize("template, night, text", [
+    ("dog", {}, "Someone let out Dana Reyes's dog on Elm Street last night."),
+    ("trailer", {"v1": "school"}, "Someone drove off with Dana Reyes's marching band trailer at the school last night."),
 ])
-def test_dog_and_trailer_crimes_read_like_the_others(template, text):
-    town, routine = make_town(), make_routine()
+def test_dog_and_trailer_crimes_read_like_the_others(template, night, text):
+    town, routine = make_town(), make_routine(night)
     crime = next(c for seed in range(400)
                  if (c := stage_crime(town, routine, Random(seed), 1, "night", "case-1")).victim == "v1"
                  and c.template == template)
     assert crime.text == text and WITNESS_ACTION[template]
+
+
+def test_every_item_is_only_ever_staged_at_its_places_and_no_line_uses_a_pronoun():
+    town = make_town()
+    for i, place in enumerate(PLACES):
+        routine = make_routine({vid: place if n % 2 else PLACES[i - 1] for n, (vid, *_) in enumerate(RESIDENTS)})
+        for seed in range(60):
+            crime = stage_crime(town, routine, Random(seed), 1, "night", "case-1")
+            if crime is None:
+                continue
+            assert crime.place in ITEM_PLACES[crime.item]
+            found = discovery(crime, town, Random(seed), Ids())
+            for line in (crime.text, found.text):
+                assert not re.search(r"\b(their|his|her)\b", line, re.IGNORECASE), line
+    assert {i for i, p in ITEM_PLACES.items() if "bar" in p} == {"car"}
 
 
 def test_clock_at_formats_twelve_hour_time():
@@ -251,7 +268,7 @@ def test_the_victim_finds_the_crime_after_it_and_names_no_one():
                  and c.template == "steal" and c.item == "bike")
     found = discovery(crime, town, Random(0), Ids())
     assert (found.kind, found.holder, found.case, found.place, found.day) == ("discovery", "v1", "case-1", "elm street", 1)
-    assert found.text == f"Around {found.clock}, Dana Reyes found their bike missing on Elm Street."
+    assert found.text == f"Around {found.clock}, Dana Reyes found the bike missing on Elm Street."
     assert found.traits == {} and found.sound and not points_at(crime, crime.culprit, town.get(crime.culprit).traits, found)
     assert crime.minute < [m for m in range(1320, 1740) if clock_at(m) == found.clock][0] < 1740
     assert not any(v.name in found.text for v in town.villagers if v.id != "v1")
