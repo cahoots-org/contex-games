@@ -27,6 +27,8 @@ class Hub(Protocol):
 
     def warn(self, vid: str, target: str) -> str | None: ...
 
+    def on_case(self, uid: str) -> bool: ...
+
 
 async def act(
     decision: Decision,
@@ -50,6 +52,7 @@ async def act(
     source_id = decision.source.data["id"] if decision.source else None
     source_text = decision.source.data.get("text") if decision.source else None
     heard_from = facts.get(source_id) if source_id else None
+    on_case = bool(source_id) and hub.on_case(source_id)
 
     async def say(
         text: str, listeners: list[str], audience: str, verb: str = "said", addressed: bool = False,
@@ -85,16 +88,16 @@ async def act(
             )
     elif action in DIRECT:
         if decision.target in others():
-            text = await writer.say(villager, decision, source_text, town.get(decision.target).name)
+            text = await writer.say(villager, decision, source_text, town.get(decision.target).name, on_case)
             await say(text, [decision.target], ONE)
     elif action in (ALIBI, BLAME):
         if decision.target in others() and (fact := hub.cover_story(vid, action)) is not None:
-            text = await writer.say(villager, decision, fact, town.get(decision.target).name)
+            text = await writer.say(villager, decision, fact, town.get(decision.target).name, True)
             await say(text, [decision.target], ONE, root=True, cover=True)
     elif action == WARN:
         if decision.target in others() and (fact := hub.warn(vid, decision.target)) is not None:
-            text = await writer.say(villager, decision, fact, town.get(decision.target).name)
+            text = await writer.say(villager, decision, fact, town.get(decision.target).name, True)
             await say(text, [decision.target], ONE, root=True)
     elif action == SPEAK:
-        text = await writer.say(villager, decision, source_text, place)
+        text = await writer.say(villager, decision, source_text, place, on_case)
         await say(text, others(), ROOM)

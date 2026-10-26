@@ -16,8 +16,11 @@ class StubWriter:
     def __init__(self):
         self.say_calls = []
 
-    async def say(self, villager, decision, source_text, audience):
+        self.on_case = []
+
+    async def say(self, villager, decision, source_text, audience, on_case=False):
         self.say_calls.append((decision.action, source_text, audience))
+        self.on_case.append(on_case)
         return "words"
 
 
@@ -30,6 +33,10 @@ class RecordingHub:
         self.covers = []
         self.warning = None
         self.warned = []
+        self.case_roots = set()
+
+    def on_case(self, uid):
+        return uid in self.case_roots
 
     def warn(self, vid, target):
         self.warned.append((vid, target))
@@ -209,3 +216,14 @@ async def test_a_warning_is_told_to_the_target_as_a_new_line_not_a_cover():
     [(utt, listeners)] = s.hub.delivered
     assert listeners == ["v2"] and utt.parent is None and s.lineage.root(utt.id) == utt.id
     assert s.writer.say_calls[-1] == (WARN, "The podcaster is stirring up trouble.", "Ada") and s.hub.covers == []
+
+
+@pytest.mark.asyncio
+async def test_talk_rooted_in_a_case_and_cover_stories_are_written_as_case_talk():
+    s = Setup()
+    s.hub.case_roots.add("u-0")
+    s.hub.facts[ALIBI] = "I was at the gym."
+    await s.act("v1", Decision(RETELL, source("u-0"), "v2", "faithful"))
+    await s.act("v1", Decision(RETELL, source("u-9"), "v2", "faithful"))
+    await s.act("v1", Decision(ALIBI, None, "v2", "faithful"))
+    assert s.writer.on_case == [True, False, True]

@@ -110,3 +110,18 @@ async def test_complete_turns_thinking_off_and_reads_only_text():
     client = type("Client", (), {"messages": Messages()})()
     assert await Writer(client, "haiku-test").complete("sys", "hi") == "Aye."
     assert client.messages.calls[0]["thinking"] == {"type": "disabled"}
+
+
+@pytest.mark.asyncio
+async def test_case_talk_keeps_to_the_case():
+    client = StubClient("Hm.", "Hm.")
+    writer = Writer(client, "haiku-test")
+    decision = Decision("speak", None, None, None)
+
+    await writer.say(villager(), decision, "Someone stole Bob's bike", "all", on_case=True)
+    await writer.say(villager(), decision, "Bob stole a loaf", "all")
+
+    case_say, other_say = (c["system"] for c in client.messages.calls)
+    assert "Talk only about what you know of this case and how you feel about it." in case_say
+    assert "Leave your other worries out." in case_say and "owes me flour" not in case_say
+    assert "this case" not in other_say and "owes me flour" in other_say

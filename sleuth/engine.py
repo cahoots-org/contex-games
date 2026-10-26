@@ -300,6 +300,10 @@ class Engine:
         if self.cases is not None:
             self.cases.mark_cover(vid, uid)
 
+    def on_case(self, uid: str) -> bool:
+        """Whether the utterance descends from a case's news, memory, cover story or episode."""
+        return self.cases is not None and self.cases.root_kind(self.lineage.root(uid)) is not None
+
     def warn(self, vid: str, target: str) -> str | None:
         """The pressed culprit's warning about the podcaster, told to someone close, at most once a part of the day.
 

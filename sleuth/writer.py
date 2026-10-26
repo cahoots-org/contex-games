@@ -11,6 +11,8 @@ from sleuth.usage import charged_to
 
 SAY_MAX_TOKENS = 80
 ANSWER_MAX_TOKENS = 120
+CASE_TALK = ("This is about a case. Talk only about what you know of this case and how you feel about it. "
+             "Leave your other worries out. ")
 
 
 STAGE_DIRECTION = re.compile(r"\*[^*]*\*")
@@ -61,13 +63,16 @@ class Writer:
         return "".join(b.text for b in response.content if b.type == "text").strip()
 
     async def say(
-        self, villager: Villager, decision: Decision, source_text: str | None, audience: str,
+        self, villager: Villager, decision: Decision, source_text: str | None, audience: str, on_case: bool = False,
     ) -> str:
-        """The villager's words for this decision, in their voice and chosen style, keeping the source unnamed."""
+        """The villager's words for this decision, in their voice and chosen style, keeping the source unnamed.
+
+        Talk about a case keeps to the case, without the villager's grudge or other worries.
+        """
         system = (
             f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
-            + _grudge(villager, "Bring it up only when it fits. ")
+            + (CASE_TALK if on_case else _grudge(villager, "Bring it up only when it fits. "))
             + "Reply with one short sentence, under 20 words, in your own voice, said plainly, like neighbours chatting. "
             "Keep to what you heard, changed only as your manner says. "
             "If what you heard is about you, answer as yourself. "
