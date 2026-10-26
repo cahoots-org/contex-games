@@ -36,7 +36,7 @@ class Hub(Protocol):
     async def reply(self, utterance: Utterance) -> None: ...
 
     def acted(
-        self, decision: Decision, vid: str, target: str | None, creed: str | None = None, farewell: str | None = None,
+        self, decision: Decision, vid: str, target: str | None, creed: str | None = None,
     ) -> None: ...
 
 
