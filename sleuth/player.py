@@ -34,7 +34,7 @@ PODCAST = "A true-crime podcast"
 WRONG = "Your episode didn't hold up. The town now believes it, and people are warier of you."
 RIVAL = "Another podcaster cracked the case first."
 GUIDE = (
-    "A case just for you: {case}. Watch the neighborhood app, then walk {place} and interview whoever is there.",
+    "A case just for you: {case}. Watch the neighborhood app, then walk {place} and {then}.",
     "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Pull records where a "
     "place has a camera or keeps logs.",
     "When the evidence points to one person, publish an episode. Name them and cite what backs it up.",
@@ -98,7 +98,11 @@ class Player:
             if self.owner in players.onboarded or players.resting():
                 return
             if case := await self.engine.cases.open_guided(self.engine, self.id, self.game.day, self.game.phase):
-                self._guide(0, case=case.crime.text.rstrip("."), place=at(case.crime.place))
+                crime = case.crime
+                there = any(r.kind == "memory" and self.town.place_of(r.holder) == crime.place
+                            for r in case.records.values())
+                self._guide(0, case=crime.text.rstrip("."), place=at(crime.place),
+                            then="interview whoever is there" if there else "pull the records there")
         except Exception:
             log.exception("opening a guided case for %s failed", self.id)
         finally:

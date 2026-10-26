@@ -672,3 +672,13 @@ async def test_publish_refuses_a_repeated_citation_without_spending_the_episode(
     ids = cite(player, file, memory_of(file, player.ids))
     assert await player.publish("v3", ids * 2) == "Cite each entry once."
     assert file.published == [] and engine.delivered == []
+
+
+@pytest.mark.asyncio
+async def test_with_no_witness_at_the_scene_the_first_line_points_to_the_records():
+    player, file, engine = guided()
+    memory_of(file, player.ids, holder="v5")
+    await player.start()
+    assert guides(player) == [
+        "A case just for you: Someone stole Dana Reyes's bike on elm street last night. Watch the neighborhood app, "
+        "then walk on elm street and pull the records there."]

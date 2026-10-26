@@ -13,7 +13,7 @@ from sleuth.config import Config
 from sleuth.feed import Feed
 from sleuth.lineage import Ids, Lineage
 from sleuth.players import Players
-from sleuth.tests.test_case import make_routine, make_town
+from sleuth.tests.test_case import StubRoutine, make_routine, make_town
 from sleuth.traits import assign_traits
 
 
@@ -333,3 +333,11 @@ async def test_no_guided_case_when_every_resident_is_involved():
                     for v in town.villagers}
     cases.ids.ensure_past("case", 1)
     assert await cases.open_guided(engine, "p-1", 1, "night") is None
+
+
+@pytest.mark.asyncio
+async def test_guided_case_falls_back_to_an_earlier_part_of_the_day():
+    cases, engine, town = make_cases()
+    cases.routine = StubRoutine({v.id: {"morning": v.home, "night": "gym"} for v in town.villagers})
+    case = await cases.open_guided(engine, "p-1", 1, "night")
+    assert case.crime.phase == "morning" and case.crime.text.endswith("this morning.") and case.state == "open"

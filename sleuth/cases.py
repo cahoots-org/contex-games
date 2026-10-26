@@ -141,10 +141,14 @@ class Cases:
             self._stage(day, phase)
 
     async def open_guided(self, engine, player_id: str, day: int, phase: str) -> CaseFile | None:
-        """Stage and open an easy private case for a new podcaster at once; None when nothing fits."""
-        crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"),
-                            places=CAMERA_PLACES, exclude=self._involved())
-        if crime is None:
+        """Stage and open an easy private case for a new podcaster at once, in the latest part of the day that fits;
+        None when none does."""
+        case_id, involved = self.ids.next("case"), self._involved()
+        for ph in reversed(PHASES[:PHASES.index(phase) + 1]):
+            if crime := stage_crime(self.town, self.routine, self.rng, day, ph, case_id,
+                                    places=CAMERA_PLACES, exclude=involved):
+                break
+        else:
             return None
         crime.owner = player_id
         records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids)[:1],
