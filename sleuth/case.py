@@ -37,8 +37,8 @@ WITNESS_DRIFT = 20
 TRACES = {"height": "A boot print {at}, left by {figure}.", "coat": "A thread {at}, snagged from {figure}.",
           "car": "Fresh tracks {at}, from a {value}."}
 RECEIPT = "A grocery receipt dropped {at}, stamped {clock}."
-# How many minutes before the crime a dropped receipt was stamped.
-RECEIPT_BEFORE = (20, 180)
+# How many minutes before the crime a dropped receipt was stamped, never before its part of the day.
+RECEIPT_BEFORE = (10, 60)
 # Case text keeps the crime's time as WHEN, said relative to the day it is read.
 WHEN = "{when}"
 DAYS_AGO = ("two", "three", "four", "five", "six")
@@ -228,7 +228,7 @@ def scene_clues(crime: Crime, town: Town, routine, rng: Random, ids: Ids) -> lis
     for kind in rng.sample([*TRACES, "receipt"], rng.randint(1, 2)):
         if kind == "receipt":
             who = rng.choice([crime.culprit, *_bystanders(crime, town, routine)])
-            clock = clock_at(crime.minute - rng.randint(*RECEIPT_BEFORE))
+            clock = clock_at(max(crime.minute - rng.randint(*RECEIPT_BEFORE), PHASE_MINUTES[crime.phase][0]))
             text = RECEIPT.format(at=at(crime.place), clock=clock)
             clues.append(Record(ids.next("r"), crime.id, "clue", crime.place, clock, text, day=crime.day))
             paid = f"{LOG_PLACES['grocery']}: {town.get(who).name}, {clock}"

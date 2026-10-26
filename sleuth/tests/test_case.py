@@ -1,4 +1,5 @@
 import re
+from dataclasses import replace
 from random import Random
 
 import pytest
@@ -6,6 +7,8 @@ import pytest
 from sleuth.case import (
     CLIP_TRAITS,
     ITEM_PLACES,
+    PHASE_MINUTES,
+    RECEIPT_BEFORE,
     WHEN,
     WITNESS_ACTION,
     Crime,
@@ -345,6 +348,19 @@ def test_scene_clues_are_one_or_two_traces_or_a_dropped_receipt_with_a_store_log
                 shapes.add("receipt" + ("-culprit" if store.who == crime.culprit else "-bystander"))
         assert len(records) == len(clues) + sum(not r.traits for r in clues)
     assert shapes == {"height", "coat", "car", "receipt-culprit", "receipt-bystander"}
+
+
+@pytest.mark.parametrize("phase", ["morning", "afternoon", "evening", "night"])
+def test_a_receipt_is_stamped_shortly_before_the_crime_in_its_part_of_the_day(phase):
+    town, routine, crime = make_case()
+    lo, hi = PHASE_MINUTES[phase]
+    for minute in (lo, lo + 15, (lo + hi) // 2, hi - 1):
+        crime = replace(crime, phase=phase, minute=minute)
+        for seed in range(30):
+            for r in scene_clues(crime, town, routine, Random(seed), Ids()):
+                if r.kind == "clue" and not r.traits:
+                    [stamped] = [m for m in range(lo, minute + 1) if clock_at(m) == r.clock]
+                    assert minute - stamped <= RECEIPT_BEFORE[1]
 
 
 def test_a_culprits_receipt_log_alone_solves_the_case():
