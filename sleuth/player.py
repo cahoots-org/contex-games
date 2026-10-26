@@ -63,10 +63,33 @@ def voiced(text: str, name: str) -> str:
     return text.replace(f"{name} found the ", "I found my ").replace(name, "me")
 
 
+# ponytail: phrase lists, not judges; they only ever swap a model line for the plain record text.
+HEARSAY = re.compile(r"\b(?:wasn't there|was not there|I was told|I'm told|I am told|I heard|I've heard|told me|"
+                     r"people say|they say|word is|apparently|so I hear)\b", re.IGNORECASE)
+WHEREABOUTS = re.compile(r"\bI(?:'m| am| was| wasn't| was not|'ve been| have been| had been| stayed| went)(?: \w+ly)?"
+                         r"(?: not| never)?(?: even)? (?:there|here|home|at|on|in|away|out|nowhere|near|nearby|around|"
+                         r"over|by|elsewhere|asleep)\b", re.IGNORECASE)
+
+
+def _apostrophes(text: str) -> str:
+    return text.replace("\u2019", "'")
+
+
+def first_hand(line: str, records: list[Record], villager: Villager) -> bool:
+    """Whether a reply tells the resident's own sighting as theirs, and says where they were only when one of their
+    records does."""
+    own = [r for r in records if r.holder == villager.id]
+    saw = any(r.kind in ("memory", "discovery") for r in own)
+    placed = saw or any(WHEREABOUTS.search(voiced(r.text, villager.name)) for r in own)
+    line = _apostrophes(line)
+    return not (saw and HEARSAY.search(line)) and (placed or not WHEREABOUTS.search(line))
+
+
 def adds_nothing(line: str, names: set[str]) -> bool:
-    """Whether a reply with no facts behind it names no one and gives no time, place or look."""
+    """Whether a reply with no facts behind it names no one and gives no time, place, look or whereabouts."""
     lower = line.lower()
     return bool(line) and not (invents(line, "", names) or misdated(line, "") or re.search(r"\d", line)
+                               or WHEREABOUTS.search(_apostrophes(line))
                                or any(re.search(rf"\b{re.escape(w)}\b", lower) for w in (*PLACES, *LOOKS)))
 
 
@@ -411,7 +434,8 @@ class Player:
                                                when(crime, self._today()))
                 allowed = " ".join([villager.name, question, *texts, *known, *(t["line"] for t in thread)])
                 firsts = {v.name.split()[0] for v in self.town.villagers}
-                if (line and conveys(line, records) and not strangers(line, allowed, firsts)
+                if (line and conveys(line, records) and first_hand(line, records, villager)
+                        and not strangers(line, allowed, firsts)
                         and not misdated(line, " ".join([case, *texts]))):
                     return line
             except Exception:

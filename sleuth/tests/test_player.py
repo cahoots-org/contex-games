@@ -402,6 +402,41 @@ async def test_a_reply_with_no_facts_that_adds_a_name_place_time_or_look_falls_b
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("line", ["I didn't see anything, and I wasn't there when it went missing.",
+                                  "I was home all evening.", "I’m usually nowhere near there."])
+async def test_a_reply_with_no_facts_says_nothing_of_where_the_resident_was(line):
+    player, file, engine, writer = interviewing()
+    writer.line = line
+    await ask(player, "v2", "none")
+    assert replies(player)[-1] in SHRUGS
+
+
+@pytest.mark.asyncio
+async def test_a_witness_tells_their_own_sighting_first_hand():
+    player, file, engine, writer = interviewing()
+    memory_of(file, player.ids)
+    writer.line = "I wasn't there myself, but I was told someone tall in a grey hoodie walked off with it."
+    await ask(player, "v2", "what_did_you_see")
+    assert replies(player)[-1] == f"I saw it myself. {MEMORY}"
+    writer.line = "I was there, and I saw someone tall in a grey hoodie walk off with it."
+    await ask(player, "v2", "what_did_you_see")
+    assert replies(player)[-1] == writer.line
+
+
+@pytest.mark.asyncio
+async def test_a_reply_says_where_the_resident_was_only_when_a_record_does():
+    player, file, engine, writer = interviewing()
+    player.place = "oak street"
+    writer.line = "Hal Burke has never got on with Dana Reyes, and I was at home all night."
+    await ask(player, "v6", "who_had_reason")
+    assert replies(player)[-1] == "Hal Burke has never got on with Dana Reyes."
+    file.whereabouts = {"v2": ["bar"]}
+    writer.line = "I was at the bar last night."
+    await ask(player, "v2", "where_were_you")
+    assert replies(player)[-1] == writer.line
+
+
+@pytest.mark.asyncio
 async def test_a_reply_with_no_facts_may_echo_a_name_from_the_question_but_no_other():
     player, file, engine, writer = interviewing()
     writer.line = "I don't really know Hal."
