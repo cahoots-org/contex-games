@@ -699,6 +699,15 @@ def test_a_verdict_clears_when_another_case_opens(game):
     assert 'if (open) say("case-status", "");' in changed
 
 
+def test_status_lines_clear_when_the_view_changes_or_the_problem_is_fixed(game):
+    page = game.client.get("/").text
+    publish = page[page.index("function openPublish(on)"):page.index("function cited()")]
+    assert 'say("where-status", "");' in publish and 'if (on) say("case-status", "");' in publish
+    assert 'say("cited", error, true);' in page
+    count = page[page.index("function countCited()"):page.index("$(\"publish\").addEventListener")]
+    assert 'say("cited", ' in count
+
+
 def test_search_and_pull_show_only_while_they_can_be_used(game):
     file = open_case(game)
     game.player.place = "library"

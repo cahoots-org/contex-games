@@ -492,8 +492,11 @@ function setResting(on) {
   $("resting").textContent = on ? RESTING : "";
 }
 
+// A status line belongs to the view it was said in, so changing view clears them.
 function openPublish(on) {
   $("app").classList.toggle("citing", on);
+  say("where-status", "");
+  if (on) say("case-status", "");
   $("publish").hidden = $("send").hidden = !on;
   $("publish-open").ariaExpanded = String(on);
   if (on) {
@@ -509,7 +512,10 @@ $("publish-cancel").addEventListener("click", () => {
   openPublish(false);
   $("publish-open").focus();
 });
-$("culprit").addEventListener("change", light);
+$("culprit").addEventListener("change", () => {
+  countCited();
+  light();
+});
 $("skip").addEventListener("click", () => act("skip", "/api/skip"));
 
 function cited() {
@@ -639,6 +645,7 @@ async function walkTo(place) {
 
 // Search or pull here, the button off until the game answers.
 async function act(button, path) {
+  say("where-status", "");
   $(button).disabled = true;
   const { ok, error } = await post(path, {});
   $(button).disabled = false;
