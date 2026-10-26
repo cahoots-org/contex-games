@@ -549,6 +549,20 @@ async def test_room_speech_rooted_in_a_case_is_shown_in_the_feed(turns):
 
 
 @pytest.mark.asyncio
+async def test_talk_rooted_in_testimony_reaches_minds_but_not_the_feed(turns):
+    engine, minds, feed = await setup("v1", "v2")
+    engine.cases = Cases(Config(), engine.town, None, random.Random(1), engine.ids)
+    engine.cases.files["case-1"] = case_file("open", roots={"u-1": "memory", "u-5": "news"})
+    engine.lineage.record("u-2", "u-1")
+    await engine.deliver(Utterance("u-2", "v1", "V1", "cafe", "grey hoodie at ten to one", "u-1", audience="room"),
+                         ["v2"])
+    assert [k for k, _ in minds["v2"].heard] == ["utt:u-2"]
+    assert not [e for e in feed.recent if e.kind == "post"]
+    assert engine.testimony("u-2") and not engine.testimony("u-5") and not engine.testimony("u-9")
+    await engine.stop()
+
+
+@pytest.mark.asyncio
 async def test_culprit_is_not_walked_during_setup(turns):
     engine, _, _ = await setup("v1", "v2")
     engine.cases = Cases(Config(), engine.town, None, random.Random(1), engine.ids)

@@ -155,6 +155,10 @@ class FakeEngine:
         self.pressed = []
         self.delivered = []
         self.players = Players()
+        self.testimony_ids = set()
+
+    def testimony(self, uid):
+        return uid in self.testimony_ids
 
     async def deliver(self, utterance, listener_ids, addressed=False):
         self.delivered.append((utterance, listener_ids, addressed))

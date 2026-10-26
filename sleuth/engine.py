@@ -146,7 +146,7 @@ class Engine:
         """Publish the utterance to each listener's mind; raises only if every listener failed.
 
         An addressed utterance also wakes each listener and joins their next turn unmatched. Room talk rooted in a
-        case is shown in the feed.
+        case is shown in the feed, unless it is testimony.
         """
         listeners = [i for i in listener_ids if i in self.town and i in self.minds]
         data = utterance.to_data()
@@ -162,7 +162,7 @@ class Engine:
         if listeners and not heard:
             raise next(r for r in results if isinstance(r, Exception))
         if utterance.audience == "room" and self.cases is not None:
-            if rooted := self.cases.root_kind(self.lineage.root(utterance.id)):
+            if (rooted := self.cases.root_kind(self.lineage.root(utterance.id))) and rooted[1] != "memory":
                 self.feed.on_post(utterance, rooted[0].crime.id, player=rooted[0].crime.owner)
 
     async def recall_heard(self, vid: str, text: str) -> list[Match]:
@@ -303,6 +303,12 @@ class Engine:
     def on_case(self, uid: str) -> bool:
         """Whether the utterance descends from a case's news, memory, cover story or episode."""
         return self.cases is not None and self.cases.root_kind(self.lineage.root(uid)) is not None
+
+    def testimony(self, uid: str) -> bool:
+        """Whether the utterance descends from a witness's memory or a victim's discovery, which only an interview
+        reveals to a podcaster."""
+        rooted = self.cases.root_kind(self.lineage.root(uid)) if self.cases is not None else None
+        return rooted is not None and rooted[1] == "memory"
 
     def warn(self, vid: str, target: str) -> str | None:
         """The pressed culprit's warning about the podcaster, told to someone close, at most once a part of the day.

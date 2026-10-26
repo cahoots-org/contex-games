@@ -186,7 +186,8 @@ class Player:
         return None
 
     def listen(self) -> str | None:
-        """Show the last few lines said where the player stands this part of the day; returns why it could not be done.
+        """Show the last few lines said where the player stands this part of the day, leaving out testimony; returns
+        why it could not be done.
 
         The player can look again after listen_seconds or once they walk.
         """
@@ -196,7 +197,7 @@ class Player:
         now = time.time()
         until = self._listen_until = now + self.config.listen_seconds
         since = now - self.config.day_seconds * LISTEN_LOOKBACK_DAYS
-        heard = [u for u in self.engine.facts.recent(self.place, since) if audible(u)]
+        heard = [u for u in self.engine.facts.recent(self.place, since) if audible(u) and not self.engine.testimony(u.id)]
         self.feed.on_listen(self.place, heard[-LISTEN_OPENING:], until, player=self.id)
         self._track(asyncio.create_task(self._end_listen(until)))
         return None

@@ -132,6 +132,18 @@ async def test_listen_opens_with_the_last_five_lines_of_this_part_of_the_day(mon
 
 
 @pytest.mark.asyncio
+async def test_listen_leaves_out_talk_rooted_in_testimony():
+    player, _, _, engine, _ = make("Marta")
+    engine.facts.record(square_line("u-1", "grey hoodie at ten to one"))
+    engine.facts.record(square_line("u-2", "someone took a bike"))
+    engine.testimony_ids.add("u-1")
+    assert player.listen() is None
+    event = next(e for e in player.feed.replay(PID) if e.kind == "listen")
+    assert [line["text"] for line in event.data["lines"]] == ["someone took a bike"]
+    player.close()
+
+
+@pytest.mark.asyncio
 async def test_one_listen_at_a_time_and_it_ends_after_listen_seconds():
     player, _, _, _, _ = make("Marta")
     player.config = Config(listen_seconds=0.05)

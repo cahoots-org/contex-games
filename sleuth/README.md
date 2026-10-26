@@ -12,7 +12,8 @@ evening place once; the day runs work, work, leisure, then home on their street 
 visible traits (height, hair, coat and so on) drawn by code from a fixed list.
 
 Residents still talk among themselves: what they hear is published into their minds in Contex, and a line that
-matches one of their needs wakes them to react.
+matches one of their needs wakes them to react. What a witness saw or a victim found passes only from mind to mind:
+neither the feed nor a look around shows it, so you learn it only by interviewing someone.
 
 ## Playing
 
