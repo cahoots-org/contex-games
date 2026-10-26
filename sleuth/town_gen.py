@@ -7,6 +7,7 @@ import re
 from dataclasses import asdict
 
 from sleuth.models import Villager
+from sleuth.faith import FAITH
 from sleuth.town import STREETS
 from sleuth.traits import assign_traits
 from sleuth.writer import Writer, extract_json
@@ -40,6 +41,7 @@ PROMPT = (
     "fascination or fear of their own (break-ins, layoffs, gossip, their health, the town "
     "changing, or anything else). Make needs particular to this person and "
     "different from the other residents', never generic topics like news or gossip. "
+    "Leave faith out: nothing about anyone, their work, places, grudges or needs may touch on faith or spirituality. "
     "{temper}{taken}"
 )
 GOOD = (
@@ -81,13 +83,14 @@ def _unwrap(parsed):
 
 
 def _valid(raw) -> bool:
-    """True for a dict with every required key and 3 or more string needs."""
+    """True for a dict with every required key and 3 or more string needs, and no word of faith."""
     return (
         isinstance(raw, dict)
         and all(k in raw for k in REQUIRED)
         and isinstance(raw["needs"], list)
         and len(raw["needs"]) >= 3
         and all(isinstance(n, str) for n in raw["needs"])
+        and not FAITH.search(json.dumps(raw))
     )
 
 

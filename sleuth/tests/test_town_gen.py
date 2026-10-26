@@ -338,3 +338,22 @@ async def test_generation_asks_for_a_modern_town():
     assert "small modern American town" in system
     assert "break-ins, layoffs, gossip" in user
     assert not WORDS.search(user) and "mayor" not in user
+
+
+@pytest.mark.asyncio
+async def test_generation_says_no_religion_and_regenerates_religious_residents():
+    prompts = []
+
+    class Pious:
+        async def complete(self, system, user, max_tokens=400):
+            prompts.append(user)
+            batch = [entry(i + 10 * len(prompts)) for i in range(2)]
+            if len(prompts) == 1:
+                batch[0]["occupation"] = "groundskeeper behind the Methodist parsonage"
+                batch[1]["needs"][0] = "the church bake sale"
+            return json.dumps(batch)
+
+    villagers = await generate_villagers(Pious(), 2, random.Random(1))
+    assert len(villagers) == 2 and len(prompts) == 2
+    assert not [v for v in villagers if WORDS.search(json.dumps(asdict(v)))]
+    assert "faith or spirituality" in prompts[0]

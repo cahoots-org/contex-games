@@ -3,12 +3,15 @@ import re
 from html.parser import HTMLParser
 from pathlib import Path
 
+from sleuth.faith import FAITH as WORDS
+
 ROOT = Path(__file__).resolve().parent.parent
-WORDS = re.compile(r"\b(church\w*|chapel\w*|priest\w*|pious|pray\w*|sermon\w*|religio\w*|cults?|creed\w*|preach\w*)\b", re.I)
+# The word list itself, and the tests that feed it religious residents.
+LISTS = ("test_copy.py", "faith.py", "test_town_gen.py")
 
 
 def test_no_religion_in_code_or_copy():
-    files = [f for f in ROOT.rglob("*.py") if f.name != "test_copy.py"]
+    files = [f for f in ROOT.rglob("*.py") if f.name not in LISTS]
     files += [ROOT / "README.md", ROOT / "static" / "index.html"]
     assert not [f.name for f in files if WORDS.search(f.read_text())]
 
