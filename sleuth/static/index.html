@@ -252,6 +252,7 @@ select, input[type="text"], input[type="search"] {
 }
 .cards li::before { content: counter(card); display: block; margin-bottom: .35rem; font: 700 .8rem var(--ui); color: var(--muted); }
 .intro .primary { padding: .65rem 1.4rem; font-size: 1.05rem; }
+#handoff .cards li::before { display: none; }
 
 @media (max-width: 900px) {
   header, .desk { padding-left: 1rem; padding-right: 1rem; }
@@ -296,6 +297,11 @@ select, input[type="text"], input[type="search"] {
     <li>When you know who did it, publish an episode naming them.</li>
   </ol>
   <form method="dialog"><button class="primary" autofocus>Start your first case</button></form>
+</dialog>
+<dialog class="intro" id="handoff" aria-label="Your next case">
+  <h2 id="handoff-head"></h2>
+  <ol class="cards" id="handoff-cards"></ol>
+  <form method="dialog"><button class="primary" autofocus>Take the case</button></form>
 </dialog>
 <div class="app" id="app">
   <header>
@@ -1059,8 +1065,22 @@ async function loadState() {
     introShown = true;
     $("intro").showModal();
   }
+  if (state.handoff && !$("handoff").open) handoff(state.handoff);
   if (selected) choose(selected);
 }
+
+// How the first case ended, then the town's case and what is different about it.
+function handoff(h) {
+  $("handoff-head").textContent = h.head || "";
+  $("handoff-head").hidden = !h.head;
+  const tip = caseNow ? `A new tip comes in: ${caseNow.text}` : "Things are quiet. The next tip could come any time.";
+  $("handoff-cards").replaceChildren(...[h.line, tip,
+    "Other podcasters are chasing this one too, and you get one episode per case. Get it right first."]
+    .filter(Boolean).map((text) => el("li", { textContent: text })));
+  $("handoff").showModal();
+}
+
+$("handoff").addEventListener("close", () => post("/api/handoff", {}));
 
 function receive(e) {
   if (e.kind === "usage") $("usage").textContent = e.usage.summary;

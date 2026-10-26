@@ -215,6 +215,15 @@ def test_skip_moves_a_practising_player_into_the_real_town(game):
     assert ":practice" not in state["boot"] and {v["id"] for v in state["villagers"]} == {"v1", "v2"}
 
 
+def test_state_carries_the_first_case_handoff_until_it_is_dismissed(game):
+    assert game.client.get("/api/state").json()["handoff"] is None
+    game.player.begin_tutorial()
+    game.client.post("/api/skip")
+    assert game.client.get("/api/state").json()["handoff"] == {"head": None, "line": None}
+    assert game.client.post("/api/handoff").json() == {"ok": True}
+    assert game.client.get("/api/state").json()["handoff"] is None
+
+
 def test_the_page_offers_skip_on_the_practice_case_and_starts_clean_in_the_real_town(game):
     page = game.client.get("/").text
     assert 'id="skip"' in page and "Skip this case" in page and '"/api/skip"' in page
@@ -672,7 +681,7 @@ def test_page_is_built_around_the_case(game):
     order = ['id="case"', 'id="here"', 'id="notebook"', 'id="talk"', 'id="people"', 'id="convo"']
     assert [html.index(n) for n in order] == sorted(html.index(n) for n in order)
     for needle in ('id="publish-open"', 'id="culprit"', "/api/publish", "/api/interview", "/api/walk", "/api/pull",
-                   "/api/search", 'case "interview"', 'case "pulled"', 'case "searched"', 'case "steps"', "usually nearby", 'id="intro"',
+                   "/api/search", "/api/handoff", 'id="handoff"', 'case "interview"', 'case "pulled"', 'case "searched"', 'case "steps"', "usually nearby", 'id="intro"',
                    "@media (max-width: 600px)"):
         assert needle in html, needle
     for gone in ("/api/listen", "Look around", "tiles", "card-title", 'role="tablist"', "innerHTML"):

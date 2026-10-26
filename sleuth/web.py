@@ -196,6 +196,7 @@ def create_app(
             "usage": usage.to_json(player.id),
             "resting": usage.resting(),
             "intro": player.owner not in players.onboarded and not player.threads and not player.notebook,
+            "handoff": player.handoff,
             **case_of(player),
         }
 
@@ -304,6 +305,13 @@ def create_app(
             return _error(401, RELOAD)
         if problem := player.skip():
             return _error(400, problem)
+        return {"ok": True}
+
+    @app.post("/api/handoff")
+    async def handoff(request: Request):
+        if (player := player_for(players, request.cookies.get(COOKIE))) is None:
+            return _error(401, RELOAD)
+        player.dismiss_handoff()
         return {"ok": True}
 
     @app.post("/api/publish")

@@ -1019,3 +1019,27 @@ async def test_what_happened_gives_anyone_else_what_they_heard():
     hearsay(player, engine, "news", file)
     await ask(player, "v6", "what_happened")
     assert writer.calls[-1][4] == ["Kit Tran told me: someone tall took a bike"]
+
+
+@pytest.mark.parametrize("named, head, line", [
+    ("t5", "Case closed.", "Your episode is out. By morning, half the town has heard it, and Ruth Okafor has the tote bag back."),
+    ("t4", "Your episode didn't hold up. It was Cal Hughes.",
+     "By morning, half the town is talking about it, and Ruth Okafor is still missing the tote bag."),
+])
+@pytest.mark.asyncio
+async def test_leaving_the_first_case_hands_off_with_its_outcome_until_dismissed(named, head, line):
+    player, *_ = practising()
+    assert player.handoff is None
+    assert await player.publish(named, await solve(player)) is None
+    assert player.handoff == {"head": head, "line": line}
+    back = run_of(player, PID)
+    back.restore(json.loads(json.dumps(player.to_state())))
+    assert back.handoff == player.handoff
+    player.dismiss_handoff()
+    assert player.handoff is None
+
+
+def test_skipping_the_first_case_hands_off_with_no_payoff():
+    player, *_ = practising()
+    player.skip()
+    assert player.handoff == {"head": None, "line": None}
