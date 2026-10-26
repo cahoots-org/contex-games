@@ -54,3 +54,14 @@ def test_no_medieval_village_in_copy_or_prompts():
     page.feed((ROOT / "static" / "index.html").read_text())
     found += page.found
     assert not [s for s in found if MEDIEVAL.search(s)]
+
+
+META = re.compile(r"\b(practi[cs]e|tutorial|real town|you're in)\b", re.I)
+
+
+def test_no_talk_of_a_tutorial_in_copy():
+    found = [s for f in ROOT.glob("*.py") for s in _sentences(f)]
+    page = Copy()
+    page.feed((ROOT / "static" / "index.html").read_text())
+    found += page.found
+    assert not [s for s in found if META.search(s)]

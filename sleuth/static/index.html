@@ -347,7 +347,7 @@ select, input[type="text"], input[type="search"] {
       <div class="case-top">
         <p class="whose" id="case-whose">No open case</p>
         <span class="case-actions">
-          <button type="button" class="plain-button" id="skip" hidden>Skip tutorial</button>
+          <button type="button" class="plain-button" id="skip" hidden>Skip to the town's case</button>
           <button type="button" class="primary" id="publish-open" aria-expanded="false" aria-controls="publish" hidden>Publish</button>
         </span>
       </div>
@@ -488,7 +488,7 @@ function setCase(c) {
     say("where-status", "");
   }
   caseNow = open;
-  $("case-whose").textContent = open ? (open.private ? "Practice case" : "The town's case") : "No open case";
+  $("case-whose").textContent = open ? (open.private ? "Your case" : "The town's case") : "No open case";
   $("case-title").textContent = open ? open.title : "Waiting for the next crime";
   $("case-text").textContent = open ? open.text : "The neighborhood app posts the news when something happens.";
   $("publish-open").hidden = !open;
@@ -809,7 +809,7 @@ function render(e, fresh) {
       break;
     case "case_closed":
       if (caseNow && caseNow.id === e.case_id) {
-        // Off the practice case the page moves into the real town, and its line stays over the town's case.
+        // Off the first case the page moves into the town, and the closing line stays over the town's case.
         const practice = caseNow.private;
         setCase(null);
         setSteps(null);

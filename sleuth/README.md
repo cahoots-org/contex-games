@@ -36,10 +36,11 @@ apart from the real town's. Each question still costs at most one Jev call and o
 A checklist in the case header walks the podcaster through it: ask the victim what happened, ask the witness what they
 saw, search the scene, and publish. Each step says why under it. The game ticks each step from what they have actually
 done and lights the person or button the current step needs. Town talk stays hidden and the notebook appears with its
-first entry. Publishing, right or wrong (a wrong episode is told who it was), or Skip tutorial closes the practice case
-and moves the podcaster into the real town: new people, a clean notebook and feed, and the town's open case told
-fresh. Nothing from the practice town carries over. A podcaster mid-tutorial is saved with the game and picks up where
-they left off.
+first entry. Publishing, right or wrong (a wrong episode is told who it was), or Skip to the town's case closes the
+practice case and moves the podcaster into the real town: new people, a clean notebook and feed, and the town's open
+case, which arrives as news under the verdict ("Meanwhile, on the neighborhood app: ..."). Nothing player-facing calls
+any of this practice or a tutorial, and nothing from the practice town carries over. A podcaster mid-tutorial is
+saved with the game and picks up where they left off.
 
 **Evidence** is held by the game as records with ids like `r-12`; the models never invent any of it.
 

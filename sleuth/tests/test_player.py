@@ -9,7 +9,7 @@ from dataclasses import replace
 from sleuth.contex_client import Match
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
-from sleuth.player import GRADUATED, PRACTICE_WRONG, HELD, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, SKIPPED, Player, Refusal, conveys, voiced
+from sleuth.player import MEANWHILE, PRACTICE_WRONG, HELD, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, Player, Refusal, conveys, voiced
 from sleuth.players import Players
 from sleuth.config import Config
 from sleuth.case import WHEN, Record
@@ -868,7 +868,8 @@ async def test_publishing_the_practice_case_moves_the_player_into_the_real_town(
     assert (file.state, file.solved_by) == ("closed", PID if held else None)
     verdict = HELD if held else f"{PRACTICE_WRONG} It was Cal Hughes."
     assert [e.data["verdict"] for e in seen if e.kind == "episode"] == [verdict]
-    assert [e.data["text"] for e in seen if e.kind == "case_closed"] == [f"{verdict} {GRADUATED}"]
+    news = f"{MEANWHILE}Someone stole Dana Reyes's bike on Elm Street last night."
+    assert [e.data["text"] for e in seen if e.kind == "case_closed"] == [f"{verdict} {news}"]
     assert not player.practising and PID not in player.feed.practising
     assert (player.engine, player.town) == (engine, engine.cases.town)
     assert (player.notebook, player.threads, player.searched, player.place) == ({}, {}, [], "cafe")
@@ -886,9 +887,10 @@ async def test_skipping_the_tutorial_moves_the_player_into_the_real_town():
     player.feed.sinks.append(seen.append)
     assert player.skip() is None
     assert (file.state, file.solved_by) == ("closed", None) and not player.practising
-    assert [e.data["text"] for e in seen if e.kind == "case_closed"] == [SKIPPED]
+    assert [e.data["text"] for e in seen if e.kind == "case_closed"] == [
+        f"{MEANWHILE}Someone stole Dana Reyes's bike on Elm Street last night."]
     assert engine.players.onboarded == {player.owner} and player.engine is engine
-    assert player.skip() == "You're not on the tutorial."
+    assert player.skip() == "There's no case to skip."
 
 
 @pytest.mark.asyncio

@@ -208,7 +208,7 @@ def test_a_player_in_the_practice_town_is_shown_that_town_its_case_and_checklist
 
 
 def test_skip_moves_a_practising_player_into_the_real_town(game):
-    assert game.client.post("/api/skip").json() == {"error": "You're not on the tutorial."}
+    assert game.client.post("/api/skip").json() == {"error": "There's no case to skip."}
     game.player.begin_tutorial()
     assert game.client.post("/api/skip").json() == {"ok": True}
     state = game.client.get("/api/state").json()
@@ -217,7 +217,7 @@ def test_skip_moves_a_practising_player_into_the_real_town(game):
 
 def test_the_page_offers_skip_on_the_practice_case_and_starts_clean_in_the_real_town(game):
     page = game.client.get("/").text
-    assert 'id="skip"' in page and "Skip tutorial" in page and '"/api/skip"' in page
+    assert 'id="skip"' in page and "Skip to the town's case" in page and '"/api/skip"' in page
     case = page[page.index("function setCase(c)"):page.index("function setResting")]
     assert '$("skip").hidden = !(open && open.private);' in case
     closed = page[page.index('case "case_closed":'):page.index('case "pulled":')]
