@@ -918,7 +918,7 @@ function renderVillagers() {
   people.replaceChildren(...order.map((place) => {
     const crowd = sorted(villagers.filter((v) => v.place === place));
     const count = hits.size ? `${crowd.filter((v) => hits.has(v.id)).length} of ${crowd.length}` : String(crowd.length);
-    const label = hits.size ? `${capital(place)}, ${count} residents match` : `${capital(place)}, ${count} residents`;
+    const label = hits.size ? `${capital(place)}, ${count} residents match` : `${capital(place)}, ${plural(crowd.length, "resident")}`;
     // A phone has no open tile: every place is one row with its faces and its Walk or Look around.
     if (phone.matches) {
       return el("section", { className: "tile" },
