@@ -251,7 +251,8 @@ class Player:
         line = self._answers[key]
         if part:
             self._interviewed[vid] = part
-        self.feed.on_interview(vid, villager.name, line, [record_json(r, self.town) for r in new], player=self.id)
+        self.feed.on_interview(vid, villager.name, line, [record_json(r, self.town) for r in new],
+                               case_id=file.crime.id, player=self.id)
         self._guide(1)
         try:
             await self.engine.press(file, self.id)
@@ -331,7 +332,8 @@ class Player:
             return "There's no footage or log for the case here."
         for r in found:
             self.notebook[r.id] = r
-        self.feed.on_pulled(self.place, [record_json(r, self.town) for r in found], player=self.id)
+        self.feed.on_pulled(self.place, [record_json(r, self.town) for r in found], case_id=file.crime.id,
+                            player=self.id)
         self._guide(2)
         return None
 

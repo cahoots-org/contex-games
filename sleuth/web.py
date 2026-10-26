@@ -211,7 +211,7 @@ def create_app(
             "events": [e.to_json() for e in feed.replay(player.id)],
             "usage": usage.to_json(player.id),
             "resting": usage.resting(),
-            "case": case_json(case) if case else None,
+            "case": case_json(case, town) if case else None,
             "notebook": [record_json(r, town) for r in player.notebook.values() if case and r.case == case.crime.id],
         }
 

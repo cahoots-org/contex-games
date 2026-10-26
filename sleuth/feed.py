@@ -105,10 +105,11 @@ class Feed:
 
         return seen
 
-    def on_interview(self, villager_id: str, name: str, line: str, records: list[dict], *, player: str) -> None:
+    def on_interview(self, villager_id: str, name: str, line: str, records: list[dict], *, case_id: str,
+                     player: str) -> None:
         """The resident's answer to the podcaster, and the records it added to their notebook."""
         self.emit("interview", f'{name}: "{line}"', player=player, villager_id=villager_id, name=name, line=line,
-                  records=records)
+                  records=records, case_id=case_id)
 
     def on_case(self, case: dict, player: str | None = None) -> None:
         """A case opened or changed in the neighborhood app."""
@@ -120,10 +121,10 @@ class Feed:
         self.emit("post", f'{u.speaker_name} posted: "{u.text}"', player=player, case_id=case_id, speaker=u.speaker_name,
                   text=u.text)
 
-    def on_pulled(self, place: str, records: list[dict], *, player: str) -> None:
+    def on_pulled(self, place: str, records: list[dict], *, case_id: str, player: str) -> None:
         """The footage and logs the podcaster pulled at place into their notebook."""
         line = f"You pulled the records {at(place)}."
-        self.emit("pulled", line, player=player, place=place, records=records, text=line)
+        self.emit("pulled", line, player=player, place=place, records=records, text=line, case_id=case_id)
 
     def on_episode(self, case_id: str, name: str, held: bool, player: str | None = None) -> None:
         """A podcaster's episode named a resident, and whether it held up."""

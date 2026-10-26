@@ -65,10 +65,11 @@ def test_listen_events_reach_only_the_listener_and_print_the_lines():
 def test_an_interview_reaches_only_the_podcaster():
     feed, lines = make()
     records = [{"id": "r-1", "kind": "memory", "place": "cafe", "clock": "9:00am", "text": "I saw it.", "from": "Marta"}]
-    feed.on_interview("v2", "Marta", "I saw someone tall.", records, player=PID)
+    feed.on_interview("v2", "Marta", "I saw someone tall.", records, case_id="case-1", player=PID)
     event = feed.recent[-1]
     assert (event.kind, event.player) == ("interview", PID)
-    assert event.data == {"villager_id": "v2", "name": "Marta", "line": "I saw someone tall.", "records": records}
+    assert event.data == {"villager_id": "v2", "name": "Marta", "line": "I saw someone tall.", "records": records,
+                          "case_id": "case-1"}
     assert lines == ['Marta: "I saw someone tall."']
     assert not feed.sees("p-2", event)
 
@@ -87,8 +88,9 @@ def test_state_round_trips_as_json_and_ids_go_on_past_it():
 
 def test_pulled_records_carry_the_line_the_page_shows():
     feed, lines = make()
-    feed.on_pulled("bar", [], player=PID)
-    feed.on_pulled("elm street", [], player=PID)
+    feed.on_pulled("bar", [], case_id="case-1", player=PID)
+    feed.on_pulled("elm street", [], case_id="case-1", player=PID)
+    assert {e.data["case_id"] for e in feed.recent} == {"case-1"}
     assert [e.data["text"] for e in feed.recent] == lines == ["You pulled the records at the bar.",
                                                               "You pulled the records on Elm Street."]
 

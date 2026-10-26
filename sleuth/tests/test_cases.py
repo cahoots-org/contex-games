@@ -87,7 +87,8 @@ async def test_news_breaks_on_the_next_tick_after_the_solvability_check():
     [event] = kinds(engine, "case")
     [case] = cases.files.values()
     assert event.data["case"] == {"id": case.crime.id, "text": case.crime.text, "place": case.crime.place,
-                                  "phase": "night", "day": 1, "state": "open", "private": False}
+                                  "phase": "night", "day": 1, "state": "open", "private": False,
+                                  "title": f"{town.name_of(case.crime.victim)}'s {case.crime.item}"}
     assert case.opened == 2.75 and cases.for_player("p-1") is case
     news, listeners, _ = next(d for d in engine.delivered if cases.root_kind(d[0].id)[1] == "news")
     victim = town.get(case.crime.victim)

@@ -626,7 +626,7 @@ def test_state_shows_the_case_without_its_culprit(game):
     game.cases.files["case-1"] = CaseFile(crime, {}, "open")
     body = game.client.get("/api/state").json()
     assert body["case"] == {"id": "case-1", "text": crime.text, "place": "library", "phase": "night", "day": 1,
-                            "state": "open", "private": False}
+                            "state": "open", "private": False, "title": "Marta Hale's bike"}
     assert "culprit" not in json.dumps(body["case"]) and "Bert Cole" not in json.dumps(body["case"])
 
 

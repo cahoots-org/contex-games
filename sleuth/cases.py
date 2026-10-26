@@ -36,11 +36,11 @@ class CaseFile:
     words: dict[str, list] = field(default_factory=dict)  # "speaker:about" → [household word, sound]
 
 
-def case_json(case: CaseFile) -> dict:
-    """What a player sees of a case."""
+def case_json(case: CaseFile, town: Town) -> dict:
+    """What a player sees of a case, titled like "Ada Reyes's bike"."""
     c = case.crime
     return {"id": c.id, "text": c.text, "place": c.place, "phase": c.phase, "day": c.day, "state": case.state,
-            "private": c.owner is not None}
+            "private": c.owner is not None, "title": f"{town.name_of(c.victim)}'s {c.item}"}
 
 
 class Cases:
@@ -197,7 +197,7 @@ class Cases:
                 *(v.id for v in self.town.present(crime.place))]
         case.roots[news.id] = "news"
         await engine.deliver(news, list(dict.fromkeys(told)))
-        engine.feed.on_case(case_json(case), player=crime.owner)
+        engine.feed.on_case(case_json(case, self.town), player=crime.owner)
         engine.feed.on_post(news, crime.id, player=crime.owner)
 
     def _drop(self, case: CaseFile, now: float) -> None:

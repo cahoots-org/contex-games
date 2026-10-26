@@ -131,6 +131,11 @@ main {
 .line.speech .line-text { font: italic 1.05rem/1.4 var(--serif); }
 .line.quiet, .fold-head { font-size: .875rem; color: var(--muted); }
 .line.hint { font-size: .875rem; color: var(--ink); border-left: 3px solid var(--accent); padding-left: .6rem; }
+.feed > li.case-head {
+  margin-top: .9rem; padding: .3rem 0; border-bottom: 2px solid var(--edge);
+  font-size: .8rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
+}
+.feed > li.case-head:first-child { margin-top: 0; }
 .fold-words { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .fold-more { flex: none; }
 .fold:not(.open) .fold-lines { display: none; }
@@ -428,6 +433,9 @@ let notes = {};
 let cardOpener = null;
 let here = null;
 let listenUntil = null;
+// Each case the player has seen, by id, and the case whose header the feed last showed.
+let caseInfo = {};
+let headedCase = null;
 const RESTING = "The town is resting for today. Come back after midnight UTC.";
 const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)");
 // What the feed's arrow keys move between; the feed itself is one tab stop.
@@ -614,6 +622,7 @@ function note(records) {
 function render(e, fresh) {
   switch (e.kind) {
     case "case":
+      caseInfo[e.case.id] = e.case;
       // A shared case waits until the player's private case closes.
       if (e.case.private || $("case").dataset.private !== "true") setCase(e.case);
       return null;
@@ -759,6 +768,14 @@ function prune() {
   }
 }
 
+// A header naming the case whose events follow, like "Your case: Ada Reyes's bike".
+function caseHead(id) {
+  headedCase = id;
+  const c = caseInfo[id];
+  const label = c ? `${c.private ? "Your case" : "Town case"}: ${c.title || c.text}` : "Case";
+  return el("li", { className: "case-head", textContent: label });
+}
+
 function addEvents(events, fresh) {
   const stick = feed.children.length === 0 || nearBottom() || following !== 0;
   for (const e of events) {
@@ -767,6 +784,7 @@ function addEvents(events, fresh) {
     const node = render(e, fresh);
     if (!node) continue;
     if (fresh) node.classList.add("fresh");
+    if (e.case_id && e.case_id !== headedCase) feed.append(caseHead(e.case_id));
     feed.append(node);
   }
   prune();
@@ -1300,6 +1318,8 @@ function reset() {
   here = null;
   listenUntil = null;
   lastId = 0;
+  caseInfo = {};
+  headedCase = null;
   rover = null;
   setStatus("");
 }
@@ -1317,6 +1337,7 @@ async function loadState() {
   // The replay goes in before the log is live, so a reload doesn't read it all out.
   feed.setAttribute("aria-live", "off");
   const stick = feed.children.length === 0 || nearBottom();
+  if (state.case) caseInfo[state.case.id] = state.case;
   addEvents(state.events, false);
   if (stick) feed.scrollTop = feed.scrollHeight;
   setTimeout(() => feed.setAttribute("aria-live", "polite"));
