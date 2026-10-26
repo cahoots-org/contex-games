@@ -53,7 +53,7 @@ def game(monkeypatch):
     engine = helpers.FakeEngine()
     players = Players()
 
-    def join(owner):
+    async def join(owner):
         player = Player(engine, town, lineage, Ids(), feed, config, game=game, player_id=new_player_id(), owner=owner)
         players.add(player)
         players.prune()
@@ -355,7 +355,7 @@ def test_a_new_run_resets_the_page(game):
 
 
 def test_state_never_names_or_counts_other_players(game):
-    other = game.join("o-other")
+    other = asyncio.run(game.join("o-other"))
     game.feed.say("for the other one", player=other.id)
     response = game.client.get("/api/state")
     assert other.id not in response.text and "o-other" not in response.text and "for the other one" not in response.text

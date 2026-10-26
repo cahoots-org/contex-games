@@ -123,12 +123,12 @@ def witness_memories(crime: Crime, town: Town, routine, rng: Random, ids: Ids) -
     return memories
 
 
-def camera_clip(crime: Crime, town: Town, ids: Ids) -> Record | None:
+def camera_clip(crime: Crime, town: Town, ids: Ids, traits=CLIP_TRAITS) -> Record | None:
     """The scene's camera footage at the crime minute, if the place has a camera."""
     if crime.place not in CAMERA_PLACES:
         return None
     culprit = town.get(crime.culprit).traits
-    seen = {c: culprit[c] for c in CLIP_TRAITS}
+    seen = {c: culprit[c] for c in traits}
     clock = clock_at(crime.minute)
     text = f"{clock}, {crime.place} camera: a figure {describe(seen)} {WITNESS_ACTION[crime.template]}."
     return Record(ids.next("r"), crime.id, "clip", crime.place, clock, text, traits=seen)

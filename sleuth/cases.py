@@ -5,7 +5,7 @@ import math
 from dataclasses import asdict, dataclass, field
 from random import Random
 
-from sleuth.case import Crime, Record, at, camera_clip, logs, make_solvable, stage_crime, when, witness_memories
+from sleuth.case import CAMERA_PLACES, Crime, Record, at, camera_clip, logs, make_solvable, stage_crime, when, witness_memories
 from sleuth.config import Config
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 
 APP = "The neighborhood app"
 COLD = "The case went cold."
+GUIDED_CLIP_TRAITS = ("height", "coat", "hair")
 
 
 @dataclass
@@ -107,8 +108,8 @@ class Cases:
         name = self.town.get(pick[1]).name
         return f"{name} has never liked {victim.name.split()[0]}. I'd ask where they were {when(crime.phase)}."
 
-    def close(self, file: CaseFile, solved_by: str) -> None:
-        """Close a case a podcaster solved; the next shared crime waits crime_every_days from now."""
+    def close(self, file: CaseFile, solved_by: str | None) -> None:
+        """Close a case, solved or not; the next shared crime waits crime_every_days from now."""
         file.state, file.solved_by = "closed", solved_by
         if file.crime.owner is None:
             self.last_closed = self.now
@@ -132,12 +133,36 @@ class Cases:
                 self._drop(case, now)
         for case in [f for f in self.files.values() if f.state == "open"]:
             if now - case.opened >= self.config.case_days:
-                case.state = "closed"
+                self.close(case, None)
                 engine.feed.on_case_closed(case.crime.id, COLD, player=case.crime.owner)
-                if case.crime.owner is None:
-                    self.last_closed = now
+                if run := engine.players.get(case.crime.owner):
+                    engine.players.onboarded.add(run.owner)
         if playing and self.shared() is None and now - self.last_closed >= self.config.crime_every_days:
             self._stage(day, phase)
+
+    async def open_guided(self, engine, player_id: str, day: int, phase: str) -> CaseFile | None:
+        """Stage and open an easy private case for a new podcaster at once; None when nothing fits."""
+        crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"),
+                            places=CAMERA_PLACES, exclude=self._involved())
+        if crime is None:
+            return None
+        crime.owner = player_id
+        records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids)[:1],
+                   camera_clip(crime, self.town, self.ids, GUIDED_CLIP_TRAITS)]
+        case = self.files[crime.id] = CaseFile(crime, {r.id: r for r in records}, "setup")
+        self.town.move(crime.culprit, crime.place)
+        now = day + PHASES.index(phase) / len(PHASES)
+        try:
+            await self._finish(engine, case, {}, now)
+        except Exception:
+            log.exception("opening %s failed", crime.id)
+            self._drop(case, now)
+        return case if case.state == "open" else None
+
+    def _involved(self) -> set[str]:
+        """The culprits, victims and witnesses of every case not yet closed."""
+        return {vid for f in self.files.values() if f.state != "closed"
+                for vid in (f.crime.culprit, f.crime.victim, *(r.holder for r in f.records.values() if r.kind == "memory"))}
 
     async def _finish(self, engine, case: CaseFile, finished: dict[str, list[str]], now: float) -> None:
         """Add the phase's logs, then open the case and tell its witnesses if it is solvable, and drop it if not."""
@@ -171,7 +196,7 @@ class Cases:
             self.last_closed = now
 
     def _stage(self, day: int, phase: str) -> None:
-        crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"))
+        crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"), exclude=self._involved())
         if crime is None:
             return
         self.town.move(crime.culprit, crime.place)

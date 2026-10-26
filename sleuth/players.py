@@ -22,14 +22,16 @@ class Players:
         self.usage = usage
         self._by_id: dict[str, Player] = {}
         self._latest: dict[str, Player] = {}
+        # Owners who have closed their guided first case.
+        self.onboarded: set[str] = set()
 
     def to_state(self) -> dict:
-        """Every run as plain JSON."""
-        return {"runs": [p.to_state() for p in self._by_id.values()]}
+        """Every run and the onboarded owners as plain JSON."""
+        return {"runs": [p.to_state() for p in self._by_id.values()], "onboarded": sorted(self.onboarded)}
 
     def restore(self, state: dict, make: Callable[[str, str], Player]) -> None:
         """Replace the runs with a saved state; make(id, owner) builds a wired run."""
-        self._by_id, self._latest = {}, {}
+        self._by_id, self._latest, self.onboarded = {}, {}, set(state["onboarded"])
         for run in state["runs"]:
             player = make(run["id"], run["owner"])
             player.restore(run)
@@ -39,7 +41,7 @@ class Players:
         self._by_id[player.id] = player
         self._latest[player.owner] = player
 
-    def get(self, player_id: str) -> Player | None:
+    def get(self, player_id: str | None) -> Player | None:
         return self._by_id.get(player_id)
 
     def live(self, owner: str) -> Player | None:

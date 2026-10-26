@@ -536,3 +536,16 @@ async def test_publish_citing_a_cover_story_statement_is_accepted_but_does_not_h
     assert file.published == [PID] and file.state == "open"
     [episode] = [e for e in player.feed.recent if e.kind == "episode"]
     assert episode.data["held"] is False
+
+
+@pytest.mark.parametrize("named", ["v3", "v5"])
+@pytest.mark.asyncio
+async def test_publishing_the_guided_case_onboards_the_owner(named):
+    player, file, engine, _ = interviewing()
+    file.crime.owner = PID
+    ids = cite(player, file, memory_of(file, player.ids))
+    assert await player.publish(named, ids) is None
+    assert file.state == "closed" and engine.players.onboarded == {player.owner}
+    assert engine.cases.last_closed == float("-inf")
+    [closed] = [e for e in player.feed.recent if e.kind == "case_closed"]
+    assert closed.player == PID

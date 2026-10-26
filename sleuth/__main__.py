@@ -65,12 +65,14 @@ async def play() -> None:
         def make(player_id: str, owner: str) -> Player:
             return Player(engine, town, lineage, ids, feed, config, writer, game, player_id=player_id, owner=owner)
 
-        def join(owner: str) -> Player:
-            """Start a new run for the owner, dropping stale runs that never played."""
+        async def join(owner: str) -> Player:
+            """Start a new run for the owner, dropping stale runs that never played; a new owner gets a guided case."""
             player = make(new_player_id(), owner)
             players.add(player)
             for gone in players.prune():
                 gone.close()
+            if owner not in players.onboarded and not players.resting():
+                await engine.cases.open_guided(engine, player.id, game.day, game.phase)
             return player
 
         parts = components(engine)

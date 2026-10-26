@@ -10,6 +10,7 @@ from sleuth.feed import Feed
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Villager
 from sleuth.player import Player
+from sleuth.players import Players
 from sleuth.reputation import Reputation
 from sleuth.town import Town
 
@@ -141,6 +142,7 @@ class FakeEngine:
         self.reputation = Reputation(Config())
         self.pressed = []
         self.delivered = []
+        self.players = Players()
 
     async def deliver(self, utterance, listener_ids, addressed=False):
         self.delivered.append((utterance, listener_ids, addressed))

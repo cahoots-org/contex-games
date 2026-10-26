@@ -1,14 +1,18 @@
 import json
+import math
+from dataclasses import replace
 from random import Random
+from types import SimpleNamespace
 
 import pytest
 
 from sleuth import cases as cases_mod
-from sleuth.case import Crime
-from sleuth.cases import CaseFile, Cases
+from sleuth.case import CAMERA_PLACES, Crime, Record
+from sleuth.cases import GUIDED_CLIP_TRAITS, CaseFile, Cases
 from sleuth.config import Config
 from sleuth.feed import Feed
 from sleuth.lineage import Ids, Lineage
+from sleuth.players import Players
 from sleuth.tests.test_case import make_routine, make_town
 from sleuth.traits import assign_traits
 
@@ -18,6 +22,7 @@ class FakeEngine:
         self.lines = []
         self.feed = Feed(Lineage(), town, out=self.lines.append)
         self.delivered = []
+        self.players = Players()
 
     async def deliver(self, utterance, listener_ids, addressed=False):
         self.delivered.append((utterance, listener_ids, addressed))
@@ -222,3 +227,74 @@ async def test_the_crime_phase_log_is_kept_as_whereabouts_when_the_news_breaks()
     await cases.on_tick(engine, 2, "night", log, True)
     [case] = cases.files.values()
     assert case.state == "open" and case.whereabouts == log
+
+
+@pytest.mark.asyncio
+async def test_new_owner_gets_a_private_guided_case_with_a_clip_and_one_witness():
+    cases, engine, town = make_cases()
+    case = await cases.open_guided(engine, "p-1", 1, "night")
+    assert case.state == "open" and case.crime.owner == "p-1" and case.crime.place in CAMERA_PLACES
+    assert cases.shared() is None and cases.for_player("p-1") is case and cases.for_player("p-2") is None
+    [clip] = [r for r in case.records.values() if r.kind == "clip"]
+    assert tuple(clip.traits) == GUIDED_CLIP_TRAITS
+    assert not [r for r in case.records.values() if r.kind == "log"]
+    memories = [r for r in case.records.values() if r.kind == "memory"]
+    assert 1 <= len(memories) <= 2 and all(r.utterance for r in memories)
+    assert town.place_of(case.crime.culprit) == case.crime.place
+
+
+@pytest.mark.asyncio
+async def test_guided_case_events_reach_only_its_owner():
+    cases, engine, _ = make_cases()
+    case = await cases.open_guided(engine, "p-1", 1, "night")
+    events = [e for e in engine.feed.recent if e.kind in ("case", "post")]
+    assert {e.kind for e in events} == {"case", "post"}
+    assert all(engine.feed.sees("p-1", e) and not engine.feed.sees("p-2", e) for e in events)
+    assert events[0].data["case"]["private"] is True
+    await tick(cases, engine, day=5, playing=False)
+    assert case.state == "closed"
+    [closed] = kinds(engine, "case_closed")
+    assert closed.player == "p-1"
+
+
+@pytest.mark.asyncio
+async def test_guided_case_going_cold_onboards_the_owner():
+    cases, engine, _ = make_cases()
+    run = SimpleNamespace(id="p-1", owner="o-1")
+    engine.players._by_id["p-1"] = run
+    await cases.open_guided(engine, "p-1", 1, "night")
+    await tick(cases, engine, day=5, playing=False)
+    assert engine.players.onboarded == {"o-1"} and cases.last_closed == -math.inf
+
+
+def test_for_player_prefers_the_private_case():
+    cases, _, _ = make_cases()
+    shared = culprit_file(cases)
+    private = CaseFile(replace(shared.crime, id="case-2", owner="p-1"), {}, "open")
+    cases.files[private.crime.id] = private
+    assert cases.for_player("p-1") is private and cases.for_player("p-2") is shared
+    assert cases.shared() is shared
+
+
+@pytest.mark.asyncio
+async def test_guided_case_never_reuses_the_shared_case_people():
+    cases, engine, _ = make_cases()
+    shared = culprit_file(cases)
+    shared.records["r-1"] = Record("r-1", shared.crime.id, "memory", "elm street", "11:40pm", "saw", "v2")
+    cases.ids.ensure_past("case", 1)
+    opened = 0
+    for seed in range(20):
+        cases.rng.seed(seed)
+        if case := await cases.open_guided(engine, f"p-{seed}", 1, "night"):
+            opened += 1
+            assert not {case.crime.culprit, case.crime.victim} & {"v1", "v2", "v3"}
+            case.state = "closed"
+    assert opened
+
+
+@pytest.mark.asyncio
+async def test_no_guided_case_when_nothing_fits():
+    cases, engine, _ = make_cases()
+    cases.routine = make_routine(night={v.id: "gym" for v in cases.town.villagers})
+    assert await cases.open_guided(engine, "p-1", 1, "night") is None
+    assert not cases.files and not engine.feed.recent

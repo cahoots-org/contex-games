@@ -287,10 +287,13 @@ class Player:
         named = f"{accused.name} {TEMPLATES[crime.template][0]} {victim.name}'s {crime.item}"
         held = holds(crime, culprit_id, [self.notebook[i] for i in record_ids])
         self.feed.on_episode(crime.id, accused.name, held, player=crime.owner)
-        if held:
-            self.engine.cases.close(file, self.id)
-            reputation.nudge_all(self.id, self.config.reputation_right, everyone)
+        if held or crime.owner:
+            self.engine.cases.close(file, self.id if held else None)
             self.feed.on_case_closed(crime.id, "", player=crime.owner)
+        if crime.owner:
+            self.engine.players.onboarded.add(self.owner)
+        if held:
+            reputation.nudge_all(self.id, self.config.reputation_right, everyone)
             text = f"{named}, and the evidence holds up."
         else:
             reputation.nudge_all(self.id, self.config.reputation_wrong, everyone)

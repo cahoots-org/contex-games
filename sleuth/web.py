@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -105,7 +105,7 @@ async def _payload(request: Request, bad: str, too_long: str) -> dict | JSONResp
 
 
 def create_app(
-    *, players: Players, join: Callable[[str], Player], town: Town, feed: Feed, usage: Usage, port: int,
+    *, players: Players, join: Callable[[str], Awaitable[Player]], town: Town, feed: Feed, usage: Usage, port: int,
     game: Game, host: str = "127.0.0.1", cases: Cases | None = None,
 ) -> FastAPI:
     clients: dict[asyncio.Queue, str] = {}
@@ -183,7 +183,7 @@ def create_app(
         fresh = player_for(players, request.cookies.get(COOKIE)) is None
         if fresh:
             owner = new_owner_id()
-            join(owner)
+            await join(owner)
             # Joining may have pruned runs; forget what their tabs were shown.
             kept = {p.id for p in players}
             for shown in sent.values():
