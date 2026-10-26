@@ -1,8 +1,22 @@
 from random import Random
 
-from sleuth.case import Crime, clock_at, stage_crime
+from sleuth.case import (
+    CLIP_TRAITS,
+    Crime,
+    Record,
+    camera_clip,
+    clock_at,
+    logs,
+    make_solvable,
+    record_json,
+    stage_crime,
+    suspects,
+    witness_memories,
+)
+from sleuth.lineage import Ids
 from sleuth.models import Villager
 from sleuth.town import Town
+from sleuth.traits import assign_traits
 
 RESIDENTS = [
     ("v1", "Dana Reyes", "h1", "elm street"),
@@ -106,3 +120,96 @@ def test_news_names_victim_place_and_time_not_culprit():
 def test_clock_at_formats_twelve_hour_time():
     assert clock_at(1422) == "11:42pm" and clock_at(1500) == "1:00am" and clock_at(720) == "12:00pm"
     assert clock_at(0) == "12:00am"
+
+
+def make_case(place="elm street"):
+    """A town with unique looks and a night crime on elm street against v1 by v5."""
+    town, routine = make_town(), make_routine()
+    assign_traits(town.villagers, Random(0))
+    crime = Crime("case-1", "steal", "bike", "v5", "v1", place, 1, "night", 1422, "rival", "Someone stole a bike.")
+    return town, routine, crime
+
+
+def test_witnesses_are_expected_at_the_crime_place_and_never_culprit_or_victim():
+    town, routine, crime = make_case()
+    for seed in range(30):
+        memories = witness_memories(crime, town, routine, Random(seed), Ids())
+        assert len(memories) == 2
+        for m in memories:
+            assert m.kind == "memory" and m.place == "elm street" and m.case == "case-1"
+            assert m.holder in {"v2", "v3", "v4"} and routine.place(m.holder, "night") == crime.place
+
+
+def test_witness_sees_two_culprit_traits_and_never_a_name():
+    town, routine, crime = make_case()
+    culprit = town.get(crime.culprit)
+    m = witness_memories(crime, town, routine, Random(3), Ids())[0]
+    assert len(m.traits) == 2 and m.traits.items() <= culprit.traits.items() and culprit.name not in m.text
+    assert m.id == "r-1" and m.text.startswith(f"Around {m.clock}, on elm street, someone ")
+    assert m.text.endswith(" walked off with something.")
+    assert any(clock_at(minute) == m.clock for minute in range(1402, 1443))
+
+
+def test_clip_only_at_camera_places():
+    town, _, crime = make_case("cafe")
+    assert camera_clip(crime, town, Ids()) is None
+    town, _, crime = make_case("bar")
+    clip = camera_clip(crime, town, Ids())
+    assert clip.kind == "clip" and clip.traits.keys() == set(CLIP_TRAITS) and clip.holder == ""
+    assert clip.traits.items() <= town.get("v5").traits.items()
+    assert clip.text.startswith("11:42pm, bar camera: a figure ") and clip.clock == "11:42pm"
+
+
+def test_logs_list_whoever_was_at_a_log_place():
+    town, _, crime = make_case()
+    records = logs(crime, {"v1": ["elm street", "gym"], "v2": ["cafe"]}, town, Random(1), Ids())
+    assert len(records) == 1
+    r = records[0]
+    assert r.who == "v1" and r.kind == "log" and r.place == "gym" and r.text.startswith("Gym check-in: Dana Reyes, ")
+
+
+def test_suspects_narrow_by_traits_and_log_alibis():
+    town, _, crime = make_case()
+    culprit = town.get("v5")
+    everyone = {v.id for v in town.villagers} - {"v1"}
+    assert suspects(crime, [], town) == everyone
+    seen = Record("r-1", "case-1", "memory", "elm street", "11:40pm", "", "v2", {"height": culprit.traits["height"]})
+    narrowed = {v.id for v in town.villagers if v.traits["height"] == culprit.traits["height"]} - {"v1"}
+    assert suspects(crime, [seen], town) == narrowed
+    alibi = Record("r-2", "case-1", "log", "bar", "11:00pm", "", who="v6")
+    present = Record("r-3", "case-1", "log", "elm street", "11:30pm", "", who="v7")
+    elsewhere = Record("r-4", "case-1", "log", "gym", "11:10pm", "", who="v7")
+    assert suspects(crime, [alibi, present, elsewhere], town) == everyone - {"v6"}
+
+
+def test_make_solvable_returns_empty_when_already_singled_out():
+    town, _, crime = make_case()
+    full = Record("r-1", "case-1", "clip", "elm street", "11:42pm", "", traits=dict(town.get("v5").traits))
+    assert make_solvable(crime, [full], town, make_routine(), Random(1), Ids()) == []
+
+
+def test_make_solvable_adds_a_witness_when_evidence_is_ambiguous():
+    town, routine, crime = make_case()
+    added = make_solvable(crime, [], town, routine, Random(1), Ids())
+    assert len(added) == 1 and suspects(crime, added, town) == {crime.culprit}
+    assert added[0].kind == "memory" and added[0].holder == "v2"
+
+
+def test_make_solvable_returns_none_when_the_culprit_is_logged_elsewhere():
+    town, routine, crime = make_case()
+    alibi = Record("r-1", "case-1", "log", "gym", "11:00pm", "", who="v5")
+    assert make_solvable(crime, [alibi], town, routine, Random(1), Ids()) is None
+
+
+def test_make_solvable_returns_none_when_traits_cannot_single_out_the_culprit():
+    town, routine, crime = make_town(), make_routine(), make_case()[2]
+    assert make_solvable(crime, [], town, routine, Random(1), Ids()) is None
+
+
+def test_record_json_hides_soundness_and_traits():
+    town, routine, crime = make_case()
+    m = witness_memories(crime, town, routine, Random(3), Ids())[0]
+    assert record_json(m, town) == {"id": m.id, "kind": "memory", "place": "elm street", "clock": m.clock,
+                                    "text": m.text, "from": town.get(m.holder).name}
+    log = Record("r-9", "case-1", "log", "gym", "11:00pm", "Gym check-in: Hal Burke, 11:00pm", who="v5")
+    assert record_json(log, town)["from"] == ""
