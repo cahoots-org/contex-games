@@ -376,11 +376,11 @@ def test_state_never_names_or_counts_other_players(game):
     assert "players" not in response.json()
 
 
-def test_the_feed_has_speech_and_quiet_lines(game):
+def test_the_feed_has_plain_heard_and_quiet_lines(game):
     html = game.client.get("/").text
     rove = re.search(r"const ROVE = \"(.*)\";", html).group(1)
     assert rove == ".fold-more"
-    for needle in ('"speech"', '"quiet"'):
+    for needle in ('"plain"', '"heard"', '"quiet"', 'tag("Heard", "soft")', 'tag("Interview", "answer")'):
         assert needle in html
     for gone in ("moved by", "rails", "toggleThread", "cardScene", "innerHTML"):
         assert gone not in html

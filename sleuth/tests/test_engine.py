@@ -534,7 +534,7 @@ def case_file(state, culprit="v1", roots=None):
 
 
 @pytest.mark.asyncio
-async def test_room_speech_rooted_in_a_case_is_posted_to_the_app(turns):
+async def test_room_speech_rooted_in_a_case_is_shown_in_the_feed(turns):
     engine, _, feed = await setup("v1", "v2")
     engine.cases = Cases(Config(), engine.town, None, random.Random(1), engine.ids)
     engine.cases.files["case-1"] = case_file("open", roots={"u-1": "news"})
@@ -544,7 +544,7 @@ async def test_room_speech_rooted_in_a_case_is_posted_to_the_app(turns):
     await engine.deliver(Utterance("u-3", "v1", "V1", "cafe", "between us", "u-1"), ["v2"])
     await engine.deliver(Utterance("u-4", "v1", "V1", "cafe", "nice day", None, audience="room"), ["v2"])
     posts = [e.data for e in feed.recent if e.kind == "post"]
-    assert posts == [{"case_id": "case-1", "speaker": "V1", "text": "who took it?"}]
+    assert posts == [{"case_id": "case-1", "speaker": "V1", "text": "who took it?", "app": False}]
     await engine.stop()
 
 

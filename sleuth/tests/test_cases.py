@@ -96,7 +96,8 @@ async def test_news_breaks_on_the_next_tick_after_the_solvability_check():
     assert victim.id in listeners and {v.id for v in town.villagers if v.household == victim.household} <= set(listeners)
     assert {v.id for v in town.present(case.crime.place)} <= set(listeners)
     [post] = kinds(engine, "post")
-    assert post.data == {"case_id": case.crime.id, "speaker": "The neighborhood app", "text": case.crime.text}
+    assert post.data == {"case_id": case.crime.id, "speaker": "The neighborhood app", "text": case.crime.text,
+                         "app": True}
 
 
 @pytest.mark.asyncio

@@ -146,7 +146,7 @@ class Engine:
         """Publish the utterance to each listener's mind; raises only if every listener failed.
 
         An addressed utterance also wakes each listener and joins their next turn unmatched. Room talk rooted in a
-        case is posted to the app.
+        case is shown in the feed.
         """
         listeners = [i for i in listener_ids if i in self.town and i in self.minds]
         data = utterance.to_data()

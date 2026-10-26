@@ -128,7 +128,12 @@ main {
 .feed > li { max-width: 46rem; border-bottom: 1px solid var(--rail); }
 .line, .fold-head { display: flex; align-items: flex-start; gap: .5rem; margin: 0; padding: .35rem 0; }
 .line-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.line.speech .line-text { font: italic 1.05rem/1.4 var(--serif); }
+.line .tag { margin: 0 .4rem 0 0; font-size: .75rem; vertical-align: .05rem; }
+.tag.answer { background: var(--accent); color: var(--on-accent); }
+.tag.soft { background: none; color: var(--muted); border: 1px solid var(--edge); }
+.line.heard { font-size: .875rem; color: var(--muted); }
+.got { list-style: none; margin: .2rem 0 0; padding: 0 0 0 .75rem; border-left: 2px solid var(--rail); font-size: .875rem; color: var(--muted); }
+.got > li { padding: .1rem 0; }
 .line.quiet, .fold-head { font-size: .875rem; color: var(--muted); }
 .line.hint { font-size: .875rem; color: var(--ink); border-left: 3px solid var(--accent); padding-left: .6rem; }
 .feed > li.case-head {
@@ -462,9 +467,19 @@ function atPlace(place) {
   return place.endsWith(" street") ? `on ${place.replace(/\b\w/g, (c) => c.toUpperCase())}` : `at the ${place}`;
 }
 
-// One feed line: loud, speech, quiet or hint.
+// One feed line: loud, plain, heard, quiet or hint.
 function line(tone, ...children) {
   return el("li", { className: `line ${tone}` }, el("span", { className: "line-text" }, ...children));
+}
+
+function tag(text, kind = "") {
+  return el("span", { className: `tag ${kind}`, textContent: text });
+}
+
+// What an action added to the notebook, one short line each, or none when nothing was new.
+function gained(records, none) {
+  if (!records.length) return el("p", { className: "got", textContent: none });
+  return el("ul", { className: "got" }, ...records.map((r) => el("li", { textContent: r.text })));
 }
 
 // A quiet line that folds a listen's lines behind a toggle.
@@ -638,7 +653,8 @@ function render(e, fresh) {
     case "episode":
       return line("loud", e.text);
     case "post":
-      return line("speech", el("span", { className: "tag", textContent: "App" }), " ", `${e.speaker}: “${e.text}”`);
+      return e.app ? line("plain", tag("App"), e.text)
+        : line("heard", tag("Heard", "soft"), el("b", { textContent: e.speaker }), `: ${e.text}`);
     case "place":
       setHere(e.place);
       return null;
@@ -658,7 +674,8 @@ function render(e, fresh) {
     case "interview":
       learn(e);
       note(e.records);
-      return line("speech", `${e.name}: “${e.line}”`);
+      return line("plain", tag("Interview", "answer"), el("b", { textContent: e.name }), `: “${e.line}”`,
+        gained(e.records, "Nothing new for your notebook."));
     default:
       return null;
   }

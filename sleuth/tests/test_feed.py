@@ -104,3 +104,10 @@ def test_a_player_on_a_private_case_sees_no_other_case_news_or_posts():
     feed.say("Night falls.")
     assert [e.kind for e in feed.replay(PID)] == ["case", "system"] and feed.replay(PID)[0].player == PID
     assert [e.kind for e in feed.replay("p-2")] == ["case", "post", "system"]
+
+
+def test_only_the_apps_own_posts_are_marked_as_the_app():
+    feed, _ = make()
+    feed.on_post(utt("u-1"), "case-1")
+    feed.on_post(Utterance("u-3", "app", "The neighborhood app", "bar", "Someone stole a bike.", None), "case-1")
+    assert [e.data["app"] for e in feed.recent] == [False, True]
