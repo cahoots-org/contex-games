@@ -68,10 +68,7 @@ def build(contex=None):
 
 
 async def api_state(g, owner):
-    app = create_app(
-        players=g.players, join=None, town=g.engine.town, feed=g.feed, usage=g.players.usage, port=8023,
-        game=g.engine.game,
-    )
+    app = create_app(players=g.players, join=None, feed=g.feed, usage=g.players.usage, port=8023)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8023") as client:
         client.cookies.set(web.COOKIE, owner)

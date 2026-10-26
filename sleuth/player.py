@@ -1,6 +1,5 @@
 """A player's run: walking, gathering evidence into a notebook and publishing episodes."""
 
-import asyncio
 import logging
 import random
 import re
@@ -19,9 +18,10 @@ from sleuth.game import Game
 from sleuth.interview import Route, exchanges, route
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
-from sleuth.town import PLACES, START_PLACE, Town, at, neighbours, subject
-from sleuth.usage import charging
+from sleuth.town import PLACES, START_PLACE, Town, at, neighbours
 from sleuth.traits import TRAITS
+from sleuth.tutorial import Practice
+from sleuth.usage import charging
 from sleuth.writer import invents, strangers
 
 log = logging.getLogger(__name__)
@@ -112,6 +112,8 @@ PODCAST = "A true-crime podcast"
 WRONG = "Your episode didn't hold up. The town now believes it, and people are warier of you."
 GUIDED_WRONG = "Your episode didn't hold up: the evidence doesn't back it."
 HELD = "It holds up. Case closed."
+GRADUATED = "That was practice. You're in the real town now."
+SKIPPED = f"Tutorial skipped. {GRADUATED}"
 RIVAL = "Another podcaster cracked the case first."
 
 
@@ -137,8 +139,8 @@ class Player:
         self.game = game
         self.place = START_PLACE
         self.notebook: dict[str, Record] = {}
-        self._starting = False
-        self._tasks: set[asyncio.Task] = set()
+        # The real town's engine, town and clock while the player is in the practice town.
+        self._real = None
         # Each resident's conversation with the player, oldest first, and how many messages the player sent each
         # resident in which part of the day.
         self.threads: dict[str, list[dict]] = {}
@@ -156,6 +158,7 @@ class Player:
             "id": self.id, "owner": self.owner, "place": self.place, "created_at": self.created_at,
             "active_at": self._active_at, "notebook": [asdict(r) for r in self.notebook.values()],
             "threads": self.threads, "searched": self.searched,
+            "tutorial": self.engine.cases.to_state() if self.practising else None,
         }
 
     def restore(self, state: dict) -> None:
@@ -166,55 +169,66 @@ class Player:
         self.searched = state["searched"]
         active_at = state["active_at"]
         self._active_at = None if active_at is None else min(active_at, time.time() - self.config.idle_after_seconds)
+        if state["tutorial"] is not None:
+            self.begin_tutorial(state["tutorial"])
 
-    async def start(self) -> None:
-        """Open a guided first case for a new, not yet onboarded owner while the town is awake, and tell them."""
-        players = self.engine.players
-        try:
-            cases = self.engine.cases
-            if self.owner in players.onboarded or players.resting() or cases.private(self.id):
-                return
-            if await cases.open_guided(self.engine, self.id, self.game.day, self.game.phase):
-                self._tick()
-        except Exception:
-            log.exception("opening a guided case for %s failed", self.id)
-        finally:
-            self._starting = False
+    @property
+    def practising(self) -> bool:
+        """Whether the player is in the practice town."""
+        return self._real is not None
+
+    def begin_tutorial(self, saved: dict | None = None) -> None:
+        """Move into the practice town for a first case of the player's own; saved is its case store, on a restore."""
+        practice = Practice(self.engine, self.ids, self.config, self.id, saved)
+        self._real = self.engine, self.town, self.game
+        self.engine, self.town, self.game = practice, practice.town, practice.game
+        self.feed.practising.add(self.id)
+
+    def skip(self) -> str | None:
+        """Leave the practice case unsolved for the real town; returns why it could not be done."""
+        self.touch()
+        file = self.engine.cases.private(self.id) if self.practising else None
+        if file is None:
+            return "You're not on the tutorial."
+        self._graduate(file, None, SKIPPED)
+        return None
+
+    def _graduate(self, file: CaseFile, solved_by: str | None, line: str) -> None:
+        """Close the practice case and move into the real town, with a clean notebook and feed, told its open case."""
+        self.engine.cases.close(file, solved_by)
+        self.feed.on_case_closed(file.crime.id, line, player=self.id)
+        self.engine, self.town, self.game = self._real
+        self._real = None
+        self.engine.players.onboarded.add(self.owner)
+        self.notebook, self.threads, self.searched, self._talked = {}, {}, [], {}
+        self.place = START_PLACE
+        self.feed.forget(self.id)
+        self.feed.practising.discard(self.id)
+        self.engine.cases.brief(self.feed, self.id, self._today())
 
     def steps(self) -> list[dict] | None:
-        """The guided case's checklist, each step with why it matters, done or not, and the person or action it needs;
-        None off one."""
-        file = self.engine.cases.private(self.id) if self.engine.cases else None
+        """The practice case's checklist, each step with why it matters, done or not, and the person or action it
+        needs; None off it."""
+        file = self.engine.cases.private(self.id) if self.practising else None
         if file is None:
             return None
         crime = file.crime
-        mine = {r.kind for r in self.notebook.values() if r.case == crime.id}
-        witness = next((r.holder for r in file.records.values() if r.kind == "memory"), None)
-        scene = {"place": crime.place}
+        witness = self.town.get(next(r.holder for r in file.records.values() if r.kind == "memory"))
         victim = self.town.get(crime.victim).name
+        when = "at night" if crime.phase == "night" else f"in the {crime.phase}"
         return [
             {"text": f"Ask {victim}, the victim, what happened", "why": f"{victim} reported it. Ask what happened.",
              "done": crime.victim in self.threads, "person": crime.victim},
-            {"text": f"Ask {self.town.get(witness).name} what they saw", "why": self._witness_why(crime, witness),
-             "done": "memory" in mine, "person": witness}
-            if witness else
-            {"text": f"Pull the records {at(crime.place)}", "why": f"{subject(crime.place)} keeps records. See what they caught.",
-             "done": bool(mine & {"clip", "log"}), "action": "pull", **scene},
+            {"text": f"Ask {witness.name} what they saw",
+             "why": f"{witness.name} is usually {at(crime.place)} {when}, when it happened. "
+                    "People nearby may have seen something.",
+             "done": any(r.kind == "memory" for r in self.notebook.values()), "person": witness.id},
             {"text": f"Search the scene {at(crime.place)}",
              "why": "The culprit may have left something behind. Search where it happened.",
-             "done": crime.id in self.searched, "action": "search", **scene},
+             "done": crime.id in self.searched, "action": "search", "place": crime.place},
             {"text": "Publish an episode naming who did it", "why": "Name who the evidence points to, and cite what backs it.",
              "done": self.id in file.published, "action": "publish"},
         ]
-
-    def _witness_why(self, crime: Crime, witness: str) -> str:
-        """Why to ask the witness: their routine puts them at the scene when it happened, if it does."""
-        name, routine = self.town.get(witness).name, self.engine.routine
-        if routine is None or routine.place(witness, crime.phase) != crime.place:
-            return f"{name} may have seen something {at(crime.place)}."
-        phase = "at night" if crime.phase == "night" else f"in the {crime.phase}"
-        return (f"{name} is usually {at(crime.place)} {phase}, when it happened. "
-                "People nearby may have seen something.")
 
     def _tick(self) -> None:
         """Send the guided case's checklist to the player, if they are on one."""
@@ -227,9 +241,6 @@ class Player:
             analytics("visit", owner=self.owner, run=self.id)
         self._sockets += 1
         self.touch()
-        if not self._starting and self.engine.cases is not None and self.game is not None:
-            self._starting = True
-            self._track(asyncio.create_task(self.start()))
 
     def disconnected(self) -> None:
         """A tab closed its feed."""
@@ -507,7 +518,8 @@ class Player:
         """Publish an episode naming culprit_id on the evidence cited; returns why it could not be done.
 
         Code judges it. A right one closes the case and wins the town's regard; a wrong one spreads the accusation
-        and costs it. A guided case closes either way and moves no regard. The town always hears it.
+        and costs it. The town always hears it. The practice case closes either way, moving no regard, and the player
+        moves into the real town.
         """
         self.touch()
         file = self._case()
@@ -529,31 +541,30 @@ class Player:
             return "No one in town has that id."
         file.published.append(self.id)
         crime, reputation = file.crime, self.engine.reputation
-        everyone = [v.id for v in self.town.villagers]
         accused, victim = self.town.get(culprit_id), self.town.get(crime.victim)
-        named = f"{accused.name} {TEMPLATES[crime.template][0]} {victim.name}'s {crime.item}"
         held = holds(crime, culprit_id, accused.traits, [self.notebook[i] for i in record_ids])
-        if held and crime.owner is None:
+        if crime.owner:
+            verdict = HELD if held else f"{GUIDED_WRONG} It was {self.town.get(crime.culprit).name}."
+            self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids), verdict=verdict,
+                                 player=self.id)
+            self._graduate(file, self.id if held else None, f"{verdict} {GRADUATED}")
+            return None
+        everyone = [v.id for v in self.town.villagers]
+        named = f"{accused.name} {TEMPLATES[crime.template][0]} {victim.name}'s {crime.item}"
+        if held:
             for rival in self.engine.players:
                 if rival is not self and any(r.case == crime.id for r in rival.notebook.values()):
                     self.feed.say(RIVAL, player=rival.id)
-        verdict = HELD if held else GUIDED_WRONG if crime.owner else WRONG
-        self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids), verdict=verdict,
-                             player=crime.owner)
-        if held or crime.owner:
-            self.engine.cases.close(file, self.id if held else None)
-            self.feed.on_case_closed(crime.id, "", player=crime.owner)
-        if crime.owner:
-            self.engine.players.onboarded.add(self.owner)
-            self.engine.cases.brief(self.feed, self.id, self._today())
+        self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids),
+                             verdict=HELD if held else WRONG)
         if held:
-            if not crime.owner:
-                reputation.nudge_all(self.id, self.config.reputation_right, everyone)
+            self.engine.cases.close(file, self.id)
+            self.feed.on_case_closed(crime.id, "")
+            reputation.nudge_all(self.id, self.config.reputation_right, everyone)
             text = f"{named}, and the evidence holds up."
         else:
-            if not crime.owner:
-                reputation.nudge_all(self.id, self.config.reputation_wrong, everyone)
-                reputation.nudge(culprit_id, self.id, self.config.reputation_accused)
+            reputation.nudge_all(self.id, self.config.reputation_wrong, everyone)
+            reputation.nudge(culprit_id, self.id, self.config.reputation_accused)
             text = f"{named}."
         u = Utterance(self.ids.next("u"), "podcast", PODCAST, self.place, text, None, "reported")
         file.roots[u.id] = "episode"
@@ -576,13 +587,3 @@ class Player:
     def _clock(self) -> str:
         """The game's time of day, like "9:40am"; empty without a game."""
         return clock_at(int(360 + self.game.clock()["fraction"] * 1440)) if self.game else ""
-
-    def close(self) -> None:
-        """Cancel every background task this player started."""
-        for task in self._tasks:
-            task.cancel()
-        self._tasks.clear()
-
-    def _track(self, task: asyncio.Task) -> None:
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)

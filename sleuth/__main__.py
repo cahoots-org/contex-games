@@ -61,7 +61,6 @@ async def play() -> None:
             baselines=baselines,
             routine=routine, facts=facts, cases=Cases(config, town, routine, rng, ids),
         )
-        feed.cases = engine.cases
         players = Players(usage)
         engine.players = players
 
@@ -71,9 +70,9 @@ async def play() -> None:
         def join(owner: str) -> Player:
             """Start a new run for the owner, dropping stale runs that never played."""
             player = make(new_player_id(), owner)
+            player.begin_tutorial()
             players.add(player)
-            for gone in players.prune():
-                gone.close()
+            players.prune()
             return player
 
         parts = components(engine)
@@ -106,8 +105,7 @@ async def play() -> None:
             await engine.run()
             host, port = config.address()
             app = create_app(
-                players=players, join=join, town=town, feed=feed, usage=usage, port=port,
-                game=game, host=host, cases=engine.cases,
+                players=players, join=join, feed=feed, usage=usage, port=port, host=host,
             )
             server = uvicorn.Server(uvicorn.Config(
                 app, host=host, port=port, log_level="warning", timeout_graceful_shutdown=1,
@@ -124,8 +122,6 @@ async def play() -> None:
             if saving is not None:
                 saving.cancel()
                 await asyncio.gather(saving, return_exceptions=True)
-            for run in players:
-                run.close()
             await engine.stop()
 
 

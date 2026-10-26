@@ -62,10 +62,7 @@ def game(monkeypatch):
 
     usage = Usage(Config())
     cases = engine.cases = Cases(config, town, None, random.Random(1), Ids())
-    app = create_app(
-        players=players, join=join, town=town, feed=feed, usage=usage, port=PORT,
-        game=game, cases=cases,
-    )
+    app = create_app(players=players, join=join, feed=feed, usage=usage, port=PORT)
     with TestClient(app, base_url=BASE) as client:
         client.get("/")
         player = players.live(client.cookies[web.COOKIE])
@@ -73,8 +70,6 @@ def game(monkeypatch):
             client=client, town=town, feed=feed, app=app, usage=usage, player=player, config=config,
             players=players, join=join, engine=engine, cases=cases, game=game,
         )
-    for p in players:
-        p.close()
 
 
 def as_owner(client, owner):
@@ -197,16 +192,19 @@ def test_state_offers_the_intro_until_the_player_starts_or_is_onboarded(game):
     assert game.client.get("/api/state").json()["intro"] is False
 
 
-def test_state_and_case_carry_the_guided_checklist(game):
-    assert game.client.get("/api/state").json()["steps"] is None
-    open_case(game).crime.owner = game.player.id
-    game.cases.routine = helpers.StubRoutine({"v1": {"night": "library"}, "v2": {"night": "library"}})
+def test_a_player_in_the_practice_town_is_shown_that_town_its_case_and_checklist(game):
+    real = game.client.get("/api/state").json()
+    assert real["steps"] is None
+    game.player.begin_tutorial()
     for path in ("/api/state", "/api/case"):
-        assert game.client.get(path).json()["case"]["nearby"] == ["v2"]
-        steps = game.client.get(path).json()["steps"]
-        assert [s["text"] for s in steps] == ["Ask Marta Hale, the victim, what happened",
-                                              "Pull the records at the library", "Search the scene at the library",
-                                              "Publish an episode naming who did it"]
+        body = game.client.get(path).json()
+        assert (body["case"]["title"], body["case"]["private"], body["case"]["nearby"]) == ("Ruth Okafor's tote bag", True, ["t3"])
+        assert body["steps"][0]["text"] == "Ask Ruth Okafor, the victim, what happened"
+    state = game.client.get("/api/state").json()
+    assert {v["id"] for v in state["villagers"]} == {"t1", "t2", "t3", "t4", "t5", "t6"}
+    assert state["time"]["phase"] == "afternoon" and state["boot"] == real["boot"] + ":practice"
+    assert game.client.get("/api/villagers/t5").json()["name"] == "Cal Hughes"
+    assert game.client.get("/api/villagers/v1").status_code == 404
 
 
 def test_interview_reports_problems_and_answers_through_the_feed(game):

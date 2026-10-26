@@ -59,8 +59,8 @@ class Feed:
         self.sinks: list[Sink] = [terminal(out)] if out else []
         self.recent: deque[Event] = deque(maxlen=REPLAY_EVENTS)
         self._last_id = 0
-        # The cases, once they exist: a player on a private case sees no other case's news or posts.
-        self.cases = None
+        # Players in the practice town, who see only their own events and the town's rest.
+        self.practising: set[str] = set()
 
     def to_state(self) -> dict:
         """Recent events and the last event id as plain JSON."""
@@ -97,7 +97,13 @@ class Feed:
         """Whether the event is meant for that player."""
         if event.player is not None:
             return event.player == player
-        return not (event.kind in ("case", "post") and self.cases and self.cases.private(player))
+        return player not in self.practising or event.kind == "rest"
+
+    def forget(self, player: str) -> None:
+        """Drop the events meant only for that player."""
+        kept = [e for e in self.recent if e.player != player]
+        self.recent.clear()
+        self.recent.extend(kept)
 
     def replay(self, player: str) -> list[Event]:
         """The recent events that player sees."""

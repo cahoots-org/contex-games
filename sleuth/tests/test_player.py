@@ -1,4 +1,3 @@
-import asyncio
 import json
 from types import SimpleNamespace
 
@@ -10,7 +9,7 @@ from dataclasses import replace
 from sleuth.contex_client import Match
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
-from sleuth.player import GUIDED_WRONG, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, Player, Refusal, conveys, voiced
+from sleuth.player import GRADUATED, GUIDED_WRONG, HELD, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, SKIPPED, Player, Refusal, conveys, voiced
 from sleuth.players import Players
 from sleuth.config import Config
 from sleuth.case import WHEN, Record
@@ -18,8 +17,7 @@ from sleuth.cases import CaseFile
 from sleuth.feed import Feed
 from sleuth.game import Game
 from sleuth.lineage import Lineage
-from sleuth.tests.helpers import PID, FakeEngine, StubJev, StubRoutine, StubWriter, wait_for
-from sleuth.tests.test_case import make_routine
+from sleuth.tests.helpers import PID, FakeEngine, StubJev, StubRoutine, StubWriter
 from sleuth.tests.test_cases import culprit_file, make_cases
 from sleuth.tests.helpers import make_player as make
 
@@ -167,7 +165,6 @@ async def test_a_first_visit_is_logged_for_counting(capsys):
     player.connected()
     lines = [line for line in capsys.readouterr().out.splitlines() if line.startswith("analytics")]
     assert lines == [f"analytics visit owner={player.owner} run={player.id}"]
-    player.close()
 
 
 MEMORY = "Around 11:40pm, on Elm Street, someone tall in a grey hoodie walked off with something."
@@ -754,17 +751,6 @@ async def test_publish_wrong_spreads_the_accusation_and_lowers_reputation():
 
 
 @pytest.mark.asyncio
-async def test_closing_the_guided_case_tells_its_owner_the_town_s_open_case():
-    player, file, engine, _ = interviewing()
-    file.crime.owner = PID
-    shared = CaseFile(replace(file.crime, id="case-2", owner=None), {}, "open")
-    engine.cases.files["case-2"] = shared
-    await player.publish("v3", cite(player, file, memory_of(file, player.ids)))
-    [case] = [e for e in player.feed.recent if e.kind == "case"]
-    assert (case.player, case.data["case"]["id"]) == (PID, "case-2")
-
-
-@pytest.mark.asyncio
 async def test_one_episode_per_player_per_case():
     player, file, *_ = interviewing()
     ids = cite(player, file, memory_of(file, player.ids))
@@ -818,21 +804,106 @@ async def test_publish_citing_a_cover_story_statement_is_accepted_but_does_not_h
     assert episode.data["held"] is False
 
 
-@pytest.mark.parametrize("named", ["v3", "v5"])
+def practising():
+    """A new podcaster in the practice town; the real town (from interviewing) has its shared case open."""
+    player, shared, engine, writer = interviewing()
+    player.game = Game()
+    engine.players.add(player)
+    player.begin_tutorial()
+    return player, shared, engine, writer
+
+
+def test_a_new_podcaster_starts_in_the_practice_town():
+    player, shared, engine, _ = practising()
+    assert player.practising and PID in player.feed.practising
+    assert player.town is not engine.cases.town and "t1" in player.town and "v1" not in player.town
+    assert player.engine.cases.private(PID).crime.owner == PID and player.game.phase == "afternoon"
+
+
 @pytest.mark.asyncio
-async def test_publishing_the_guided_case_onboards_the_owner_and_costs_no_regard(named):
-    player, file, engine, _ = interviewing()
-    file.crime.owner = PID
-    ids = cite(player, file, memory_of(file, player.ids))
+async def test_the_checklist_walks_the_practice_case_from_victim_to_witness_to_search():
+    player, *_ = practising()
+    steps = player.steps()
+    assert [s["text"] for s in steps] == ["Ask Ruth Okafor, the victim, what happened", "Ask Tess Moreno what they saw",
+                                          "Search the scene at the library", "Publish an episode naming who did it"]
+    assert steps[1]["why"] == ("Tess Moreno is usually at the library in the morning, when it happened. "
+                               "People nearby may have seen something.")
+    await ask(player, "t1", "what_happened", when="morning")
+    assert done(steps_sent(player)[-1]) == [True, False, False, False] and notebook(player, "discovery")
+    await ask(player, "t3", "what_did_you_see", when="morning")
+    assert done(steps_sent(player)[-1]) == [True, True, False, False]
+    assert player.search() == "There's nothing to search for here."
+    player.walk("library")
+    assert player.search() is None
+    assert done(steps_sent(player)[-1]) == [True, True, True, False]
+    assert all(e.player == PID for e in player.feed.recent)
+
+
+@pytest.mark.asyncio
+async def test_a_practice_question_costs_at_most_one_jev_and_one_writer_call_and_reaches_no_mind():
+    player, _, engine, writer = practising()
+    await ask(player, "t3", "what_did_you_see", when="morning")
+    await ask(player, "t2", "none")
+    assert engine.jev.calls == 2 and len(writer.calls) == 2
+    assert engine.pressed == engine.delivered == engine.recalls == []
+
+
+async def solve(player):
+    """Ask the witness and search the scene; the ids of the sighting and the clue."""
+    await ask(player, "t3", "what_did_you_see", when="morning")
+    player.walk("library")
+    player.search()
+    return [r.id for r in player.notebook.values() if r.kind in ("memory", "clue")]
+
+
+@pytest.mark.parametrize("named, held", [("t5", True), ("t4", False)])
+@pytest.mark.asyncio
+async def test_publishing_the_practice_case_moves_the_player_into_the_real_town(named, held):
+    player, shared, engine, _ = practising()
+    file = player.engine.cases.private(PID)
+    ids = await solve(player)
+    seen = []
+    player.feed.sinks.append(seen.append)
     assert await player.publish(named, ids) is None
-    assert file.state == "closed" and engine.players.onboarded == {player.owner}
-    assert engine.cases.last_closed == float("-inf")
-    [closed] = [e for e in player.feed.recent if e.kind == "case_closed"]
-    assert closed.player == PID
-    assert all(regard(engine, v.id) == 0 for v in player.town.villagers)
-    [episode] = [e for e in player.feed.recent if e.kind == "episode"]
-    assert episode.data["verdict"] == ("It holds up. Case closed." if episode.data["held"] else GUIDED_WRONG)
-    assert not [e for e in player.feed.recent if e.kind == "system"]
+    assert (file.state, file.solved_by) == ("closed", PID if held else None)
+    verdict = HELD if held else f"{GUIDED_WRONG} It was Cal Hughes."
+    assert [e.data["verdict"] for e in seen if e.kind == "episode"] == [verdict]
+    assert [e.data["text"] for e in seen if e.kind == "case_closed"] == [f"{verdict} {GRADUATED}"]
+    assert not player.practising and PID not in player.feed.practising
+    assert (player.engine, player.town) == (engine, engine.cases.town)
+    assert (player.notebook, player.threads, player.searched, player.place) == ({}, {}, [], "cafe")
+    assert engine.players.onboarded == {player.owner}
+    assert [(e.kind, e.player) for e in player.feed.recent] == [("case", PID), ("post", PID)]
+    assert player.feed.recent[0].data["case"]["id"] == shared.crime.id
+    assert all(regard(engine, v.id) == 0 for v in player.town.villagers) and engine.delivered == []
+
+
+@pytest.mark.asyncio
+async def test_skipping_the_tutorial_moves_the_player_into_the_real_town():
+    player, shared, engine, _ = practising()
+    file = player.engine.cases.private(PID)
+    seen = []
+    player.feed.sinks.append(seen.append)
+    assert player.skip() is None
+    assert (file.state, file.solved_by) == ("closed", None) and not player.practising
+    assert [e.data["text"] for e in seen if e.kind == "case_closed"] == [SKIPPED]
+    assert engine.players.onboarded == {player.owner} and player.engine is engine
+    assert player.skip() == "You're not on the tutorial."
+
+
+@pytest.mark.asyncio
+async def test_a_player_mid_tutorial_comes_back_after_a_restart():
+    player, shared, engine, writer = practising()
+    await solve(player)
+    state = json.loads(json.dumps(player.to_state()))
+    feed = Feed(Lineage(), engine.cases.town, out=None)
+    back = Player(engine, engine.cases.town, Lineage(), player.ids, feed, player.config, writer, Game(), player_id=PID)
+    back.restore(state)
+    assert back.practising and PID in feed.practising
+    assert back.engine.cases.private(PID) == player.engine.cases.private(PID)
+    assert back.notebook == player.notebook and back.steps() == player.steps()
+    assert await back.publish("t5", [r.id for r in back.notebook.values() if r.kind == "memory"]) is None
+    assert back.engine is engine
 
 
 def steps_sent(player):
@@ -843,94 +914,12 @@ def done(steps):
     return [s["done"] for s in steps]
 
 
-def guided():
-    """A new podcaster on Elm Street whose guided case is open: Fay (v3) stole Dana's (v1) bike there."""
-    player, file, engine, writer = interviewing()
-    player.game = Game()
-    opened = []
-
-    async def open_guided(*args):
-        opened.append(args[1:])
-        file.crime.owner = PID
-        return file
-
-    engine.cases.open_guided = open_guided
-    engine.opened = opened
-    return player, file, engine
-
-
-@pytest.mark.asyncio
-async def test_checklist_ticks_each_step_from_what_the_player_did():
-    player, file, engine = guided()
-    memory_of(file, player.ids)
-    await player.start()
-    assert steps_sent(player)[-1] == [
-        {"text": "Ask Dana Reyes, the victim, what happened", "why": "Dana Reyes reported it. Ask what happened.",
-         "done": False, "person": "v1"},
-        {"text": "Ask Eli Reyes what they saw",
-         "why": "Eli Reyes is usually on Elm Street at night, when it happened. People nearby may have seen something.",
-         "done": False, "person": "v2"},
-        {"text": "Search the scene on Elm Street",
-         "why": "The culprit may have left something behind. Search where it happened.", "done": False,
-         "action": "search", "place": "elm street"},
-        {"text": "Publish an episode naming who did it", "why": "Name who the evidence points to, and cite what backs it.",
-         "done": False, "action": "publish"},
-    ]
-    await ask(player, "v1", "none")
-    assert done(steps_sent(player)[-1]) == [True, False, False, False]
-    assert player.search() is None
-    assert done(steps_sent(player)[-1]) == [True, False, True, False]
-    await ask(player, "v2", "what_did_you_see")
-    assert done(steps_sent(player)[-1]) == [True, True, True, False]
-    file.published.append(PID)
-    assert done(player.steps()) == [True, True, True, True]
-    assert all(e.player == PID for e in player.feed.recent if e.kind == "steps")
-
-
-@pytest.mark.asyncio
-async def test_checklist_without_a_witness_pulls_the_records_at_the_scene():
-    player, file, engine = guided()
-    place_record(file, "clip", "elm street", "r-11")
-    await player.start()
-    assert steps_sent(player)[-1][1] == {"text": "Pull the records on Elm Street",
-                                         "why": "Elm Street keeps records. See what they caught.", "done": False,
-                                         "action": "pull", "place": "elm street"}
-    assert player.pull() is None
-    assert done(steps_sent(player)[-1]) == [False, True, False, False]
-
-
-@pytest.mark.asyncio
-async def test_checklist_reason_for_a_witness_who_is_usually_elsewhere():
-    player, file, engine = guided()
-    engine.routine = make_routine(night={"v2": "gym"})
-    memory_of(file, player.ids)
-    await player.start()
-    assert steps_sent(player)[-1][1]["why"] == "Eli Reyes may have seen something on Elm Street."
-    file.crime.phase, file.crime.place = "evening", "grocery"
-    engine.routine = StubRoutine({"v2": {"evening": "grocery"}})
-    assert player.steps()[1]["why"] == ("Eli Reyes is usually at the grocery in the evening, when it happened. "
-                                        "People nearby may have seen something.")
-    assert player.steps()[2]["text"] == "Search the scene at the grocery"
-
-
 @pytest.mark.asyncio
 async def test_no_checklist_off_a_guided_case():
     player, file, engine, _ = interviewing()
     memory_of(file, player.ids)
     await ask(player, "v2", "what_did_you_see")
     assert player.steps() is None and steps_sent(player) == []
-
-
-@pytest.mark.asyncio
-async def test_no_checklist_without_a_guided_case():
-    player, file, engine = guided()
-    async def nothing(*args):
-        return None
-
-    engine.cases.open_guided = nothing
-    await player.start()
-    await ask(player, "v2", "none")
-    assert steps_sent(player) == []
 
 
 @pytest.mark.asyncio
@@ -945,34 +934,6 @@ async def test_rival_hears_the_case_was_cracked_first():
     told = [e for e in player.feed.recent if e.kind in ("system", "episode")]
     assert [(e.kind, e.player) for e in told] == [("system", "p-2"), ("episode", None)]
     assert told[0].line == "Another podcaster cracked the case first."
-
-
-@pytest.mark.asyncio
-async def test_onboarded_owner_gets_no_guided_case():
-    player, file, engine = guided()
-    engine.players.onboarded.add(player.owner)
-    await player.start()
-    assert engine.opened == [] and steps_sent(player) == []
-
-
-@pytest.mark.asyncio
-async def test_no_guided_case_while_the_town_rests():
-    player, file, engine = guided()
-    engine.players.usage = SimpleNamespace(resting=lambda: True)
-    await player.start()
-    assert engine.opened == [] and steps_sent(player) == []
-
-
-@pytest.mark.asyncio
-async def test_the_first_connect_opens_the_guided_case_in_the_background():
-    player, file, engine = guided()
-    player.connected()
-    assert engine.opened == []
-    await wait_for(lambda: steps_sent(player))
-    player.disconnected()
-    player.connected()
-    await asyncio.sleep(0)
-    assert engine.opened == [(PID, 1, "morning")]
 
 
 @pytest.mark.asyncio

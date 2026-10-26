@@ -14,9 +14,8 @@ from starlette.datastructures import Headers
 from starlette.websockets import WebSocketClose
 
 from sleuth.case import CAMERA_PLACES, LOG_PLACES, record_json
-from sleuth.cases import Cases, case_json
+from sleuth.cases import case_json
 from sleuth.feed import RESTING, Event, Feed
-from sleuth.game import Game
 from sleuth.player import Player, Refusal
 from sleuth.players import Players, new_owner_id
 from sleuth.town import PLACES, Town
@@ -105,8 +104,7 @@ async def _payload(request: Request, bad: str, too_long: str) -> dict | JSONResp
 
 
 def create_app(
-    *, players: Players, join: Callable[[str], Player], town: Town, feed: Feed, usage: Usage, port: int,
-    game: Game, host: str = "127.0.0.1", cases: Cases | None = None,
+    *, players: Players, join: Callable[[str], Player], feed: Feed, usage: Usage, port: int, host: str = "127.0.0.1",
 ) -> FastAPI:
     clients: dict[asyncio.Queue, str] = {}
     boot = uuid.uuid4().hex
@@ -186,11 +184,12 @@ def create_app(
         if (player := player_for(players, request.cookies.get(COOKIE))) is None:
             return _error(401, RELOAD)
         return {
-            "boot": f"{boot}:{player.id}",
+            # The practice town and the real one are different towns to the page.
+            "boot": f"{boot}:{player.id}" + (":practice" if player.practising else ""),
             "places": list(PLACES),
             "place": player.place,
-            "time": game.clock(),
-            "villagers": villagers(town),
+            "time": player.game.clock(),
+            "villagers": villagers(player.town),
             "talked": {vid: len(thread) for vid, thread in player.threads.items()},
             "records_at": sorted({*CAMERA_PLACES, *LOG_PLACES}),
             "events": [e.to_json(player.id) for e in feed.replay(player.id)],
@@ -203,11 +202,12 @@ def create_app(
     def case_of(player: Player) -> dict:
         """The player's open case, and the notebook of it or, till the next opens, of the case closed last; their times
         said today."""
+        cases, town, today = player.engine.cases, player.town, player.game.time()
         case = cases.for_player(player.id) if cases else None
         book = case or next((f for f in reversed(cases.files.values()) if f.state == "closed"), None) if cases else None
         return {
-            "case": case_json(case, town, cases.routine, game.time()) if case else None,
-            "notebook": [record_json(r, town, book.crime, game.time()) for r in player.notebook.values()
+            "case": case_json(case, town, cases.routine, today) if case else None,
+            "notebook": [record_json(r, town, book.crime, today) for r in player.notebook.values()
                          if book and r.case == book.crime.id],
             "searched": player.searched,
             "steps": player.steps(),
@@ -223,6 +223,7 @@ def create_app(
     async def inspect(vid: str, request: Request):
         if (player := player_for(players, request.cookies.get(COOKIE))) is None:
             return _error(401, RELOAD)
+        town = player.town
         if vid not in town:
             name = town.name_of(vid)
             return _error(404, f"{name} has left town." if name else "No resident with that id.")
