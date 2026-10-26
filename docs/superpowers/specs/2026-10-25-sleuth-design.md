@@ -198,3 +198,26 @@ These answer a builder's questions. They are my calls, made without Rob, and mar
   - the solvability check, including a forced failure that adds a witness;
   - the judge accepting supported evidence and rejecting evidence from the cover story;
   - household alibi judgments with stubbed Jev answers.
+
+## Addendum, 2026-10-26: conversations and searching the scene
+
+From the owner's first play: interviews couldn't be steered, and there was no real way to gather clues.
+
+### Interviews are conversations
+- **Threads.** Interviewing a resident opens a conversation thread with them, kept per player and per resident, like Whispers' conversations. The player can leave and come back to it later; the thread shows everything said so far.
+- **Free-text questions.** The player types what they want to ask. Jev reads the question, with the thread so far, and routes it to one of a few kinds the game can answer, filling in who and when it's about:
+  - where the resident was at a part of the day;
+  - where someone else was;
+  - what they saw;
+  - who they heard something from;
+  - who'd have a reason (a grudge or rival tie with the victim);
+  - what they think of someone;
+  - none of these.
+- **Answers come from records.** Code looks up what that resident actually knows for the routed kind. Haiku phrases the reply in their voice, with the thread as context, and never adds a fact. "None of these", or nothing known, gets an honest "I wouldn't know about that." Anything new goes into the notebook as a record, as interviews do today.
+- **Limits.** A handful of messages per resident per part of the day, then "Let's talk later." Each message costs at most one Jev and one Haiku call.
+
+### Searching the scene
+- At the crime place, a player can search once per case. They find one or two physical clues, held in code when the crime is staged:
+  - a trace that narrows a trait, like a boot print for height or a thread of the culprit's coat;
+  - or an item that ties someone to a place and time, like a dropped receipt.
+- Clues are records like any other, so they can be cited, and the solvability check counts them.
