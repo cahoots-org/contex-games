@@ -519,6 +519,7 @@ function openPublish(on) {
 }
 
 $("publish-open").addEventListener("click", () => openPublish($("publish").hidden));
+$("culprit").addEventListener("change", light);
 $("skip").addEventListener("click", () => act("skip", "/api/skip"));
 
 function cited() {
@@ -620,9 +621,15 @@ function light() {
   if (!s) return;
   const target = s.person ? $("people").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
     : s.place && s.place !== here ? $("go").querySelector(`[data-place="${CSS.escape(s.place)}"]`)
+    : s.action === "publish" && !$("publish").hidden ? publishNext()
     : $(ACTION_BUTTON[s.action]);
   target?.classList.add("lit");
   if (s.person) target?.querySelector(".nearby")?.classList.add("lit");
+}
+
+// With the publish form open: the culprit choice until one is picked, then the publish button.
+function publishNext() {
+  return $("culprit").value ? $("publish").querySelector("button[type=submit]") : $("culprit");
 }
 
 async function walkTo(place) {
