@@ -636,7 +636,8 @@ function render(e, fresh) {
     case "listen":
       return listened(e, fresh);
     case "time":
-      setClock(e);
+      // A replayed tick would wind the clock back to the start of its part of the day.
+      if (fresh) setClock(e);
       return null;
     case "system":
       return line("quiet", e.text);
