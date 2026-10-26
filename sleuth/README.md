@@ -25,14 +25,21 @@ case shows at the top of the Hear panel and goes cold after `case_days`, when th
 notebook for a closed case stays on the page until the next case opens.
 
 **Your first case.** Before the page, a new podcaster sees three short cards on what the game is and a button to
-start; they come back on a reload only until the podcaster has asked anyone anything. A new podcaster gets an easy private case of their own, opened at once at a place with a
-camera: one witness, a clip showing the culprit's height, coat and hair, a clue or two at the scene, and no logs but a receipt's. Only
-they see its news. A checklist in the case header walks them through it: ask the victim what happened, ask the
-witness what they saw (or, with no witness, pull the records at the scene), search the scene, and publish. Each step
-says why under it, from the case: the victim reported it, the witness is usually at the scene at that time of day, and
-so on. The game ticks each step from what they have actually done and lights the person or button the current step needs. Town talk stays hidden and the notebook appears with its first
-entry until the first case closes; once it closes, by an episode or by going cold, they are shown the town's open case and its news, and play it like everyone else. No new private case is opened while the town is
-resting.
+start; they come back on a reload only until the podcaster has asked anyone anything. The first case happens in a
+practice town of its own (`sleuth/tutorial.py`), fixed in the code: six residents in three households, their looks,
+ties and routines, and one staged case. Cal Hughes stole Ruth Okafor's tote bag at the library this morning. Tess
+Moreno, who is usually at the library in the morning, saw someone tall and red-haired, which fits Cal and Gus. A thread
+at the scene came from a green raincoat, which fits Cal and Ivy, so it takes the witness and the search together to
+name Cal. The practice town's clock stands still, nobody there talks, hears or warns anyone, and regard there stays
+apart from the real town's. Each question still costs at most one Jev call and one Haiku call.
+
+A checklist in the case header walks the podcaster through it: ask the victim what happened, ask the witness what they
+saw, search the scene, and publish. Each step says why under it. The game ticks each step from what they have actually
+done and lights the person or button the current step needs. Town talk stays hidden and the notebook appears with its
+first entry. Publishing, right or wrong (a wrong episode is told who it was), or Skip tutorial closes the practice case
+and moves the podcaster into the real town: new people, a clean notebook and feed, and the town's open case told
+fresh. Nothing from the practice town carries over. A podcaster mid-tutorial is saved with the game and picks up where
+they left off.
 
 **Evidence** is held by the game as records with ids like `r-12`; the models never invent any of it.
 

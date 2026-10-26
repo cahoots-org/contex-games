@@ -113,7 +113,7 @@ WRONG = "Your episode didn't hold up. The town now believes it, and people are w
 PRACTICE_WRONG = "Your episode didn't hold up: the evidence doesn't back it."
 HELD = "It holds up. Case closed."
 GRADUATED = "That was practice. You're in the real town now."
-SKIPPED = f"Tutorial skipped. {GRADUATED}"
+SKIPPED = "Tutorial skipped. You're in the real town now."
 RIVAL = "Another podcaster cracked the case first."
 
 
