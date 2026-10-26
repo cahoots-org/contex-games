@@ -39,7 +39,7 @@ class CaseFile:
     words: dict[str, list] = field(default_factory=dict)  # "speaker:about" → [household word, sound]
 
 
-def case_json(case: CaseFile, town: Town, routine, today: int | None = None) -> dict:
+def case_json(case: CaseFile, town: Town, routine, today: float | None = None) -> dict:
     """What a player sees of a case on today, titled like "Ada Reyes's bike", with who besides the victim is usually
     at the scene in its part of the day: a lead from routine alone, never from where anyone actually was."""
     c = case.crime
@@ -127,7 +127,7 @@ class Cases:
         if file.crime.owner is None:
             self.last_closed = self.now
 
-    def brief(self, feed, player_id: str, today: int | None) -> None:
+    def brief(self, feed, player_id: str, today: float | None) -> None:
         """Tell a player just off their guided case the town's open case and its news, hidden from them till now."""
         case = self.shared()
         if case is None or case.state != "open":
@@ -214,13 +214,13 @@ class Cases:
             if m.kind in ("memory", "discovery"):
                 await self._remember(engine, case, m)
         case.state, case.opened = "open", now
-        news = Utterance(self.ids.next("u"), "app", APP, crime.place, told(crime.text, crime, int(now)), None, "posted")
+        news = Utterance(self.ids.next("u"), "app", APP, crime.place, told(crime.text, crime, now), None, "posted")
         victim = self.town.get(crime.victim)
         hearers = [victim.id, *(v.id for v in self.town.villagers if v.household == victim.household),
                    *(v.id for v in self.town.present(crime.place))]
         case.roots[news.id] = "news"
         await engine.deliver(news, list(dict.fromkeys(hearers)))
-        engine.feed.on_case(case_json(case, self.town, self.routine, int(now)), player=crime.owner)
+        engine.feed.on_case(case_json(case, self.town, self.routine, now), player=crime.owner)
         engine.feed.on_post(news, crime.id, player=crime.owner)
 
     def _drop(self, case: CaseFile, now: float) -> None:

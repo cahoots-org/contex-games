@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass, field, replace
 from random import Random
 
+from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.town import STREETS, Town, at, place_name
 from sleuth.traits import describe, figure
@@ -88,9 +89,12 @@ def clock_at(minute: int) -> str:
     return f"{(hour - 1) % 12 + 1}:{mins:02d}{'am' if hour < 12 else 'pm'}"
 
 
-def ago(day: int, phase: str, today: int) -> str:
-    """When day's phase was, said on today: "this afternoon", "last night", "two days ago, in the evening"."""
-    days = today - day
+def ago(day: int, phase: str, today: float) -> str:
+    """When day's phase was, said on today (a day, plus how far into it by part, as Game.time gives): "this
+    afternoon", "last night", "two days ago, in the evening". An evening read in the small hours was last night."""
+    days = int(today) - day
+    if days <= 0 and phase == "evening" and PHASES[int(today % 1 * len(PHASES))] == "night":
+        return "last night"
     if days <= 0:
         return "tonight" if phase == "night" else f"this {phase}"
     if days == 1:
@@ -99,12 +103,12 @@ def ago(day: int, phase: str, today: int) -> str:
     return f"{count} days ago, " + ("at night" if phase == "night" else f"in the {phase}")
 
 
-def when(crime: Crime, today: int | None = None) -> str:
+def when(crime: Crime, today: float | None = None) -> str:
     """When the crime happened, said on today, or on the crime's own day."""
     return ago(crime.day, crime.phase, crime.day if today is None else today)
 
 
-def told(text: str, crime: Crime, today: int | None = None) -> str:
+def told(text: str, crime: Crime, today: float | None = None) -> str:
     """text with its WHEN said on today."""
     return text.replace(WHEN, when(crime, today))
 
@@ -153,7 +157,7 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
                  f"Someone {TEMPLATES[template][0]} {victim.name}'s {item} {at(place)} {WHEN}.")
 
 
-def record_json(r: Record, town: Town, crime: Crime | None = None, today: int | None = None) -> dict:
+def record_json(r: Record, town: Town, crime: Crime | None = None, today: float | None = None) -> dict:
     """What the player sees of a record, its case's time said on today."""
     text = told(r.text, crime, today) if crime else r.text
     return {"id": r.id, "kind": r.kind, "place": r.place, "day": r.day, "clock": r.clock, "text": text,

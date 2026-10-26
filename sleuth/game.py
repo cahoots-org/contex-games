@@ -27,6 +27,10 @@ class Game:
         """The day and its part, like "day 4, morning"."""
         return f"day {self.day}, {self.phase}"
 
+    def time(self) -> float:
+        """The day and how far into it by part, like 4.5 on day 4's evening."""
+        return self.day + PHASES.index(self.phase) / len(PHASES)
+
     def tick(self) -> None:
         """Move the village clock on to the next part of the day."""
         at = PHASES.index(self.phase) + 1

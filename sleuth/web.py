@@ -206,8 +206,8 @@ def create_app(
         case = cases.for_player(player.id) if cases else None
         book = case or next((f for f in reversed(cases.files.values()) if f.state == "closed"), None) if cases else None
         return {
-            "case": case_json(case, town, cases.routine, game.day) if case else None,
-            "notebook": [record_json(r, town, book.crime, game.day) for r in player.notebook.values()
+            "case": case_json(case, town, cases.routine, game.time()) if case else None,
+            "notebook": [record_json(r, town, book.crime, game.time()) for r in player.notebook.values()
                          if book and r.case == book.crime.id],
             "searched": player.searched,
             "steps": player.steps(),

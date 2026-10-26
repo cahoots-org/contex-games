@@ -325,8 +325,8 @@ class Engine:
         self.feed.say(COLDER, player=case.pressed_by)
         return WARNING
 
-    def _today(self) -> int | None:
-        return self.game.day if self.game is not None else None
+    def _today(self) -> float | None:
+        return self.game.time() if self.game is not None else None
 
     def _part(self) -> str:
         """The part of the day as "day:phase"; empty without a game."""

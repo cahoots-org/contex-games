@@ -243,3 +243,11 @@ def test_game_state_round_trips_with_the_phase_part_elapsed(monkeypatch):
     fresh.restore(state)
     assert (fresh.day, fresh.phase) == (game.day, game.phase)
     assert fresh.phase_started == pytest.approx(5000.0 - 25.0)
+
+
+def test_time_is_the_day_and_how_far_into_it_by_part():
+    game = Game()
+    assert game.time() == 1
+    for _ in range(3):
+        game.tick()
+    assert (game.phase, game.time()) == ("night", 1.75)

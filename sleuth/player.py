@@ -332,8 +332,8 @@ class Player:
         file = self.engine.cases.files.get(r.case) if self.engine.cases else None
         return record_json(r, self.town, file.crime if file else None, self._today())
 
-    def _today(self) -> int | None:
-        return self.game.day if self.game else None
+    def _today(self) -> float | None:
+        return self.game.time() if self.game else None
 
     def _told(self, text: str, crime: Crime) -> str:
         return told(text, crime, self._today())

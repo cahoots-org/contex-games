@@ -178,6 +178,16 @@ def open_case(game, culprit="v2"):
     return game.cases.files["case-1"]
 
 
+def test_an_evening_case_reads_last_night_once_night_falls(game):
+    crime = Crime("case-1", "steal", "bike", "v2", "v1", "library", 1, "evening", 1100, "rival",
+                  f"Someone stole Marta Hale's bike at the library {WHEN}.")
+    game.cases.files["case-1"] = CaseFile(crime, {}, "open")
+    game.game.phase = "evening"
+    assert game.client.get("/api/case").json()["case"]["text"].endswith("this evening.")
+    game.game.phase = "night"
+    assert game.client.get("/api/case").json()["case"]["text"].endswith("last night.")
+
+
 def test_state_offers_the_intro_until_the_player_starts_or_is_onboarded(game):
     assert game.client.get("/api/state").json()["intro"] is True
     game.player.threads = {"v1": [{"question": "?", "line": "!", "records": []}]}

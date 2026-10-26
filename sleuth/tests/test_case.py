@@ -164,6 +164,11 @@ def test_a_night_is_tonight_then_last_night():
         "tonight", "last night", "two days ago, at night", "7 days ago, at night"]
 
 
+def test_an_evening_read_after_midnight_is_last_night():
+    assert [ago(2, "evening", today) for today in (2.5, 2.75, 3)] == ["this evening", "last night", "yesterday evening"]
+    assert ago(2, "night", 2.75) == "tonight" and ago(2, "afternoon", 2.75) == "this afternoon"
+
+
 def test_told_says_the_crime_time_from_today_or_its_own_day():
     crime = Crime("case-1", "steal", "bike", "v3", "v1", "gym", 2, "afternoon", 800, "rival", f"Gone {WHEN}.")
     assert [told(crime.text, crime, today) for today in (None, 2, 3, 4)] == [
