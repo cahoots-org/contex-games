@@ -680,7 +680,7 @@ function drawFace(v) {
   const pick = (list) => list[Math.floor(r() * list.length)];
   const { hair, coat, height = 1 } = v.face || {};
   const clothes = coat || "#6b5b4a";
-  const dy = 1 - height;
+  const dy = 2 * (1 - height);
   const px = (i, j, color) => { g.fillStyle = color; g.fillRect(i, j + dy, 1, 1); };
   const rect = (i0, i1, j0, j1, color) => { for (let i = i0; i < i1; i++) for (let j = j0; j < j1; j++) px(i, j, color); };
   g.fillStyle = pick(TINT);
