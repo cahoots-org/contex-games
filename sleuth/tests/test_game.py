@@ -12,7 +12,7 @@ from sleuth.config import Config
 from sleuth.contex_client import Match
 from sleuth.engine import Engine
 from sleuth.feed import Feed
-from sleuth.game import MEMORY_PLAYERS, Game
+from sleuth.game import Game
 from sleuth.lineage import Ids, Lineage
 from sleuth.player import Player
 from sleuth.players import Players
@@ -61,45 +61,6 @@ def record_moves(monkeypatch, engine, delay=0.0):
 
 def kinds(feed, kind):
     return [e for e in feed.replay(PID) if e.kind == kind]
-
-
-def test_memory_starts_at_the_oldest_remembered_move():
-    game = Game(memory_moves=2)
-    game.moved(PID)
-    assert game.memory_since() is None
-    game.moved(PID)
-    first = game.memory_since()
-    game.moved(PID)
-    assert first is not None and game.memory_since() >= first
-
-
-def test_memory_spans_the_moves_of_every_active_player():
-    game = Game(memory_moves=2)
-    game.moved("p-a")
-    game.moved("p-a")
-    first = game.memory_since()
-    assert first is not None
-    game.moved("p-b")
-    assert game.memory_since() is None
-    game.moved("p-b")
-    assert game.memory_since() == first
-
-
-def test_memory_stays_capped_beyond_the_most_players_it_counts():
-    game = Game(memory_moves=2)
-    for i in range(2 * MEMORY_PLAYERS):
-        game.moved(f"p-{i % (MEMORY_PLAYERS + 1)}")
-    assert game.memory_since() is not None
-
-
-@pytest.mark.asyncio
-async def test_an_idle_player_stops_widening_memory():
-    game = Game(memory_moves=1, day_seconds=0.01)
-    game.moved("p-a")
-    game.moved("p-b")
-    await asyncio.sleep(0.02)
-    game.moved("p-a")
-    assert game.memory_since() is not None
 
 
 def test_the_clock_runs_through_the_day_and_into_the_next():
@@ -262,16 +223,13 @@ async def test_no_routine_walks_while_the_only_run_is_away():
 def test_game_state_round_trips_with_the_phase_part_elapsed(monkeypatch):
     now = [1000.0]
     monkeypatch.setattr(game_mod.time, "time", lambda: now[0])
-    game = Game(memory_moves=2, day_seconds=400.0)
+    game = Game(day_seconds=400.0)
     game.tick()
     game.tick()
-    game.moved("p-1")
     now[0] += 25.0
-    game.moved("p-2")
     state = json.loads(json.dumps(game.to_state()))
     now[0] = 5000.0
-    fresh = Game(memory_moves=2, day_seconds=400.0)
+    fresh = Game(day_seconds=400.0)
     fresh.restore(state)
     assert (fresh.day, fresh.phase) == (game.day, game.phase)
     assert fresh.phase_started == pytest.approx(5000.0 - 25.0)
-    assert list(fresh._moves) == [(1000.0, "p-1"), (1025.0, "p-2")]

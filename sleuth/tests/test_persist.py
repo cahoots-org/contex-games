@@ -52,7 +52,7 @@ def build(contex=None):
     contex = contex or StubContex()
     town, lineage, ids, facts = Town(), Lineage(), Ids(), Facts()
     feed = Feed(lineage, town, out=None)
-    game, usage, baselines = Game(config.memory_moves, config.day_seconds), Usage(config), StubBaselines(0.5)
+    game, usage, baselines = Game(config.day_seconds), Usage(config), StubBaselines(0.5)
     engine = Engine(
         config, town, contex, None, None, lineage, ids, feed, mind_factory=FakeMind, game=game, baselines=baselines,
         facts=facts,

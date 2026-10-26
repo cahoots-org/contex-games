@@ -13,8 +13,6 @@ class Config:
     day_seconds: float = 180.0
     # How long a subscription keeps talk for a villager to react to.
     memory_days: float = 2.0
-    # How many of a player's moves the village remembers a line for.
-    memory_moves: int = 20
     cooldown_seconds: float = 30.0
     renew_seconds: float = 1200.0
     population: int = 50

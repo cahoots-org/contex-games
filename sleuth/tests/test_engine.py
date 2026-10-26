@@ -22,7 +22,7 @@ from sleuth.mind import Mind, mind_project
 from sleuth.models import Utterance
 from sleuth.players import Players
 from sleuth.tests.helpers import (
-    PID, FakeMind, StubContex, make, stub_player, wait_for,
+    FakeMind, StubContex, make, stub_player, wait_for,
 )
 from sleuth.town import Town
 
@@ -495,19 +495,7 @@ async def test_recall_heard_skips_weak_matches_best_first():
     assert [m.data_key for m in found] == ["utt:u-2", "utt:u-3"]
     [(project, query, kwargs)] = contex.queries
     assert (project, query) == (mind_project(engine.config.session, "v1"), "psst")
-    assert kwargs == {"top_k": 3, "since": None, "threshold": 0}
-    await engine.stop()
-
-
-@pytest.mark.asyncio
-async def test_recall_heard_looks_back_over_the_remembered_moves():
-    contex = StubContex()
-    game = Game(memory_moves=2)
-    game.moved(PID)
-    game.moved(PID)
-    engine, _, _ = await setup("v1", contex=contex, game=game)
-    await engine.recall_heard("v1", "psst")
-    assert contex.queries[0][2]["since"] == game.memory_since() is not None
+    assert kwargs == {"top_k": 3, "threshold": 0}
     await engine.stop()
 
 

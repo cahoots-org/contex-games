@@ -31,7 +31,6 @@ Room talk that grows from a case's news or a witness's memory is posted to the a
 | `contex_publish` | every line a villager hears (one publish per listener), group records |
 | `contex_create_subscription` | one per need (each villager has 3 to 5) on the villager's mind project, at that need's threshold |
 | `max_age_seconds` | noticing: a subscription only carries talk from the last `memory_days`, for a villager to react to |
-| `since` | forgetting: a villager recalls only lines heard since your last `memory_moves` moves |
 | `subscriptions/listen` | one stream per villager over all their subscriptions; a push is what wakes them |
 | reading the subscription resource | the villager's memories each turn, and lease renewal for quiet villagers |
 | `contex_query` | asking a villager what they heard; calibrating needs |

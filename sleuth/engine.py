@@ -165,10 +165,7 @@ class Engine:
     async def recall_heard(self, vid: str, text: str) -> list[Match]:
         """Lines the villager heard earlier that the words match, best first."""
         try:
-            hits = await self.contex.query(
-                mind_project(self.config.session, vid), text,
-                top_k=3, since=self.game and self.game.memory_since(), threshold=0,
-            )
+            hits = await self.contex.query(mind_project(self.config.session, vid), text, top_k=3, threshold=0)
         except Exception as e:
             log.warning("searching what %s heard failed: %s", vid, type(e).__name__)
             return []

@@ -48,7 +48,7 @@ async def play() -> None:
             print(f"A new village, saved as {seed}. Set SLEUTH_SEED_PATH={seed} to play it again.")
     town, lineage, ids = Town(), Lineage(), Ids()
     feed = Feed(lineage, town, out=None)
-    game = Game(config.memory_moves, config.day_seconds)
+    game = Game(config.day_seconds)
     async with ContexClient(config.contex_url) as contex:
         jev = CountingJev(typesafe_sdk.AsyncTypeSafeClient(), usage)
         baselines = Baselines(contex, config)
