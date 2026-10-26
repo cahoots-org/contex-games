@@ -953,11 +953,10 @@ function dayFraction() {
 
 function drawClock() {
   if (!clockAt) return;
-  // The game's day starts at 6am; the day on the clock turns at midnight.
-  const since = Math.floor((360 + dayFraction() * 1440) / 10) * 10;
-  const minutes = since % 1440;
+  // The game's day runs from 6am to 6am, as the town's "today" and "yesterday" do, so the day turns at 6am.
+  const minutes = Math.floor((360 + dayFraction() * 1440) / 10) * 10 % 1440;
   const hour = Math.floor(minutes / 60);
-  $("clock").textContent = `Day ${clockAt.day + Math.floor(since / 1440)}, ${hour % 12 || 12}:${String(minutes % 60).padStart(2, "0")} ${hour < 12 ? "am" : "pm"}`;
+  $("clock").textContent = `Day ${clockAt.day}, ${hour % 12 || 12}:${String(minutes % 60).padStart(2, "0")} ${hour < 12 ? "am" : "pm"}`;
   drawWheel();
 }
 
