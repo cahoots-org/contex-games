@@ -162,7 +162,7 @@ def test_witness_sees_two_culprit_traits_and_never_a_name():
     assert len(m.traits) == 2 and m.traits.items() <= culprit.traits.items() and culprit.name not in m.text
     assert m.id == "r-1" and m.text.startswith(f"Around {m.clock}, on Elm Street, someone ")
     assert m.text.endswith(" walked off with something.")
-    assert any(clock_at(minute) == m.clock for minute in range(1402, 1443))
+    assert any(clock_at(minute) == m.clock for minute in range(1402, 1443)) and m.day == crime.day
 
 
 def test_clip_only_at_camera_places():
@@ -173,6 +173,7 @@ def test_clip_only_at_camera_places():
     assert clip.kind == "clip" and clip.traits.keys() == set(CLIP_TRAITS) and clip.holder == ""
     assert clip.traits.items() <= town.get("v5").traits.items()
     assert clip.text.startswith("11:42pm, bar camera: a") and " figure in a " in clip.text and clip.clock == "11:42pm"
+    assert clip.day == crime.day
 
 
 def test_logs_list_whoever_was_at_a_log_place():
@@ -181,6 +182,7 @@ def test_logs_list_whoever_was_at_a_log_place():
     assert len(records) == 1
     r = records[0]
     assert r.who == "v1" and r.kind == "log" and r.place == "gym" and r.text.startswith("Gym check-in: Dana Reyes, ")
+    assert r.day == crime.day
 
 
 def test_suspects_narrow_by_traits_and_log_alibis():
@@ -224,7 +226,7 @@ def test_make_solvable_returns_none_when_traits_cannot_single_out_the_culprit():
 def test_record_json_hides_soundness_and_traits():
     town, routine, crime = make_case()
     m = witness_memories(crime, town, routine, Random(3), Ids())[0]
-    assert record_json(m, town) == {"id": m.id, "kind": "memory", "place": "elm street", "clock": m.clock,
+    assert record_json(m, town) == {"id": m.id, "kind": "memory", "place": "elm street", "day": 1, "clock": m.clock,
                                     "text": m.text, "from": town.get(m.holder).name}
     log = Record("r-9", "case-1", "log", "gym", "11:00pm", "Gym check-in: Hal Burke, 11:00pm", who="v5")
     assert record_json(log, town)["from"] == ""

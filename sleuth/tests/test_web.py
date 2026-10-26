@@ -219,8 +219,8 @@ def test_state_notebook_hides_soundness(game):
     old = Record("r-2", "case-0", "statement", "gym", "9:00am", "from an old case", "v2")
     game.player.notebook = {r.id: r for r in (lie, old)}
     body = game.client.get("/api/state").json()
-    assert body["notebook"] == [{"id": "r-1", "kind": "statement", "place": "gym", "clock": "9:00am",
-                                 "text": lie.text, "from": "Bert Cole"}]
+    assert body["notebook"] == [{"id": "r-1", "kind": "statement", "place": "gym", "day": 0,
+                                 "clock": "9:00am", "text": lie.text, "from": "Bert Cole"}]
     assert "sound" not in json.dumps(body["notebook"])
 
 

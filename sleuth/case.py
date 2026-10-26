@@ -53,6 +53,7 @@ class Record:
     who: str | None = None  # a log's named resident; whom a household word is about
     sound: bool = True  # traces to the truth
     utterance: str | None = None  # memory: its delivered utterance id; statement: source record id
+    day: int = 0  # game day
 
 
 def clock_at(minute: int) -> str:
@@ -94,7 +95,7 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
 
 def record_json(r: Record, town: Town) -> dict:
     """What the player sees of a record."""
-    return {"id": r.id, "kind": r.kind, "place": r.place, "clock": r.clock, "text": r.text,
+    return {"id": r.id, "kind": r.kind, "place": r.place, "day": r.day, "clock": r.clock, "text": r.text,
             "from": town.get(r.holder).name if r.holder else ""}
 
 
@@ -102,7 +103,7 @@ def _memory(crime: Crime, witness: str, seen: dict[str, str], rng: Random, ids: 
     lo, hi = PHASE_MINUTES[crime.phase]
     clock = clock_at(min(max(crime.minute + rng.randint(-WITNESS_DRIFT, WITNESS_DRIFT), lo), hi - 1))
     text = f"Around {clock}, {at(crime.place)}, someone {describe(seen)} {WITNESS_ACTION[crime.template]}."
-    return Record(ids.next("r"), crime.id, "memory", crime.place, clock, text, witness, seen)
+    return Record(ids.next("r"), crime.id, "memory", crime.place, clock, text, witness, seen, day=crime.day)
 
 
 def _bystanders(crime: Crime, town: Town, routine) -> list[str]:
@@ -129,7 +130,7 @@ def camera_clip(crime: Crime, town: Town, ids: Ids, traits: tuple[str, ...] = CL
     seen = {c: culprit[c] for c in traits}
     clock = clock_at(crime.minute)
     text = f"{clock}, {place_name(crime.place)} camera: {figure(seen)} {WITNESS_ACTION[crime.template]}."
-    return Record(ids.next("r"), crime.id, "clip", crime.place, clock, text, traits=seen)
+    return Record(ids.next("r"), crime.id, "clip", crime.place, clock, text, traits=seen, day=crime.day)
 
 
 def logs(crime: Crime, phase_log: dict[str, list[str]], town: Town, rng: Random, ids: Ids) -> list[Record]:
@@ -140,7 +141,8 @@ def logs(crime: Crime, phase_log: dict[str, list[str]], town: Town, rng: Random,
             if place in LOG_PLACES:
                 clock = clock_at(rng.randrange(*PHASE_MINUTES[crime.phase]))
                 text = f"{LOG_PLACES[place]}: {town.get(vid).name}, {clock}"
-                records.append(Record(ids.next("r"), crime.id, "log", place, clock, text, who=vid))
+                records.append(Record(ids.next("r"), crime.id, "log", place, clock, text, who=vid,
+                                      day=crime.day))
     return records
 
 

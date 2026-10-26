@@ -141,6 +141,7 @@ main {
 .fresh { animation: arrive 280ms ease-out; }
 @keyframes arrive { from { opacity: 0; transform: translateY(.4rem); } to { opacity: 1; transform: none; } }
 .brush { font: italic 1rem/1.4 var(--serif); color: var(--ink); }
+#notebook:not(.days) .note-day { display: none; }
 .where, .clock { margin: 0; font-size: .85rem; color: var(--muted); }
 .clock { color: var(--ink); font-variant-numeric: tabular-nums; }
 .sky { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; }
@@ -592,17 +593,22 @@ function clockMinutes(clock) {
   return (minutes + 1440 - 360) % 1440;
 }
 
-// The evidence the player has gathered, once each and in clock order, as "kind · from · clock · text", each with a
-// box to cite it.
+// The evidence the player has gathered, once each and in day and clock order, as "kind · from · clock · text", each
+// with a box to cite it. The day shows once the entries span more than one.
 function note(records) {
   const book = $("notebook");
   for (const r of records) {
     if (book.querySelector(`[data-id="${CSS.escape(r.id)}"]`)) continue;
-    const at = clockMinutes(r.clock);
-    const item = el("li", { dataset: { id: r.id, at } }, el("label", {},
-      el("input", { type: "checkbox", value: r.id }), " ", [r.kind, r.from, r.clock, r.text].filter(Boolean).join(" · ")));
+    const minutes = clockMinutes(r.clock);
+    const at = r.day * 1440 + minutes;
+    // The page's clock turns the day at midnight, 18 hours into the game's day.
+    const day = r.day + (minutes >= 1080 ? 1 : 0);
+    const item = el("li", { dataset: { id: r.id, at, day } }, el("label", {},
+      el("input", { type: "checkbox", value: r.id }), " ", [r.kind, r.from].filter(Boolean).join(" · "), " · ",
+      el("span", { className: "note-day", textContent: `Day ${day}, ` }), [r.clock, r.text].filter(Boolean).join(" · ")));
     book.insertBefore(item, [...book.children].find((li) => Number(li.dataset.at) > at) || null);
   }
+  book.classList.toggle("days", new Set([...book.children].map((li) => li.dataset.day)).size > 1);
 }
 
 function render(e, fresh) {

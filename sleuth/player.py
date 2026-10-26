@@ -267,7 +267,7 @@ class Player:
 
         def statement(text: str, sound: bool, source: str | None = None, who: str | None = None) -> Record:
             return Record("", crime.id, "statement", self.place, self._clock(), text, vid, who=who, sound=sound,
-                          utterance=source)
+                          utterance=source, day=self.game.day if self.game else 0)
 
         places, sound = claim(file, vid, self.engine.routine)
         if places:

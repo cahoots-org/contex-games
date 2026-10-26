@@ -267,6 +267,15 @@ async def test_one_interview_per_resident_per_part_of_the_day():
     assert await player.interview("v2") is None
 
 
+@pytest.mark.asyncio
+async def test_statements_carry_the_game_day():
+    player, *_ = interviewing()
+    player.game = Game()
+    player.game.day = 3
+    await player.interview("v2")
+    assert {r.day for r in notebook(player)} == {3}
+
+
 def notebook(player, kind="statement"):
     return [r for r in player.notebook.values() if r.kind == kind]
 
