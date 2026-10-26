@@ -58,14 +58,16 @@ async def test_say_mentions_a_grudge_only_when_there_is_one():
     kind_say, sour_say = (c["system"] for c in client.messages.calls)
     assert "grudge" not in kind_say.lower()
     assert "Your grudge: owes me flour." in sour_say
-    assert all("relish and curiosity, not malice" in s for s in (kind_say, sour_say))
+    assert all("neighbours chatting" in s for s in (kind_say, sour_say))
 
 
 @pytest.mark.asyncio
-async def test_say_tells_it_as_a_juicy_secret_in_the_conspiratorial_manner():
-    client = StubClient("Between us, he did it.")
-    await Writer(client, "haiku-test").say(villager(), Decision("speak", None, None, "conspiratorial"), "Bob stole a loaf", "all")
-    assert "Manner: Share it as a juicy secret, in a hushed, confiding way, using words only." in client.messages.calls[0]["messages"][0]["content"]
+async def test_say_is_plain_short_chat_not_whispered_gossip():
+    client = StubClient("Bob took a loaf, I hear.")
+    await Writer(client, "haiku-test").say(villager(), Decision("speak", None, None, "worried"), "Bob stole a loaf", "all")
+    system = client.messages.calls[0]["system"]
+    assert "plainly, like neighbours chatting" in system and "under 20 words" in system
+    assert not any(w in system.lower() for w in ("gossip", "secret", "whisper", "psst", "relish"))
 
 
 def test_first_line_drops_stage_directions():

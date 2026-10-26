@@ -194,10 +194,11 @@ async def test_odds_and_drawn_action_are_logged_at_debug(caplog):
 
 @pytest.mark.asyncio
 async def test_warm_styles_are_offered_and_kept():
-    jev = StubJev({"action": SPEAK, "style": "conspiratorial"})
+    jev = StubJev({"action": SPEAK, "style": "worried"})
     d = await decide(jev, view())
-    assert {"delighted", "worried", "conspiratorial"} <= set(jev.questions["style"].criteria)
-    assert d.style == "conspiratorial"
+    assert {"delighted", "worried"} <= set(jev.questions["style"].criteria)
+    assert "conspiratorial" not in jev.questions["style"].criteria
+    assert d.style == "worried"
 
 
 @pytest.mark.asyncio

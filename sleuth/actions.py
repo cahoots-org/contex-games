@@ -39,7 +39,6 @@ STYLES = {
     "mock": "Retell it with scorn or ridicule.",
     "delighted": "Tell it with relish and delight.",
     "worried": "Tell it anxiously, worried for those involved.",
-    "conspiratorial": "Share it as a juicy secret, in a hushed, confiding way, using words only.",
 }
 
 TARGET_KIND = {

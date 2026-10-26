@@ -68,8 +68,7 @@ class Writer:
             f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             + _grudge(villager, "Bring it up only when it fits. ")
-            + "Reply with one or two short sentences, under 30 words, in your own voice, the way people gossip. "
-            "You gossip with relish and curiosity, not malice, unless your manner says otherwise. "
+            + "Reply with one short sentence, under 20 words, in your own voice, said plainly, like neighbours chatting. "
             "Keep to what you heard, changed only as your manner says. "
             "If what you heard is about you, answer as yourself. "
             "No stage directions, no quotation marks around the reply, no preamble."
