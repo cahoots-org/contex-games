@@ -26,7 +26,7 @@ async def word(answer, speaker, about, phase="night"):
     cases, _, town = make_cases()
     file = culprit_file(cases, phase=phase)
     jev = StubJev({"answer": answer})
-    return await household_word(jev, file, town.get(speaker), town.get(about), town), jev
+    return await household_word(jev, file, town.get(speaker), town.get(about)), jev
 
 
 @pytest.mark.asyncio
@@ -53,3 +53,9 @@ async def test_household_honest_answer_is_sound():
 async def test_no_household_word_by_day_or_for_people_living_alone():
     assert (await word("cover", "v4", "v3", phase="evening"))[0] is None
     assert (await word("cover", "v5", "v3"))[0] is None
+
+
+@pytest.mark.asyncio
+async def test_the_culprit_gives_no_household_word_their_claim_is_their_account():
+    result, jev = await word("cover", "v3", "v4")
+    assert result is None and jev.state is None

@@ -584,3 +584,19 @@ async def test_press_wakes_the_culprit_once_a_phase(turns):
     assert [d["text"] for d in heard] == [line, line]
     assert not minds["v2"].heard and file.pressed == "1:afternoon"
     await engine.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_failed_press_is_tried_again_the_same_phase(turns):
+    engine, minds, _ = await setup("v1", game=Game())
+    engine.cases = Cases(Config(), engine.town, None, random.Random(1), engine.ids)
+    file = engine.cases.files["case-1"] = case_file("open")
+
+    async def down(*_):
+        raise RuntimeError("contex down")
+
+    minds["v1"].hear = down
+    with pytest.raises(RuntimeError):
+        await engine.press(file)
+    assert file.pressed == ""
+    await engine.stop()

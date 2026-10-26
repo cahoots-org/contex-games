@@ -305,11 +305,11 @@ class Engine:
         now = f"{self.game.day}:{self.game.phase}"
         if file.pressed == now:
             return
-        file.pressed = now
         crime = file.crime
         u = Utterance(self.ids.next("u"), "app", APP, crime.place, f"A podcaster is asking around about this: {crime.text}",
                       None, "posted")
         await self.deliver(u, [crime.culprit], addressed=True)
+        file.pressed = now
 
     def share_chance(self, vid: str, source: Match | None) -> float:
         """How likely a villager who walks off is to share source where they arrive: their nature times its pull."""
