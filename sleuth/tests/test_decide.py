@@ -41,6 +41,13 @@ async def test_alone_in_place_excludes_social_actions_and_target_question():
 
 
 @pytest.mark.asyncio
+async def test_no_walking_off_at_night():
+    jev = StubJev({"action": IGNORE})
+    await decide(jev, view(night=True))
+    assert MOVE not in jev.questions["action"].criteria and "place_target" not in jev.questions
+
+
+@pytest.mark.asyncio
 async def test_single_new_item_skips_source_question_and_is_the_source():
     jev = StubJev({"action": RETELL, "villager_target": "v2", "style": "mock"})
     d = await decide(jev, view())

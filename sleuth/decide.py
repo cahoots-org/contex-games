@@ -46,6 +46,8 @@ class TurnView:
     ask_gossip: bool = False
     # The news of the case the villager is the culprit of, while it is set up or open.
     case: str | None = None
+    # At night residents stay home, so they can't walk off.
+    night: bool = False
 
 
 @dataclass(frozen=True)
@@ -123,10 +125,11 @@ def _questions(view: TurnView) -> dict[str, Choice | Score]:
             # Villagers beyond the first 255 in `present` order are dropped.
             criteria={p.id: _person(view.villager, p) for p in view.present[:MAX_OPTIONS]},
         )
-    qs["place_target"] = Choice(
-        instructions="Which place does this resident walk to?",
-        criteria={p: None for p in PLACES if p != view.place},
-    )
+    if not view.night:
+        qs["place_target"] = Choice(
+            instructions="Which place does this resident walk to?",
+            criteria={p: None for p in PLACES if p != view.place},
+        )
     if any(a in STYLED for a in available_actions(view)):
         qs["style"] = Choice(
             instructions="In what manner would this resident say it, given their personality and what they heard?",

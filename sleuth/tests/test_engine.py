@@ -21,6 +21,7 @@ from sleuth.lineage import Ids, Lineage
 from sleuth.mind import Mind, mind_project
 from sleuth.models import Utterance
 from sleuth.players import Players
+from sleuth.tests.test_case import StubRoutine
 from sleuth.tests.helpers import (
     FakeMind, StubContex, make, stub_player, wait_for,
 )
@@ -556,6 +557,34 @@ async def test_culprit_is_not_walked_during_setup(turns):
     assert not engine._free_to_walk("v1") and engine._free_to_walk("v2")
     engine.cases.files["case-1"].state = "open"
     assert engine._free_to_walk("v1")
+    await engine.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_resident_mid_turn_at_the_night_round_goes_home_after_it(turns, monkeypatch):
+    game = Game()
+    game.phase = "night"
+    engine, minds, _ = await setup("v1", game=game)
+    engine.routine = StubRoutine({"v1": {"night": "elm street"}})
+    release, moves = asyncio.Event(), []
+
+    async def slow_decide(jev, view):
+        turns.views.append(view)
+        await release.wait()
+        return Decision(IGNORE, None, None, None)
+
+    async def act(decision, villager, **kw):
+        if decision.target:
+            moves.append((villager.id, decision.target))
+
+    monkeypatch.setattr(engine_mod, "decide", slow_decide)
+    monkeypatch.setattr(engine_mod, "act", act)
+    push(minds["v1"])
+    await wait_for(lambda: turns.views)
+    await engine._walk("night", 0)
+    assert moves == [] and turns.views[0].night
+    release.set()
+    await wait_for(lambda: moves == [("v1", "elm street")])
     await engine.stop()
 
 

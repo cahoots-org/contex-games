@@ -63,5 +63,7 @@ def available_actions(view) -> list[str]:
             continue
         if a in (ALIBI, BLAME) and not view.case:
             continue
+        if a == MOVE and view.night:
+            continue
         out.append(a)
     return out

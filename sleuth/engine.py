@@ -233,6 +233,7 @@ class Engine:
             if vid not in self.town:
                 await self.remove_villager(vid)
                 return
+            await self._catch_up(vid)
 
     async def _turn(self, mind: Mind) -> bool:
         """Poll the mind, add addressed messages, and if anything fresh is new, decide and act.
@@ -270,6 +271,7 @@ class Engine:
             recent=stale + [m for m in mind.matches if m.data_key not in keys | stale_keys],
             ask_gossip=v.id not in self._gossip,
             case=own_case.crime.text if own_case else None,
+            night=self.game is not None and self.game.phase == "night",
         )
         async with self._turns:
             decision = await decide(self.jev, view)
@@ -354,6 +356,14 @@ class Engine:
                 await asyncio.gather(*(self._stroll(vid, self.routine.place(vid, phase)) for vid in free))
         except Exception:
             log.exception("routine round failed")
+
+    async def _catch_up(self, vid: str) -> None:
+        """Send a villager the round skipped mid-turn to their routine place."""
+        if self.routine is None or self.game is None:
+            return
+        place = self.routine.place(vid, self.game.phase)
+        if place not in (None, self.town.place_of(vid)) and self._free_to_walk(vid):
+            await self._stroll(vid, place)
 
     def _free_to_walk(self, vid: str) -> bool:
         """Whether someone is playing and the villager is in town, free of a turn, a move of their own, or a crime
