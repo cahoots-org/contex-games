@@ -1,5 +1,6 @@
 import asyncio
 import json
+import random
 import re
 import threading
 import time
@@ -12,6 +13,8 @@ import pytest
 from fastapi import FastAPI, WebSocketDisconnect
 from fastapi.testclient import TestClient
 
+from sleuth.case import Crime
+from sleuth.cases import CaseFile, Cases
 from sleuth.config import Config
 from sleuth.contex_client import Match
 from sleuth.feed import REPLAY_EVENTS, Feed
@@ -85,16 +88,17 @@ def game(monkeypatch):
     usage = Usage(Config())
     rumors = Rumors(helpers.StubContex(), helpers.StubBaselines(0.5), config)
     feed.sinks.append(rumors.on_event)
+    cases = Cases(config, town, None, random.Random(1), Ids())
     app = create_app(
         players=players, join=join, town=town, feed=feed, judge=judge, usage=usage, port=PORT,
-        suspicion=suspicion, game=game, rumors=rumors, hints=engine.hints,
+        suspicion=suspicion, game=game, rumors=rumors, hints=engine.hints, cases=cases,
     )
     with TestClient(app, base_url=BASE) as client:
         client.get("/")
         player = players.live(client.cookies[web.COOKIE])
         yield SimpleNamespace(
             client=client, town=town, feed=feed, app=app, usage=usage, suspicion=suspicion, player=player, config=config,
-            rumors=rumors, players=players, join=join, judge=judge, engine=engine,
+            rumors=rumors, players=players, join=join, judge=judge, engine=engine, cases=cases,
         )
     for p in players:
         p.close()
@@ -1173,3 +1177,19 @@ def test_a_phone_opens_a_conversation_as_a_sheet_over_the_content(game):
     assert ".dock-face { display: flex; align-items: center;" in phone
     calm = bracketed(html, html.index("{", html.index("@media (prefers-reduced-motion: reduce)")))
     assert ".chat { animation: none; }" in calm
+
+
+def test_state_shows_the_case_without_its_culprit(game):
+    assert game.client.get("/api/state").json()["case"] is None
+    crime = Crime("case-1", "steal", "bike", "v2", "v1", "library", 1, "night", 1422, "rival",
+                  "Someone stole Marta Hale's bike at the library last night.")
+    game.cases.files["case-1"] = CaseFile(crime, {}, "open")
+    body = game.client.get("/api/state").json()
+    assert body["case"] == {"id": "case-1", "text": crime.text, "place": "library", "phase": "night", "day": 1,
+                            "state": "open", "private": False}
+    assert "culprit" not in json.dumps(body["case"]) and "Bert Cole" not in json.dumps(body["case"])
+
+
+def test_page_has_the_case_panel(game):
+    page = game.client.get("/").text
+    assert '<section class="case" id="case" hidden>' in page and "No open case" in page

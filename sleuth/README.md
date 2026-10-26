@@ -8,6 +8,22 @@ It started as a copy of Whispers and still plays like it; this README describes 
 
 The public places are the cafe, gym, school, bar, dog park, hardware store, grocery, town hall and library. Households live on elm, oak or maple street, and each street is one place. Jev picks each resident's work place and evening place once; the day runs work, work, leisure, then home on their street at night. The choices are kept beside the seed and asked again if a resident's name or home changes.
 
+## Cases
+
+While someone is playing and no shared case is open, a petty crime is staged at the start of a part of the day, `crime_every_days` after the last shared case closed. The culprit is drawn from a household other than the victim's, someone the routine expects elsewhere, and is sent to the crime place and kept there for the rest of that part of the day. Witnesses the routine expects at the scene are told what they saw.
+
+At the next tick the case is checked. Its evidence must narrow to the culprit alone; a witness is added if that helps, and a case no evidence can solve is dropped without a word. A solvable case opens: the neighborhood app posts the news to the victim, their household and whoever is at the crime place, and the case shows at the top of the Hear panel. An open case goes cold after `case_days`.
+
+Evidence is held by the game as records with ids like `r-12`, and the models never invent any of it:
+
+| Kind | What it is |
+|---|---|
+| memory | a witness recalls a few of the culprit's traits, never a name, around the time of the crime |
+| clip | a camera at the grocery, bar, town hall or elm street catches the culprit's height and coat at the exact minute |
+| log | a gym check-in, bar tab, grocery receipt or library checkout puts a named resident somewhere that part of the day |
+
+Room talk that grows from a case's news or a witness's memory is posted to the app and shows in the feed with an App tag.
+
 ## How it uses Contex
 
 | Feature | Where |
@@ -388,6 +404,8 @@ Every field of `Config` can be set with an environment variable.
 | `SLEUTH_DATA_DIR` | working directory | where villages and need baselines are kept; `/data` when hosted |
 | `SLEUTH_SAVE_EVERY_SECONDS` | `60` | how often the running game is saved |
 | `SLEUTH_POPULATION` | `50` | village size; newcomers arrive to keep it there |
+| `SLEUTH_CRIME_EVERY_DAYS` | `1` | game days from one shared case's close to the next crime |
+| `SLEUTH_CASE_DAYS` | `3` | game days before an open case goes cold |
 | `SLEUTH_DAY_SECONDS` | `120` | length of a game day |
 | `SLEUTH_MEMORY_DAYS` | `2` | how many days a villager remembers what they heard |
 | `SLEUTH_MATCH_MARGIN` | `0.015` | how far above a need's score against ordinary village talk a whisper must score to match that need |

@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from starlette.datastructures import Headers
 from starlette.websockets import WebSocketClose
 
+from sleuth.cases import Cases, case_json
 from sleuth.feed import RESTING, Event, Feed
 from sleuth.game import Game
 from sleuth.goals import Goal, claim, goal_counts, goal_targets
@@ -181,7 +182,7 @@ async def _payload(request: Request, bad: str, too_long: str) -> dict | JSONResp
 
 def create_app(
     *, players: Players, join: Callable[[str], Player], town: Town, feed: Feed, judge, usage: Usage, port: int,
-    suspicion: Suspicion, game: Game, rumors: Rumors, hints: Hints, host: str = "127.0.0.1",
+    suspicion: Suspicion, game: Game, rumors: Rumors, hints: Hints, host: str = "127.0.0.1", cases: Cases | None = None,
 ) -> FastAPI:
     clients: dict[asyncio.Queue, str] = {}
     boot = uuid.uuid4().hex
@@ -306,6 +307,7 @@ def create_app(
             "game": game_json(player),
             "trophies": [t.to_json() for t in players.cases.get(player.owner, [])],
             "resting": usage.resting(),
+            "case": case_json(case) if cases and (case := cases.for_player(player.id)) else None,
         }
 
     @app.get("/api/villagers/{vid}")

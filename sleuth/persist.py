@@ -12,9 +12,9 @@ from sleuth.town_gen import WORLDS_DIR
 
 log = logging.getLogger(__name__)
 
-STATE_VERSION = 4
+STATE_VERSION = 5
 # Every id the game's Ids counters hand out, as prefix and number.
-ID = re.compile(r"\b(world|goal|u|w)-(\d+)\b")
+ID = re.compile(r"\b(world|goal|u|w|r|case)-(\d+)\b")
 SCENE_ID = re.compile(r"s-(\d+)")
 # How far a restore skips each id that also keys Contex data past the last one saved, so ids handed out after a save
 # that a crash lost are not handed out again.
@@ -32,7 +32,7 @@ def components(engine) -> dict:
         "town": engine.town, "ids": engine.ids, "lineage": engine.lineage, "facts": engine.facts, "feed": engine.feed,
         "game": engine.game, "usage": engine.players.usage, "suspicion": engine.suspicion, "rapport": engine.rapport,
         "engine": engine, "rumors": engine.rumors, "players": engine.players,
-        "judge": engine.judge, "hints": engine.hints,
+        "judge": engine.judge, "hints": engine.hints, "cases": engine.cases,
     }
 
 

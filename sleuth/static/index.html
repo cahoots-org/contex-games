@@ -381,6 +381,10 @@ button.goal-text:focus-visible { outline: 2px solid var(--accent); outline-offse
 .bar i { display: block; height: 100%; background: var(--accent); }
 .met .bar { color: var(--accent); font-weight: 700; }
 .heat { margin: 0; font: italic 1rem/1.3 var(--rumor); }
+.case { flex: none; background: var(--panel); border-bottom: 1px solid var(--rail); padding: .6rem 1.25rem; }
+.case[hidden] { display: none; }
+.case p { margin: 0; max-width: 46rem; }
+.case p.none { color: var(--muted); font-size: .875rem; }
 .trophies {
   flex: none; max-height: 40%; overflow-y: auto; background: var(--panel); border-bottom: 1px solid var(--rail);
   padding: .75rem 1.25rem 1rem;
@@ -689,6 +693,7 @@ button.goal-text:focus-visible { outline: 2px solid var(--accent); outline-offse
   </aside>
 
   <main id="hear-panel">
+    <section class="case" id="case" hidden><p id="case-text" class="none">No open case</p></section>
     <div class="stage">
       <section class="trophies" id="trophies" aria-labelledby="trophies-title" hidden>
         <h2 id="trophies-title" tabindex="-1">Trophy case</h2>
@@ -1484,8 +1489,25 @@ function progressed(e) {
   return node;
 }
 
+// The open case's news, or that there is none.
+function setCase(c) {
+  const text = $("case-text");
+  text.textContent = c && c.state === "open" ? c.text : "No open case";
+  text.className = c && c.state === "open" ? "" : "none";
+  $("case").dataset.case = c && c.state === "open" ? c.id : "";
+  $("case").hidden = false;
+}
+
 function render(e, fresh) {
   switch (e.kind) {
+    case "case":
+      setCase(e.case);
+      return null;
+    case "case_closed":
+      if ($("case").dataset.case === e.case_id) setCase(null);
+      return line("quiet", null, e.text);
+    case "post":
+      return line("speech", null, el("span", { className: "tag", textContent: "App" }), " ", `${e.speaker}: “${e.text}”`);
     case "whisper": {
       lastTarget = e.target_id;
       saidTo.set(e.target_id, e.uid);
@@ -2802,6 +2824,7 @@ async function loadState() {
   setVillagers(state.villagers);
   setHeat(state.heat_line, state.heat);
   setResting(state.resting);
+  setCase(state.case);
 }
 
 function receive(e) {

@@ -1,0 +1,133 @@
+"""The town's cases as they happen: staged, checked for solvability, opened in the neighborhood app, gone cold."""
+
+import math
+from dataclasses import asdict, dataclass, field
+from random import Random
+
+from sleuth.case import Crime, Record, camera_clip, logs, make_solvable, stage_crime, witness_memories
+from sleuth.config import Config
+from sleuth.game import PHASES
+from sleuth.lineage import Ids
+from sleuth.models import Utterance
+from sleuth.town import Town
+
+APP = "The neighborhood app"
+COLD = "The case went cold."
+
+
+@dataclass
+class CaseFile:
+    crime: Crime
+    records: dict[str, Record]
+    state: str  # "setup" | "open" | "closed"
+    opened: float = 0.0  # game time (day + phase index / 4) the news broke
+    roots: dict[str, str] = field(default_factory=dict)  # utterance id → "news" | "memory" | "cover" | "episode"
+    alibi: list[str] | None = None
+    published: list[str] = field(default_factory=list)
+    solved_by: str | None = None
+    pressed: str = ""  # "day:phase" last pressed
+
+
+def case_json(case: CaseFile) -> dict:
+    """What a player sees of a case."""
+    c = case.crime
+    return {"id": c.id, "text": c.text, "place": c.place, "phase": c.phase, "day": c.day, "state": case.state,
+            "private": c.owner is not None}
+
+
+class Cases:
+    def __init__(self, config: Config, town: Town, routine, rng: Random, ids: Ids):
+        self.config = config
+        self.town = town
+        self.routine = routine
+        self.rng = rng
+        self.ids = ids
+        self.files: dict[str, CaseFile] = {}
+        self.last_closed = -math.inf
+
+    def to_state(self) -> dict:
+        """Every case file and when the last shared case closed, as plain JSON."""
+        return {"files": [asdict(f) for f in self.files.values()], "last_closed": self.last_closed}
+
+    def restore(self, state: dict) -> None:
+        """Replace the case files with a saved state."""
+        self.files = {}
+        for f in state["files"]:
+            records = {k: Record(**r) for k, r in f["records"].items()}
+            self.files[f["crime"]["id"]] = CaseFile(**{**f, "crime": Crime(**f["crime"]), "records": records})
+        self.last_closed = state["last_closed"]
+
+    def shared(self) -> CaseFile | None:
+        return next((f for f in self.files.values() if f.state != "closed" and f.crime.owner is None), None)
+
+    def for_player(self, player_id: str) -> CaseFile | None:
+        """The player's private open case, otherwise the shared open case."""
+        open_ = [f for f in self.files.values() if f.state == "open"]
+        return (next((f for f in open_ if f.crime.owner == player_id), None)
+                or next((f for f in open_ if f.crime.owner is None), None))
+
+    def busy(self) -> set[str]:
+        """Culprits of cases still being set up, who stay at the crime place."""
+        return {f.crime.culprit for f in self.files.values() if f.state == "setup"}
+
+    def culprit_case(self, vid: str) -> CaseFile | None:
+        return next((f for f in self.files.values() if f.state != "closed" and f.crime.culprit == vid), None)
+
+    def root_kind(self, uid: str) -> tuple[CaseFile, str] | None:
+        """The case a lineage root belongs to, and what kind of root it is."""
+        return next(((f, f.roots[uid]) for f in self.files.values() if uid in f.roots), None)
+
+    async def on_tick(self, engine, day: int, phase: str, finished: dict[str, list[str]], playing: bool) -> None:
+        """Finish setup cases, let old ones go cold, and stage a crime when it is time."""
+        now = day + PHASES.index(phase) / len(PHASES)
+        for case in [f for f in self.files.values() if f.state == "setup"]:
+            await self._finish(engine, case, finished, now)
+        for case in [f for f in self.files.values() if f.state == "open"]:
+            if now - case.opened >= self.config.case_days:
+                case.state = "closed"
+                engine.feed.on_case_closed(case.crime.id, COLD, player=case.crime.owner)
+                if case.crime.owner is None:
+                    self.last_closed = now
+        if playing and self.shared() is None and now - self.last_closed >= self.config.crime_every_days:
+            await self._stage(engine, day, phase)
+
+    async def _finish(self, engine, case: CaseFile, finished: dict[str, list[str]], now: float) -> None:
+        """Add the phase's logs, then open the case if it is solvable and drop it if not."""
+        crime = case.crime
+        for r in logs(crime, finished, self.town, self.rng, self.ids):
+            case.records[r.id] = r
+        added = make_solvable(crime, list(case.records.values()), self.town, self.routine, self.rng, self.ids)
+        if added is None:
+            del self.files[crime.id]
+            return
+        for m in added:
+            case.records[m.id] = m
+            await self._remember(engine, case, m)
+        case.state, case.opened = "open", now
+        news = Utterance(self.ids.next("u"), "app", APP, crime.place, crime.text, None, "posted")
+        victim = self.town.get(crime.victim)
+        told = [victim.id, *(v.id for v in self.town.villagers if v.household == victim.household),
+                *(v.id for v in self.town.present(crime.place))]
+        case.roots[news.id] = "news"
+        await engine.deliver(news, list(dict.fromkeys(told)))
+        engine.feed.on_case(case_json(case), player=crime.owner)
+        engine.feed.on_post(news, crime.id, player=crime.owner)
+
+    async def _stage(self, engine, day: int, phase: str) -> None:
+        crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"))
+        if crime is None:
+            return
+        self.town.move(crime.culprit, crime.place)
+        records = witness_memories(crime, self.town, self.routine, self.rng, self.ids)
+        clip = camera_clip(crime, self.town, self.ids)
+        case = CaseFile(crime, {r.id: r for r in [*records, *([clip] if clip else [])]}, "setup")
+        self.files[crime.id] = case
+        for m in records:
+            await self._remember(engine, case, m)
+
+    async def _remember(self, engine, case: CaseFile, m: Record) -> None:
+        """Tell the witness what they saw, rooted in the case."""
+        u = Utterance(self.ids.next("u"), "memory", self.town.get(m.holder).name, case.crime.place, m.text, None, "saw")
+        case.roots[u.id] = "memory"
+        m.utterance = u.id
+        await engine.deliver(u, [m.holder], addressed=True)

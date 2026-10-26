@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import random
 import time
 from types import SimpleNamespace
 
@@ -11,6 +12,8 @@ import pytest
 from sleuth import engine as engine_mod
 from sleuth import persist, web
 from sleuth.actions import IGNORE
+from sleuth.case import Crime, Record
+from sleuth.cases import CaseFile, Cases
 from sleuth.config import Config
 from sleuth.contex_client import Match
 from sleuth.decide import Decision
@@ -59,6 +62,7 @@ def build(contex=None):
     engine = Engine(
         config, town, contex, None, None, lineage, ids, feed, mind_factory=FakeMind, game=game, baselines=baselines,
         rumors=Rumors(contex, baselines, config, overhear), overhear=overhear, facts=facts,
+        cases=Cases(config, town, None, random.Random(1), ids),
     )
     maker = goal_maker(town, ids=ids)
     judge = Judge(contex, None, town, config, feed, game, baselines=baselines, lineage=lineage, facts=facts,
@@ -256,3 +260,19 @@ def test_setting_aside_a_missing_save_does_nothing(tmp_path):
 
 def test_components_have_no_pressure():
     assert "pressure" not in build().parts
+
+
+def test_restore_resumes_record_and_case_ids(tmp_path):
+    g = build()
+    crime = Crime("case-3", "steal", "bike", "v1", "v2", "cafe", 1, "night", 1422, "rival", "Someone stole a bike.")
+    record = Record("r-5", "case-3", "clip", "cafe", "11:42pm", "a figure")
+    g.engine.cases.files["case-3"] = CaseFile(crime, {"r-5": record}, "open")
+    path = state_path(SESSION, str(tmp_path))
+    save_game(path, g.parts, SESSION)
+    state = load_game(path, SESSION)
+    state["ids"] = {}
+
+    fresh = build()
+    assert restore_game(state, fresh.parts, fresh.make)
+    assert fresh.engine.cases.files == g.engine.cases.files
+    assert int(fresh.engine.ids.next("r").split("-")[1]) > 5 and int(fresh.engine.ids.next("case").split("-")[1]) > 3

@@ -14,6 +14,7 @@ import uvicorn
 from dotenv import load_dotenv
 
 from sleuth.calibration import Baselines
+from sleuth.cases import Cases
 from sleuth.cli import repl, until_over
 from sleuth.config import Config
 from sleuth.contex_client import ContexClient
@@ -66,7 +67,7 @@ async def play(web: bool) -> None:
         engine = Engine(
             config, town, contex, jev, writer, lineage, ids, feed, game=game, summary_source=lambda p: judge.percents(p.goals),
             baselines=baselines, rumors=Rumors(contex, baselines, config, overhear), overhear=overhear,
-            routine=routine, facts=facts,
+            routine=routine, facts=facts, cases=Cases(config, town, routine, rng, ids),
         )
         maker = GoalMaker(jev, pool, town, routine, overhear, baselines, config, rng, ids)
         judge = Judge(
@@ -128,6 +129,7 @@ async def play(web: bool) -> None:
                 app = create_app(
                     players=players, join=join, town=town, feed=feed, judge=judge, usage=usage, port=port,
                     suspicion=engine.suspicion, game=game, rumors=engine.rumors, hints=engine.hints, host=host,
+                    cases=engine.cases,
                 )
                 server = uvicorn.Server(uvicorn.Config(
                     app, host=host, port=port, log_level="warning", timeout_graceful_shutdown=1,

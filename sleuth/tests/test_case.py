@@ -213,3 +213,12 @@ def test_record_json_hides_soundness_and_traits():
                                     "text": m.text, "from": town.get(m.holder).name}
     log = Record("r-9", "case-1", "log", "gym", "11:00pm", "Gym check-in: Hal Burke, 11:00pm", who="v5")
     assert record_json(log, town)["from"] == ""
+
+
+def test_make_solvable_skips_residents_who_are_already_witnesses():
+    town, routine, crime = make_case()
+    culprit = town.get(crime.culprit).traits
+    first = Record("r-1", "case-1", "memory", "elm street", "11:40pm", "", "v2", {"height": culprit["height"]})
+    added = make_solvable(crime, [first], town, routine, Random(1), Ids())
+    assert len(added) == 1 and added[0].holder not in ("v2", crime.culprit, crime.victim)
+    assert suspects(crime, [first, *added], town) == {crime.culprit}

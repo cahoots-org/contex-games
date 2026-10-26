@@ -19,6 +19,10 @@ class Config:
     renew_seconds: float = 1200.0
     population: int = 50
     judge_every_days: float = 1.0
+    # Game days from one shared case's close to the next crime.
+    crime_every_days: float = 1.0
+    # Game days before an open case goes cold.
+    case_days: float = 3.0
     judge_concurrency: int = 10
     turn_concurrency: int = 20
     top_k: int = 5

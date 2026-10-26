@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 
 from sleuth.actions import ANSWER, MOVE, WARN
 from sleuth.calibration import Baselines
+from sleuth.cases import Cases
 from sleuth.config import Config
 from sleuth.contex_client import ContexClient, Match
 from sleuth.decide import Decision, TurnView, decide
@@ -70,6 +71,7 @@ class Engine:
         overhear: Overhear | None = None,
         routine: Routine | None = None,
         facts: Facts | None = None,
+        cases: Cases | None = None,
     ):
         self.config = config
         self.town = town
@@ -88,6 +90,7 @@ class Engine:
         self.rumors = rumors
         self.overhear = overhear
         self.routine = routine
+        self.cases = cases
         self.players = Players(feed)
         # The judge told of each action a player's rumor drove, set once it exists.
         self.judge = None
@@ -248,6 +251,9 @@ class Engine:
                 self._end_scene(scene, "veered")
                 scene = None
         self.feed.on_delivery(utterance, heard, on_topic, scene=scene and scene.id)
+        if utterance.audience == "room" and self.cases is not None:
+            if rooted := self.cases.root_kind(self.lineage.root(utterance.id)):
+                self.feed.on_post(utterance, rooted[0].crime.id, player=rooted[0].crime.owner)
         if scene is not None and scene.rumor is None:
             for player in self.players.at(scene.place):
                 self.feed.on_overheard(utterance, "scene", scene.id, player=player.id)
@@ -856,12 +862,18 @@ class Engine:
             self.end_conversation(v.id, player)
 
     async def _clock_loop(self) -> None:
-        """Move the village through the parts of each day, announce each one, and walk its daily round."""
+        """Move the village through the parts of each day, announce each one, run its cases and walk its daily round."""
         phase_seconds = self.config.day_seconds / len(PHASES)
         while True:
             await asyncio.sleep(phase_seconds)
             self.game.tick()
             self.feed.on_time(self.game.day, self.game.phase)
+            finished = self.town.new_phase()
+            if self.cases is not None:
+                try:
+                    await self.cases.on_tick(self, self.game.day, self.game.phase, finished, self.players.any_playing())
+                except Exception:
+                    log.exception("cases tick failed")
             self._chose_move.clear()
             self._end_stalled_scenes()
             if self.routine is not None:
@@ -886,11 +898,11 @@ class Engine:
             log.exception("routine round failed")
 
     def _free_to_walk(self, vid: str) -> bool:
-        """Whether someone is playing and the villager is in town, free of a turn, a scene, a move of their own, or a
-        player talking with them."""
+        """Whether someone is playing and the villager is in town, free of a turn, a scene, a move of their own, a
+        player talking with them, or a crime being set up."""
         return self.players.any_playing() and vid in self.town and vid not in self._turning and self.scenes.of(vid) is None and (
             vid not in self._chose_move
-        ) and not self._holders(vid)
+        ) and not self._holders(vid) and (self.cases is None or vid not in self.cases.busy())
 
     def _holders(self, vid: str) -> list[Player]:
         """The players talking with the villager who keep them where they are."""

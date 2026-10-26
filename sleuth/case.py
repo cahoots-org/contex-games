@@ -174,6 +174,7 @@ def make_solvable(crime: Crime, records: list[Record], town: Town, routine, rng:
         if narrowed == left:
             return None
         seen[best], left = culprit[best], narrowed
+    seen_by = {r.holder for r in records if r.kind == "memory"}
     others = [v.id for v in town.villagers if v.id not in (crime.culprit, crime.victim)]
-    witness = (_bystanders(crime, town, routine) or others)[0]
-    return [_memory(crime, witness, seen, rng, ids)]
+    witness = next((w for w in _bystanders(crime, town, routine) + others if w not in seen_by), None)
+    return None if witness is None else [_memory(crime, witness, seen, rng, ids)]

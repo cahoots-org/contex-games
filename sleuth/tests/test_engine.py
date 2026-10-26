@@ -11,6 +11,8 @@ import pytest
 from sleuth import engine as engine_mod
 from sleuth.actions import ANSWER, IGNORE, SPEAK, WARN
 from sleuth.calibration import Baselines
+from sleuth.case import Crime
+from sleuth.cases import CaseFile, Cases
 from sleuth.config import Config
 from sleuth.contex_client import Match
 from sleuth.decide import Decision, _state
@@ -2166,3 +2168,34 @@ def test_consumed_keys_round_trip_and_a_whisper_cut_off_by_the_restart_is_kept()
     assert {vid: list(keys) for vid, keys in fresh._consumed.items()} == {"v1": ["utt:w-1", "utt:u-2"]}
     assert [(e.data["whisper_id"], e.data["state"]) for e in feed.recent] == [("w-1", "kept")]
     assert feed.listening("v1") == [("w-3", "Marta")]
+
+
+def case_file(state, culprit="v1", roots=None):
+    crime = Crime("case-1", "steal", "bike", culprit, "v2", "cafe", 1, "night", 1422, "rival", "Someone stole V2's bike.")
+    return CaseFile(crime, {}, state, roots=roots or {})
+
+
+@pytest.mark.asyncio
+async def test_room_speech_rooted_in_a_case_is_posted_to_the_app(turns):
+    engine, _, feed = await setup("v1", "v2")
+    engine.cases = Cases(Config(), engine.town, None, random.Random(1), engine.ids)
+    engine.cases.files["case-1"] = case_file("open", roots={"u-1": "news"})
+    engine.lineage.record("u-2", "u-1")
+    engine.lineage.record("u-3", "u-1")
+    await engine.deliver(Utterance("u-2", "v1", "V1", "cafe", "who took it?", "u-1", audience="room"), ["v2"])
+    await engine.deliver(Utterance("u-3", "v1", "V1", "cafe", "between us", "u-1"), ["v2"])
+    await engine.deliver(Utterance("u-4", "v1", "V1", "cafe", "nice day", None, audience="room"), ["v2"])
+    posts = [e.data for e in feed.recent if e.kind == "post"]
+    assert posts == [{"case_id": "case-1", "speaker": "V1", "text": "who took it?"}]
+    await engine.stop()
+
+
+@pytest.mark.asyncio
+async def test_culprit_is_not_walked_during_setup(turns):
+    engine, _, _ = await setup("v1", "v2")
+    engine.cases = Cases(Config(), engine.town, None, random.Random(1), engine.ids)
+    engine.cases.files["case-1"] = case_file("setup")
+    assert not engine._free_to_walk("v1") and engine._free_to_walk("v2")
+    engine.cases.files["case-1"].state = "open"
+    assert engine._free_to_walk("v1")
+    await engine.stop()

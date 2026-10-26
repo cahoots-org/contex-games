@@ -284,6 +284,19 @@ class Feed:
         """The whisper's story turned to other things; the terminal prints nothing."""
         self.emit("drift", player=self.lineage.player_of(whisper_id), whisper_id=whisper_id)
 
+    def on_case(self, case: dict, player: str | None = None) -> None:
+        """A case opened or changed in the neighborhood app."""
+        self.emit("case", case["text"], player=player, case=case)
+
+    def on_post(self, utterance: Utterance, case_id: str, player: str | None = None) -> None:
+        """A post about the case in the neighborhood app."""
+        u = utterance
+        self.emit("post", f'{u.speaker_name} posted: "{u.text}"', player=player, case_id=case_id, speaker=u.speaker_name,
+                  text=u.text)
+
+    def on_case_closed(self, case_id: str, line: str, player: str | None = None) -> None:
+        self.emit("case_closed", line, player=player, case_id=case_id, text=line)
+
     def on_time(self, day: int, phase: str) -> None:
         line = TIME_LINES[phase].format(day=day)
         self.emit("time", line, text=line, day=day, phase=phase)
