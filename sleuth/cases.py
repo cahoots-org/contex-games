@@ -6,7 +6,8 @@ from dataclasses import asdict, dataclass, field
 from random import Random
 
 from sleuth.case import (
-    CAMERA_PLACES, Crime, Record, camera_clip, discovery, found_it, logs, make_solvable, stage_crime, when, witness_memories,
+    CAMERA_PLACES, Crime, Record, camera_clip, discovery, found_it, logs, make_solvable, scene_clues, stage_crime, when,
+    witness_memories,
 )
 from sleuth.config import Config
 from sleuth.game import PHASES
@@ -159,7 +160,8 @@ class Cases:
             return None
         crime.owner = player_id
         records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids)[:1],
-                   camera_clip(crime, self.town, self.ids, GUIDED_CLIP_TRAITS)]
+                   camera_clip(crime, self.town, self.ids, GUIDED_CLIP_TRAITS),
+                   *scene_clues(crime, self.town, self.routine, self.rng, self.ids)]
         case = self.files[crime.id] = CaseFile(crime, {r.id: r for r in records}, "setup")
         self.town.move(crime.culprit, crime.place)
         now = day + PHASES.index(phase) / len(PHASES)
@@ -215,7 +217,8 @@ class Cases:
         if crime is None:
             return
         self.town.move(crime.culprit, crime.place)
-        records = witness_memories(crime, self.town, self.routine, self.rng, self.ids)
+        records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids),
+                   *scene_clues(crime, self.town, self.routine, self.rng, self.ids)]
         clip = camera_clip(crime, self.town, self.ids)
         self.files[crime.id] = CaseFile(crime, {r.id: r for r in [*records, *([clip] if clip else [])]}, "setup")
 

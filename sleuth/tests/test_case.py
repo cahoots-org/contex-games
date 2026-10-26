@@ -17,6 +17,7 @@ from sleuth.case import (
     make_solvable,
     points_at,
     record_json,
+    scene_clues,
     stage_crime,
     suspects,
     witness_memories,
@@ -274,3 +275,38 @@ def test_the_victim_finds_the_crime_after_it_and_names_no_one():
     assert found.traits == {} and found.sound and not points_at(crime, crime.culprit, town.get(crime.culprit).traits, found)
     assert crime.minute < [m for m in range(1320, 1740) if clock_at(m) == found.clock][0] < 1740
     assert not any(v.name in found.text for v in town.villagers if v.id != "v1")
+
+
+def test_scene_clues_are_one_or_two_traces_or_a_dropped_receipt_from_someone_there():
+    town, routine, crime = make_case()
+    culprit = town.get(crime.culprit).traits
+    there = {crime.culprit, *(v.id for v in town.villagers if routine.place(v.id, "night") == crime.place)} - {crime.victim}
+    shapes = set()
+    for seed in range(60):
+        clues = scene_clues(crime, town, routine, Random(seed), Ids())
+        assert 1 <= len(clues) <= 2 and len({r.id for r in clues}) == len(clues)
+        for r in clues:
+            assert (r.kind, r.place, r.case, r.holder, r.day, r.sound) == ("clue", crime.place, "case-1", "", 1, True)
+            if r.who:
+                assert r.who in there and not r.traits and town.get(r.who).name in r.text
+                shapes.add("receipt")
+            else:
+                [(trait, value)] = r.traits.items()
+                assert culprit[trait] == value and value in r.text
+                shapes.add(trait)
+            assert not any(v.name in r.text for v in town.villagers if v.id != r.who)
+    assert shapes == {"height", "coat", "car", "receipt"}
+
+
+def test_clues_point_and_narrow_like_sightings_and_logs():
+    town, _, crime = make_case()
+    culprit = town.get(crime.culprit).traits
+    thread = Record("r-1", "case-1", "clue", "elm street", "", "", traits={"coat": culprit["coat"]})
+    mine = Record("r-2", "case-1", "clue", "elm street", "11:02pm", "", who=crime.culprit)
+    theirs = Record("r-3", "case-1", "clue", "elm street", "11:02pm", "", who="v2")
+    assert points_at(crime, crime.culprit, culprit, thread) and points_at(crime, crime.culprit, culprit, mine)
+    assert not points_at(crime, crime.culprit, culprit, theirs)
+    assert suspects(crime, [thread], town) == {v.id for v in town.villagers
+                                               if v.traits["coat"] == culprit["coat"]} - {crime.victim}
+    full = Record("r-4", "case-1", "clue", "elm street", "", "", traits=dict(culprit))
+    assert make_solvable(crime, [full], town, make_routine(), Random(1), Ids()) == []

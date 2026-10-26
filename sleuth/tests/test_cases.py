@@ -360,3 +360,13 @@ async def test_the_victim_is_told_what_they_found_when_the_case_opens():
     assert ids == [case.crime.victim] and addressed and cases.root_kind(u.id)[1] == "memory"
     assert u.text.startswith(f"Around {found.clock}, I found my {case.crime.item} ")
     assert town.name_of(case.crime.victim) not in u.text
+
+
+@pytest.mark.asyncio
+async def test_staged_and_guided_cases_hold_clues_at_the_crime_place():
+    cases, engine, _ = make_cases()
+    await tick(cases, engine)
+    guided = await cases.open_guided(engine, "p-1", 1, "night")
+    for case in (cases.shared(), guided):
+        clues = [r for r in case.records.values() if r.kind == "clue"]
+        assert 1 <= len(clues) <= 2 and {r.place for r in clues} == {case.crime.place}
