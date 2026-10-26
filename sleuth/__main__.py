@@ -59,6 +59,7 @@ async def play() -> None:
             baselines=baselines,
             routine=routine, facts=facts, cases=Cases(config, town, routine, rng, ids),
         )
+        feed.cases = engine.cases
         players = Players(usage)
         engine.players = players
 

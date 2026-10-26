@@ -282,6 +282,7 @@ def test_for_player_prefers_the_private_case():
     private = CaseFile(replace(shared.crime, id="case-2", owner="p-1"), {}, "open")
     cases.files[private.crime.id] = private
     assert cases.for_player("p-1") is private and cases.for_player("p-2") is shared
+    assert cases.private("p-1") is private and cases.private("p-2") is None
     assert cases.shared() is shared
 
 

@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 
 from sleuth.feed import REPLAY_EVENTS, Feed
 from sleuth.lineage import Lineage
@@ -88,3 +89,14 @@ def test_pulled_records_carry_the_line_the_page_shows():
     feed, lines = make()
     feed.on_pulled("bar", [], player=PID)
     assert [e.data["text"] for e in feed.recent] == lines == ["You pulled the records at the bar."]
+
+
+def test_a_player_on_a_private_case_sees_no_other_case_news_or_posts():
+    feed, _ = make()
+    feed.cases = SimpleNamespace(private=lambda pid: "guided" if pid == PID else None)
+    feed.on_case({"id": "case-1", "text": "Someone stole a bike."})
+    feed.on_post(utt("u-1"), "case-1")
+    feed.on_case({"id": "case-2", "text": "Someone let out a dog."}, player=PID)
+    feed.say("Night falls.")
+    assert [e.kind for e in feed.replay(PID)] == ["case", "system"] and feed.replay(PID)[0].player == PID
+    assert [e.kind for e in feed.replay("p-2")] == ["case", "post", "system"]

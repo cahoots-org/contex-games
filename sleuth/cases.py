@@ -68,11 +68,14 @@ class Cases:
     def shared(self) -> CaseFile | None:
         return next((f for f in self.files.values() if f.state != "closed" and f.crime.owner is None), None)
 
+    def private(self, player_id: str) -> CaseFile | None:
+        """The player's private open case."""
+        return next((f for f in self.files.values() if f.state == "open" and f.crime.owner == player_id), None)
+
     def for_player(self, player_id: str) -> CaseFile | None:
         """The player's private open case, otherwise the shared open case."""
-        open_ = [f for f in self.files.values() if f.state == "open"]
-        return (next((f for f in open_ if f.crime.owner == player_id), None)
-                or next((f for f in open_ if f.crime.owner is None), None))
+        return self.private(player_id) or next(
+            (f for f in self.files.values() if f.state == "open" and f.crime.owner is None), None)
 
     def busy(self) -> set[str]:
         """Culprits of cases still being set up, who stay at the crime place."""
