@@ -79,9 +79,12 @@ of the day. A resident below `guarded_at` won't talk to you or share the records
 `trusted_at` recalls one more of the culprit's traits in an interview, a fuller memory that goes in your notebook as
 a new entry.
 
-Everything is done on the page: open a place's tile to walk there or look around, open a resident's card to talk with
-them, and use the case panel to pull records, search the crime place and publish. Click a face to see a resident's trade, looks, home and
-household.
+Everything is done on one page, built around the case. On the left: the case with its current hint and Publish,
+which opens the form in place (choose a resident, tick notebook entries); the notebook grouped by kind (Seen, Clip,
+Logs, Said, Found, Heard), newest first; where you are, with Search here and Pull records when they apply and the
+places you can go; and town talk, one strip that stays closed until you open it and counts what's new. On the right:
+everyone in town, searchable by name or looks and marked victim or witness once you know, and the conversation with
+whoever you pick. On a phone the two columns stack.
 
 ## How it uses Contex
 

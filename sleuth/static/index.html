@@ -57,102 +57,30 @@
   }
 }
 * { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; }
-body {
-  background: var(--bg);
-  color: var(--ink);
-  font: 16px/1.5 var(--ui);
-  overflow: hidden;
-}
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.5 var(--ui); }
 button, input, select { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.visually-hidden {
-  position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
-  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
-}
+[hidden] { display: none !important; }
+h2 { font: 500 1.2rem/1.2 var(--serif); margin: 0; }
 
 .app {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 20rem;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 25rem);
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100dvh;
 }
-.bottom { grid-column: 1 / -1; }
 header {
   grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: .5rem 1.5rem;
-  padding: .6rem 1.25rem;
+  display: flex; align-items: center; gap: .5rem 1.25rem;
+  padding: .35rem 1.5rem; border-bottom: 1px solid var(--rail);
 }
-.hud {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .35rem 1.5rem;
-  margin-left: auto; font-size: .85rem;
-}
+h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
+.hud { display: flex; align-items: center; gap: 1.25rem; margin-left: auto; font-size: .85rem; }
 .hud p { margin: 0; }
 .menu { display: contents; }
 .menu-toggle { display: none; }
-h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
-.conn { font-size: .875rem; color: var(--muted); }
-.conn::before {
-  content: ""; display: inline-block; width: .5rem; height: .5rem; border-radius: 50%;
-  background: var(--muted); margin-right: .4rem; vertical-align: .05rem;
-}
-.conn[data-state="live"]::before { background: var(--accent); }
-.conn[data-state="down"] { color: var(--danger); }
-.conn[data-state="down"]::before { background: var(--danger); }
-.tabs { display: none; }
-
-main {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.stage {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.feed {
-  flex: 1;
-  overflow-y: auto;
-  list-style: none;
-  margin: 0;
-  padding: .5rem 1.25rem 1.5rem;
-}
-.feed:empty { flex: 0; padding: 0; }
-.empty { flex: 1; display: grid; place-content: center; color: var(--muted); text-align: center; padding: 1rem; margin: 0; }
-.empty[hidden] { display: none; }
-.feed > li { max-width: 46rem; border-bottom: 1px solid var(--rail); }
-.line, .fold-head { display: flex; align-items: flex-start; gap: .5rem; margin: 0; padding: .35rem 0; }
-.line-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.line .tag { margin: 0 .4rem 0 0; font-size: .75rem; vertical-align: .05rem; }
-.tag.answer { background: var(--accent); color: var(--on-accent); }
-.tag.soft { background: none; color: var(--muted); border: 1px solid var(--edge); }
-.line.heard { font-size: .875rem; color: var(--muted); }
-.got { list-style: none; margin: .2rem 0 0; padding: 0 0 0 .75rem; border-left: 2px solid var(--rail); font-size: .875rem; color: var(--muted); }
-.got > li { padding: .1rem 0; }
-.line.quiet, .fold-head { font-size: .875rem; color: var(--muted); }
-.line.hint { font-size: .875rem; color: var(--ink); border-left: 3px solid var(--accent); padding-left: .6rem; }
-.feed > li.case-head {
-  margin-top: .9rem; padding: .3rem 0; border-bottom: 2px solid var(--edge);
-  font-size: .8rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
-}
-.feed > li.case-head:first-child { margin-top: 0; }
-.fold-words { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.fold-more { flex: none; }
-.fold:not(.open) .fold-lines { display: none; }
-.fold-lines { list-style: none; margin: 0; padding: 0 0 .4rem 1.75rem; }
-.fold-lines > li { padding: .15rem 0; }
-.talk-line { font-size: .875rem; }
-.meta { margin: 0; font-size: .875rem; color: var(--muted); }
-.fresh { animation: arrive 280ms ease-out; }
-@keyframes arrive { from { opacity: 0; transform: translateY(.4rem); } to { opacity: 1; transform: none; } }
-#notebook:not(.days) .note-day { display: none; }
-.where, .clock { margin: 0; font-size: .85rem; color: var(--muted); }
-.clock { color: var(--ink); font-variant-numeric: tabular-nums; }
+.clock { margin: 0; font-size: .85rem; font-variant-numeric: tabular-nums; }
 .sky { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; }
 .sky svg { width: 4.5rem; height: 2.4rem; flex: none; }
 .sky .horizon { stroke: var(--edge); stroke-width: 1.5; }
@@ -162,188 +90,181 @@ main {
 .sky .sun { fill: var(--sun); stroke: var(--sun); stroke-width: 1.6; stroke-linecap: round; }
 .sky .moon, .sky .star { fill: var(--moon); }
 
-.bottom { border-top: 1px solid var(--rail); background: var(--bg); }
-.composer { padding: .75rem 1.25rem 1rem; }
-input[type="text"], input[type="search"] {
-  background: var(--panel);
-  border: 1px solid var(--edge);
-  border-radius: 6px;
-  padding: .5rem .65rem;
-  min-width: 0;
-}
-.primary {
-  background: var(--accent);
-  color: var(--on-accent);
-  border: 0;
-  border-radius: 6px;
-  padding: .5rem 1.1rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-.primary:disabled { opacity: .6; cursor: progress; }
-.say-status { margin: .4rem 0 0; min-height: 1.25rem; font-size: .875rem; color: var(--muted); }
-.say-status.error { color: var(--danger); }
-.resting { margin: 0 0 .4rem; font-size: .875rem; color: var(--muted); }
-
-aside {
-  background: var(--panel);
-  overflow-y: auto;
-  padding: 0 1.25rem 1.5rem;
-  min-height: 0;
-}
-h2 { font-size: 1rem; margin: 1rem 0 .5rem; }
-h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 .2rem; }
-.case { flex: none; background: var(--panel); border-bottom: 1px solid var(--rail); padding: .6rem 1.25rem; }
-.case[hidden] { display: none; }
-.case p { margin: 0; max-width: 46rem; }
-.case p.none { color: var(--muted); font-size: .875rem; }
-.notebook { margin: .4rem 0 0; padding-left: 1.25rem; max-width: 46rem; font-size: .85rem; }
-.notebook:empty { display: none; }
-.publish { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .5rem 0 0; font-size: .875rem; }
-.publish[hidden] { display: none; }
-.publish p { flex-basis: 100%; }
-#search { width: 100%; }
-.find { display: contents; }
-.find-status { margin: .25rem 0 0; min-height: 1.25rem; font-size: .8rem; color: var(--muted); }
-.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); gap: .5rem; margin-top: .25rem; }
-.tile { background: var(--bg); border: 1px solid var(--rail); border-radius: 6px; padding: .35rem .5rem .45rem; min-width: 0; }
-.tile.open { grid-column: 1 / -1; }
-.place {
-  display: flex; justify-content: space-between; gap: .5rem; width: 100%;
-  background: none; border: 0; padding: 0; text-align: left; font-size: .875rem; font-weight: 700; cursor: pointer;
-}
-.place span { color: var(--muted); font-weight: 400; }
-.faces { display: flex; flex-wrap: wrap; gap: 5px; margin-top: .3rem; }
-.pick, .more { background: none; border: 0; padding: 0; border-radius: 5px; cursor: pointer; }
-.more { font-size: .75rem; color: var(--muted); padding: 0 .2rem; }
-.face { position: relative; display: inline-block; flex: none; line-height: 0; }
-.face canvas {
-  width: 24px; height: 24px; border-radius: 5px; image-rendering: pixelated;
-  outline: 1px solid var(--face-edge); outline-offset: -1px;
-}
-.face.big canvas { width: 32px; height: 32px; border-radius: 6px; }
-.tag { margin-left: .4rem; padding: 0 .35rem; border-radius: 3px; background: var(--mark); color: var(--on-mark); font-weight: 700; }
-.glyph { color: var(--mark); font-weight: 700; margin-right: .25rem; }
-.searching .pick:not(.hit) { opacity: .35; }
-.pick.hit canvas { outline: 2px solid var(--accent); outline-offset: 1px; }
-.sort { display: flex; align-items: center; gap: .5rem; margin: .1rem 0 0; font-size: .85rem; color: var(--muted); }
-.sort select { background: var(--panel); color: var(--ink); border: 1px solid var(--edge); border-radius: 6px; padding: .2rem .4rem; }
-.rows { list-style: none; margin: .3rem 0 0; padding: 0; max-height: min(18rem, 40dvh); overflow-y: auto; }
-.row {
-  display: flex; gap: .6rem; align-items: flex-start; width: 100%; text-align: left;
-  background: none; border: 0; border-top: 1px solid var(--rail); padding: .4rem .25rem; cursor: pointer;
-}
-.row:hover, .row[aria-current="true"] { background: var(--panel); }
-.who { min-width: 0; font-size: .875rem; line-height: 1.35; overflow-wrap: anywhere; }
-.who small { color: var(--muted); }
-.scroll-more { margin: .2rem 0 0; min-height: 1rem; font-size: .75rem; color: var(--muted); text-align: center; }
-.who .hint { display: block; font: italic .95rem/1.35 var(--serif); color: var(--ink); }
-.card {
-  position: fixed; top: var(--top, 4rem); right: calc(20rem + .75rem); z-index: 3;
-  width: 19rem; max-height: calc(100dvh - 2rem); overflow-y: auto;
-  background: var(--bg); border: 1px solid var(--edge); border-radius: 8px; padding: .75rem .9rem;
-  box-shadow: 0 6px 24px rgb(0 0 0 / .2);
-}
-.card[hidden] { display: none; }
-.card h3 { color: var(--ink); font-size: 1.05rem; font-weight: 700; margin: 0; }
-.card p { margin: .35rem 0; font-size: .9rem; }
-.card dl { margin: .35rem 0; font-size: .9rem; }
-.card dt { color: var(--muted); font-size: .8rem; }
-.card dd { margin: 0 0 .35rem; }
-.card .rel { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; }
-.card .actions { display: flex; gap: .5rem; align-items: center; margin-top: .5rem; }
-.ask { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-top: .5rem; }
-.ask input { flex: 1 1 10rem; min-width: 0; }
-.thread { list-style: none; margin: 0; padding: 0; max-height: 18rem; overflow-y: auto; }
-.thread > li { margin: 0 0 .5rem; }
-.thread p { margin: 0; }
-.thread .you { color: var(--muted); }
-.ask-status { margin: .25rem 0 0; min-height: 1.25rem; font-size: .8rem; color: var(--muted); }
-.ask-status.error { color: var(--danger); }
-.tile-act { display: block; margin-top: .3rem; font-size: .8rem; }
-.tile-act[aria-disabled="true"] { cursor: default; text-decoration: none; }
 .usage { font-size: .75rem; color: var(--muted); }
 .usage:empty { display: none; }
-.linkish { background: none; border: 0; color: var(--muted); cursor: pointer; text-decoration: underline; padding: 0; font-size: .875rem; }
+.conn { font-size: .875rem; color: var(--muted); }
+.conn::before {
+  content: ""; display: inline-block; width: .5rem; height: .5rem; border-radius: 50%;
+  background: var(--muted); margin-right: .4rem; vertical-align: .05rem;
+}
+.conn[data-state="live"]::before { background: var(--accent); }
+.conn[data-state="down"] { color: var(--danger); }
+.conn[data-state="down"]::before { background: var(--danger); }
 
-@media (max-width: 1000px) {
-  .app { grid-template-columns: minmax(0, 1fr) 17rem; }
-  aside { padding: 0 .75rem 1.5rem; }
-  .card { right: calc(17rem + .75rem); }
+/* The left column: the case, the notebook, where you are, and the town's talk. */
+.desk { overflow-y: auto; min-height: 0; padding: 1.25rem 1.5rem 2rem; }
+.desk > * { max-width: 46rem; }
+.desk > * + * { margin-top: 1.5rem; }
+
+.case-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.whose { margin: 0; font-size: .875rem; color: var(--muted); }
+.case-title { font: 500 1.9rem/1.15 var(--serif); margin: .15rem 0 .3rem; }
+.case-text { margin: 0; font: 1.05rem/1.55 var(--serif); }
+.hint, .resting { margin: .75rem 0 0; padding: .45rem .75rem; border-radius: 4px; font-size: .9rem; }
+.hint { background: color-mix(in srgb, var(--mark) 45%, transparent); }
+.resting { border: 1px solid var(--edge); color: var(--muted); }
+.primary {
+  background: var(--accent); color: var(--on-accent); border: 0; border-radius: 6px;
+  padding: .45rem 1.1rem; font-weight: 700; cursor: pointer;
 }
-@media (max-width: 1200px) {
-  .conn { margin-left: auto; }
-  .hud { order: 5; flex: 1 0 100%; margin-left: 0; justify-content: flex-start; }
+.primary:disabled { opacity: .6; cursor: progress; }
+.plain-button {
+  background: none; color: var(--accent); border: 1px solid var(--accent); border-radius: 6px;
+  padding: .35rem .85rem; font-weight: 700; cursor: pointer;
 }
-@media (max-width: 760px) {
-  .app { grid-template-columns: minmax(0, 1fr); }
-  header { padding: .6rem 1rem; align-items: center; }
-  .app:not([data-tab="hear"]) #hear-panel,
-  .app:not([data-tab="village"]) #town { display: none; }
-  .tabs { display: flex; border-bottom: 1px solid var(--rail); }
-  .tabs button {
-    flex: 1; min-height: 44px; background: none; border: 0; border-top: 3px solid transparent;
-    padding: 0; cursor: pointer; font-size: .9rem; color: var(--muted);
-  }
-  .tabs button[aria-selected="true"] { border-top-color: var(--accent); color: var(--ink); font-weight: 700; }
-  /* One line: the name, the day, the connection dot and a menu for the rest. */
-  header { position: relative; flex-wrap: nowrap; gap: .5rem; min-height: 56px; padding: .25rem .5rem .25rem 1rem; }
-  h1 { font-size: 1.2rem; }
+.linkish { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; }
+.publish {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem;
+  margin: .9rem 0 0; padding: .75rem; border: 1px solid var(--accent); border-radius: 6px; font-size: .9rem;
+}
+.publish p { flex-basis: 100%; margin: 0; color: var(--muted); }
+select, input[type="text"], input[type="search"] {
+  background: var(--bg); border: 1px solid var(--edge); border-radius: 6px; padding: .4rem .6rem; min-width: 0;
+}
+.status { margin: .3rem 0 0; min-height: 1.25rem; font-size: .85rem; color: var(--muted); }
+.status.error { color: var(--danger); }
+.status:empty { min-height: 0; margin: 0; }
+
+/* The notebook: kinds in the margin, left of a ruled line, newest entry first. */
+.book-head { display: flex; align-items: baseline; gap: .75rem; }
+.book-head small { color: var(--muted); font-size: .8rem; }
+.group {
+  display: grid; grid-template-columns: 4.5rem minmax(0, 1fr);
+  border-top: 1px solid var(--rail);
+}
+.group:first-child { margin-top: .5rem; }
+.group h3 {
+  margin: 0; padding: .4rem .6rem 0 0; text-align: right;
+  font: italic 400 1rem/1.4 var(--serif); color: var(--muted);
+  border-right: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+}
+.group ol { list-style: none; margin: 0; padding: 0; }
+.group li { padding: .35rem 0 .35rem .75rem; font-size: .9rem; }
+.group li + li { border-top: 1px dashed var(--rail); }
+.group label { display: flex; gap: .5rem; align-items: flex-start; }
+.group input { display: none; margin-top: .3rem; flex: none; }
+.citing .group input { display: block; }
+.citing .group label { cursor: pointer; }
+.by { color: var(--muted); }
+.empty { margin: .5rem 0 0; color: var(--muted); font-size: .9rem; }
+
+/* Where you are. */
+.where { border-top: 1px solid var(--rail); padding-top: 1rem; }
+.where-line { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
+.here { margin: 0 .5rem 0 0; }
+.go { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .9rem; margin: .5rem 0 0; font-size: .9rem; }
+.go span { color: var(--muted); }
+.go button { background: none; border: 0; padding: .15rem 0; color: var(--accent); cursor: pointer; }
+.go button:hover { text-decoration: underline; }
+.go .scene { font-weight: 700; }
+
+/* The town's talk: one strip, closed until opened. */
+.talk { border: 1px solid var(--rail); border-radius: 6px; background: var(--panel); }
+.talk summary { display: flex; align-items: baseline; gap: .75rem; padding: .5rem .75rem; cursor: pointer; }
+.talk summary b { flex: none; }
+.latest { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-size: .85rem; }
+.talk[open] .latest { visibility: hidden; }
+.unread { flex: none; border-radius: 999px; padding: 0 .5rem; background: var(--accent); color: var(--on-accent); font-size: .75rem; font-weight: 700; }
+.unread:empty { display: none; }
+.feed { list-style: none; margin: 0; padding: 0 .75rem .5rem; max-height: 18rem; overflow-y: auto; font-size: .875rem; }
+.feed li { padding: .3rem 0; border-top: 1px solid var(--rail); overflow-wrap: anywhere; }
+.feed .quiet { color: var(--muted); }
+.feed .loud { font-weight: 700; }
+.tag { margin-right: .4rem; padding: 0 .35rem; border-radius: 3px; border: 1px solid var(--edge); font-size: .75rem; color: var(--muted); }
+
+/* The right column: people, then the conversation with whoever is picked. */
+.side {
+  display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1.3fr); min-height: 0;
+  background: var(--panel); border-left: 1px solid var(--rail);
+}
+.people { display: flex; flex-direction: column; min-height: 0; padding: 1rem 0 0; border-bottom: 1px solid var(--edge); }
+.people > h2, .people > input, .people > .status { margin-left: 1rem; margin-right: 1rem; }
+.people input { margin-top: .5rem; }
+.people .status { margin-top: .15rem; min-height: 0; }
+.list { list-style: none; margin: .35rem 0 0; padding: 0; overflow-y: auto; flex: 1; }
+.person {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .65rem;
+  width: 100%; padding: .45rem 1rem; text-align: left;
+  background: none; border: 0; border-top: 1px solid var(--rail); cursor: pointer;
+}
+.person:hover { background: var(--bg); }
+.person[aria-current="true"] { background: var(--bg); box-shadow: inset 3px 0 var(--accent); }
+.who { min-width: 0; line-height: 1.3; }
+.who small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-size: .8rem; }
+.role { margin-left: .4rem; padding: 0 .35rem; border-radius: 3px; font-size: .72rem; font-weight: 700; vertical-align: .1rem; }
+.role.victim { border: 1px solid var(--danger); color: var(--danger); }
+.role.witness { background: var(--mark); color: var(--ink); }
+.talked { font-size: .75rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.face { display: inline-block; flex: none; line-height: 0; }
+.face canvas {
+  width: 30px; height: 30px; border-radius: 6px; image-rendering: pixelated;
+  outline: 1px solid var(--face-edge); outline-offset: -1px;
+}
+
+.convo { display: flex; flex-direction: column; min-height: 0; padding: 1rem; scroll-margin-top: 56px; }
+.convo h2 { display: flex; align-items: center; gap: .6rem; }
+.convo .meta { margin: .35rem 0 0; font-size: .85rem; color: var(--muted); }
+.about { font-size: .85rem; }
+.about summary { color: var(--accent); cursor: pointer; margin-top: .2rem; }
+.about dl { margin: .25rem 0 0; }
+.about dt { color: var(--muted); font-size: .8rem; }
+.about dd { margin: 0 0 .3rem; }
+.thread { list-style: none; margin: .5rem 0 0; padding: 0; overflow-y: auto; flex: 1; }
+.thread li { padding: .5rem 0; border-top: 1px solid var(--rail); }
+.thread p { margin: 0; }
+.you { color: var(--muted); font-size: .875rem; }
+.said { margin-top: .15rem; font: 1.02rem/1.5 var(--serif); }
+.added { margin-top: .25rem; padding-left: .6rem; border-left: 2px solid var(--accent); font-size: .8rem; color: var(--muted); }
+.ask { display: flex; gap: .4rem; margin-top: .6rem; }
+.ask input { flex: 1; }
+
+@media (max-width: 900px) {
+  header, .desk { padding-left: 1rem; padding-right: 1rem; }
+  .group { grid-template-columns: 3.9rem minmax(0, 1fr); }
+}
+/* A phone: one column, the case, then people, then the conversation. */
+@media (max-width: 600px) {
+  .app { display: block; height: auto; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--bg); min-height: 52px; padding: .2rem .5rem .2rem 1rem; }
+  h1 { font-size: 1.25rem; }
   .hud { display: contents; }
-  .sky { order: 1; flex-direction: column; gap: 0; }
+  .sky { order: 1; margin-left: auto; }
   .sky svg { width: 2.4rem; height: 1.3rem; }
-  .clock { font-size: .7rem; line-height: 1.2; white-space: nowrap; }
-  .conn { order: 3; margin-left: auto; font-size: 0; }
+  .clock { font-size: .75rem; white-space: nowrap; }
+  .conn { order: 2; font-size: 0; }
   .conn::before { width: .6rem; height: .6rem; margin: 0; }
   .menu-toggle {
-    order: 4; display: grid; place-items: center; flex: none; width: 44px; height: 44px;
+    order: 3; display: grid; place-items: center; flex: none; width: 44px; height: 44px;
     background: none; border: 0; border-radius: 6px; font-size: 1.25rem; cursor: pointer;
   }
   .menu {
-    display: none; position: absolute; top: calc(100% - .25rem); right: .5rem; z-index: 6; flex-direction: column; gap: .25rem;
-    min-width: 12rem; max-width: calc(100vw - 1rem); padding: .5rem .75rem; background: var(--bg);
-    border: 1px solid var(--edge); border-radius: 8px; box-shadow: 0 6px 24px rgb(0 0 0 / .2);
+    display: none; position: absolute; top: 100%; right: .5rem; z-index: 6;
+    padding: .5rem .75rem; background: var(--bg); border: 1px solid var(--edge); border-radius: 8px;
   }
-  .menu.open { display: flex; }
-  .menu .where, .menu .usage { font-size: .8rem; }
-  aside { padding: .5rem 1rem 1.5rem; }
-  .feed { padding: .5rem 1rem 1rem; }
-  .composer { padding: .6rem 1rem .8rem; }
-  .say-status:empty { min-height: 0; margin: 0; }
-  .tile-act { min-height: 2.25rem; }
-  /* The village as one row per place: name and count, the faces, and Walk or Look around. */
-  #town h2 { margin: .25rem 0 .4rem; }
-  /* The villager card sticks to the panel's very foot, so the panel ends without padding. */
-  #town { padding-bottom: 0; }
-  #people { margin-bottom: 1.5rem; }
-  .find { display: flex; flex-wrap: wrap; align-items: center; gap: 0 .5rem; }
-  #search { flex: 1 1 8rem; width: auto; min-height: 44px; }
-  .find .sort { order: 2; margin: 0; }
-  .find .sort label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .sort select { min-height: 44px; max-width: 8.5rem; }
-  .find-status { order: 3; flex: 1 0 100%; min-height: 0; }
-  .tiles { display: block; }
-  .tile {
-    display: grid; grid-template-columns: 4rem minmax(0, 1fr) 3.25rem; align-items: center; gap: 0 .4rem;
-    padding: .2rem 0; background: none; border: 0; border-bottom: 1px solid var(--rail); border-radius: 0;
-  }
-  .tile .place { flex-direction: column; gap: 0; margin: 0; line-height: 1.25; cursor: default; overflow-wrap: anywhere; }
-  .tile .faces { grid-column: 2; grid-row: 1; margin: 0; gap: 0; }
-  .tile .tile-act { grid-column: 3; grid-row: 1; margin: 0; min-height: 44px; padding: 0; font-size: .75rem; line-height: 1.15; text-align: right; }
-  .tiles .pick { display: grid; place-items: center; width: 44px; height: 44px; }
-  .tiles .face canvas { width: 30px; height: 30px; border-radius: 6px; }
-  .card {
-    position: sticky; top: auto; bottom: 0; right: auto; width: auto; max-height: 45dvh;
-    margin: 0 -1rem; border-radius: 10px 10px 0 0; border-width: 1px 0 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .fresh { animation: none; }
+  .menu.open { display: block; }
+  .desk { padding: 1rem 1rem 1.5rem; }
+  .case-title { font-size: 1.5rem; }
+  .go button { padding: .45rem 0; }
+  .side { display: block; border-left: 0; border-top: 1px solid var(--edge); }
+  .list { max-height: 55dvh; }
+  .person { min-height: 48px; }
+  .thread { max-height: 60dvh; }
+  .convo { padding-bottom: 2rem; }
 }
 </style>
 </head>
 <body>
-<div class="app" id="app" data-tab="hear">
+<div class="app" id="app">
   <header>
     <h1>Sleuth</h1>
     <div class="hud">
@@ -370,89 +291,101 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
       </div>
       <button class="menu-toggle" id="menu-toggle" type="button" aria-label="More" aria-expanded="false" aria-controls="menu">⋯</button>
       <div class="menu" id="menu">
-        <p class="where" id="where"></p>
         <p class="usage" id="usage"></p>
       </div>
     </div>
     <span class="conn" id="conn" data-state="connecting" role="status">Connecting</span>
   </header>
 
-  <main id="hear-panel">
-    <section class="case" id="case" hidden><p id="case-text" class="none">No open case</p>
-      <ol class="notebook" id="notebook" aria-label="Your notebook"></ol>
+  <main class="desk" id="desk">
+    <section class="case" id="case" aria-labelledby="case-title">
+      <div class="case-top">
+        <p class="whose" id="case-whose">No open case</p>
+        <button type="button" class="primary" id="publish-open" aria-expanded="false" aria-controls="publish" hidden>Publish</button>
+      </div>
+      <h2 class="case-title" id="case-title">Waiting for the next crime</h2>
+      <p class="case-text" id="case-text">The neighborhood app posts the news when something happens.</p>
+      <p class="hint" id="hint" role="status" hidden></p>
+      <p class="resting" id="resting" role="status" hidden></p>
       <form class="publish" id="publish" hidden>
-        <button type="button" class="linkish" id="pull">Pull records here</button>
-        <button type="button" class="linkish" id="search" hidden>Search here</button>
         <label for="culprit">Who did it</label>
         <select id="culprit"><option value="">Choose a resident</option></select>
-        <button type="submit" class="primary">Publish</button>
-        <p class="ask-status" id="case-status" role="status"></p>
-      </form></section>
-    <div class="stage">
-      <ol class="feed" id="feed" role="log" aria-live="off" aria-label="What the town is saying"></ol>
-      <p class="empty" id="empty">Walk somewhere and talk to the people there.</p>
-    </div>
+        <button type="submit" class="primary">Publish episode</button>
+        <p id="cited"></p>
+      </form>
+      <p class="status" id="case-status" role="status"></p>
+    </section>
+
+    <section class="book" aria-labelledby="book-title">
+      <div class="book-head"><h2 id="book-title">Notebook</h2><small>by kind, newest first</small></div>
+      <div id="notebook"></div>
+      <p class="empty" id="book-empty">Nothing yet. Ask people what they saw, search the scene and pull records.</p>
+    </section>
+
+    <section class="where" aria-label="Where you are">
+      <div class="where-line">
+        <p class="here" id="here"></p>
+        <button type="button" class="plain-button" id="search-here" hidden>Search here</button>
+        <button type="button" class="plain-button" id="pull-here" hidden>Pull records</button>
+      </div>
+      <p class="status" id="where-status" role="status"></p>
+      <nav class="go" id="go" aria-label="Go to"></nav>
+    </section>
+
+    <details class="talk" id="talk">
+      <summary><b>Town talk</b><span class="latest" id="talk-latest"></span><span class="unread" id="unread"></span></summary>
+      <ol class="feed" id="feed" aria-label="Town talk, newest first"></ol>
+    </details>
   </main>
 
-  <aside id="town" aria-label="Residents">
-    <h2 id="people-heading">Residents</h2>
-    <div class="find">
-      <label for="search" class="visually-hidden">Find a resident</label>
-      <input type="search" id="search" placeholder="Find by name, job, looks, or place" autocomplete="off">
-      <p class="find-status" id="find-status" role="status"></p>
-      <p class="sort"><label for="sort">Sort</label>
-        <select id="sort">
-          <option value="place">By place</option>
-          <option value="notes">By what you know</option>
-        </select>
-      </p>
-    </div>
-    <div class="tiles" id="people"></div>
-    <section class="card" id="card" role="dialog" aria-labelledby="card-title" hidden></section>
+  <aside class="side" aria-label="People">
+    <section class="people" aria-labelledby="people-title">
+      <h2 id="people-title">People</h2>
+      <input type="search" id="find" placeholder="Find by name or looks, like red-haired" aria-label="Find someone" autocomplete="off">
+      <p class="status" id="find-status" role="status"></p>
+      <ul class="list" id="people"></ul>
+    </section>
+    <section class="convo" id="convo" aria-labelledby="convo-title">
+      <h2 id="convo-title">Pick someone to talk to</h2>
+      <p class="meta" id="convo-meta">You can reach anyone from anywhere: tap a name to call or message them.</p>
+      <details class="about" id="about" hidden><summary>About them</summary><dl id="about-list"></dl></details>
+      <ol class="thread" id="thread" aria-live="polite"></ol>
+      <form class="ask" id="ask" hidden>
+        <input type="text" id="ask-text" maxlength="300" autocomplete="off" aria-label="Your question" placeholder="Where were you last night?">
+        <button type="submit" class="primary">Ask</button>
+      </form>
+      <p class="status" id="ask-status" role="status"></p>
+    </section>
   </aside>
-
-  <div class="bottom">
-    <nav class="tabs" role="tablist" aria-label="Views">
-      <button type="button" role="tab" id="tab-hear" aria-controls="hear-panel" aria-selected="true">Hear</button>
-      <button type="button" role="tab" id="tab-village" aria-controls="town" aria-selected="false" tabindex="-1">Residents</button>
-    </nav>
-    <div class="composer">
-      <p class="resting" id="resting" role="status" hidden></p>
-      <p class="say-status" id="status" role="status"></p>
-    </div>
-  </div>
 </div>
 
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
-const feed = $("feed");
-const MAX_ITEMS = 1000;
-let villagers = [];
-let villagersKey = "";
-let places = [];
-let boot = null;
-let lastId = 0;
-let selected = null;
-let rover = null;
-let pressing = false;
-let peopleStale = false;
-let notes = {};
-let cardOpener = null;
-let here = null;
-let listenUntil = null;
-// Each case the player has seen, by id, and the case whose header the feed last showed.
-let caseInfo = {};
-let headedCase = null;
 const RESTING = "The town is resting for today. Come back after midnight UTC.";
 const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)");
-// What the feed's arrow keys move between; the feed itself is one tab stop.
-const ROVE = ".fold-more";
-const OPEN_KEY = "sleuth-open-place";
-const SORT_KEY = "sleuth-sort";
-const TAB_KEY = "sleuth-tab";
-const FACES_SHOWN = 11;
-const phone = matchMedia("(max-width: 760px)");
+const phone = matchMedia("(max-width: 600px)");
+const MAX_TALK = 300;
+// The notebook's groups, in order, and the group of each kind of record.
+const GROUPS = ["Seen", "Clip", "Logs", "Said", "Found", "Heard"];
+const GROUP_OF = { memory: "Seen", clip: "Clip", log: "Logs", statement: "Said", clue: "Found", discovery: "Found" };
+// A hearsay statement reads "<name> heard from <speaker>: ...".
+const HEARSAY = / heard from [^:]+: /;
+
+let residents = [];
+let residentsKey = "";
+let places = [];
+let recordsAt = [];
+let here = null;
+let boot = null;
+let lastId = 0;
+// The open case the page shows, and how many questions the player has asked each resident.
+let caseNow = null;
+let talked = {};
+let selected = null;
+let unread = 0;
+// The notebook by record id, in the order the player got each entry.
+const notebook = new Map();
 
 function el(tag, { dataset, ...props } = {}, ...children) {
   const node = Object.assign(document.createElement(tag), props);
@@ -461,269 +394,382 @@ function el(tag, { dataset, ...props } = {}, ...children) {
   return node;
 }
 
-function plural(n, word) {
-  return `${n} ${word}${n === 1 ? "" : "s"}`;
+function plural(n, word, many = `${word}s`) {
+  return `${n} ${n === 1 ? word : many}`;
+}
+
+function capital(words) {
+  return words.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 // Where someone is, like "at the cafe" or "on Elm Street".
 function atPlace(place) {
-  return place.endsWith(" street") ? `on ${place.replace(/\b\w/g, (c) => c.toUpperCase())}` : `at the ${place}`;
+  return place.endsWith(" street") ? `on ${capital(place)}` : `at the ${place}`;
 }
 
-// One feed line: loud, plain, heard, quiet or hint.
-function line(tone, ...children) {
-  return el("li", { className: `line ${tone}` }, el("span", { className: "line-text" }, ...children));
+function say(id, text, error = false) {
+  $(id).textContent = text;
+  $(id).classList.toggle("error", error);
 }
 
-function tag(text, kind = "") {
-  return el("span", { className: `tag ${kind}`, textContent: text });
-}
-
-// What an action added to the notebook, one short line each, or none when nothing was new.
-function gained(records, none) {
-  if (!records.length) return el("p", { className: "got", textContent: none });
-  return el("ul", { className: "got" }, ...records.map((r) => el("li", { textContent: r.text })));
-}
-
-// A quiet line that folds a listen's lines behind a toggle.
-function fold(dataset) {
-  const open = Boolean(dataset.listen);
-  const block = el("li", { className: open ? "fold open" : "fold", dataset });
-  const toggle = el("button", { type: "button", className: "linkish fold-more", tabIndex: -1, ariaExpanded: String(open),
-    onclick: () => {
-      toggle.ariaExpanded = String(block.classList.toggle("open"));
-      countFold(block);
-    } });
-  block.append(el("p", { className: "fold-head" }, el("span", { className: "fold-words" }), toggle),
-    el("ol", { className: "fold-lines" }));
-  return block;
-}
-
-function countFold(block) {
-  const n = block.querySelector(".fold-lines").children.length;
-  const head = block.querySelector(".fold-head");
-  const toggle = head.querySelector(".fold-more");
-  head.querySelector(".fold-words").textContent = foldWords(block, n);
-  toggle.hidden = n === 0;
-  toggle.textContent = block.classList.contains("open") ? "Hide" : `Show ${n}`;
-}
-
-function foldWords(block, n) {
-  const { place, ended } = block.dataset;
-  return `Recently said ${atPlace(place)} · ${plural(n, "line")}`;
-}
-
-// A line in a fold.
-function addLine(block, e, fresh) {
-  block.querySelector(".fold-lines").append(el("li", { className: fresh ? "talk-line fresh" : "talk-line" },
-    el("b", { textContent: e.speaker_name }), ": ", e.text));
-  countFold(block);
-}
-
-// The newest listen at place that has not ended yet.
-function listenBlock(place) {
-  return [...feed.querySelectorAll(`.fold[data-listen][data-place="${CSS.escape(place)}"]:not([data-ended])`)].pop() || null;
-}
-
-// A listen opens a fold of the lines said here lately; its end closes the newest open one.
-function listened(e, fresh) {
-  if (e.ended) {
-    if (listenUntil != null) setListening(null);
-    const block = listenBlock(e.place);
-    if (block) endListen(block);
-    return null;
-  }
-  setListening(e.until);
-  const block = fold({ listen: String(e.id), place: e.place });
-  for (const said of e.lines) addLine(block, said, fresh);
-  countFold(block);
-  return block;
-}
-
-// An ended listen closes its fold; arrow focus inside it moves to the fold's toggle.
-function endListen(block) {
-  const toggle = block.querySelector(".fold-more");
-  block.dataset.ended = "true";
-  block.classList.remove("open");
-  toggle.ariaExpanded = "false";
-  countFold(block);
-  if (rover && block.querySelector(".fold-lines").contains(rover)) {
-    const had = document.activeElement === rover;
-    setRover(toggle);
-    if (had) toggle.focus();
+async function post(path, body) {
+  try {
+    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (res.ok) return { ok: true, error: null };
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, error: data.error || "That didn't go through. Try again." };
+  } catch {
+    return { ok: false, error: "Can't reach the game. Check that it is still running, then try again." };
   }
 }
 
-// While the village rests for the day, one line says so.
+// The case header: whose case, its title and news, and Publish while it is open.
+function setCase(c) {
+  const open = c && c.state === "open" ? c : null;
+  if ((open && open.id) !== (caseNow && caseNow.id)) {
+    notebook.clear();
+    openPublish(false);
+  }
+  caseNow = open;
+  $("case-whose").textContent = open ? (open.private ? "Your case" : "The town's case") : "No open case";
+  $("case-title").textContent = open ? open.title : "Waiting for the next crime";
+  $("case-text").textContent = open ? open.text : "The neighborhood app posts the news when something happens.";
+  $("publish-open").hidden = !open;
+  drawNotebook();
+  drawWhere();
+}
+
 function setResting(on) {
   $("resting").hidden = !on;
   $("resting").textContent = on ? RESTING : "";
 }
 
-// The open case's news, or that there is none; a different case starts an empty notebook and publish form.
-function setCase(c) {
-  const text = $("case-text");
-  const id = c && c.state === "open" ? c.id : "";
-  text.textContent = id ? c.text : "No open case";
-  text.className = id ? "" : "none";
-  if ($("case").dataset.case !== id) {
-    $("notebook").replaceChildren();
-    $("culprit").value = "";
-    sayCase("");
+function openPublish(on) {
+  $("app").classList.toggle("citing", on);
+  $("publish").hidden = !on;
+  $("publish-open").textContent = on ? "Cancel" : "Publish";
+  $("publish-open").className = on ? "plain-button" : "primary";
+  $("publish-open").ariaExpanded = String(on);
+  if (on) {
+    setCulprits();
+    $("culprit").focus();
   }
-  $("case").dataset.case = id;
-  $("case").dataset.private = String(Boolean(id && c.private));
-  $("case").hidden = false;
-  $("publish").hidden = !id;
-  setSearch();
+  countCited();
 }
 
-// Search here shows only at the open case's crime place.
-function setSearch() {
-  const c = caseInfo[$("case").dataset.case];
-  $("search").hidden = !c || c.place !== here;
+$("publish-open").addEventListener("click", () => openPublish($("publish").hidden));
+
+function cited() {
+  return [...$("notebook").querySelectorAll("input:checked")].map((box) => box.value);
 }
 
-function sayCase(text, error = false) {
-  $("case-status").textContent = text;
-  $("case-status").classList.toggle("error", error);
+function countCited() {
+  const n = cited().length;
+  $("cited").textContent = n ? `${plural(n, "entry", "entries")} ticked.` : "Tick the notebook entries that back it up, up to 5.";
 }
 
-$("pull").addEventListener("click", async () => {
-  const { ok, error } = await post("/api/pull", {});
-  sayCase(ok ? "" : error, !ok);
-});
-
-$("search").addEventListener("click", async () => {
-  const { ok, error } = await post("/api/search", {});
-  sayCase(ok ? "" : error, !ok);
-});
-
-// Publish an episode naming the chosen resident on the ticked notebook entries.
 $("publish").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const button = $("publish").querySelector("button[type=submit]");
-  const cited = [...$("notebook").querySelectorAll("input:checked")].map((box) => box.value);
   button.disabled = true;
-  const { ok, error } = await post("/api/publish", { culprit_id: $("culprit").value, record_ids: cited });
+  const { ok, error } = await post("/api/publish", { culprit_id: $("culprit").value, record_ids: cited() });
   button.disabled = false;
-  sayCase(ok ? "Published. It's in the feed." : error, !ok);
+  if (ok) openPublish(false);
+  else say("case-status", error, true);
 });
 
 // The culprit choices: every resident by name, redrawn only when the residents change.
 let culpritsKey = "";
 function setCulprits() {
-  const key = villagers.map((v) => v.id).join("|");
-  if (key === culpritsKey) return;
-  culpritsKey = key;
+  if (residentsKey === culpritsKey) return;
+  culpritsKey = residentsKey;
   const select = $("culprit");
   const kept = select.value;
   select.replaceChildren(el("option", { value: "", textContent: "Choose a resident" }),
-    ...villagers.map((v) => el("option", { value: v.id, textContent: v.name })));
+    ...residents.map((v) => el("option", { value: v.id, textContent: v.name })));
   select.value = kept;
 }
 
-// Minutes into the game's day, which starts at 6am, of a clock like "11:42pm".
-function clockMinutes(clock) {
-  const m = /^(\d+):(\d+)(am|pm)$/.exec(clock || "");
-  if (!m) return Infinity;
-  const minutes = (Number(m[1]) % 12 + (m[3] === "pm" ? 12 : 0)) * 60 + Number(m[2]);
-  return (minutes + 1440 - 360) % 1440;
+// New or retold records; an entry already there keeps its place and takes the new text.
+function note(records) {
+  for (const r of records) notebook.set(r.id, r);
+  drawNotebook();
 }
 
-// The evidence the player has gathered, once each and in day and clock order, as "kind · from · clock · text", each
-// with a box to cite it. The day shows once the entries span more than one. An entry already there takes the new text.
-function note(records) {
-  const book = $("notebook");
-  for (const r of records) {
-    const shown = book.querySelector(`[data-id="${CSS.escape(r.id)}"] .note-text`);
-    if (shown) {
-      shown.textContent = [r.clock, r.text].filter(Boolean).join(" · ");
-      continue;
-    }
-    const minutes = clockMinutes(r.clock);
-    const at = r.day * 1440 + minutes;
-    // The page's clock turns the day at midnight, 18 hours into the game's day.
-    const day = r.day + (minutes >= 1080 ? 1 : 0);
-    const item = el("li", { dataset: { id: r.id, at, day } }, el("label", {},
-      el("input", { type: "checkbox", value: r.id }), " ", [r.kind, r.from].filter(Boolean).join(" · "), " · ",
-      el("span", { className: "note-day", textContent: `Day ${day}, ` }),
-      el("span", { className: "note-text", textContent: [r.clock, r.text].filter(Boolean).join(" · ") })));
-    book.insertBefore(item, [...book.children].find((li) => Number(li.dataset.at) > at) || null);
+function groupOf(r) {
+  return r.kind === "statement" && HEARSAY.test(r.text) ? "Heard" : GROUP_OF[r.kind] || "Said";
+}
+
+// The notebook by kind, newest entry first in each, keeping what is ticked.
+function drawNotebook() {
+  const ticked = new Set(cited());
+  const newest = [...notebook.values()].reverse();
+  const groups = GROUPS.map((g) => [g, newest.filter((r) => groupOf(r) === g)]).filter(([, rs]) => rs.length);
+  $("notebook").replaceChildren(...groups.map(([g, rs]) => el("section", { className: "group" },
+    el("h3", { textContent: g }), el("ol", {}, ...rs.map((r) => entry(r, ticked.has(r.id)))))));
+  $("book-empty").hidden = notebook.size > 0;
+  countCited();
+  drawPeople();
+}
+
+// One entry: its text, who it came from when the text doesn't say, and a box to cite it.
+function entry(r, ticked) {
+  const by = r.from && !r.text.includes(r.from) ? el("span", { className: "by", textContent: ` (${r.from})` }) : null;
+  return el("li", {}, el("label", {},
+    el("input", { type: "checkbox", value: r.id, checked: ticked, onchange: countCited }),
+    el("span", {}, r.text, by)));
+}
+
+// Where the player is, what they can do there, and everywhere else they can go.
+function drawWhere() {
+  if (!here) return;
+  $("here").replaceChildren("You're ", el("b", { textContent: atPlace(here) }));
+  $("search-here").hidden = !(caseNow && caseNow.place === here);
+  $("pull-here").hidden = !recordsAt.includes(here);
+  const scene = caseNow && caseNow.place;
+  $("go").replaceChildren(el("span", { textContent: "Go to" }), ...places.filter((p) => p !== here).map((p) =>
+    el("button", { type: "button", className: p === scene ? "scene" : "", textContent: p === scene ? `${capital(p)} (the scene)` : capital(p),
+      onclick: () => walkTo(p) })));
+}
+
+async function walkTo(place) {
+  say("where-status", "");
+  const { ok, error } = await post("/api/walk", { place });
+  if (!ok) say("where-status", error, true);
+}
+
+$("search-here").addEventListener("click", async () => {
+  const { ok, error } = await post("/api/search", {});
+  if (!ok) say("where-status", error, true);
+});
+
+$("pull-here").addEventListener("click", async () => {
+  const { ok, error } = await post("/api/pull", {});
+  if (!ok) say("where-status", error, true);
+});
+
+function gained(text, records, none) {
+  say("where-status", `${text} ${records.length ? `${plural(records.length, "new notebook entry", "new notebook entries")}.` : none}`);
+}
+
+// People: the victim, then witnesses the player has heard from, then whoever they've talked to, then everyone else.
+function roles() {
+  const role = {};
+  for (const r of notebook.values()) if (r.kind === "memory" && r.holder) role[r.holder] = "witness";
+  if (caseNow) role[caseNow.victim] = "victim";
+  return role;
+}
+
+function drawPeople() {
+  const q = $("find").value.trim().toLowerCase();
+  const role = roles();
+  const rank = (v) => ({ victim: 0, witness: 1 }[role[v.id]] ?? (talked[v.id] ? 2 : 3));
+  const shown = residents.filter((v) => !q || v.name.toLowerCase().includes(q) || v.looks.includes(q)
+    || v.occupation.toLowerCase().includes(q));
+  shown.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+  const focused = document.activeElement?.closest?.(".person")?.dataset.id;
+  $("people").replaceChildren(...shown.map((v) => person(v, role[v.id])));
+  if (focused) $("people").querySelector(`[data-id="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
+  $("find-status").textContent = !q ? "" : shown.length ? `${plural(shown.length, "match", "matches")}.`
+    : "No one matches. Try part of a name or a look like red-haired.";
+}
+
+function person(v, role) {
+  const n = talked[v.id] || 0;
+  return el("li", {}, el("button", {
+    type: "button", className: "person", dataset: { id: v.id }, ariaCurrent: String(v.id === selected),
+    onclick: () => choose(v.id),
+  }, faceWith(v), el("span", { className: "who" }, el("b", { textContent: v.name }),
+    role ? el("span", { className: `role ${role}`, textContent: role }) : null,
+    el("small", { textContent: v.looks || v.occupation })),
+  n ? el("span", { className: "talked", textContent: `talked ×${n}` }) : null));
+}
+
+$("find").addEventListener("input", drawPeople);
+$("find").addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && $("find").value) {
+    $("find").value = "";
+    drawPeople();
+  } else if (ev.key === "Enter") {
+    $("people").querySelector(".person")?.click();
   }
-  book.classList.toggle("days", new Set([...book.children].map((li) => li.dataset.day)).size > 1);
+});
+
+// The residents' list changes only when someone arrives or leaves, not when they move.
+function setResidents(list) {
+  const key = list.map((v) => `${v.id}:${v.name}`).join("|");
+  if (key === residentsKey) return;
+  residents = list;
+  residentsKey = key;
+  drawPeople();
+}
+
+// The conversation with a resident: who they are, what was said, and a box to ask more.
+let convoRequest = 0;
+async function choose(id) {
+  selected = id;
+  drawPeople();
+  const request = ++convoRequest;
+  const res = await fetch(`/api/villagers/${encodeURIComponent(id)}`).catch(() => null);
+  const body = res ? await res.json().catch(() => ({})) : {};
+  if (request !== convoRequest) return;
+  say("ask-status", "");
+  if (!res || !res.ok) {
+    $("convo-title").textContent = "Can't open that conversation";
+    $("convo-meta").textContent = body.error || "Try again.";
+    $("about").hidden = $("ask").hidden = true;
+    $("thread").replaceChildren();
+    return;
+  }
+  drawConvo(body);
+  if (phone.matches) $("convo").scrollIntoView({ block: "start", behavior: REDUCED_MOTION.matches ? "auto" : "smooth" });
+  else $("ask-text").focus({ preventScroll: true });
+}
+
+function drawConvo(body) {
+  const v = residents.find((r) => r.id === body.id) || body;
+  $("convo").dataset.id = body.id;
+  $("convo").dataset.name = body.name;
+  $("convo-title").replaceChildren(faceWith(v), `Talking with ${body.name}`);
+  $("convo-meta").textContent = [capital(body.occupation), body.home ? `lives ${atPlace(body.home)}` : "", body.traits_text]
+    .filter(Boolean).join(", ");
+  const link = (r) => el("button", { type: "button", className: "linkish", textContent: r.name, onclick: () => choose(r.id) });
+  const list = (rs) => rs.flatMap((r, i) => [i ? ", " : "", link(r), ` (${r.kind})`]);
+  $("about-list").replaceChildren(
+    el("dt", { textContent: "Personality" }), el("dd", { textContent: body.personality }),
+    ...(body.grudge ? [el("dt", { textContent: "Grudge" }), el("dd", { textContent: body.grudge })] : []),
+    ...(body.household.length ? [el("dt", { textContent: "Household" }), el("dd", {}, ...list(body.household))] : []),
+    ...(body.relationships.length ? [el("dt", { textContent: "Knows" }), el("dd", {}, ...list(body.relationships))] : []));
+  $("about").hidden = false;
+  $("thread").replaceChildren(...(body.thread.length ? body.thread.map((t) => exchange(t, body.name))
+    : [el("li", { className: "you", dataset: { none: "true" }, textContent: "Ask anything in your own words." })]));
+  $("thread").scrollTop = $("thread").scrollHeight;
+  $("ask").hidden = false;
+}
+
+// One question and reply, with what the reply added to the notebook.
+function exchange(t, name) {
+  return el("li", {}, el("p", { className: "you", textContent: `You: ${t.question}` }),
+    el("p", { className: "said" }, el("b", { textContent: name }), `: “${t.line}”`),
+    ...t.records.map((r) => el("p", { className: "added", textContent: `+ added to notebook: ${r.text}` })));
+}
+
+$("ask").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const { id, name } = $("convo").dataset;
+  const text = $("ask-text").value.trim();
+  if (!text) return say("ask-status", "Type a question.", true);
+  const button = $("ask").querySelector("button");
+  button.disabled = true;
+  say("ask-status", `Asking ${name}…`);
+  const { ok, error } = await post("/api/interview", { villager_id: id, text });
+  button.disabled = false;
+  if (!ok) return say("ask-status", error, true);
+  if ($("convo").dataset.id === id) $("ask-text").value = "";
+  say("ask-status", "");
+});
+
+// A reply joins the conversation when it is with the resident on screen.
+function answered(e) {
+  talked[e.villager_id] = (talked[e.villager_id] || 0) + 1;
+  drawPeople();
+  if ($("convo").dataset.id !== e.villager_id) return;
+  $("thread").querySelector("[data-none]")?.remove();
+  $("thread").append(exchange(e, e.name));
+  $("thread").scrollTop = $("thread").scrollHeight;
+}
+
+// Town talk: newest first, with the latest line and how many are new on the closed strip.
+function talk(tone, fresh, ...children) {
+  const feed = $("feed");
+  const item = el("li", { className: tone }, ...children);
+  feed.prepend(item);
+  while (feed.children.length > MAX_TALK) feed.lastElementChild.remove();
+  $("talk-latest").textContent = item.textContent;
+  if (fresh && !$("talk").open) unread++;
+  $("unread").textContent = unread ? `${unread} new` : "";
+}
+
+$("talk").addEventListener("toggle", () => {
+  if (!$("talk").open) return;
+  unread = 0;
+  $("unread").textContent = "";
+  $("feed").scrollTop = 0;
+});
+
+function tag(text) {
+  return el("span", { className: "tag", textContent: text });
 }
 
 function render(e, fresh) {
   switch (e.kind) {
     case "case":
-      caseInfo[e.case.id] = e.case;
       // A shared case waits until the player's private case closes.
-      if (e.case.private || $("case").dataset.private !== "true") setCase(e.case);
-      return null;
+      if (e.case.private || !(caseNow && caseNow.private)) setCase(e.case);
+      break;
     case "case_closed":
-      if ($("case").dataset.case === e.case_id) {
+      if (caseNow && caseNow.id === e.case_id) {
         setCase(null);
         if (fresh) loadState().catch(() => {});
       }
-      return e.text ? line("quiet", e.text) : null;
+      if (e.text) talk("quiet", fresh, e.text);
+      break;
     case "pulled":
       note(e.records);
-      return line("plain", e.text, gained(e.records, "Nothing new there."));
+      if (fresh) gained(e.text, e.records, "Nothing new there.");
+      break;
     case "searched":
       note(e.records);
-      return line("plain", e.text, gained(e.records, "You found nothing."));
+      if (fresh) gained(e.text, e.records, "You found nothing.");
+      break;
+    case "interview":
+      note(e.records);
+      if (fresh) answered(e);
+      break;
     case "episode":
-      return e.mine ? line("loud", `You named ${e.name}, citing ${plural(e.cited, "record")}.`,
-        el("p", { className: "got", textContent: e.verdict }))
-        : line("loud", e.text);
+      if (e.mine) {
+        talk("loud", fresh, `You named ${e.name}, citing ${plural(e.cited, "record")}. ${e.verdict}`);
+        if (fresh) say("case-status", `You named ${e.name}. ${e.verdict}`);
+      } else {
+        talk("loud", fresh, e.text);
+      }
+      break;
     case "post":
-      return e.app ? line("plain", tag("App"), e.text)
-        : line("heard", tag("Heard", "soft"), el("b", { textContent: e.speaker }), `: ${e.text}`);
+      if (e.app) talk("plain", fresh, tag("App"), e.text);
+      else talk("plain", fresh, tag("Heard"), el("b", { textContent: e.speaker }), `: ${e.text}`);
+      break;
     case "place":
-      setHere(e.place);
-      return null;
-    case "listen":
-      return listened(e, fresh);
+      here = e.place;
+      drawWhere();
+      break;
     case "time":
+      talk("quiet", fresh, e.text);
       // A replayed tick would wind the clock back to the start of its part of the day.
       if (fresh) {
         setClock(e);
         retell();
       }
-      return null;
-    case "system":
-      return line("quiet", e.text);
+      break;
     case "guide":
-      return line("hint", e.text);
+      $("hint").textContent = e.text;
+      $("hint").hidden = false;
+      break;
     case "rest":
       setResting(e.resting);
-      return line("quiet", e.text);
-    case "interview":
-      learn(e);
-      note(e.records);
-      if (fresh) talked(e);
-      return line("plain", tag("Interview", "answer"), "You asked ", el("b", { textContent: e.name }), " a question. ",
-        e.records.length ? `${plural(e.records.length, "new note")}. ` : "",
-        el("button", { type: "button", className: "linkish", textContent: "Open the conversation",
-          onclick: () => inspect(e.villager_id) }));
-    default:
-      return null;
+      talk("quiet", fresh, e.text);
+      break;
+    case "system":
+      talk("plain", fresh, e.text);
+      break;
   }
 }
 
-// The player's notes: what each villager answered in an interview, once each, in order.
-let learned = false;
-
-function noteOf(id) {
-  return notes[id] || [];
-}
-
-function learn(e) {
-  const answers = noteOf(e.villager_id);
-  if (!e.line || answers.includes(e.line)) return;
-  notes[e.villager_id] = [...answers, e.line];
-  learned = true;
+function addEvents(events, fresh) {
+  for (const e of events) {
+    if (e.id <= lastId) continue;
+    lastId = e.id;
+    render(e, fresh);
+  }
 }
 
 // Pixel faces: a 12x12 head and shoulders, with hair, coat and height from the resident's traits.
@@ -781,95 +827,6 @@ function faceWith(v, big = false) {
   return el("span", { className: big ? "face big" : "face", ariaHidden: "true" }, faceFor(v));
 }
 
-// A smooth scroll to new lines; lines arriving mid-scroll keep following even though the feed isn't at the bottom yet.
-let following = 0;
-function followFeed(fresh) {
-  const smooth = fresh && !REDUCED_MOTION.matches;
-  feed.scrollTo({ top: feed.scrollHeight, behavior: smooth ? "smooth" : "auto" });
-  if (!smooth) return;
-  clearTimeout(following);
-  following = setTimeout(() => { following = 0; }, 600);
-}
-
-function nearBottom() {
-  return feed.scrollHeight - feed.scrollTop - feed.clientHeight < 80;
-}
-
-function roveItems() {
-  return [...feed.querySelectorAll(ROVE)].filter((n) => n.getClientRects().length);
-}
-
-// Roving focus: the feed is one tab stop, and arrow keys move between its buttons.
-function setRover(node) {
-  if (rover) rover.tabIndex = -1;
-  rover = node;
-  if (rover) rover.tabIndex = 0;
-}
-
-// ponytail: the cap counts top-level items, so one fold can grow without limit within a game; split long folds if a
-// game outgrows that.
-function prune() {
-  while (feed.children.length > MAX_ITEMS) {
-    const node = feed.firstElementChild;
-    if (node.contains(rover)) rover = null;
-    node.remove();
-  }
-}
-
-// A header naming the case whose events follow, like "Your case: Ada Reyes's bike".
-function caseHead(id) {
-  headedCase = id;
-  const c = caseInfo[id];
-  const label = c ? `${c.private ? "Your case" : "Town case"}: ${c.title || c.text}` : "Case";
-  return el("li", { className: "case-head", textContent: label });
-}
-
-function addEvents(events, fresh) {
-  const stick = feed.children.length === 0 || nearBottom() || following !== 0;
-  for (const e of events) {
-    if (e.id <= lastId) continue;
-    lastId = e.id;
-    const node = render(e, fresh);
-    if (!node) continue;
-    if (fresh) node.classList.add("fresh");
-    if (e.case_id && e.case_id !== headedCase) feed.append(caseHead(e.case_id));
-    feed.append(node);
-  }
-  prune();
-  if (learned) {
-    learned = false;
-    refreshVillagers();
-    updateCard();
-  }
-  if (!rover) setRover(roveItems()[0] || null);
-  $("empty").hidden = feed.children.length > 0;
-  if (stick) followFeed(fresh);
-}
-
-feed.addEventListener("click", (ev) => {
-  const item = ev.target.closest(ROVE);
-  if (item) setRover(item);
-});
-feed.addEventListener("keydown", (ev) => {
-  const item = ev.target.closest(ROVE);
-  if (!item) return;
-  const items = roveItems();
-  const at = items.indexOf(item);
-  const next = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: items.length - 1 }[ev.key];
-  if (next != null && items[next]) {
-    ev.preventDefault();
-    setRover(items[next]);
-    items[next].focus();
-  }
-});
-document.addEventListener("keydown", (ev) => {
-  if (ev.key !== "Escape" || ev.defaultPrevented) return;
-  if ($("menu").classList.contains("open")) {
-    setMenu(false);
-    $("menu-toggle").focus();
-  } else if (!$("card").hidden) closeCard();
-});
-
 function setMenu(open) {
   $("menu").classList.toggle("open", open);
   $("menu-toggle").ariaExpanded = String(open);
@@ -878,304 +835,16 @@ $("menu-toggle").addEventListener("click", () => setMenu(!$("menu").classList.co
 document.addEventListener("click", (ev) => {
   if (!ev.target.closest("#menu, #menu-toggle")) setMenu(false);
 });
-
-function capital(word) {
-  return `${word[0].toUpperCase()}${word.slice(1)}`;
-}
-
-// Residents matching a search, best first: name, then job or looks, then place; ties keep name order.
-function matches(query) {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  const scored = [];
-  for (const v of villagers) {
-    const name = v.name.toLowerCase();
-    const score = name.startsWith(q) || name.includes(` ${q}`) ? 4
-      : name.includes(q) ? 3 : v.occupation.toLowerCase().includes(q) || v.looks.includes(q) ? 2 : v.place.includes(q) ? 1 : 0;
-    if (score) scored.push([score, v]);
-  }
-  return scored.sort((x, y) => y[0] - x[0]).map(([, v]) => v);
-}
-
-function storedPlace() {
-  try { return localStorage.getItem(OPEN_KEY); } catch { return null; }
-}
-
-function choosePlace(place) {
-  try { localStorage.setItem(OPEN_KEY, place); } catch { /* the choice lasts until reload */ }
-  chosenPlace = place;
-  searchPlace = null;
-  renderVillagers();
-}
-
-// The open tile: the place a search opened, else the player's choice, else where the player is, else the first.
-function openPlace(order) {
-  const want = searchPlace || chosenPlace || here;
-  return order.includes(want) ? want : order[0];
-}
-let chosenPlace = storedPlace();
-let searchPlace = null;
-
-// Ways to order villagers inside a tile; each falls back to name order.
-const SORTS = {
-  place: () => 0,
-  notes: (a, b) => Number(!noteOf(a.id).length) - Number(!noteOf(b.id).length),
-};
-
-function sorted(crowd) {
-  const by = SORTS[$("sort").value] || SORTS.place;
-  return [...crowd].sort((a, b) => by(a, b) || a.name.localeCompare(b.name));
-}
-
-try { if (SORTS[localStorage.getItem(SORT_KEY)]) $("sort").value = localStorage.getItem(SORT_KEY); } catch { /* name order */ }
-$("sort").addEventListener("change", () => {
-  try { localStorage.setItem(SORT_KEY, $("sort").value); } catch { /* the choice lasts until reload */ }
-  renderVillagers();
-});
-
-function faceButton(v, hits) {
-  return el("button", {
-    type: "button", tabIndex: -1, className: hits.has(v.id) ? "pick hit" : "pick",
-    title: `${v.name}, ${v.occupation}: ${v.looks}`, dataset: { id: v.id },
-    onclick: (ev) => inspect(v.id, ev.currentTarget),
-  }, faceWith(v), el("span", { className: "visually-hidden", textContent: `${v.name}, ${v.looks}` }));
-}
-
-// Search hits come first, ahead of the cut; a phone shows everyone.
-function closedTile(place, crowd, hits) {
-  const lead = (v) => hits.has(v.id);
-  const first = crowd.some(lead) ? [...crowd.filter(lead), ...crowd.filter((v) => !lead(v))] : crowd;
-  const shown = phone.matches ? first : first.slice(0, FACES_SHOWN);
-  const more = crowd.length - shown.length;
-  const buttons = shown.map((v) => faceButton(v, hits));
-  // On a phone a place's faces are one tab stop; the arrow keys move along them.
-  if (phone.matches && buttons.length) buttons[0].tabIndex = 0;
-  return el("div", { className: "faces" }, ...buttons,
-    more > 0 ? el("button", { type: "button", tabIndex: -1, className: "more", textContent: `+${more}`, onclick: () => choosePlace(place) }) : null);
-}
-
-function openTile(crowd, hits) {
-  const list = hits.size ? crowd.filter((v) => hits.has(v.id)) : crowd;
-  if (!list.length) return el("p", { className: "meta", textContent: hits.size ? "No one here matches." : "No one is here." });
-  const rows = el("ul", { className: "rows" }, ...list.map((v) => el("li", {}, el("button", {
-    type: "button", className: "row", dataset: { id: v.id },
-    ariaCurrent: String(v.id === selected), onclick: (ev) => inspect(v.id, ev.currentTarget),
-  }, faceWith(v, true), who(v, `${v.occupation}: ${v.looks}`)))));
-  const more = el("p", { className: "scroll-more", ariaHidden: "true" });
-  // Says how many rows are below the fold, so the list never looks cut off.
-  const cue = () => {
-    const rowHeight = rows.firstElementChild.offsetHeight || 1;
-    const below = Math.round((rows.scrollHeight - rows.scrollTop - rows.clientHeight) / rowHeight);
-    more.textContent = below > 0 ? `+${below} more, scroll` : "";
-  };
-  rows.addEventListener("scroll", cue);
-  requestAnimationFrame(cue);
-  return el("div", {}, rows, more);
-}
-
-// Name, a detail line, and the last answer.
-function who(v, detail) {
-  const answers = noteOf(v.id);
-  return el("span", { className: "who" }, el("b", { textContent: v.name }), " ", el("small", { textContent: detail }),
-    answers.length ? el("span", { className: "hint", textContent: `“${answers.at(-1)}”` }) : null);
-}
-
-function focusKey(node) {
-  if (node.dataset.id) return `[data-id="${CSS.escape(node.dataset.id)}"]`;
-  if (node.dataset.place) return `[data-place="${CSS.escape(node.dataset.place)}"]`;
-  if (node.dataset.act) return `[data-act="${CSS.escape(node.dataset.act)}"]`;
-  return null;
-}
-
-function renderVillagers() {
-  const people = $("people");
-  const key = people.contains(document.activeElement) ? focusKey(document.activeElement) : null;
-  const rows = people.querySelector(".open .rows");
-  const kept = rows ? { place: rows.closest(".tile").querySelector(".place").dataset.place, top: rows.scrollTop } : null;
-  const query = $("search").value;
-  const found = matches(query);
-  const hits = new Set(found.map((v) => v.id));
-  const order = [...places, ...[...new Set(villagers.map((v) => v.place))].filter((p) => !places.includes(p)).sort()];
-  const open = openPlace(order);
-  $("people-heading").textContent = `Residents (${villagers.length})`;
-  people.classList.toggle("searching", hits.size > 0);
-  people.replaceChildren(...order.map((place) => {
-    const crowd = sorted(villagers.filter((v) => v.place === place));
-    const count = hits.size ? `${crowd.filter((v) => hits.has(v.id)).length} of ${crowd.length}` : String(crowd.length);
-    const label = hits.size ? `${capital(place)}, ${count} residents match` : `${capital(place)}, ${plural(crowd.length, "resident")}`;
-    // A phone has no open tile: every place is one row with its faces and its Walk or Look around.
-    if (phone.matches) {
-      return el("section", { className: "tile" },
-        el("p", { className: "place" }, el("span", { className: "visually-hidden", textContent: label }),
-          el("b", { ariaHidden: "true", textContent: capital(place) }), el("span", { ariaHidden: "true", textContent: count })),
-        tileAction(place), closedTile(place, crowd, hits));
-    }
-    return el("section", { className: place === open ? "tile open" : "tile" },
-      el("button", {
-        type: "button", className: "place", dataset: { place }, ariaExpanded: String(place === open), ariaLabel: label,
-        onclick: () => choosePlace(place),
-      },
-        capital(place), el("span", { textContent: count })),
-      place === open ? tileAction(place) : null,
-      place === open ? openTile(crowd, hits) : closedTile(place, crowd, hits));
-  }));
-  const said = !query.trim() ? ""
-    : found.length ? `${found.length} found. Best match: ${found[0].name}, ${atPlace(found[0].place)}.`
-    : "No one matches. Try part of a name, a job, or a look like \"red-haired\".";
-  if ($("find-status").textContent !== said) $("find-status").textContent = said;
-  const again = key && people.querySelector(key);
-  if (again) again.focus({ preventScroll: true });
-  const list = kept && kept.place === open && people.querySelector(".open .rows");
-  if (list) list.scrollTop = kept.top;
-}
-
-// Moves and notes redraw the tiles at once, except mid-press, so a click lands on what was pressed.
-function refreshVillagers() {
-  if (pressing) peopleStale = true;
-  else renderVillagers();
-}
-function setVillagers(list) {
-  const key = list.map((v) => `${v.id}:${v.place}`).join("|");
-  if (key === villagersKey) return;
-  villagers = list;
-  villagersKey = key;
-  setCulprits();
-  refreshVillagers();
-  updateCard();
-  setAsk();
-}
-function flushVillagers() {
-  pressing = false;
-  if (peopleStale) {
-    peopleStale = false;
-    renderVillagers();
-  }
-}
-$("people").addEventListener("pointerdown", () => { pressing = true; });
-document.addEventListener("pointerup", () => setTimeout(flushVillagers));
-document.addEventListener("pointercancel", () => setTimeout(flushVillagers));
-$("people").addEventListener("keydown", (ev) => {
-  const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[ev.key];
-  const face = ev.target.closest(".faces .pick");
-  if (!step || !face) return;
-  const next = step > 0 ? face.nextElementSibling : face.previousElementSibling;
-  if (!next?.matches(".pick")) return;
-  ev.preventDefault();
-  next.focus();
-});
-$("search").addEventListener("input", () => {
-  const best = matches($("search").value)[0];
-  searchPlace = best ? best.place : null;
-  renderVillagers();
-  // A phone has no open tile to bring the best match up, so the list scrolls to it.
-  if (phone.matches) $("people").querySelector(".pick.hit")?.scrollIntoView({ block: "nearest" });
-});
-$("search").addEventListener("keydown", (ev) => {
-  if (ev.key === "Escape" && $("search").value) {
-    ev.preventDefault();
-    $("search").value = "";
-    searchPlace = null;
-    renderVillagers();
-  } else if (ev.key === "Enter") {
-    const best = $("people").querySelector(".open .row, .pick.hit");
-    if (best) best.focus();
+document.addEventListener("keydown", (ev) => {
+  if (ev.key !== "Escape" || ev.defaultPrevented) return;
+  if ($("menu").classList.contains("open")) {
+    setMenu(false);
+    $("menu-toggle").focus();
+  } else if (!$("publish").hidden) {
+    openPublish(false);
+    $("publish-open").focus();
   }
 });
-
-// The villager card: a popover beside the tiles, or a sheet at the foot of the Village tab on a phone.
-let cardRequest = 0;
-async function inspect(id, opener) {
-  const request = ++cardRequest;
-  if (opener) cardOpener = { id: opener.dataset.id, node: opener, top: opener.getBoundingClientRect().top };
-  selected = id;
-  $("people").querySelectorAll(".row").forEach((row) => { row.ariaCurrent = String(row.dataset.id === id); });
-  const card = $("card");
-  const res = await fetch(`/api/villagers/${encodeURIComponent(id)}`).catch(() => null);
-  const body = res ? await res.json().catch(() => ({})) : {};
-  if (request !== cardRequest) return;
-  if (!res || !res.ok) {
-    card.replaceChildren(el("h3", { id: "card-title", tabIndex: -1, textContent: "Not here" }),
-      el("p", { textContent: body.error || "Couldn't load that resident. Try again." }),
-      el("div", { className: "actions" }, el("button", { className: "linkish", type: "button", textContent: "Close", onclick: closeCard })));
-  } else {
-    card.replaceChildren(...cardBody(body));
-  }
-  card.hidden = false;
-  updateCard();
-  setAsk();
-  const top = cardOpener ? cardOpener.top - 8 : 8;
-  card.style.setProperty("--top", `${Math.max(8, Math.min(top, innerHeight - card.offsetHeight - 8))}px`);
-  $("card-title").focus({ preventScroll: true });
-}
-
-function cardBody(body) {
-  const looks = body.traits_text;
-  const street = body.home.replace(/\b\w/g, (c) => c.toUpperCase());
-  const household = body.household.flatMap((h, i) => [i ? ", " : "", el("button", { className: "rel", type: "button", textContent: h.name, onclick: () => inspect(h.id) }), ` (${h.kind})`]);
-  const rels = body.relationships.length
-    ? body.relationships.flatMap((r, i) => [i ? ", " : "", el("button", { className: "rel", type: "button", textContent: r.name, onclick: () => inspect(r.id) }), ` (${r.kind})`])
-    : ["none"];
-  return [
-    el("h3", { id: "card-title", tabIndex: -1, textContent: body.name }),
-    el("p", { className: "meta card-place", dataset: { occupation: body.occupation } }),
-    el("dl", {},
-      looks ? el("dt", { textContent: "Looks" }) : null,
-      looks ? el("dd", { textContent: capital(looks) }) : null,
-      street ? el("dt", { textContent: "Home" }) : null,
-      street ? el("dd", { textContent: `Lives on ${street}` }) : null,
-      household.length ? el("dt", { textContent: "Household" }) : null,
-      household.length ? el("dd", {}, ...household) : null,
-      el("dt", { textContent: "Personality" }), el("dd", { textContent: body.personality }),
-      body.grudge ? el("dt", { textContent: "Grudge" }) : null,
-      body.grudge ? el("dd", { textContent: body.grudge }) : null,
-      el("dt", { textContent: "Relationships" }), el("dd", {}, ...rels),
-      el("dt", { textContent: "Conversation" }),
-      el("dd", {}, el("ol", { className: "thread", dataset: { id: body.id } },
-        ...(body.thread.length ? body.thread.map((t) => exchange(t, body.name))
-          : [el("li", { className: "nothing", textContent: "You haven't asked anything yet." })])))),
-    el("div", { className: "ask-slot", dataset: { id: body.id, name: body.name, place: body.place } }),
-    el("div", { className: "actions" },
-      el("button", { className: "linkish", type: "button", textContent: "Close", onclick: closeCard })),
-  ];
-}
-
-// The open card's place and what the player knows, kept current as residents move and answer.
-function updateCard() {
-  const slot = $("card").hidden ? null : $("card").querySelector(".ask-slot");
-  if (!slot) return;
-  const { id } = slot.dataset;
-  const place = villagers.find((v) => v.id === id)?.place || slot.dataset.place;
-  const meta = $("card").querySelector(".card-place");
-  meta.textContent = `${meta.dataset.occupation}, ${atPlace(place)}`;
-}
-
-// One question and reply in a conversation, with what the reply added to the notebook.
-function exchange(t, name) {
-  return el("li", {}, el("p", { className: "you", textContent: `You: ${t.question}` }),
-    el("p", {}, el("b", { textContent: name }), `: “${t.line}”`), t.records.length ? gained(t.records, "") : null);
-}
-
-// A reply joins the open card's conversation when it is with that resident.
-function talked(e) {
-  const thread = $("card").hidden ? null : $("card").querySelector(`.thread[data-id="${CSS.escape(e.villager_id)}"]`);
-  if (!thread) return;
-  thread.querySelector(".nothing")?.remove();
-  thread.append(exchange(e, e.name));
-  thread.scrollTop = thread.scrollHeight;
-}
-
-function closeCard() {
-  const opener = cardOpener;
-  const inside = $("card").contains(document.activeElement);
-  cardRequest++;
-  $("card").hidden = true;
-  selected = null;
-  cardOpener = null;
-  $("people").querySelectorAll(".row[aria-current='true']").forEach((row) => { row.ariaCurrent = "false"; });
-  if (!opener || !inside) return;
-  const node = opener.node.isConnected ? opener.node : $("people").querySelector(`[data-id="${CSS.escape(opener.id)}"]`);
-  if (node) node.focus();
-}
 
 const PHASES = ["morning", "afternoon", "evening", "night"];
 let clockAt = null;
@@ -1217,153 +886,6 @@ function turnWheel() {
 setInterval(drawClock, 1000);
 requestAnimationFrame(turnWheel);
 
-function setStatus(text, error = false) {
-  $("status").textContent = text;
-  $("status").classList.toggle("error", error);
-}
-
-async function post(path, body) {
-  try {
-    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (res.ok) return { ok: true, error: null };
-    const data = await res.json().catch(() => ({}));
-    return { ok: false, error: data.error || "That didn't go through. Try again." };
-  } catch {
-    return { ok: false, error: "Can't reach the game. Check that it is still running, then try again." };
-  }
-}
-
-function setHere(place) {
-  here = place;
-  $("where").textContent = `You're ${atPlace(place)}`;
-  setSearch();
-  setActions();
-  setAsk();
-}
-
-function listening() {
-  return listenUntil != null && listenUntil > Date.now() / 1000;
-}
-
-// A listen runs until its end event, or on a reload until its time is up.
-function setListening(until) {
-  listenUntil = until;
-  setActions();
-  if (until != null) setTimeout(setActions, Math.max(0, until * 1000 - Date.now()) + 100);
-}
-
-// The open tile's button: walk to the place, or look around when the player is already there.
-function tileAction(place) {
-  const button = el("button", { type: "button", className: "linkish tile-act", dataset: { act: place } });
-  fillAction(button);
-  return button;
-}
-
-function fillAction(button) {
-  const at = button.dataset.act === here;
-  const busy = at && listening();
-  button.textContent = !at ? "Walk here" : busy ? "Just looked" : "Look around";
-  button.ariaDisabled = String(busy);
-  button.onclick = () => {
-    if (button.ariaDisabled === "true") return;
-    if (at) listenHere();
-    else walkTo(button.dataset.act);
-  };
-}
-
-function setActions() {
-  for (const button of $("people").querySelectorAll(".tile-act")) fillAction(button);
-}
-
-async function walkTo(place) {
-  const { ok, error } = await post("/api/walk", { place });
-  if (!ok) setStatus(error, true);
-}
-
-async function listenHere() {
-  const { ok, error } = await post("/api/listen", {});
-  if (!ok) setStatus(error, true);
-}
-
-// The card's question box; a resident can be reached from anywhere.
-function setAsk() {
-  const slot = $("card").hidden ? null : $("card").querySelector(".ask-slot");
-  if (!slot || slot.childElementCount) return;
-  slot.replaceChildren(...interviewForm(slot.dataset.id, slot.dataset.name));
-}
-
-// A box to ask the resident a question in your own words; the reply joins the conversation above it.
-function interviewForm(id, name) {
-  const input = el("input", { type: "text", maxLength: 300, autocomplete: "off", ariaLabel: `Ask ${name}`,
-    placeholder: "Where were you last night?" });
-  const button = el("button", { className: "primary", type: "submit", textContent: "Ask" });
-  const status = el("p", { className: "ask-status", role: "status" });
-  const say = (text, error = false) => {
-    status.textContent = text;
-    status.classList.toggle("error", error);
-  };
-  const form = el("form", { className: "ask" }, input, button);
-  form.addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const text = input.value.trim();
-    if (!text) return say("Type a question.", true);
-    button.disabled = true;
-    say(`Asking ${name}…`);
-    const { ok, error } = await post("/api/interview", { villager_id: id, text });
-    button.disabled = false;
-    if (!ok) return say(error, true);
-    input.value = "";
-    say("");
-    if (input.isConnected) input.focus();
-  });
-  return [form, status];
-}
-
-// On a phone the two columns are tabs; the choice is remembered.
-const TABS = ["hear", "village"];
-function setTab(name) {
-  $("app").dataset.tab = name;
-  for (const t of TABS) {
-    const tab = $(`tab-${t}`);
-    tab.ariaSelected = String(t === name);
-    tab.tabIndex = t === name ? 0 : -1;
-  }
-  try { localStorage.setItem(TAB_KEY, name); } catch { /* the choice lasts until reload */ }
-  // Tiles drawn while hidden measured nothing, so the scroll cue is redone once they show.
-  if (name === "village") refreshVillagers();
-}
-for (const t of TABS) $(`tab-${t}`).addEventListener("click", () => setTab(t));
-document.querySelector(".tabs").addEventListener("keydown", (ev) => {
-  const at = TABS.indexOf($("app").dataset.tab);
-  const to = { ArrowLeft: at - 1, ArrowRight: at + 1, Home: 0, End: TABS.length - 1 }[ev.key];
-  if (to == null) return;
-  ev.preventDefault();
-  const name = TABS[(to + TABS.length) % TABS.length];
-  setTab(name);
-  $(`tab-${name}`).focus();
-});
-let storedTab = null;
-try { storedTab = localStorage.getItem(TAB_KEY); } catch { /* the Hear tab */ }
-if (TABS.includes(storedTab)) setTab(storedTab);
-// The columns are tab panels only while they are tabs, so a wide screen keeps its landmarks.
-const PANELS = { hear: "hear-panel", village: "town" };
-function setPanels() {
-  for (const [t, id] of Object.entries(PANELS)) {
-    if (phone.matches) {
-      $(id).setAttribute("role", "tabpanel");
-      $(id).setAttribute("aria-labelledby", `tab-${t}`);
-    } else {
-      $(id).removeAttribute("role");
-      $(id).removeAttribute("aria-labelledby");
-    }
-  }
-}
-phone.addEventListener("change", () => {
-  setPanels();
-  refreshVillagers();
-});
-setPanels();
-
 function setConn(state, text) {
   $("conn").dataset.state = state;
   $("conn").textContent = text;
@@ -1371,18 +893,14 @@ function setConn(state, text) {
 
 // A new boot means the game restarted and numbers its events from 1 again.
 function reset() {
-  feed.replaceChildren();
-  closeCard();
+  $("feed").replaceChildren();
   faces.clear();
-  notes = {};
-  $("where").textContent = "";
-  here = null;
-  listenUntil = null;
+  notebook.clear();
+  talked = {};
+  unread = 0;
   lastId = 0;
-  caseInfo = {};
-  headedCase = null;
-  rover = null;
-  setStatus("");
+  caseNow = null;
+  $("hint").hidden = true;
 }
 
 // The case and notebook again, so their times read from the new part of the day.
@@ -1390,7 +908,6 @@ async function retell() {
   const res = await fetch("/api/case");
   if (!res.ok) return;
   const now = await res.json();
-  if (now.case) caseInfo[now.case.id] = now.case;
   setCase(now.case);
   note(now.notebook);
 }
@@ -1403,32 +920,24 @@ async function loadState() {
   if (boot !== null && state.boot !== boot) reset();
   boot = state.boot;
   places = state.places;
+  recordsAt = state.records_at;
+  talked = state.talked;
+  here = state.place;
   $("usage").textContent = state.usage.summary;
   setClock(state.time);
-  // The replay goes in before the log is live, so a reload doesn't read it all out.
-  feed.setAttribute("aria-live", "off");
-  const stick = feed.children.length === 0 || nearBottom();
-  if (state.case) caseInfo[state.case.id] = state.case;
+  setResidents(state.villagers);
   addEvents(state.events, false);
-  if (stick) feed.scrollTop = feed.scrollHeight;
-  setTimeout(() => feed.setAttribute("aria-live", "polite"));
-  setHere(state.place);
-  villagersKey = "";
-  setVillagers(state.villagers);
   setResting(state.resting);
   setCase(state.case);
-  $("notebook").replaceChildren();
+  notebook.clear();
   note(state.notebook);
+  if (selected) choose(selected);
 }
 
 function receive(e) {
-  if (e.kind === "villagers") {
-    setVillagers(e.villagers);
-  } else if (e.kind === "usage") {
-    $("usage").textContent = e.usage.summary;
-  } else {
-    addEvents([e], true);
-  }
+  if (e.kind === "villagers") setResidents(e.villagers);
+  else if (e.kind === "usage") $("usage").textContent = e.usage.summary;
+  else addEvents([e], true);
 }
 
 // Open the socket first and hold its messages until the state has loaded, so nothing falls in between.

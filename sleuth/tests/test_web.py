@@ -110,10 +110,6 @@ def test_state_lists_each_villagers_looks_and_face(game):
     assert marta["face"] == {"hair": None, "coat": COLOURS["denim jacket"], "height": 2}
 
 
-def test_page_draws_faces_from_traits_and_lists_looks(game):
-    html = game.client.get("/").text
-    assert "v.face" in html and "CLOTHES" not in html and "HAIR" not in html
-    assert "who(v, `${v.occupation}: ${v.looks}`)" in html
 
 
 def test_inspect_card_never_includes_needs(game):
@@ -149,14 +145,6 @@ def test_page_is_served(game):
     assert response.status_code == 200 and "Sleuth" in response.text
 
 
-def test_page_has_the_walk_listen_and_ask_controls(game):
-    html = game.client.get("/").text
-    for needle in ("Walk here", "Look around", "Recently said ${atPlace(place)}", "/api/walk", "/api/listen", "/api/interview", 'case "listen"', 'case "interview"',
-                   'id="notebook"', '"Interview"'):
-        assert needle in html
-    assert "/api/ask" not in html and 'case "asked"' not in html
-    assert "ariaDisabled" in html
-    assert "innerHTML" not in html and "Listen here" not in html and "You listen at" not in html
 
 
 def test_a_body_too_deeply_nested_to_parse_is_a_bad_request(game, monkeypatch):
@@ -403,14 +391,6 @@ def test_state_never_names_or_counts_other_players(game):
     assert "players" not in response.json()
 
 
-def test_the_feed_has_plain_heard_and_quiet_lines(game):
-    html = game.client.get("/").text
-    rove = re.search(r"const ROVE = \"(.*)\";", html).group(1)
-    assert rove == ".fold-more"
-    for needle in ('"plain"', '"heard"', '"quiet"', 'tag("Heard", "soft")', 'tag("Interview", "answer")'):
-        assert needle in html
-    for gone in ("moved by", "rails", "toggleThread", "cardScene", "innerHTML"):
-        assert gone not in html
 
 
 def outside_brackets(text: str) -> str:
@@ -446,26 +426,8 @@ def test_no_replace_children_call_can_render_null(game):
             assert "null" not in outside_brackets(items) or after.startswith(".filter(Boolean)"), items
 
 
-def test_the_panel_has_a_sort(game):
-    html = game.client.get("/").text
-    for text in ('id="sort"', "By what you know"):
-        assert text in html
-    assert "innerHTML" not in html
 
 
-def test_a_phone_gets_two_tabs(game):
-    html = game.client.get("/").text
-    assert 'role="tablist"' in html
-    for tab, controls in (
-        ('id="tab-hear"', 'aria-controls="hear-panel"'),
-        ('id="tab-village"', 'aria-controls="town"'),
-    ):
-        assert tab in html and controls in html
-    for gone in ("drawer-toggle", "setDrawer", "innerHTML"):
-        assert gone not in html
-    # The columns are tab panels only on a phone, so a wide screen keeps its landmarks and names.
-    assert 'role="tabpanel"' not in html and 'matchMedia("(max-width: 760px)")' in html
-    assert '<main id="hear-panel">' in html and 'aria-label="Residents"' in html and "rumors-panel" not in html
 
 
 RESTING = "The town is resting for today. Come back after midnight UTC."
@@ -604,47 +566,12 @@ def test_a_pruned_run_leaves_no_sent_snapshots(game, monkeypatch):
     assert all(gone.id not in kind for kind in game.app.state.sent.values())
 
 
-def phone_css(html: str) -> str:
-    """The rules under the phone breakpoint."""
-    at = html.index("@media (max-width: 760px) {")
-    return bracketed(html, html.index("{", at))
 
 
-def test_a_phone_header_is_one_line_with_a_menu(game):
-    html = game.client.get("/").text
-    for needle in ('id="menu-toggle"', 'aria-controls="menu"', 'class="menu" id="menu"'):
-        assert needle in html
-    assert 'id="mood"' not in html and 'id="heat"' not in html and 'id="gameover"' not in html
-    menu = re.search(r'<div class="menu" id="menu">(.*?)</div>', html, re.S).group(1)
-    assert 'id="usage"' in menu and "trophies" not in menu
-    phone = phone_css(html)
-    assert ".hud { display: contents; }" in phone and ".menu.open { display: flex; }" in phone
-    assert "width: 44px; height: 44px;" in phone and ".conn { order: 3; margin-left: auto; font-size: 0; }" in phone
 
 
-def test_a_phone_has_its_tabs_at_the_bottom(game):
-    html = game.client.get("/").text
-    bottom = html[html.index('<div class="bottom">'):html.index("<script>")]
-    assert bottom.index('role="tablist"') < bottom.index('class="composer"') and 'id="whisper"' not in bottom
-    phone = phone_css(html)
-    assert ".tabs { display: flex; border-bottom: 1px solid var(--rail); }" in phone
-    assert "min-height: 44px; background: none; border: 0; border-top: 3px solid transparent;" in phone
-    assert "border-top-color: var(--accent)" in phone
 
 
-def test_a_phone_lists_the_village_one_row_per_place(game):
-    html = game.client.get("/").text
-    find = re.search(r'<div class="find">(.*?)</div>', html, re.S).group(1)
-    assert 'id="search"' in find and 'id="sort"' in find
-    render = re.search(r"function renderVillagers\(\) \{(.*?)\n\}", html, re.S).group(1)
-    assert "if (phone.matches) {" in render and "tileAction(place), closedTile(place, crowd, hits));" in render
-    assert "const shown = phone.matches ? first : first.slice(0, FACES_SHOWN);" in html
-    # One tab stop per place, not one per villager; the arrows move along a place's faces.
-    assert "if (phone.matches && buttons.length) buttons[0].tabIndex = 0;" in html
-    assert 'const face = ev.target.closest(".faces .pick");' in html
-    phone = phone_css(html)
-    assert ".find { display: flex;" in phone and ".tiles .pick { display: grid; place-items: center; width: 44px; height: 44px; }" in phone
-    assert "grid-template-columns: 4rem minmax(0, 1fr) 3.25rem;" in phone
 
 
 def test_state_shows_the_case_without_its_culprit(game):
@@ -658,12 +585,6 @@ def test_state_shows_the_case_without_its_culprit(game):
     assert "culprit" not in json.dumps(body["case"]) and "Bert Cole" not in json.dumps(body["case"])
 
 
-def test_page_has_the_case_panel(game):
-    page = game.client.get("/").text
-    assert '<section class="case" id="case" hidden>' in page and "No open case" in page
-    for needle in ("Pull records here", "/api/pull", "/api/publish", 'id="culprit"', 'case "pulled"', 'case "episode"',
-                   "Search here", "/api/search", 'case "searched"', "c.place !== here"):
-        assert needle in page, needle
 
 
 def test_publish_reports_problems_and_bad_bodies(game):
@@ -680,9 +601,29 @@ def test_whisper_endpoint_is_gone(game):
     assert game.client.post("/api/whisper", json={"villager_id": "v1", "text": "hi"}).status_code in (404, 405)
 
 
+def test_page_is_built_around_the_case(game):
+    html = game.client.get("/").text
+    order = ['id="case"', 'id="notebook"', 'id="here"', 'id="talk"', 'id="people"', 'id="convo"']
+    assert [html.index(n) for n in order] == sorted(html.index(n) for n in order)
+    for needle in ('id="publish-open"', 'id="culprit"', "/api/publish", "/api/interview", "/api/walk", "/api/pull",
+                   "/api/search", 'case "interview"', 'case "pulled"', 'case "searched"', 'case "guide"',
+                   "@media (max-width: 600px)"):
+        assert needle in html, needle
+    for gone in ("/api/listen", "Look around", "tiles", "card-title", 'role="tablist"', "innerHTML"):
+        assert gone not in html, gone
+
+
+def test_the_notebook_groups_entries_by_kind(game):
+    html = game.client.get("/").text
+    assert 'const GROUPS = ["Seen", "Clip", "Logs", "Said", "Found", "Heard"];' in html
+    for kind in ("memory", "clip", "log", "statement", "clue", "discovery"):
+        assert f"{kind}: " in html[html.index("const GROUP_OF"):], kind
+
+
 def test_the_page_reloads_the_case_when_its_own_closes_and_keeps_a_private_one(game):
     page = game.client.get("/").text
     closed = page[page.index('case "case_closed":'):page.index('case "pulled":')]
     assert "loadState()" in closed
     opened = page[page.index('case "case":'):page.index('case "case_closed":')]
-    assert "e.case.private" in opened and "dataset.private" in page
+    assert "e.case.private" in opened and "caseNow.private" in opened
+
