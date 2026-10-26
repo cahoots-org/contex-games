@@ -23,12 +23,10 @@ from sleuth.feed import Feed
 from sleuth.game import Game
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
-from sleuth.overhear import Overhear
 from sleuth.persist import components, load_game, restore_game, resume_game, save_every, save_game, state_path, stop
 from sleuth.player import Player
 from sleuth.players import Players
-from sleuth.rumors import Rumors
-from sleuth.tests.helpers import Always, FakeMind, StubBaselines, StubContex, wait_for
+from sleuth.tests.helpers import FakeMind, StubBaselines, StubContex, wait_for
 from sleuth.town import Town
 from sleuth.usage import Usage
 from sleuth.web import create_app
@@ -56,10 +54,9 @@ def build(contex=None):
     town, lineage, ids, facts = Town(), Lineage(), Ids(), Facts()
     feed = Feed(lineage, town, out=None)
     game, usage, baselines = Game(config.memory_moves, config.day_seconds), Usage(config), StubBaselines(0.5)
-    overhear = Overhear(contex, baselines, config, Always(0.99))
     engine = Engine(
         config, town, contex, None, None, lineage, ids, feed, mind_factory=FakeMind, game=game, baselines=baselines,
-        rumors=Rumors(contex, baselines, config), overhear=overhear, facts=facts,
+        facts=facts,
         cases=Cases(config, town, None, random.Random(1), ids),
     )
     players = Players(usage)
@@ -74,7 +71,7 @@ def build(contex=None):
 async def api_state(g, owner):
     app = create_app(
         players=g.players, join=None, town=g.engine.town, feed=g.feed, usage=g.players.usage, port=8023,
-        suspicion=g.engine.suspicion, game=g.engine.game, rumors=g.engine.rumors, hints=g.engine.hints,
+        suspicion=g.engine.suspicion, game=g.engine.game, hints=g.engine.hints,
     )
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8023") as client:
@@ -90,7 +87,6 @@ async def played(monkeypatch):
     monkeypatch.setattr(engine_mod, "decide", ignore)
     contex = StubContex({
         "bread": [Match("utt:w-1", {}, 0.9)],
-        RETELLING: [Match("rumor:w-1", {}, 0.9)],
     })
     g = build(contex)
     for v in VILLAGERS:
@@ -105,8 +101,6 @@ async def played(monkeypatch):
     g.engine.lineage.record(retold.id, "w-1")
     g.engine.facts.record(retold)
     await g.engine.deliver(retold, ["v2"])
-    g.feed.emit("scene", "", player=player.id, scene_id="s-4")
-    g.feed.emit("overheard", "", player=player.id, scene="s-7")
     player.disconnected()
     await g.engine.stop()
     return g, player
@@ -120,8 +114,6 @@ def assert_next_ids_are_new(fresh, g, player):
 @pytest.mark.asyncio
 async def test_a_played_game_restores_to_the_same_state_with_fresh_ids(monkeypatch, tmp_path):
     g, player = await played(monkeypatch)
-    card = g.engine.rumors._cards["w-1"]
-    assert card.hops
     before = await api_state(g, player.owner)
     path = state_path(SESSION, str(tmp_path))
     save_game(path, g.parts, SESSION)
@@ -138,7 +130,6 @@ async def test_a_played_game_restores_to_the_same_state_with_fresh_ids(monkeypat
     assert_next_ids_are_new(fresh, g, player)
     assert fresh.feed.say("next").id == g.feed.recent[-1].id + 1
     assert fresh.engine.town.found_group("v1", "New", "x").id == "g-2"
-    assert fresh.engine.scenes._count == 7
 
 
 @pytest.mark.asyncio

@@ -23,12 +23,10 @@ from sleuth.facts import Facts
 from sleuth.feed import Feed, terminal
 from sleuth.game import Game
 from sleuth.lineage import Ids, Lineage
-from sleuth.overhear import Overhear
 from sleuth.persist import components, resume_game, save_every, save_quietly, set_aside, state_path, stop
 from sleuth.player import Player
 from sleuth.players import LOCAL_OWNER, Players, new_player_id
 from sleuth.routine import Routine
-from sleuth.rumors import Rumors
 from sleuth.town import PUBLIC_PLACES, Town
 from sleuth.town_gen import SeedMismatch, load_or_generate, world_path
 from sleuth.usage import CountingJev, Usage
@@ -56,11 +54,10 @@ async def play(web: bool) -> None:
         jev = CountingJev(typesafe_sdk.AsyncTypeSafeClient(), usage)
         baselines = Baselines(contex, config)
         facts = Facts()
-        overhear = Overhear(contex, baselines, config, rng)
         routine = Routine(jev, seed + ".places.json", config)
         engine = Engine(
             config, town, contex, jev, writer, lineage, ids, feed, game=game,
-            baselines=baselines, rumors=Rumors(contex, baselines, config), overhear=overhear,
+            baselines=baselines,
             routine=routine, facts=facts, cases=Cases(config, town, routine, rng, ids),
         )
         players = Players(usage)
@@ -108,7 +105,7 @@ async def play(web: bool) -> None:
                 host, port = config.address()
                 app = create_app(
                     players=players, join=join, town=town, feed=feed, usage=usage, port=port,
-                    suspicion=engine.suspicion, game=game, rumors=engine.rumors, hints=engine.hints, host=host,
+                    suspicion=engine.suspicion, game=game, hints=engine.hints, host=host,
                     cases=engine.cases,
                 )
                 server = uvicorn.Server(uvicorn.Config(

@@ -3,10 +3,19 @@
 import time
 from dataclasses import asdict
 
+from sleuth.actions import CONFRONT, DENY, PREACH, RETELL, SPEAK
 from sleuth.models import Utterance
+from sleuth.town import NEWCOMER
 
 # How many recent utterances are kept.
 KEPT_FACTS = 5000
+# Speech a bystander can hear; warnings and whispers are told to one person.
+SPOKEN = (RETELL, DENY, CONFRONT, SPEAK, PREACH)
+
+
+def audible(u: Utterance) -> bool:
+    """Whether the line is speech a bystander can hear, not a whisper or a warning."""
+    return u.speaker != NEWCOMER and u.action in SPOKEN
 
 
 class Facts:

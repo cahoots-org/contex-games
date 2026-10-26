@@ -29,8 +29,6 @@ class Config:
     check_lookback_seconds: float = 5.0
     # How far above a need's ordinary-talk similarity a whisper must score to match it.
     match_margin: float = 0.015
-    # How far above a whisper's ordinary-talk similarity a retelling must score to stay on its rumor card.
-    on_topic_margin: float = 0.035
     # How similar a villager's earlier line must be to what the newcomer says to be remembered.
     said_floor: float = 0.8
     # How similar a line the villager heard must be to what the newcomer says to be recalled.
@@ -39,10 +37,6 @@ class Config:
     fatigue_per_hop: float = 0.004
     # How much more clearance overheard room talk needs than a line told to the listener.
     overheard_margin: float = 0.01
-    # The share of ordinary talk at the player's place that the player overhears.
-    overhear_rate: float = 0.125
-    # The share of lively talk at the player's place that the player overhears.
-    lively_rate: float = 0.4
     # How far news must clear a need for a villager who walks off to share it wherever their nature lets them.
     share_clearance: float = 0.02
     # How long one Listen lasts.
@@ -85,14 +79,6 @@ class Config:
     run_out_level: float = 0.08
     run_out_checks: int = 3
     suspicion_check_days: float = 0.25
-    # How many scenes run at once.
-    max_scenes: int = 3
-    # How long a villager in a scene waits between turns.
-    scene_cooldown_seconds: float = 5.0
-    # The share of a scene's momentum that becomes the chance a bystander is drawn in.
-    join_rate: float = 0.3
-    # How many lines a scene runs before it ends.
-    scene_max_lines: int = 12
     # How far above a need's ordinary-talk similarity a line must score to count as a hint.
     hint_margin: float = 0.0
     # How close under a threshold a line must fall to count as a near miss.

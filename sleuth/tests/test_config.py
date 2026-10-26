@@ -61,16 +61,6 @@ def test_suspicion_defaults_and_env_overrides(monkeypatch):
     assert (cfg.run_out_checks, cfg.suspicion_check_days) == (5, 0.5)
 
 
-def test_scene_defaults_and_env_overrides(monkeypatch):
-    cfg = Config()
-    assert (cfg.max_scenes, cfg.scene_cooldown_seconds, cfg.join_rate) == (3, 5.0, 0.3)
-    assert (cfg.scene_max_lines, cfg.hint_margin, cfg.near_miss_band) == (12, 0.0, 0.01)
-    monkeypatch.setenv("SLEUTH_MAX_SCENES", "2")
-    monkeypatch.setenv("SLEUTH_JOIN_RATE", "0.5")
-    cfg = Config.from_env()
-    assert (cfg.max_scenes, cfg.join_rate) == (2, 0.5)
-
-
 def test_listen_lasts_twenty_seconds_by_default():
     assert Config().listen_seconds == 20.0
 

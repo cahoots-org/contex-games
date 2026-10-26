@@ -12,10 +12,9 @@ from sleuth.town_gen import WORLDS_DIR
 
 log = logging.getLogger(__name__)
 
-STATE_VERSION = 7
+STATE_VERSION = 8
 # Every id the game's Ids counters hand out, as prefix and number.
 ID = re.compile(r"\b(u|w|r|case)-(\d+)\b")
-SCENE_ID = re.compile(r"s-(\d+)")
 # How far a restore skips each id that also keys Contex data past the last one saved, so ids handed out after a save
 # that a crash lost are not handed out again.
 ID_MARGIN = 1000
@@ -31,7 +30,7 @@ def components(engine) -> dict:
     return {
         "town": engine.town, "ids": engine.ids, "lineage": engine.lineage, "facts": engine.facts, "feed": engine.feed,
         "game": engine.game, "usage": engine.players.usage, "suspicion": engine.suspicion, "rapport": engine.rapport,
-        "engine": engine, "rumors": engine.rumors, "players": engine.players,
+        "engine": engine, "players": engine.players,
         "hints": engine.hints, "cases": engine.cases,
     }
 
@@ -121,9 +120,6 @@ def _restore(state: dict, components: dict, make: Callable, margin: int = 0) -> 
     components["hints"].ensure_past(state["hints"]["last_key"] + margin)
     feed = state["feed"]
     components["feed"].ensure_past(max([e["id"] for e in feed["recent"]] + list(feed["closed"].values()), default=0))
-    scenes = [e["data"].get(k) for e in feed["recent"] for k in ("scene_id", "scene")]
-    found = [SCENE_ID.fullmatch(s) for s in scenes if isinstance(s, str)]
-    components["engine"].scenes.ensure_past(max((int(m[1]) for m in found if m), default=0))
 
 
 def save_quietly(path: str, components: dict, session: str) -> None:

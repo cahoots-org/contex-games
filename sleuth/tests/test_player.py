@@ -8,7 +8,7 @@ from dataclasses import replace
 from datetime import datetime
 
 from sleuth.contex_client import Match
-from sleuth.game import Game, Summary
+from sleuth.game import Summary
 from sleuth.lineage import Ids
 from sleuth.models import Utterance, Villager
 from sleuth.actions import SPEAK, WARN
@@ -16,7 +16,6 @@ from sleuth.player import ALREADY_LISTENING, GAME_OVER, MAX_WHISPER_CHARS, Playe
 from sleuth.mind import mind_project
 from sleuth.notes import Notes
 from sleuth.players import Players
-from sleuth.rumors import Rumors
 from sleuth.config import Config
 from sleuth.rapport import interest_words
 from sleuth.tests.helpers import PID, TIMEOUT, StubBaselines, StubClient, StubContex, wait_for
@@ -474,46 +473,6 @@ async def test_place_stays_when_the_whisper_fails():
 
 
 @pytest.mark.asyncio
-async def test_reply_threads_onto_the_first_whisper():
-    player, _, _, engine, lineage = make("Marta")
-    assert await player.whisper("Marta", "the well tastes odd") is None
-    engine.conversations[("v1", PID)] = {"id": "w-1", "answered": ["w-1"]}
-    assert await player.whisper("Marta", "odd since the frost, too") is None
-    first, reply = (u for u, _ in engine.delivered)
-    assert first.conversation is None
-    assert (reply.id, reply.parent, reply.depth, reply.conversation) == ("w-2", None, 0, "w-1")
-    assert lineage.is_whisper("w-2") and engine.facts.get("w-2").conversation == "w-1"
-    player.feed.on_delivery(reply, ["v1"])
-    assert player.feed.recent[-1].data["conversation"] == "w-1"
-    player.close()
-
-
-@pytest.mark.asyncio
-async def test_only_a_new_rumor_ages_the_village_memory():
-    player, _, _, engine, _ = make("Marta")
-    player.game = Game(memory_moves=1)
-    assert await player.whisper("Marta", "the well tastes odd") is None
-    first = player.game.memory_since()
-    engine.conversations[("v1", PID)] = {"id": "w-1", "answered": ["w-1"]}
-    await asyncio.sleep(0.01)
-    assert await player.whisper("Marta", "odd since the frost, too") is None
-    assert player.game.memory_since() == first
-    engine.conversations.pop(("v1", PID), None)
-    assert await player.whisper("Marta", "the miller waters his flour") is None
-    assert player.game.memory_since() > first
-    player.close()
-
-
-@pytest.mark.asyncio
-async def test_a_missed_reply_ends_the_conversation():
-    player, _ = make_hinting(StubWriter("Wheel's groaning."))
-    player.engine.conversations[("v1", PID)] = {"id": "w-0", "answered": ["w-0"]}
-    await player.whisper_to("v1", "the tide tables were misprinted")
-    assert ("v1", PID) not in player.engine.conversations
-    player.close()
-
-
-@pytest.mark.asyncio
 async def test_a_refusal_ends_the_conversation():
     player, _, _, engine, _ = make("Marta")
     engine.conversations[("v1", PID)] = {"id": "w-0", "answered": ["w-0"]}
@@ -530,23 +489,6 @@ async def test_a_refusal_ends_only_that_players_conversation():
     suspect(player)
     assert isinstance(await player.whisper("Marta", "hello"), Refusal)
     assert ("v1", "p-b") in engine.conversations and ("v1", PID) not in engine.conversations
-
-
-@pytest.mark.asyncio
-async def test_a_missed_reply_leaves_a_newer_conversation_open():
-    player, _ = make_hinting(StubWriter("Wheel's groaning."))
-    conversations = player.engine.conversations
-    conversations[("v1", PID)] = {"id": "w-0", "answered": ["w-0"]}
-
-    async def miss_after_a_new_conversation_opens(target, utterance, since, hint_need=None, bar_drop=0.0):
-        conversations[("v1", PID)] = {"id": "w-9", "answered": ["w-9"]}
-        return []
-
-    player.check = miss_after_a_new_conversation_opens
-    await player.whisper_to("v1", "the tide tables were misprinted")
-    assert player.engine.delivered[0][0].conversation == "w-0"
-    assert conversations[("v1", PID)]["id"] == "w-9"
-    player.close()
 
 
 def hinted_player(*lines):
@@ -566,14 +508,6 @@ def conversations(player):
 
 
 @pytest.mark.asyncio
-async def test_a_whisper_after_a_brush_off_is_a_reply_on_the_same_card():
-    player = hinted_player("Wheel's groaning.")
-    await miss(player)
-    await player.whisper_to("v1", "I could look at the wheel")
-    assert conversations(player) == [None, "w-1"]
-
-
-@pytest.mark.asyncio
 async def test_a_reply_lands_on_the_hinted_need_at_its_baseline():
     player = hinted_player("Wheel's groaning.")
     await miss(player)
@@ -590,42 +524,6 @@ async def test_the_same_score_misses_a_need_that_was_not_hinted():
     player.engine.contex = StubContex({n: landing(0.49, "utt:w-2") for n in NEEDS[1:]})
     await player.whisper_to("v1", "I could look at the wheel")
     assert player.engine.direct == []
-
-
-@pytest.mark.asyncio
-async def test_a_lean_in_thread_has_no_whisper_cap():
-    player = near_missing_player("Go on.", "Go on.", "Go on.", "Go on.")
-    player.config = replace(player.config, match_margin=0.0)
-    for i in range(1, 5):
-        player.engine.contex = StubContex({NEEDS[0]: landing(0.4905, f"utt:w-{i}")})
-        await miss(player)
-    assert conversations(player) == [None, "w-1", "w-1", "w-1"]
-    missed = [s for s in statuses(player) if s["state"] != "checking"]
-    assert {s["state"] for s in missed} == {"near_miss"} and all(s["continues"] for s in missed)
-
-
-@pytest.mark.asyncio
-async def test_a_thread_outlasts_the_part_of_the_day():
-    player = hinted_player("Wheel's groaning.", "Girl wants the city.")
-    player.game = Game()
-    await miss(player)
-    player.game.tick()
-    await miss(player)
-    assert conversations(player) == [None, "w-1"]
-
-
-@pytest.mark.asyncio
-async def test_a_thread_stays_open_while_you_type(monkeypatch):
-    now = [1000.0]
-    monkeypatch.setattr(time, "time", lambda: now[0])
-    player = hinted_player("Wheel's groaning.", "Girl wants the city.")
-    player.config = replace(player.config, talk_hold_seconds=60.0)
-    await miss(player)
-    now[0] += 50
-    player.typing()
-    now[0] += 50
-    await miss(player)
-    assert conversations(player) == [None, "w-1"]
 
 
 @pytest.mark.asyncio
@@ -649,33 +547,10 @@ async def test_a_reply_raises_suspicion_like_any_whisper():
     assert player.engine.suspicion.score("v1", PID) == pytest.approx(2 * player.config.suspicion_whisper_bump)
 
 
-@pytest.mark.asyncio
-async def test_an_open_conversation_takes_precedence_over_a_thread():
-    player = hinted_player("Wheel's groaning.")
-    await miss(player)
-    player.engine.conversations[("v1", PID)] = {"id": "w-9", "answered": False}
-    await player.whisper_to("v1", "I could look at the wheel")
-    assert conversations(player) == [None, "w-9"]
-
-
 def near_missing_player(*lines):
     player = hinted_player(*lines)
     player.engine.contex = StubContex({NEEDS[0]: landing(0.495)})
     return player
-
-
-@pytest.mark.asyncio
-async def test_a_near_miss_leans_in_and_opens_a_thread():
-    player = near_missing_player("Go on, then.")
-    assert await player.whisper_to("v1", "the wheel looks tired") is None
-    await wait_for(lambda: len(statuses(player)) == 3)
-    states = statuses(player)
-    assert [s["state"] for s in states] == ["checking", "near_miss", "near_miss"]
-    assert "hint" not in states[1] and states[2]["hint"] == "Go on, then."
-    assert player.engine.direct == []
-    assert player._threads["v1"]["need"] == NEEDS[0]
-    await player.whisper_to("v1", "I could look at the wheel")
-    assert conversations(player) == [None, "w-1"]
 
 
 @pytest.mark.asyncio
@@ -719,28 +594,6 @@ async def test_lowered_bar_lands_a_near_miss_at_full_interest():
     await player.whisper_to("v1", "the weaver's guild wants girls")
     (vid, match), = player.engine.direct
     assert (vid, match.data_key) == ("v1", "utt:w-2")
-
-
-@pytest.mark.asyncio
-async def test_running_out_of_patience_ends_the_conversation():
-    player = hinted_player("Wheel's groaning.", "I've no time for this.")
-    config = player.config
-    await miss(player)
-    await miss(player)
-    (stormed,) = [e for e in player.feed.recent if e.kind == "stormed_off"]
-    assert stormed.data["line"] == "I've no time for this." and stormed.data["verb"] == "takes their leave"
-    assert stormed.line == 'Aldwin Miller takes their leave: "I\'ve no time for this."'
-    assert [s["state"] for s in statuses(player)][-1] == "brushed_off" and "hint" not in statuses(player)[-1]
-    (bump,) = [e for e in player.engine.suspicion._evidence if e.reason == "lost patience with you"]
-    assert bump.amount == pytest.approx(config.suspicion_whisper_bump / 2)
-    assert "Aldwin Miller lost patience with you." in player.engine.suspicion.reasons(PID, 5)
-    rapport = player.engine.rapport.rapport("v1", PID)
-    assert rapport == pytest.approx(2 * config.rapport_share * config.interest_brush_off + config.rapport_lost_patience)
-    assert interest(player) == pytest.approx(rapport / 2)
-    assert player._exchange("v1") is None
-    player.engine.contex = StubContex({NEEDS[0]: landing(0.8, "utt:w-3")})
-    await player.whisper_to("v1", "the wheel is fixed")
-    assert conversations(player) == [None, "w-1", None]
 
 
 @pytest.mark.asyncio
@@ -1152,125 +1005,6 @@ async def test_the_answer_joins_notes_and_hints():
     assert (engine.hints.project(PID), "hint:1", {"id": "v1", "text": line}) in engine.contex.published
 
 
-def telling(*names):
-    """A player whose whispers start rumor cards, in a game that counts moves."""
-    player, town, _, engine, _ = make(*names)
-    engine.rumors = Rumors(StubContex(), StubBaselines(0.5), Config(session="s1"))
-    player.game = Game(memory_moves=1)
-    return player, engine
-
-
-def card_uids(engine):
-    return [c["uid"] for c in engine.rumors.cards(PID)]
-
-
-@pytest.mark.asyncio
-async def test_a_reply_in_a_conversation_adds_no_card():
-    player, engine = telling("Marta")
-    await player.whisper("Marta", "the well tastes odd")
-    engine.conversations[("v1", PID)] = {"id": "w-1", "answered": ["w-1"]}
-    await player.whisper("Marta", "odd since the frost, too")
-    assert card_uids(engine) == ["w-1"]
-    player.close()
-
-
-@pytest.mark.asyncio
-async def test_the_same_wording_to_another_villager_joins_the_first_rumor():
-    player, engine = telling("Marta", "Bert")
-    await player.whisper("Marta", "the well tastes odd")
-    first = player.game.memory_since()
-    await asyncio.sleep(0.01)
-    await player.whisper("Bert", "The well tastes odd.")
-    assert conversations(player) == [None, "w-1"]
-    card, = engine.rumors.cards(PID)
-    assert (card["uid"], card["heard"]) == ("w-1", 2)
-    assert player.game.memory_since() == first
-    player.close()
-
-
-@pytest.mark.asyncio
-async def test_new_wording_to_another_villager_is_a_new_rumor():
-    player, engine = telling("Marta", "Bert")
-    await player.whisper("Marta", "the well tastes odd")
-    first = player.game.memory_since()
-    await asyncio.sleep(0.01)
-    await player.whisper("Bert", "the well tastes of iron")
-    assert card_uids(engine) == ["w-1", "w-2"]
-    assert player.game.memory_since() > first
-    player.close()
-
-
-@pytest.mark.asyncio
-async def test_another_players_wording_starts_your_own_rumor():
-    player, engine = telling("Marta")
-    await engine.rumors.add("w-9", "the well tastes odd", datetime.now(), "v1", "Marta", player="p-b")
-    await player.whisper("Marta", "the well tastes odd")
-    assert conversations(player) == [None]
-    assert card_uids(engine) == ["w-1"]
-    player.close()
-
-
-@pytest.mark.asyncio
-async def test_a_reply_while_a_landed_reply_awaits_the_villager_stays_in_the_rumor():
-    player = hinted_player("Wheel's groaning.", "Not now.")
-    await miss(player)
-    player.engine.contex = StubContex({NEEDS[0]: landing(0.8, "utt:w-2")})
-    await player.whisper_to("v1", "I could look at the wheel")
-    assert [s["state"] for s in statuses(player)][-1] == "heard"
-    player.engine.contex = StubContex()
-    await player.whisper_to("v1", "for a fair price")
-    assert conversations(player) == [None, "w-1", "w-1"]
-    player.close()
-
-
-@pytest.mark.asyncio
-async def test_new_wording_while_the_villager_holds_your_first_whisper_continues_it():
-    player, engine = telling("Marta")
-    player.town.get("v1").needs.append("bread")
-    engine.contex = StubContex({"bread": landing(0.8)})
-    await player.whisper("Marta", "the oven is cold")
-    first = player.game.memory_since()
-    assert statuses(player)[-1]["state"] == "heard"
-    engine.contex = StubContex()
-    await asyncio.sleep(0.01)
-    await player.whisper("Marta", "and the baker is gone")
-    assert conversations(player) == [None, "w-1"]
-    assert card_uids(engine) == ["w-1"] and player.game.memory_since() == first
-    player.close()
-
-
-@pytest.mark.asyncio
-async def test_the_same_words_sent_at_once_make_one_rumor():
-    player, engine = telling("Marta", "Bert")
-    gate = asyncio.Event()
-
-    async def slow_deliver(utterance, listener_ids):
-        engine.delivered.append((utterance, listener_ids))
-        await gate.wait()
-
-    engine.deliver = slow_deliver
-    sends = asyncio.gather(player.whisper("Marta", "the well tastes odd"), player.whisper("Bert", "the well tastes odd"))
-    await wait_for(lambda: len(engine.delivered) == 2)
-    gate.set()
-    await sends
-    assert conversations(player) == [None, "w-1"]
-    assert card_uids(engine) == ["w-1"]
-    player.close()
-
-
-@pytest.mark.asyncio
-async def test_a_whisper_that_fails_to_go_out_leaves_no_card():
-    player, engine = telling("Marta")
-
-    async def fail(utterance, listener_ids):
-        raise RuntimeError("down")
-
-    engine.deliver = fail
-    await player.whisper("Marta", "the well tastes odd")
-    assert card_uids(engine) == []
-    player.close()
-
-
 async def missed_once():
     """A player who just missed with v1 at the tavern, so their exchange is open; whispers alone never make v1 wary."""
     player, *_ = make("Marta")
@@ -1384,19 +1118,6 @@ async def test_first_line_of_a_rumor_greets_by_rapport():
     first, second = player.writer.moods
     assert "curious" in first and "fond of the newcomer" in first and "Greet the newcomer" in first
     assert second == interest_words(interest(player)) and "newcomer" not in second
-
-
-@pytest.mark.asyncio
-async def test_a_retold_rumor_is_annoying_by_its_root_interest():
-    player = await missed_once()
-    engine = player.engine
-    engine.rumors = Rumors(StubContex(), StubBaselines(0.5), Config(session="s1"))
-    now = datetime.now()
-    engine.rumors.open("w-1", "the tide tables", now, "v1", "Aldwin", None, player=PID)
-    engine.rumors.open("w-2", "the tide tables again", now, "v1", "Aldwin", "w-1", player=PID)
-    engine.rapport.move("v1", PID, "w-1", -0.5)
-    engine.conversations[("v1", PID)] = {"id": "w-2", "answered": ["w-2"]}
-    assert player.annoyed("v1")
 
 
 def test_past_max_idle_runs_the_oldest_never_played_runs_go_whatever_their_age(clock):

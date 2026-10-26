@@ -10,9 +10,9 @@ from datetime import UTC, datetime, timedelta
 from sleuth.config import Config
 from sleuth.contex_client import Match
 from sleuth.game import Game, Summary
+from sleuth.facts import audible
 from sleuth.lineage import Ids, Lineage
 from sleuth.mind import mind_project
-from sleuth.overhear import audible
 from sleuth.models import Utterance, Villager
 from sleuth.town import NEWCOMER, PLACES, START_PLACE, Town, neighbours
 from sleuth.usage import charging
@@ -251,28 +251,21 @@ class Player:
         hint_need = None
         if thread and (target.id, self.id) not in self.engine.conversations:
             hint_need = thread["need"]
-        rumors = self.engine.rumors
-        exchange = self._exchange(target.id)
-        rumor = rumors.rumor_of(self.id, text, exchange) if rumors is not None else exchange
-        key = rumor or uid
+        key = self._exchange(target.id) or uid
         bar_drop = max(0.0, self.engine.rapport.interest(target.id, self.id, key)) * self.config.near_miss_band
         place = self.town.place_of(target.id)
-        utterance = Utterance(uid, NEWCOMER, "A newcomer", place, text, None, "whispered to you", conversation=rumor)
+        utterance = Utterance(uid, NEWCOMER, "A newcomer", place, text, None, "whispered to you")
         self.engine.facts.record(utterance)
         published_at = datetime.now(UTC)
         since = (published_at - timedelta(seconds=self.config.check_lookback_seconds)).isoformat()
-        if rumors is not None:
-            rumors.open(uid, text, published_at, target.id, target.name, rumor, player=self.id, place=place)
         try:
             await self.engine.deliver(utterance, [target.id])
         except Exception:
             log.exception("whisper to %s failed", target.id)
-            if rumors is not None:
-                rumors.discard(uid)
             return NOT_CARRIED
         self.whispered_at = self._said_at[target.id] = time.time()
         analytics("whisper", owner=self.owner, run=self.id)
-        if self.game is not None and rumor is None:
+        if self.game is not None:
             self.game.moved(self.id)
         if utterance.place != self.place:
             self._move(utterance.place)
@@ -280,7 +273,7 @@ class Player:
             target.id, self.id, self.config.suspicion_whisper_bump, "whispered to them directly", uid,
         )
         self.feed.on_whisper_status(uid, target.id, target.name, "checking")
-        found, _ = await asyncio.gather(self.check(target, utterance, since, hint_need, bar_drop), self._card(uid))
+        found = await self.check(target, utterance, since, hint_need, bar_drop)
         if found is None:
             self.feed.on_whisper_status(uid, target.id, target.name, "not_carried")
             return NOT_CARRIED
@@ -312,9 +305,6 @@ class Player:
             continues = interest > self.config.interest_end
             state = "near_miss" if closest else "brushed_off"
             self.feed.on_whisper_status(uid, target.id, target.name, state, continues=continues)
-            open_now = self.engine.conversations.get((target.id, self.id))
-            if utterance.conversation and open_now and open_now["id"] == utterance.conversation:
-                self.engine.end_conversation(target.id, self.id)
             if not continues:
                 self._lose_patience(target, key)
                 return None
@@ -457,10 +447,7 @@ class Player:
         exchange = self._exchange(villager_id)
         if exchange is None:
             return False
-        rumors = self.engine.rumors
-        # With an exchange given, rumor_of resolves it to its card and never reads the text.
-        rumor = rumors.rumor_of(self.id, "", exchange) if rumors is not None else exchange
-        return self.engine.rapport.interest(villager_id, self.id, rumor) <= self.config.interest_annoyed
+        return self.engine.rapport.interest(villager_id, self.id, exchange) <= self.config.interest_annoyed
 
     def part(self, villager_id: str) -> None:
         """End every exchange this player has open with the villager."""
@@ -514,10 +501,6 @@ class Player:
         if not hinted:
             return threshold
         return threshold - self.config.match_margin + self.config.hint_margin
-
-    async def _card(self, uid: str) -> None:
-        if self.engine.rumors is not None:
-            await self.engine.rumors.publish(uid)
 
     def over(self) -> bool:
         """Whether this player's game is over."""

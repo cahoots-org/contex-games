@@ -8,7 +8,6 @@ from dataclasses import asdict, dataclass
 from sleuth.game import Summary
 from sleuth.lineage import Lineage
 from sleuth.models import Utterance
-from sleuth.scenes import Scene
 from sleuth.suspicion import HEAT_LINES
 from sleuth.town import NEWCOMER, Town
 
@@ -21,19 +20,6 @@ TIME_LINES = {
     "afternoon": "The sun is high over the village.",
     "evening": "Evening falls, and lamps are lit.",
     "night": "Night settles over the village.",
-}
-SCENE_ENDS = {
-    "veered": "The {kind} turned to other things.",
-    "cooled": "The {kind} died down.",
-    "long": "The {kind} ran its course.",
-    "alone": "The {kind} broke up.",
-}
-MOMENTS = {
-    "size": "{n} people have heard your rumor now.",
-    "influence": "Your rumor reached {name}, and {influence}.",
-    "place": "Your rumor has reached the {place}.",
-    "scene": "Your rumor started {kind} at the {place}.",
-    "turned": "Your rumor turned against you: {name} says a newcomer started it.",
 }
 GAME_OVER = {"lost": "Game over: you were run out of town."}
 RESTING = "The village is resting for today. Come back after midnight UTC."
@@ -213,17 +199,6 @@ class Feed:
         self.emit("reply", f'{u.speaker_name} answers you: "{u.text}"', player=self.lineage.player_of(conversation),
                   conversation=conversation, villager_id=u.speaker, name=u.speaker_name, text=u.text, uid=u.id)
 
-    def on_moment(self, rumor: str, line: str, tone: str = "good") -> None:
-        """A turning point for the rumor, shown only to its player; dropped when the rumor has none."""
-        player = self.lineage.player_of(rumor)
-        if player is None:
-            return
-        self.emit("moment", line, player=player, rumor=rumor, text=line, tone=tone)
-
-    def on_drift(self, whisper_id: str) -> None:
-        """The whisper's story turned to other things; the terminal prints nothing."""
-        self.emit("drift", player=self.lineage.player_of(whisper_id), whisper_id=whisper_id)
-
     def on_case(self, case: dict, player: str | None = None) -> None:
         """A case opened or changed in the neighborhood app."""
         self.emit("case", case["text"], player=player, case=case)
@@ -261,36 +236,8 @@ class Feed:
         """The player stops listening at place."""
         self.emit("listen", "You stop listening.", player=player, place=place, ended=True)
 
-    def on_overheard(
-        self, utterance: Utterance, reason: str, scene: str | None = None, player: str | None = None,
-    ) -> None:
-        """A line the player overheard at their place, and the scene it belongs to if any.
-
-        The terminal prints only a line heard while listening.
-        """
-        u = utterance
-        line = f'{u.speaker_name}: "{u.text}"' if reason == "listen" else ""
-        self.emit("overheard", line, player=player, speaker=u.speaker, speaker_name=u.speaker_name, place=u.place, text=u.text,
-                  reason=reason, uid=u.id, scene=scene)
-
-    def on_scene(self, scene: Scene, player: str | None = None) -> None:
-        """A scene with at least two people went on or ended; the terminal prints nothing."""
-        if len(scene.people) < 2:
-            return
-        tone = "argument" if scene.heated else "conversation"
-        self.emit(
-            "scene", player=player, scene_id=scene.id, rumor=scene.rumor, opening=scene.opening, place=scene.place, tone=tone,
-            people=len(scene.people), lines=len(scene.lines),
-            ended=SCENE_ENDS[scene.ended].format(kind=tone) if scene.ended else None,
-        )
-
-    def on_delivery(
-        self, utterance: Utterance, listener_ids: list[str], on_topic: bool = True, scene: str | None = None,
-    ) -> None:
-        """Emit the player's whisper, a warning, an on-topic hop of a player-rooted rumor, or a town announcement.
-
-        scene is the id of the scene a hop belongs to, if any.
-        """
+    def on_delivery(self, utterance: Utterance, listener_ids: list[str]) -> None:
+        """Emit the player's whisper, a warning, or a town announcement."""
         u = utterance
         names = [self.town.get(i).name for i in listener_ids if i in self.town]
         if u.speaker == NEWCOMER:
@@ -304,18 +251,5 @@ class Feed:
                     u.speaker, u.speaker_name, listener_ids[0], names[0] if names else listener_ids[0], u.about,
                 )
             return
-        player = self.lineage.player_of(u.id)
-        if listener_ids and player is not None:
-            if not on_topic:
-                return
-            if len(listener_ids) == 1:
-                line = f'{u.speaker_name} told {names[0] if names else listener_ids[0]}: "{u.text}"'
-            else:
-                line = f'{u.speaker_name} said at the {u.place} (heard by {len(listener_ids)}): "{u.text}"'
-            self.emit(
-                "hop", line, player=player, uid=u.id, parent=u.parent, root=self.lineage.root(u.id),
-                depth=self.lineage.depth(u.id), speaker_id=u.speaker, speaker=u.speaker_name,
-                listeners=names, heard=len(listener_ids), place=u.place, verb=u.verb, text=u.text, scene=scene,
-            )
-        elif u.verb == "announced":
+        if u.verb == "announced":
             self.emit("announcement", speaker=u.speaker_name, place=u.place, text=u.text)

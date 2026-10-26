@@ -281,15 +281,14 @@ async def test_the_clock_walks_villagers_to_their_routine_place():
 
 
 @pytest.mark.asyncio
-async def test_a_villager_in_a_turn_a_scene_or_a_chosen_move_stays_put(monkeypatch):
-    vids = ("v1", "v2", "v3", "v4")
+async def test_a_villager_in_a_turn_or_a_chosen_move_stays_put():
+    vids = ("v1", "v2", "v3")
     engine, _, _, _ = await start(*vids)
     engine.routine = StubRoutine(dict.fromkeys(vids, "gym"))
     engine._turning.add("v1")
-    monkeypatch.setattr(engine.scenes, "of", lambda vid: object() if vid == "v2" else None)
-    engine._chose_move.add("v3")
+    engine._chose_move.add("v2")
     await engine._walk("morning", 0.0)
-    assert [engine.town.place_of(v) for v in vids] == ["cafe", "cafe", "cafe", "gym"]
+    assert [engine.town.place_of(v) for v in vids] == ["cafe", "cafe", "gym"]
     await engine.stop()
 
 

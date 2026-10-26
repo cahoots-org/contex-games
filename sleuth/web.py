@@ -7,7 +7,6 @@ import time
 import uuid
 from collections.abc import Callable
 from contextlib import asynccontextmanager
-from functools import partial
 from pathlib import Path
 
 from fastapi import FastAPI, Request, WebSocket
@@ -22,7 +21,6 @@ from sleuth.hints import Hints
 from sleuth.notes import Notes
 from sleuth.player import MAX_WHISPER_CHARS, Player, Refusal
 from sleuth.players import RUN_OUT_LOCKOUT_SECONDS, Players, new_owner_id
-from sleuth.rumors import Rumors
 from sleuth.suspicion import HEAT_LINES, Suspicion, influence
 from sleuth.town import PLACES, Town
 from sleuth.traits import describe
@@ -42,7 +40,6 @@ BAD_ASK = 'Send JSON like {"villager_id": "v1", "topic": "the gym"}.'
 COOKIE = "sleuth_player"
 COOKIE_SECONDS = 365 * 24 * 3600
 RELOAD = "Reload the page to join the village."
-TALLY_KEYS = ("uid", "heard", "frontier", "stopped", "touched")
 LOCAL_HOSTS = ("127.0.0.1", "localhost")
 
 
@@ -76,11 +73,6 @@ def villagers(town: Town) -> list[dict]:
          for v in town.villagers),
         key=lambda v: v["name"],
     )
-
-
-def tallies(rumors: Rumors, player_id: str) -> list[dict]:
-    """Each card's counts and frontier, so the live snapshot changes only when one of them does."""
-    return [{k: c[k] for k in TALLY_KEYS} for c in rumors.cards(player_id)]
 
 
 def event_json(event: Event) -> dict:
@@ -134,13 +126,13 @@ async def _payload(request: Request, bad: str, too_long: str) -> dict | JSONResp
 
 def create_app(
     *, players: Players, join: Callable[[str], Player], town: Town, feed: Feed, usage: Usage, port: int,
-    suspicion: Suspicion, game: Game, rumors: Rumors, hints: Hints, host: str = "127.0.0.1", cases: Cases | None = None,
+    suspicion: Suspicion, game: Game, hints: Hints, host: str = "127.0.0.1", cases: Cases | None = None,
 ) -> FastAPI:
     clients: dict[asyncio.Queue, str] = {}
     boot = uuid.uuid4().hex
     notes: dict[str, Notes] = {}
     # What each player's tabs were last sent, by kind.
-    sent: dict[str, dict[str, object]] = {"rumors": {}, "usage": {}}
+    sent: dict[str, dict[str, object]] = {"usage": {}}
 
     def notes_of(player: Player) -> Notes:
         if player.id not in notes:
@@ -192,7 +184,6 @@ def create_app(
         watchers = [
             asyncio.create_task(watch("villagers", lambda: villagers(town), VILLAGER_POLL_SECONDS)),
             asyncio.create_task(watch_each("usage", usage.to_json, USAGE_POLL_SECONDS)),
-            asyncio.create_task(watch_each("rumors", partial(tallies, rumors), VILLAGER_POLL_SECONDS)),
             asyncio.create_task(watch_rest()),
         ]
         try:
@@ -247,7 +238,6 @@ def create_app(
             "talk_hold_seconds": player.config.talk_hold_seconds,
             "villagers": villagers(town),
             "events": [event_json(e) for e in feed.replay(player.id)],
-            "rumors": rumors.cards(player.id),
             "notes": notes_of(player).all(),
             "usage": usage.to_json(player.id),
             "heat": (label := suspicion.label(player.id)),
@@ -367,7 +357,6 @@ def create_app(
             await socket.close(1008)
             return
         queue: asyncio.Queue = asyncio.Queue(CLIENT_QUEUE)
-        sent["rumors"].setdefault(player.id, tallies(rumors, player.id))
         sent["usage"].setdefault(player.id, usage.to_json(player.id))
         clients[queue] = player.id
         player.connected()

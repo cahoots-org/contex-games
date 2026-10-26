@@ -3,7 +3,6 @@ import json
 from sleuth.feed import REPLAY_EVENTS, Feed
 from sleuth.lineage import Lineage
 from sleuth.models import Utterance, Villager
-from sleuth.scenes import Scene
 from sleuth.tests.helpers import PID
 from sleuth.town import Town
 
@@ -22,41 +21,22 @@ def utt(uid):
     return Utterance(uid, "v1", "Bert", "bar", "the miller waters his flour", "w-1")
 
 
-def test_only_player_rooted_deliveries_print():
+def test_retellings_emit_nothing_and_a_whisper_prints_nothing():
     feed, lines = make()
     feed.on_delivery(utt("u-2"), ["v2"])
-    assert lines == []
     feed.on_delivery(utt("u-1"), ["v2"])
-    assert len(lines) == 1
+    assert not feed.recent
     whisper = Utterance("w-1", "newcomer", "A newcomer", "bar", "psst", None, "whispered to you")
     feed.on_delivery(whisper, ["v2"])
-    assert len(lines) == 1
+    assert [e.kind for e in feed.recent] == ["whisper"] and lines == []
 
 
-def test_single_and_group_line_formats():
-    feed, lines = make()
-    feed.on_delivery(utt("u-1"), ["v2"])
-    feed.on_delivery(utt("u-1"), ["v2", "v1", "v3", "v4"])
-    assert lines == [
-        'Bert told Marta: "the miller waters his flour"',
-        'Bert said at the bar (heard by 4): "the miller waters his flour"',
-    ]
-
-
-
-def test_events_carry_ids_depth_and_listener_names():
-    feed, lines = make()
-    feed.lineage.record("u-3", "u-1")
+def test_a_whisper_event_carries_its_target():
+    feed, _ = make()
     whisper = Utterance("w-1", "newcomer", "A newcomer", "bar", "psst", None, "whispered to you")
     feed.on_delivery(whisper, ["v1"])
-    feed.on_delivery(Utterance("u-3", "v2", "Marta", "library", "the miller drowns flour", "u-1"), ["v1"])
-    w, hop = feed.recent
+    w, = feed.recent
     assert (w.kind, w.data["uid"], w.data["target"], w.data["text"]) == ("whisper", "w-1", "Bert", "psst")
-    assert hop.kind == "hop" and hop.id > w.id and hop.at >= w.at
-    assert (hop.data["parent"], hop.data["root"], hop.data["depth"]) == ("u-1", "w-1", 2)
-    assert (hop.data["listeners"], hop.data["heard"], hop.data["scene"]) == (["Bert"], 1, None)
-    assert hop.to_json()["kind"] == "hop" and "line" not in hop.to_json()
-    assert lines == ['Marta told Bert: "the miller drowns flour"']
 
 
 def test_unrooted_announcements_reach_sinks_but_not_the_terminal():
@@ -150,34 +130,6 @@ def test_time_lines_name_the_day_at_dawn():
     assert [(e.kind, e.data["day"], e.data["phase"]) for e in feed.recent] == [("time", 2, "morning"), ("time", 2, "evening")]
 
 
-def test_scene_event_carries_counts_and_no_momentum():
-    feed, lines = make()
-    scene = Scene("s-1", "bar", "w-1", "w-1", True, "u-1", {"v1", "v2"}, {"v1", "v2"}, ["u-1", "u-2"], 0.83)
-    feed.on_scene(scene)
-    scene.ended = "cooled"
-    feed.on_scene(scene)
-    feed.on_delivery(utt("u-1"), ["v2"], scene="s-1")
-    going, ended, hop = feed.recent
-    assert going.data == {"scene_id": "s-1", "rumor": "w-1", "opening": "u-1", "place": "bar", "tone": "argument",
-                          "people": 2, "lines": 2, "ended": None}
-    assert ended.data["ended"] == "The argument died down."
-    assert hop.data["scene"] == "s-1"
-    assert lines == ['Bert told Marta: "the miller waters his flour"']
-
-
-def test_a_scene_is_silent_until_two_people_have_spoken():
-    feed, _ = make()
-    scene = Scene("s-1", "bar", "w-1", "w-1", False, "u-1", {"v1", "v2"}, {"v1"}, ["u-1"], 0.8)
-    feed.on_scene(scene)
-    scene.ended = "cooled"
-    feed.on_scene(scene)
-    assert list(feed.recent) == []
-    scene.people.add("v2")
-    feed.on_scene(scene)
-    [event] = feed.recent
-    assert (event.kind, event.data["people"]) == ("scene", 2)
-
-
 def test_a_near_miss_prints_once_its_line_is_settled():
     feed, lines = make()
     feed.on_whisper_status("w-1", "v1", "Bert", "near_miss")
@@ -197,10 +149,10 @@ def test_events_go_to_the_player_whose_whisper_they_follow():
     lineage.record("u-2", "w-2")
     feed = Feed(lineage, town, out=None)
     feed.on_whisper_status("w-1", "v1", "Bert", "checking")
-    feed.on_delivery(Utterance("u-2", "v1", "Bert", "bar", "news", "w-2"), ["v1"])
+    feed.on_whisper_status("w-2", "v1", "Bert", "heard")
     feed.on_time(1, "afternoon")
     assert [e.kind for e in feed.replay("p-a")] == ["whisper_status", "time"]
-    assert [e.kind for e in feed.replay("p-b")] == ["hop", "time"]
+    assert [e.kind for e in feed.replay("p-b")] == ["whisper_status", "time"]
     assert all("player" not in e.to_json() for e in feed.recent)
 
 
@@ -233,10 +185,6 @@ def test_listen_events_reach_only_the_listener_and_print_the_lines():
     assert lines[-1] == "You listen at the gym. It has been quiet here."
     feed.on_listen_end("gym", player=PID)
     assert (feed.recent[-1].data["ended"], feed.recent[-1].player, lines[-1]) == (True, PID, "You stop listening.")
-    feed.on_overheard(said, "listen", player=PID)
-    assert lines[-1] == 'Ada: "the well is dry"'
-    feed.on_overheard(said, "heated", player=PID)
-    assert lines[-1] == 'Ada: "the well is dry"' and len(lines) == 4
 
 
 def test_an_answer_reaches_only_the_asker():
@@ -249,18 +197,9 @@ def test_an_answer_reaches_only_the_asker():
     assert not feed.sees("p-2", event)
 
 
-def test_a_moment_reaches_only_its_rumors_player():
-    feed, lines = make()
-    feed.on_moment("w-1", "x")
-    event, = feed.recent
-    assert (event.kind, event.player, event.data["tone"], lines) == ("moment", PID, "good", ["x"])
-    feed.on_moment("u-unknown", "x")
-    assert len(feed.recent) == 1 and lines == ["x"]
-
-
 def test_state_round_trips_as_json_and_ids_go_on_past_it():
     feed, _ = make()
-    feed.on_delivery(utt("u-1"), ["v2"])
+    feed.say("hello")
     feed.on_whisper_status("w-1", "v1", "Bert", "answered")
     feed.on_whisper_status("w-2", "v2", "Marta", "heard")
     feed.on_whisper_status("w-3", "v2", "Marta", "kept")

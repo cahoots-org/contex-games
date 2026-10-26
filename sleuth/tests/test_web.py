@@ -5,7 +5,6 @@ import re
 import threading
 import time
 from datetime import UTC, datetime
-from functools import partial
 from types import SimpleNamespace
 
 import pytest
@@ -16,14 +15,12 @@ from sleuth.case import Crime
 from sleuth.cases import CaseFile, Cases
 from sleuth.config import Config
 from sleuth.contex_client import Match
-from sleuth.feed import REPLAY_EVENTS, Feed
+from sleuth.feed import Feed
 from sleuth.game import Game, Summary
 from sleuth.lineage import Ids, Lineage
-from sleuth.models import Utterance, Villager
+from sleuth.models import Villager
 from sleuth.player import MAX_WHISPER_CHARS, Player
 from sleuth.players import RUN_OUT_LOCKOUT_SECONDS, Players, new_player_id
-from sleuth.rumors import TARGET_STATES, Rumors
-from sleuth.scenes import Scene
 from sleuth.suspicion import HEAT_LINES, Suspicion
 from sleuth.town import PLACES, Town
 from sleuth.tests import helpers
@@ -77,19 +74,17 @@ def game(monkeypatch):
         return player
 
     usage = Usage(Config())
-    rumors = Rumors(helpers.StubContex(), helpers.StubBaselines(0.5), config)
-    feed.sinks.append(rumors.on_event)
     cases = Cases(config, town, None, random.Random(1), Ids())
     app = create_app(
         players=players, join=join, town=town, feed=feed, usage=usage, port=PORT,
-        suspicion=suspicion, game=game, rumors=rumors, hints=engine.hints, cases=cases,
+        suspicion=suspicion, game=game, hints=engine.hints, cases=cases,
     )
     with TestClient(app, base_url=BASE) as client:
         client.get("/")
         player = players.live(client.cookies[web.COOKIE])
         yield SimpleNamespace(
             client=client, town=town, feed=feed, app=app, usage=usage, suspicion=suspicion, player=player, config=config,
-            rumors=rumors, players=players, join=join, engine=engine, cases=cases,
+            players=players, join=join, engine=engine, cases=cases,
         )
     for p in players:
         p.close()
@@ -461,44 +456,6 @@ def test_no_api_response_contains_a_suspicion_number_or_villager_id_for_suspects
                 assert value not in scores, (key, value)
 
 
-def test_scene_event_reaches_the_websocket(game):
-    scene = Scene("s-1", "library", "w-1", "w-1", False, "u-1", {"v1", "v2"}, {"v1", "v2"}, ["u-1", "u-2"], 0.73)
-    with game.client.websocket_connect(WS) as ws:
-        game.feed.on_scene(scene)
-        event = receive(ws)
-    assert (event["kind"], event["tone"], event["people"], event["lines"]) == ("scene", "conversation", 2, 2)
-    assert "0.73" not in json.dumps(event)
-    for key, value in walk(event):
-        if any(word in key for word in SUSPICION_KEYS):
-            assert not isinstance(value, int | float) or isinstance(value, bool), (key, value)
-
-
-def test_state_carries_cards_beyond_the_replay_window(game):
-    game.client.portal.call(partial(
-        game.rumors.add, "w-1", "the miller waters his flour", datetime.now(UTC), "v1", "Marta Hale", player=game.player.id,
-    ))
-    hop = Utterance("u-1", "v1", "Marta Hale", "library", "the miller cheats", "w-1")
-    game.rumors.record("w-1", hop, {"v2": "Bert Cole"}, True)
-    for i in range(REPLAY_EVENTS + 1):
-        game.feed.say(f"line {i}")
-    card, = game.client.get("/api/state").json()["rumors"]
-    assert (card["uid"], card["target_name"], card["heard"], card["still"]) == ("w-1", "Marta Hale", 2, 1)
-    assert not {"hops", "drifted", "target_id"} & card.keys()
-
-
-def test_card_tallies_reach_the_websocket(game):
-    with game.client.websocket_connect(WS) as ws:
-        game.client.portal.call(partial(
-        game.rumors.add, "w-1", "the miller waters his flour", datetime.now(UTC), "v1", "Marta Hale", player=game.player.id,
-    ))
-        event = receive(ws)
-        while event["kind"] != "rumors":
-            event = receive(ws)
-    assert event["rumors"] == [
-        {"uid": "w-1", "heard": 1, "frontier": [], "stopped": None, "touched": {"v1": "heard"}},
-    ]
-
-
 def test_first_visit_sets_an_owner_cookie(game):
     game.client.cookies.clear()
     response = game.client.get("/")
@@ -515,7 +472,7 @@ def test_two_sessions_play_as_two_players(game):
     state = game.client.get("/api/state")
     body = state.json()
     assert a != b and a not in state.text
-    assert body["rumors"] == [] and body["notes"] == {} and not [e for e in body["events"] if e["kind"] == "whisper"]
+    assert "rumors" not in body and body["notes"] == {} and not [e for e in body["events"] if e["kind"] == "whisper"]
 
 
 def test_a_players_socket_gets_none_of_another_players_events(game):
@@ -582,36 +539,13 @@ def test_villagers_carry_influence_words_and_no_weights(game):
     assert game.client.get("/api/villagers/v1").json()["influence"] is None
 
 
-def test_the_page_has_words_for_every_frontier_state(game):
-    html = game.client.get("/").text
-    body = re.search(r"const FRONTIER = \{(.*?)\};", html, re.S).group(1)
-    emitted = set(TARGET_STATES.values()) | {"worn", "knew", "drifted"}
-    assert set(re.findall(r"^\s*(\w+):", body, re.M)) == emitted
-
-
-def test_the_page_renders_moments(game):
-    html = game.client.get("/").text
-    rove = re.search(r"const ROVE = (.*);", html).group(1)
-    assert 'case "moment"' in html and "frontier-more" not in rove
-    assert "Spreading: " in html and "Good news: " in html and "Trouble: " in html
-    assert "moved by" not in html and "innerHTML" not in html
-
-
 def test_the_feed_has_three_kinds_of_line(game):
     html = game.client.get("/").text
     rove = re.search(r"const ROVE = \"(.*)\";", html).group(1)
     assert set(rove.split(", ")) == {".fold-more", ".fold-talk", ".chat-open"}
-    for needle in ('"loud"', '"speech"', '"quiet"', "retold("):
+    for needle in ('"loud"', '"speech"', '"quiet"'):
         assert needle in html
     for gone in ("moved by", "rails", "toggleThread", "cardScene", "innerHTML"):
-        assert gone not in html
-
-
-def test_a_rumor_opens_in_place(game):
-    html = game.client.get("/").text
-    for needle in ("rumor-row", "selectRumor(", 'id="legend-mark"', "--sel", "Spreading: ", "whoHasIt(", "talkingNow(", "Reuse"):
-        assert needle in html
-    for gone in ("frontier-more", "togglePin", "goal-link", "innerHTML"):
         assert gone not in html
 
 
@@ -639,7 +573,7 @@ def test_no_replace_children_call_can_render_null(game):
     """replaceChildren, unlike el, writes a null child as the text "null"."""
     html = game.client.get("/").text
     calls = [bracketed(html, m.end() - 1) for m in re.finditer(r"replaceChildren\(", html)]
-    assert len(calls) > 10
+    assert len(calls) > 5
     for args in calls:
         assert "null" not in outside_brackets(args), args
         for spread in re.finditer(r"\.\.\.\[", args):
@@ -648,18 +582,9 @@ def test_no_replace_children_call_can_render_null(game):
             assert "null" not in outside_brackets(items) or after.startswith(".filter(Boolean)"), items
 
 
-def test_the_page_marks_each_rumor(game):
-    html = game.client.get("/").text
-    marks = re.search(r"const MARKS = \[(.*?)\];", html).group(1)
-    assert marks == '"◆", "●", "▲", "■", "★", "✚"'
-    for needle in ('id="rumor-list"', "--r5", "rumorMark("):
-        assert needle in html
-    assert "innerHTML" not in html
-
-
 def test_the_panel_has_selection_sort_and_draft_marks(game):
     html = game.client.get("/").text
-    for text in ('id="sort"', "By what you know", "By influence", "/api/hints", "this might interest them", "touched"):
+    for text in ('id="sort"', "By what you know", "By influence", "/api/hints", "this might interest them"):
         assert text in html
     assert "innerHTML" not in html
 
@@ -695,20 +620,10 @@ def test_a_lean_in_lasts_the_talk_hold_not_the_part_of_day(game):
     assert "Date.now() - Math.max(t.at, typedAt) >= talkHold * 1000" in html
 
 
-def test_a_whisper_the_server_puts_in_a_rumor_never_gets_a_row(game):
-    html = game.client.get("/").text
-    whisper = re.search(r'case "whisper":(.*?)case "hop"', html, re.S).group(1)
-    assert "if (e.conversation) joinConversation(e);" in whisper
-    join = re.search(r"function joinConversation\(e\) \{(.*?)\n\}", html, re.S).group(1)
-    assert "if (!cardOf.has(e.conversation)) newCard(e.conversation, e.target, e.place, e.text);" in join
-    assert join.index("cardOf.set(") < join.index("if (entry?.rumor !== cardOf.get(e.uid)) return;")
-
-
-def test_a_phone_gets_three_tabs(game):
+def test_a_phone_gets_two_tabs(game):
     html = game.client.get("/").text
     assert 'role="tablist"' in html
     for tab, controls in (
-        ('id="tab-rumors"', 'aria-controls="rumors-panel"'),
         ('id="tab-hear"', 'aria-controls="hear-panel"'),
         ('id="tab-village"', 'aria-controls="town"'),
     ):
@@ -717,7 +632,7 @@ def test_a_phone_gets_three_tabs(game):
         assert gone not in html
     # The columns are tab panels only on a phone, so a wide screen keeps its landmarks and names.
     assert 'role="tabpanel"' not in html and 'matchMedia("(max-width: 760px)")' in html
-    assert '<main id="hear-panel">' in html and 'aria-label="Villagers"' in html and 'aria-label="Your rumors"' in html
+    assert '<main id="hear-panel">' in html and 'aria-label="Villagers"' in html and "rumors-panel" not in html
 
 
 def test_a_villager_who_storms_off_leaves_the_dock_with_a_parting_line(game):
@@ -743,7 +658,6 @@ def test_while_resting_model_actions_are_refused_and_walking_is_not(game):
     ):
         refused = post(path, json=body)
         assert (refused.status_code, refused.json()) == (409, {"error": RESTING}), path
-    assert game.rumors.cards(game.player.id) == []
     assert post("/api/walk", json={"place": "library"}).json() == {"ok": True}
     assert post("/api/listen").json() == {"ok": True}
     assert game.client.get("/api/state").json()["resting"] is True

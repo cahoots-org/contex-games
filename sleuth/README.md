@@ -39,8 +39,6 @@ Room talk that grows from a case's news or a witness's memory is posted to the a
 | scale | 100 projects, about 400 subscriptions, and 100 listen streams at once |
 
 A villager never hears their own words, so speaking never wakes the speaker.
-Who told whom is tracked in the game, which is how the feed shows every hop of
-your rumors and only yours.
 
 ## Setup
 
@@ -171,9 +169,6 @@ different concern each time until they run out and start over, so a miss tells
 you where to aim next. If the line can't be
 written, the whisper just says it was brushed off.
 
-The feed shows each hop of a rumor you started, who told whom and in what
-words.
-
 ## Suspicion
 
 Each villager keeps their own suspicion of the newcomer. It goes up when:
@@ -237,41 +232,19 @@ The open tile and the card say the same in words. Each whisper in the feed
 shows where it stands, updated as it changes: checking, busy (with the seconds
 until they hear you), heard, took the bait (and how many people they told),
 kept it quiet, warned others, answered you, moved on, brushed you off (with
-their line once it is written), or didn't carry (the game couldn't check it; a
-delivery failure shows no chip).
+their line once it is written), or didn't carry (the game couldn't check it).
 
-Each whisper starts a rumor card: your words as its title, the chip, and a
-tally, "heard by N · still told by M", where M counts the people a retelling
-reached in the last game day (the target is not counted). A retelling goes on the card while it still carries what
-you whispered. Each one is indented once per retelling, says whom the speaker
-heard it from, and highlights the words that differ from what they heard. When
-most of it was reworded, it underlines the words that survived instead. Hover
-or click a hop to light up its path back to your whisper; Escape clears it.
-When the village starts telling it as something else, the card says "The story
-turned to other things after this." and shows no more of that thread.
-Warnings, refusals and the mood line stay outside the cards.
-
-Between the cards is village talk: lines you overhear where you are, which is
-where you last whispered ("You're at the bar" above the feed). You don't
-hear everything, only four kinds of line: heated ones (someone mocking,
-blaming, confronting, or denying), four in ten lively ones (someone telling
-it with relish, worry, or a lowered voice, or exaggerating or embellishing
-it), and one in eight of the rest, picked at random.
-Heated and lively lines are marked as such. A block of village talk shows
-the place, how many lines it holds, and the two newest; "Show all" opens the
-rest. Each line ends with "Talk", which puts the speaker's name in the
-To box and starts your message with what they said.
-
-A villager whose interest you caught may answer you. Their reply goes on that
-whisper's card, and the card shows the exchange as it goes: your lines, each
-with its own chip, and theirs. While they are talking with you, the composer
+A villager whose interest you caught may answer you. The conversation shows
+above the composer: your lines and theirs. While they are talking with you, the composer
 says "Talking with" their name, and what you send them next is a reply. The
 conversation ends when they move on, brush you off, turn you away, or the game
 ends.
 
-Arrow keys move through the feed: the hops, your lines, and the buttons in
-village talk. Reloading the page brings back the last 500 feed events and
-every rumor card.
+Room talk that grows from a case is posted to the neighborhood app and shows in
+the feed. Listen at a place to hear the last few lines said there.
+
+Arrow keys move through the feed's buttons. Reloading the page brings back the
+last 500 feed events.
 
 The server listens on 127.0.0.1 only. It answers only requests addressed to
 `127.0.0.1` or `localhost` on its own port, and refuses whispers and WebSocket
@@ -296,7 +269,7 @@ Where the tokens go:
 - An answer to you: the turn's Jev request plus one short Haiku line, at
   most `TALK_TURNS` per conversation.
 
-Following and overhearing add no model calls, only Contex queries. On the 100-villager seed with the defaults, the haunting
+On the 100-villager seed with the defaults, the haunting
 whisper and the talk it started cost about $0.002 in five minutes; four
 whispers and a three-reply conversation, under $0.004.
 
@@ -353,7 +326,7 @@ never drive the same villagers, and draining to 30 seconds.
 With a fixed `SLEUTH_SESSION`, the game itself is saved to
 `sleuth_worlds/<session>.state.json` every `SLEUTH_SAVE_EVERY_SECONDS` and
 once on SIGTERM or Ctrl-C, and a start with the same session restores it: every
-run, rumor card and the feed a reload replays. A save that is
+run and the feed a reload replays. A save that is
 unreadable, for another version or session, fails to restore, or has lost its
 village file is renamed to `<name>.bad-<time>` and the game starts fresh.
 
@@ -380,11 +353,8 @@ Every field of `Config` can be set with an environment variable.
 | `SLEUTH_MATCH_MARGIN` | `0.015` | how far above a need's score against ordinary village talk a whisper must score to match that need |
 | `SLEUTH_TOP_K` | `5` | memories kept per need |
 | `SLEUTH_CALIBRATION_PATH` | `sleuth_baselines.json` | where need baselines are cached |
-| `SLEUTH_ON_TOPIC_MARGIN` | `0.035` | how far above a whisper's score against ordinary village talk a retelling must score to stay on its rumor card |
 | `SLEUTH_FATIGUE_PER_HOP` | `0.004` | extra clearance over a need's threshold each retelling hop needs before it wakes a listener |
 | `SLEUTH_OVERHEARD_MARGIN` | `0.01` | extra clearance a line said to the room needs over one told to the listener |
-| `SLEUTH_OVERHEAR_RATE` | `0.125` | share of ordinary talk at your place that you overhear |
-| `SLEUTH_LIVELY_RATE` | `0.4` | share of lively talk at your place that you overhear |
 | `SLEUTH_SAID_FLOOR` | `0.8` | how similar a villager's earlier line must be to what you say to them for them to recall it |
 | `SLEUTH_TALK_TURNS` | `3` | most times a villager answers you in one conversation |
 | `SLEUTH_COOLDOWN_SECONDS` | `30` | least time between a villager's turns |
@@ -419,11 +389,6 @@ of 6 to 9 of them. With the defaults, replays of that whisper gave 1 to 4
 retellings, each over within a minute, and the village stayed quiet. Raise
 the fatigue for a quieter village; lower the overheard margin and room talk
 runs on.
-
-`ON_TOPIC_MARGIN` decides what stays on a rumor card. Measured as similarity
-above the whisper's own baseline, 15 real retellings scored +0.039 to +0.119
-and 14 lines of other tavern talk -0.008 to +0.048; at 0.035, 2 of the 14
-reach the card and no retelling is lost.
 
 A conversation costs suspicion like whispering does. Three messages to one
 villager left them at about 0.73, past the 0.7 at which they turn you away,
