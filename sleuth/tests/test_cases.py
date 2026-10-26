@@ -8,7 +8,7 @@ import pytest
 
 from sleuth import cases as cases_mod
 from sleuth.alibi import claim
-from sleuth.case import CAMERA_PLACES, Crime, Record
+from sleuth.case import CAMERA_PLACES, WHEN, Crime, Record, told
 from sleuth.cases import GUIDED_CLIP_TRAITS, CaseFile, Cases
 from sleuth.config import Config
 from sleuth.feed import Feed
@@ -86,17 +86,19 @@ async def test_news_breaks_on_the_next_tick_after_the_solvability_check():
     await tick(cases, engine, day=2)
     [event] = kinds(engine, "case")
     [case] = cases.files.values()
-    assert event.data["case"] == {"id": case.crime.id, "text": case.crime.text, "place": case.crime.place,
+    said = told(case.crime.text, case.crime, 2)
+    assert said.endswith("last night.")
+    assert event.data["case"] == {"id": case.crime.id, "text": said, "place": case.crime.place,
                                   "phase": "night", "day": 1, "state": "open", "private": False,
                                   "title": f"{town.name_of(case.crime.victim)}'s {case.crime.item}"}
     assert case.opened == 2.75 and cases.for_player("p-1") is case
     news, listeners, _ = next(d for d in engine.delivered if cases.root_kind(d[0].id)[1] == "news")
     victim = town.get(case.crime.victim)
-    assert news.speaker_name == "The neighborhood app" and news.text == case.crime.text and news.verb == "posted"
+    assert news.speaker_name == "The neighborhood app" and news.text == said and news.verb == "posted"
     assert victim.id in listeners and {v.id for v in town.villagers if v.household == victim.household} <= set(listeners)
     assert {v.id for v in town.present(case.crime.place)} <= set(listeners)
     [post] = kinds(engine, "post")
-    assert post.data == {"case_id": case.crime.id, "speaker": "The neighborhood app", "text": case.crime.text,
+    assert post.data == {"case_id": case.crime.id, "speaker": "The neighborhood app", "text": said,
                          "app": True}
 
 
@@ -191,7 +193,7 @@ def test_alibi_claim_is_the_culprits_expected_place():
     cases, _, town = make_cases()
     cases.routine = make_routine(night={"v3": "gym"})
     file = culprit_file(cases)
-    assert cases.alibi("v3") == "I was at the gym last night, all night."
+    assert cases.alibi("v3") == f"I was at the gym {WHEN}, all night."
     assert file.alibi == ["gym"]
     assert cases.alibi("v2") is None
 
@@ -199,7 +201,7 @@ def test_alibi_claim_is_the_culprits_expected_place():
 def test_blame_names_the_victims_rival_never_culprit_or_victim():
     cases, _, town = make_cases()
     culprit_file(cases)
-    assert cases.blame("v3") == "Hal Burke has never liked Dana. I'd ask where they were last night."
+    assert cases.blame("v3") == f"Hal Burke has never liked Dana. I'd ask where they were {WHEN}."
 
 
 def test_blame_falls_back_to_the_culprits_coldest_tie_other_than_the_victim():
@@ -207,7 +209,7 @@ def test_blame_falls_back_to_the_culprits_coldest_tie_other_than_the_victim():
     culprit_file(cases, culprit="v5")
     assert cases.blame("v5") is None
     town.get("v5").warmth.update({"v7": 0.3, "v8": 0.5})
-    assert cases.blame("v5") == "Jo Tran has never liked Dana. I'd ask where they were last night."
+    assert cases.blame("v5") == f"Jo Tran has never liked Dana. I'd ask where they were {WHEN}."
 
 
 def test_mark_cover_roots_the_line_in_the_culprits_case():
@@ -220,7 +222,7 @@ def test_mark_cover_roots_the_line_in_the_culprits_case():
 def test_alibi_on_a_street_is_being_at_home():
     cases, _, _ = make_cases()
     culprit_file(cases)
-    assert cases.alibi("v3") == "I was at home on Elm Street last night, all night."
+    assert cases.alibi("v3") == f"I was at home on Elm Street {WHEN}, all night."
 
 
 @pytest.mark.asyncio
@@ -345,7 +347,7 @@ async def test_guided_case_falls_back_to_an_earlier_part_of_the_day():
     cases, engine, town = make_cases()
     cases.routine = StubRoutine({v.id: {"morning": v.home, "night": "gym"} for v in town.villagers})
     case = await cases.open_guided(engine, "p-1", 1, "night")
-    assert case.crime.phase == "morning" and case.crime.text.endswith("this morning.") and case.state == "open"
+    assert case.crime.phase == "morning" and told(case.crime.text, case.crime, 1).endswith("this morning.") and case.state == "open"
 
 
 @pytest.mark.asyncio

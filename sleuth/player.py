@@ -7,7 +7,7 @@ import time
 from dataclasses import asdict, replace
 
 from sleuth.alibi import claim, household_word
-from sleuth.case import TEMPLATES, Record, clock_at, motive_of, recall_more, record_json, when
+from sleuth.case import WHEN, TEMPLATES, Crime, Record, clock_at, motive_of, recall_more, record_json, told, when
 from sleuth.cases import CaseFile
 from sleuth.config import Config
 from sleuth.decide import warmth_words
@@ -262,7 +262,8 @@ class Player:
         self._talked[vid] = (part, said + 1)
         thread = self.threads.setdefault(vid, [])
         try:
-            routed = await route(self.engine.jev, file, villager, self.town, question, thread)
+            case = self._told(file.crime.text, file.crime)
+            routed = await route(self.engine.jev, file, villager, self.town, question, thread, case)
         except Exception:
             log.exception("routing a question to %s failed", vid)
             routed = None
@@ -278,9 +279,9 @@ class Player:
         line = await self._phrase(villager, file, question, thread, found, talk)
         thread.append({"question": question, "line": line, "records": [r.id for r in new]})
         del thread[:-THREAD_KEPT]
-        self.feed.on_interview(vid, villager.name, question, line, [record_json(r, self.town) for r in new],
+        self.feed.on_interview(vid, villager.name, question, line, [self._record_json(r) for r in new],
                                case_id=file.crime.id, player=self.id)
-        self._guide(1, when=when(file.crime.phase))
+        self._guide(1, when=when(file.crime, self._today()))
         try:
             await self.engine.press(file, self.id)
         except Exception:
@@ -290,8 +291,19 @@ class Player:
     def thread_json(self, vid: str) -> list[dict]:
         """What the player sees of their conversation with the resident: each question, reply and what it added."""
         return [{"question": t["question"], "line": t["line"],
-                 "records": [record_json(self.notebook[i], self.town) for i in t["records"] if i in self.notebook]}
+                 "records": [self._record_json(self.notebook[i]) for i in t["records"] if i in self.notebook]}
                 for t in self.threads.get(vid, [])]
+
+    def _record_json(self, r: Record) -> dict:
+        """What the player sees of a notebook record today."""
+        file = self.engine.cases.files.get(r.case) if self.engine.cases else None
+        return record_json(r, self.town, file.crime if file else None, self._today())
+
+    def _today(self) -> int | None:
+        return self.game.day if self.game else None
+
+    def _told(self, text: str, crime: Crime) -> str:
+        return told(text, crime, self._today())
 
     def _statement(self, file: CaseFile, vid: str, text: str, sound: bool, source: str | None = None,
                    who: str | None = None) -> Record:
@@ -304,7 +316,7 @@ class Player:
         kind, about = routed.kind, self.town.get(routed.who) if routed.who else None
         if kind == "where_were_you" and routed.when == crime.phase:
             places, sound = claim(file, vid, routine)
-            text = f"{name} says they were {' then '.join(at(p) for p in places)} {when(crime.phase)}."
+            text = f"{name} says they were {' then '.join(at(p) for p in places)} {WHEN}."
             return [self._statement(file, vid, text, sound)] if places else [], []
         if kind == "where_were_you":
             usual = routine.place(vid, routed.when) if routine else None
@@ -317,7 +329,7 @@ class Player:
             met = [p for p in file.whereabouts.get(vid, []) if p in theirs and p != crime.place]
             if not met:
                 return [], []
-            text = f"{name} says they saw {about.name} {at(met[0])} {when(crime.phase)}."
+            text = f"{name} says they saw {about.name} {at(met[0])} {WHEN}."
             return [self._statement(file, vid, text, True, who=about.id)], []
         if kind == "what_did_you_see":
             records = [replace(r) for r in file.records.values()
@@ -347,7 +359,7 @@ class Player:
         """The best case hearsay the resident heard: a record when it traces to evidence, else news as talk."""
         crime, vid, name = file.crime, villager.id, villager.name
         talk = []
-        for m in await self.engine.recall_heard(vid, crime.text):
+        for m in await self.engine.recall_heard(vid, self._told(crime.text, crime)):
             if (heard := self.engine.facts.get(m.data.get("id"))) is None:
                 continue
             root = self.lineage.root(heard.id)
@@ -366,13 +378,16 @@ class Player:
                       records: list[Record], talk: list[str]) -> str:
         """The resident's reply from the writer, or a plain line from the records when it fails, doesn't convey them
         all or names someone they don't; with nothing known, that they wouldn't know."""
+        crime = file.crime
+        records = [replace(r, text=self._told(r.text, crime)) for r in records]
         texts = [r.text for r in records] + talk
         if not texts:
             return UNKNOWN
         if self.writer is not None:
             try:
-                known = neighbours(self.town, villager, file.crime.text)
-                line = await self.writer.reply(villager, file.crime.text, question, exchanges(thread), texts, known)
+                case = self._told(crime.text, crime)
+                known = neighbours(self.town, villager, case)
+                line = await self.writer.reply(villager, case, question, exchanges(thread), texts, known)
                 allowed = " ".join([villager.name, *texts, *known, *(t["line"] for t in thread)])
                 firsts = {v.name.split()[0] for v in self.town.villagers}
                 if line and conveys(line, records) and not strangers(line, allowed, firsts):
@@ -395,7 +410,7 @@ class Player:
         new = [r for r in found if r.id not in self.notebook]
         for r in new:
             self.notebook[r.id] = r
-        self.feed.on_pulled(self.place, [record_json(r, self.town) for r in new], case_id=file.crime.id,
+        self.feed.on_pulled(self.place, [self._record_json(r) for r in new], case_id=file.crime.id,
                             player=self.id)
         self._guide(2)
         return None
@@ -415,7 +430,7 @@ class Player:
         found = [replace(r) for r in file.records.values() if r.kind == "clue"]
         for r in found:
             self.notebook[r.id] = r
-        self.feed.on_searched(self.place, [record_json(r, self.town) for r in found], case_id=file.crime.id,
+        self.feed.on_searched(self.place, [self._record_json(r) for r in found], case_id=file.crime.id,
                               player=self.id)
         self._guide(2)
         return None

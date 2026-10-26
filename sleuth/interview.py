@@ -38,13 +38,16 @@ def exchanges(thread: list[dict]) -> list[dict]:
     return [{"podcaster": t["question"], "resident": t["line"]} for t in thread[-CONTEXT:]]
 
 
-async def route(jev, file: CaseFile, villager: Villager, town: Town, question: str, thread: list[dict]) -> Route:
-    """One Jev call: what the question asks, about whom and which part of the day, and the housemates' words."""
+async def route(jev, file: CaseFile, villager: Villager, town: Town, question: str, thread: list[dict],
+                case: str) -> Route:
+    """One Jev call: what the question asks, about whom and which part of the day, and the housemates' words.
+
+    case is the case's news as said today."""
     crime = file.crime
     others = [v for v in town.villagers if v.id != villager.id][:MAX_OPTIONS]
     state = {"resident": {"name": villager.name, "occupation": villager.occupation,
                           "personality": villager.personality},
-             "case": crime.text, "case_part_of_day": crime.phase,
+             "case": case, "case_part_of_day": crime.phase,
              "conversation": exchanges(thread), "podcaster_asks": question}
     questions = {"kind": Choice(instructions="What is the podcaster asking this resident about? Read the question "
                                              "with the conversation so far.", criteria=KINDS),

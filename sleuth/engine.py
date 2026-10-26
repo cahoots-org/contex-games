@@ -8,6 +8,7 @@ from contextlib import aclosing, suppress
 
 from sleuth.actions import ALIBI, MOVE
 from sleuth.calibration import Baselines
+from sleuth.case import told
 from sleuth.cases import APP, CaseFile, Cases
 from sleuth.config import Config
 from sleuth.contex_client import ContexClient, Match
@@ -272,7 +273,7 @@ class Engine:
             new=new,
             recent=stale + [m for m in mind.matches if m.data_key not in keys | stale_keys],
             ask_gossip=v.id not in self._gossip,
-            case=own_case.crime.text if own_case else None,
+            case=told(own_case.crime.text, own_case.crime, self._today()) if own_case else None,
             night=self.game is not None and self.game.phase == "night",
             warn=own_case is not None and bool(own_case.pressed_by) and own_case.warned != self._part(),
         )
@@ -291,10 +292,11 @@ class Engine:
         return True
 
     def cover_story(self, vid: str, action: str) -> str | None:
-        """The culprit's alibi or blame line, from the case."""
+        """The culprit's alibi or blame line, from the case, its time said today."""
         if self.cases is None:
             return None
-        return self.cases.alibi(vid) if action == ALIBI else self.cases.blame(vid)
+        line = self.cases.alibi(vid) if action == ALIBI else self.cases.blame(vid)
+        return line and told(line, self.cases.culprit_case(vid).crime, self._today())
 
     def mark_cover(self, vid: str, uid: str) -> None:
         if self.cases is not None:
@@ -325,6 +327,9 @@ class Engine:
         self.feed.say(COLDER, player=case.pressed_by)
         return WARNING
 
+    def _today(self) -> int | None:
+        return self.game.day if self.game is not None else None
+
     def _part(self) -> str:
         """The part of the day as "day:phase"; empty without a game."""
         return f"{self.game.day}:{self.game.phase}" if self.game is not None else ""
@@ -336,7 +341,8 @@ class Engine:
         if file.pressed == now:
             return
         crime = file.crime
-        u = Utterance(self.ids.next("u"), "app", APP, crime.place, f"A podcaster is asking around about this: {crime.text}",
+        news = told(crime.text, crime, self._today())
+        u = Utterance(self.ids.next("u"), "app", APP, crime.place, f"A podcaster is asking around about this: {news}",
                       None, "posted")
         await self.deliver(u, [crime.culprit], addressed=True)
         file.pressed = now

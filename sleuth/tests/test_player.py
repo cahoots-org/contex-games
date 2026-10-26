@@ -14,7 +14,7 @@ from sleuth.actions import SPEAK
 from sleuth.player import ALREADY_LISTENING, GUIDED_WRONG, MAX_QUESTION, MESSAGES_PER_PART, Player, Refusal, conveys
 from sleuth.players import Players
 from sleuth.config import Config
-from sleuth.case import Record
+from sleuth.case import WHEN, Record
 from sleuth.cases import CaseFile
 from sleuth.feed import Feed
 from sleuth.game import Game
@@ -323,9 +323,25 @@ async def test_where_were_you_at_the_crime_records_the_claim_with_soundness():
     await ask(player, "v2", "where_were_you")
     await ask(player, "v3", "where_were_you")
     claims = {r.holder: r for r in notebook(player)}
-    assert claims["v2"].text == "Eli Reyes says they were on Elm Street then at the bar last night."
-    assert claims["v3"].text == "Fay Okafor says they were at the gym last night."
+    assert claims["v2"].text == f"Eli Reyes says they were on Elm Street then at the bar {WHEN}."
+    assert claims["v3"].text == f"Fay Okafor says they were at the gym {WHEN}."
     assert (claims["v2"].sound, claims["v3"].sound) == (True, False) and {r.day for r in claims.values()} == {3}
+
+
+@pytest.mark.asyncio
+async def test_an_interview_days_later_says_when_from_the_day_it_is():
+    player, file, engine, writer = interviewing()
+    file.crime = replace(file.crime, day=2, phase="afternoon", text=f"Someone stole Dana Reyes's bike {WHEN}.")
+    file.whereabouts = {"v2": ["bar"]}
+    player.game = Game()
+    player.game.day, player.game.phase = 4, "morning"
+    await ask(player, "v2", "where_were_you", when="afternoon")
+    assert writer.calls[0][1] == "Someone stole Dana Reyes's bike two days ago, in the afternoon."
+    assert writer.calls[0][4] == ["Eli Reyes says they were at the bar two days ago, in the afternoon."]
+    assert "this afternoon" not in replies(player)[-1]
+    player.game.day = 3
+    [said] = player.thread_json("v2")[0]["records"]
+    assert said["text"] == "Eli Reyes says they were at the bar yesterday afternoon."
 
 
 @pytest.mark.asyncio
@@ -354,7 +370,7 @@ async def test_where_was_someone_else_is_where_the_log_put_them_together_never_t
     file.whereabouts = {"v2": ["elm street", "bar"], "v5": ["elm street", "bar"], "v6": ["elm street"]}
     await ask(player, "v2", "where_was", who="v5")
     [seen] = notebook(player)
-    assert (seen.text, seen.sound) == ("Eli Reyes says they saw Hal Burke at the bar last night.", True)
+    assert (seen.text, seen.sound) == (f"Eli Reyes says they saw Hal Burke at the bar {WHEN}.", True)
     await ask(player, "v2", "where_was", who="v6")
     assert len(notebook(player)) == 1 and replies(player)[-1] == "I wouldn't know about that."
 
@@ -770,6 +786,7 @@ def guided():
 @pytest.mark.asyncio
 async def test_guide_walks_a_new_player_through_interview_pull_and_publish():
     player, file, engine = guided()
+    player.game.day = 2
     memory = memory_of(file, player.ids)
     place_record(file, "clip", "elm street", "r-11")
     await player.start()

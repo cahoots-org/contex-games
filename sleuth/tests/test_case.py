@@ -6,6 +6,7 @@ import pytest
 from sleuth.case import (
     CLIP_TRAITS,
     ITEM_PLACES,
+    WHEN,
     WITNESS_ACTION,
     Crime,
     Record,
@@ -20,6 +21,8 @@ from sleuth.case import (
     scene_clues,
     stage_crime,
     suspects,
+    ago,
+    told,
     witness_memories,
 )
 from sleuth.lineage import Ids
@@ -112,7 +115,8 @@ def test_news_names_victim_place_and_time_not_culprit():
                  if (c := stage_crime(town, routine, Random(seed), 1, "night", "case-1")).victim == "v1"
                  and c.template == "steal" and c.item == "bike")
     culprit = town.get(crime.culprit)
-    assert crime.text == "Someone stole Dana Reyes's bike on Elm Street last night." and culprit.name not in crime.text
+    assert crime.text == f"Someone stole Dana Reyes's bike on Elm Street {WHEN}." and culprit.name not in crime.text
+    assert told(crime.text, crime, 2) == "Someone stole Dana Reyes's bike on Elm Street last night."
     assert isinstance(crime, Crime) and crime.id == "case-1" and crime.day == 1 and crime.owner is None
     assert 1320 <= crime.minute < 1740
 
@@ -126,7 +130,7 @@ def test_dog_and_trailer_crimes_read_like_the_others(template, night, text):
     crime = next(c for seed in range(400)
                  if (c := stage_crime(town, routine, Random(seed), 1, "night", "case-1")).victim == "v1"
                  and c.template == template)
-    assert crime.text == text and WITNESS_ACTION[template]
+    assert told(crime.text, crime, 2) == text and WITNESS_ACTION[template]
 
 
 def test_every_item_is_only_ever_staged_at_its_places_and_no_line_uses_a_pronoun():
@@ -142,6 +146,23 @@ def test_every_item_is_only_ever_staged_at_its_places_and_no_line_uses_a_pronoun
             for line in (crime.text, found.text):
                 assert not re.search(r"\b(their|his|her)\b", line, re.IGNORECASE), line
     assert {i for i, p in ITEM_PLACES.items() if "bar" in p} == {"car"}
+
+
+@pytest.mark.parametrize("today, said", [(2, "this afternoon"), (3, "yesterday afternoon"),
+                                         (4, "two days ago, in the afternoon")])
+def test_a_time_is_said_from_the_day_it_is_told(today, said):
+    assert ago(2, "afternoon", today) == said
+
+
+def test_a_night_is_tonight_then_last_night():
+    assert [ago(2, "night", today) for today in (2, 3, 4, 9)] == [
+        "tonight", "last night", "two days ago, at night", "7 days ago, at night"]
+
+
+def test_told_says_the_crime_time_from_today_or_its_own_day():
+    crime = Crime("case-1", "steal", "bike", "v3", "v1", "gym", 2, "afternoon", 800, "rival", f"Gone {WHEN}.")
+    assert [told(crime.text, crime, today) for today in (None, 2, 3, 4)] == [
+        "Gone this afternoon.", "Gone this afternoon.", "Gone yesterday afternoon.", "Gone two days ago, in the afternoon."]
 
 
 def test_clock_at_formats_twelve_hour_time():
@@ -252,6 +273,8 @@ def test_record_json_hides_soundness_and_traits():
                                     "text": m.text, "from": town.get(m.holder).name}
     log = Record("r-9", "case-1", "log", "gym", "11:00pm", "Gym check-in: Hal Burke, 11:00pm", who="v5")
     assert record_json(log, town)["from"] == ""
+    said = Record("r-8", "case-1", "statement", "gym", "9:00am", f"Hal Burke says they were at the gym {WHEN}.", "v5")
+    assert record_json(said, town, crime, 2)["text"] == "Hal Burke says they were at the gym last night."
 
 
 def test_make_solvable_skips_residents_who_are_already_witnesses():

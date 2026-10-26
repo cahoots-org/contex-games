@@ -6,8 +6,8 @@ from dataclasses import asdict, dataclass, field
 from random import Random
 
 from sleuth.case import (
-    CAMERA_PLACES, Crime, Record, camera_clip, discovery, found_it, logs, make_solvable, scene_clues, stage_crime, when,
-    witness_memories,
+    CAMERA_PLACES, WHEN, Crime, Record, camera_clip, discovery, found_it, logs, make_solvable, scene_clues, stage_crime,
+    told, witness_memories,
 )
 from sleuth.config import Config
 from sleuth.game import PHASES
@@ -39,10 +39,10 @@ class CaseFile:
     words: dict[str, list] = field(default_factory=dict)  # "speaker:about" → [household word, sound]
 
 
-def case_json(case: CaseFile, town: Town) -> dict:
-    """What a player sees of a case, titled like "Ada Reyes's bike"."""
+def case_json(case: CaseFile, town: Town, today: int | None = None) -> dict:
+    """What a player sees of a case on today, titled like "Ada Reyes's bike"."""
     c = case.crime
-    return {"id": c.id, "text": c.text, "place": c.place, "phase": c.phase, "day": c.day, "state": case.state,
+    return {"id": c.id, "text": told(c.text, c, today), "place": c.place, "phase": c.phase, "day": c.day, "state": case.state,
             "private": c.owner is not None, "title": f"{town.name_of(c.victim)}'s {c.item}"}
 
 
@@ -90,7 +90,7 @@ class Cases:
         return next((f for f in self.files.values() if f.state != "closed" and f.crime.culprit == vid), None)
 
     def alibi(self, vid: str) -> str | None:
-        """The culprit's claim to have been where the routine expects them during the crime."""
+        """The culprit's claim to have been where the routine expects them during the crime, its time as WHEN."""
         case = self.culprit_case(vid)
         if case is None:
             return None
@@ -98,10 +98,11 @@ class Cases:
         place = self.routine.place(vid, phase)
         case.alibi = [place]
         where = f"at home {at(place)}" if place in STREETS else at(place)
-        return f"I was {where} {when(phase)}, all {phase}."
+        return f"I was {where} {WHEN}, all {phase}."
 
     def blame(self, vid: str) -> str | None:
-        """The culprit's hint at someone who dislikes the victim, else at the culprit's own coldest tie."""
+        """The culprit's hint at someone who dislikes the victim, else at the culprit's own coldest tie, its time as
+        WHEN."""
         case = self.culprit_case(vid)
         if case is None:
             return None
@@ -114,7 +115,7 @@ class Cases:
         if pick is None:
             return None
         name = self.town.get(pick[1]).name
-        return f"{name} has never liked {victim.name.split()[0]}. I'd ask where they were {when(crime.phase)}."
+        return f"{name} has never liked {victim.name.split()[0]}. I'd ask where they were {WHEN}."
 
     def close(self, file: CaseFile, solved_by: str | None) -> None:
         """Close a case, solved or not; the next shared crime waits crime_every_days from now."""
@@ -196,13 +197,13 @@ class Cases:
             if m.kind in ("memory", "discovery"):
                 await self._remember(engine, case, m)
         case.state, case.opened = "open", now
-        news = Utterance(self.ids.next("u"), "app", APP, crime.place, crime.text, None, "posted")
+        news = Utterance(self.ids.next("u"), "app", APP, crime.place, told(crime.text, crime, int(now)), None, "posted")
         victim = self.town.get(crime.victim)
-        told = [victim.id, *(v.id for v in self.town.villagers if v.household == victim.household),
-                *(v.id for v in self.town.present(crime.place))]
+        hearers = [victim.id, *(v.id for v in self.town.villagers if v.household == victim.household),
+                   *(v.id for v in self.town.present(crime.place))]
         case.roots[news.id] = "news"
-        await engine.deliver(news, list(dict.fromkeys(told)))
-        engine.feed.on_case(case_json(case, self.town), player=crime.owner)
+        await engine.deliver(news, list(dict.fromkeys(hearers)))
+        engine.feed.on_case(case_json(case, self.town, int(now)), player=crime.owner)
         engine.feed.on_post(news, crime.id, player=crime.owner)
 
     def _drop(self, case: CaseFile, now: float) -> None:

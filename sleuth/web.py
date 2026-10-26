@@ -211,8 +211,9 @@ def create_app(
             "events": [e.to_json(player.id) for e in feed.replay(player.id)],
             "usage": usage.to_json(player.id),
             "resting": usage.resting(),
-            "case": case_json(case, town) if case else None,
-            "notebook": [record_json(r, town) for r in player.notebook.values() if case and r.case == case.crime.id],
+            "case": case_json(case, town, game.day) if case else None,
+            "notebook": [record_json(r, town, case.crime, game.day) for r in player.notebook.values()
+                         if case and r.case == case.crime.id],
         }
 
     @app.get("/api/villagers/{vid}")

@@ -37,6 +37,9 @@ TRACES = {"height": "A boot print {at}, left by {figure}.", "coat": "A thread {a
 RECEIPT = "A grocery receipt dropped {at}, stamped {clock}."
 # How many minutes before the crime a dropped receipt was stamped.
 RECEIPT_BEFORE = (20, 180)
+# Case text keeps the crime's time as WHEN, said relative to the day it is read.
+WHEN = "{when}"
+DAYS_AGO = ("two", "three", "four", "five", "six")
 
 
 @dataclass
@@ -78,8 +81,25 @@ def clock_at(minute: int) -> str:
     return f"{(hour - 1) % 12 + 1}:{mins:02d}{'am' if hour < 12 else 'pm'}"
 
 
-def when(phase: str) -> str:
-    return "last night" if phase == "night" else f"this {phase}"
+def ago(day: int, phase: str, today: int) -> str:
+    """When day's phase was, said on today: "this afternoon", "last night", "two days ago, in the evening"."""
+    days = today - day
+    if days <= 0:
+        return "tonight" if phase == "night" else f"this {phase}"
+    if days == 1:
+        return "last night" if phase == "night" else f"yesterday {phase}"
+    count = DAYS_AGO[days - 2] if days - 2 < len(DAYS_AGO) else str(days)
+    return f"{count} days ago, " + ("at night" if phase == "night" else f"in the {phase}")
+
+
+def when(crime: Crime, today: int | None = None) -> str:
+    """When the crime happened, said on today, or on the crime's own day."""
+    return ago(crime.day, crime.phase, crime.day if today is None else today)
+
+
+def told(text: str, crime: Crime, today: int | None = None) -> str:
+    """text with its WHEN said on today."""
+    return text.replace(WHEN, when(crime, today))
 
 
 def motive_of(culprit, victim) -> str:
@@ -109,12 +129,13 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
     minute = rng.randrange(*PHASE_MINUTES[phase])
     place = routine.place(victim.id, phase)
     return Crime(case_id, template, item, culprit.id, victim.id, place, day, phase, minute, motive,
-                 f"Someone {TEMPLATES[template][0]} {victim.name}'s {item} {at(place)} {when(phase)}.")
+                 f"Someone {TEMPLATES[template][0]} {victim.name}'s {item} {at(place)} {WHEN}.")
 
 
-def record_json(r: Record, town: Town) -> dict:
-    """What the player sees of a record."""
-    return {"id": r.id, "kind": r.kind, "place": r.place, "day": r.day, "clock": r.clock, "text": r.text,
+def record_json(r: Record, town: Town, crime: Crime | None = None, today: int | None = None) -> dict:
+    """What the player sees of a record, its case's time said on today."""
+    text = told(r.text, crime, today) if crime else r.text
+    return {"id": r.id, "kind": r.kind, "place": r.place, "day": r.day, "clock": r.clock, "text": text,
             "from": town.get(r.holder).name if r.holder else ""}
 
 
