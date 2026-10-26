@@ -237,11 +237,15 @@ def test_replay_plays_the_first_case_again_then_returns_to_the_town(game):
     assert 'id="replay">Tutorial</button>' in page and '"/api/replay"' in page
 
 
-def test_the_page_offers_skip_on_the_practice_case_and_starts_clean_in_the_real_town(game):
+def test_the_tutorial_is_an_overlay_apart_from_the_game_and_the_page_starts_clean_in_the_real_town(game):
     page = game.client.get("/").text
-    assert 'id="skip"' in page and "Skip this case" in page and '"/api/skip"' in page
-    case = page[page.index("function setCase(c)"):page.index("function setResting")]
-    assert '$("skip").hidden = !(open && open.private);' in case
+    coach = page[page.index('<section class="tut coach" id="coach"'):page.index("<script>")]
+    assert 'id="coach-skip">Skip tutorial</button>' in coach and '"/api/skip"' in page
+    game_ui = page[page.index('<div class="app" id="app">'):page.index('<section class="tut coach"')]
+    for gone in ('id="skip"', 'id="steps"', "Skip this case", "tut"):
+        assert gone not in game_ui, gone
+    lit = page[page.index("function light()"):page.index("function placeCoach()")]
+    assert '$("coach").hidden = !s || $("intro").open || $("handoff").open;' in lit
     closed = page[page.index('case "case_closed":'):page.index('case "pulled":')]
     assert "case-status" not in closed and 'talk("quiet", fresh, e.text)' in closed
     fresh = page[page.index("function reset()"):page.index("async function retell()")]
@@ -695,7 +699,7 @@ def test_page_is_built_around_the_case(game):
     assert [html.index(n) for n in order] == sorted(html.index(n) for n in order)
     for needle in ('id="publish-open"', 'id="culprit"', "/api/publish", "/api/interview", "/api/walk", "/api/pull",
                    "/api/search", "/api/handoff", 'id="handoff"', 'case "interview"', 'case "pulled"', 'case "searched"', 'case "steps"', "usually nearby", 'id="intro"',
-                   "@media (max-width: 600px)"):
+                   "@media (max-width: 600px)", 'id="coach"'):
         assert needle in html, needle
     for gone in ("/api/listen", "Look around", "tiles", "card-title", 'role="tablist"', "innerHTML"):
         assert gone not in html, gone

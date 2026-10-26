@@ -57,13 +57,14 @@ def test_no_medieval_village_in_copy_or_prompts():
 
 
 META = re.compile(r"\b(practi[cs]e|tutorial|real town|you're in)\b", re.I)
+OVERLAY = ("replay", "coach-tag", "coach-skip")
 
 
 def test_no_talk_of_a_tutorial_in_copy():
     found = [s for f in ROOT.glob("*.py") for s in _sentences(f)]
     page = Copy()
-    # The one exception, the owner's call: the menu control that plays the first case again.
+    # The owner's exceptions: the menu control that plays the first case again, and the tutorial layer's own labels.
     html = (ROOT / "static" / "index.html").read_text()
-    page.feed(html.replace('id="replay">Tutorial</button>', 'id="replay"></button>'))
+    page.feed(re.sub(f'(id="(?:{"|".join(OVERLAY)})"[^>]*>)[^<]*', r"\1", html))
     found += page.found
     assert not [s for s in found if META.search(s)]

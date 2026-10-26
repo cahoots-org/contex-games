@@ -113,23 +113,6 @@ h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
 .case-title { font: 500 1.9rem/1.15 var(--serif); margin: .15rem 0 .3rem; }
 .case-text { margin: 0; font: 1.05rem/1.55 var(--serif); }
 .resting { margin: .75rem 0 0; padding: .45rem .75rem; border-radius: 4px; font-size: .9rem; border: 1px solid var(--edge); color: var(--muted); }
-/* The first case's checklist: the current step, how far along, and the one control or person it needs. */
-.steps {
-  display: flex; align-items: baseline; gap: .25rem .75rem; flex-wrap: wrap;
-  margin: .9rem 0 0; padding: .45rem .75rem; border-radius: 6px;
-  background: color-mix(in srgb, var(--mark) 45%, transparent);
-}
-.steps b { flex: 1; min-width: 12rem; }
-.steps .why { display: block; font-size: .85rem; font-weight: 400; color: var(--muted); }
-.steps .tally { font-size: .8rem; color: var(--muted); white-space: nowrap; }
-.lit { outline: 3px solid var(--sun); outline-offset: 2px; }
-.person.lit, .plain-button.lit { background: color-mix(in srgb, var(--mark) 35%, transparent); }
-.person.lit { outline-offset: -3px; }
-.role.lit { outline-width: 2px; outline-offset: 1px; background: var(--sun); border-color: var(--sun); color: var(--ink); }
-@media (prefers-reduced-motion: no-preference) {
-  .lit { animation: beckon 1.6s ease-in-out infinite; }
-  @keyframes beckon { 50% { outline-color: color-mix(in srgb, var(--sun) 40%, transparent); } }
-}
 .primary {
   background: var(--accent); color: var(--on-accent); border: 0; border-radius: 6px;
   padding: .45rem 1.1rem; font-weight: 700; cursor: pointer;
@@ -146,7 +129,7 @@ h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
 .send { border-top: 1px solid var(--rail); padding-top: .75rem; }
 .send p { flex-basis: 100%; margin: 0; font-size: .9rem; color: var(--muted); }
 .send p.error { color: var(--danger); }
-.citing .case-actions, .citing .where-line, .citing #where-status, .citing #steps, .citing #talk { display: none; }
+.citing .case-actions, .citing .where-line, .citing #where-status, .citing #talk { display: none; }
 select, input[type="text"], input[type="search"] {
   background: var(--bg); border: 1px solid var(--edge); border-radius: 6px; padding: .4rem .6rem; min-width: 0;
 }
@@ -255,6 +238,35 @@ select, input[type="text"], input[type="search"] {
 .intro .primary { padding: .65rem 1.4rem; font-size: 1.05rem; }
 #handoff .cards li::before { display: none; }
 
+/* The tutorial layer: its own raised cards over the game, never part of it, and a ring on what the current step needs. */
+.tut {
+  --tut-bg: #1d2725; --tut-ink: #f3f1e4; --tut-mark: #f0c45a;
+  background: var(--tut-bg); color: var(--tut-ink); border: 2px solid var(--tut-mark); border-radius: 10px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / .35);
+}
+.tut-tag { margin: 0; color: var(--tut-mark); font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.tut .tut-skip { background: none; border: 0; padding: 0; color: var(--tut-ink); text-decoration: underline; font-size: .85rem; cursor: pointer; }
+.tut .tut-go { background: var(--tut-mark); color: var(--tut-bg); border: 0; border-radius: 6px; padding: .55rem 1.3rem; font-weight: 700; cursor: pointer; }
+.tut :focus-visible { outline-color: var(--tut-mark); }
+.coach { position: fixed; top: 0; left: 0; z-index: 5; width: 19rem; padding: .7rem .9rem .75rem; }
+.coach b { display: block; margin-top: .3rem; font: 500 1.1rem/1.3 var(--serif); }
+.coach p#coach-why { margin: .25rem 0 .6rem; font-size: .85rem; opacity: .85; }
+.coach::before {
+  content: ""; position: absolute; width: 12px; height: 12px; background: var(--tut-mark); transform: rotate(45deg);
+}
+.coach[data-side="below"]::before { top: -7px; left: calc(var(--arrow) - 6px); }
+.coach[data-side="above"]::before { bottom: -7px; left: calc(var(--arrow) - 6px); }
+.coach[data-side="left"]::before { right: -7px; top: calc(var(--arrow) - 6px); }
+.coach[data-side="right"]::before { left: -7px; top: calc(var(--arrow) - 6px); }
+.coach[data-side="bottom"], .coach[data-side="top"] { top: auto; left: auto; right: 1rem; bottom: 1rem; }
+.coach[data-side="bottom"]::before, .coach[data-side="top"]::before { display: none; }
+.lit { outline: 3px solid #f0c45a; outline-offset: 2px; box-shadow: 0 0 0 6px rgb(240 196 90 / .3); }
+.person.lit { outline-offset: -3px; box-shadow: inset 0 0 0 6px rgb(240 196 90 / .3); }
+@media (prefers-reduced-motion: no-preference) {
+  .lit { animation: beckon 1.6s ease-in-out infinite; }
+  @keyframes beckon { 50% { outline-color: rgb(240 196 90 / .45); } }
+}
+
 @media (max-width: 900px) {
   header, .desk { padding-left: 1rem; padding-right: 1rem; }
   .group { grid-template-columns: 3.9rem minmax(0, 1fr); }
@@ -286,6 +298,9 @@ select, input[type="text"], input[type="search"] {
   .person { min-height: 48px; }
   .thread { max-height: 60dvh; }
   .convo { padding-bottom: 2rem; }
+  .coach { width: auto; }
+  .coach[data-side="bottom"] { left: .5rem; right: .5rem; bottom: max(.5rem, env(safe-area-inset-bottom)); }
+  .coach[data-side="top"] { left: .5rem; right: .5rem; top: 60px; bottom: auto; }
 }
 </style>
 </head>
@@ -343,13 +358,11 @@ select, input[type="text"], input[type="search"] {
       <div class="case-top">
         <p class="whose" id="case-whose">No open case</p>
         <span class="case-actions">
-          <button type="button" class="plain-button" id="skip" hidden>Skip this case</button>
           <button type="button" class="primary" id="publish-open" aria-expanded="false" aria-controls="publish" hidden>Publish</button>
         </span>
       </div>
       <h2 class="case-title" id="case-title">Waiting for the next crime</h2>
       <p class="case-text" id="case-text">The neighborhood app posts the news when something happens.</p>
-      <div class="steps" id="steps" role="group" aria-label="Your first case" hidden></div>
       <div class="where-line">
         <select id="here" aria-label="Where you are"></select>
         <button type="button" class="plain-button" id="pull-here" hidden>Pull records</button>
@@ -402,6 +415,12 @@ select, input[type="text"], input[type="search"] {
     </section>
   </aside>
 </div>
+
+<section class="tut coach" id="coach" aria-labelledby="coach-tag" hidden>
+  <p class="tut-tag"><span id="coach-tag">Tutorial</span> · <span id="coach-count"></span></p>
+  <div aria-live="polite"><b id="coach-step"></b><p id="coach-why"></p></div>
+  <button type="button" class="tut-skip" id="coach-skip">Skip tutorial</button>
+</section>
 
 <script>
 "use strict";
@@ -488,7 +507,6 @@ function setCase(c) {
   $("case-title").textContent = open ? open.title : "Waiting for the next crime";
   $("case-text").textContent = open ? open.text : "The neighborhood app posts the news when something happens.";
   $("publish-open").hidden = !open;
-  $("skip").hidden = !(open && open.private);
   $("replay").hidden = Boolean(open && open.private);
   // The first case keeps the page small: no town talk.
   $("talk").hidden = Boolean(open && open.private);
@@ -525,7 +543,7 @@ $("culprit").addEventListener("change", () => {
   countCited();
   light();
 });
-$("skip").addEventListener("click", () => act("skip", "/api/skip"));
+$("coach-skip").addEventListener("click", () => act("coach-skip", "/api/skip"));
 $("replay").addEventListener("click", async () => {
   setMenu(false);
   const { ok, error } = await post("/api/replay", {});
@@ -616,11 +634,6 @@ $("here").addEventListener("change", () => walkTo($("here").value));
 
 function setSteps(list) {
   steps = list;
-  const now = step();
-  $("steps").hidden = !steps;
-  $("steps").replaceChildren(...(steps ? [
-    now ? el("b", {}, now.text, el("small", { className: "why", textContent: now.why })) : null,
-    el("span", { className: "tally", textContent: `${steps.filter((s) => s.done).length} of ${steps.length} done` })] : []));
   drawPeople();
   drawWhere();
 }
@@ -630,19 +643,86 @@ function step() {
   return steps && steps.find((s) => !s.done);
 }
 
-// Light what the current step needs: its person, else its button here, else the way to its place.
+// Ring what the current step needs: its person, else its button here, else the way to its place; the tutorial card
+// points at it.
 const ACTION_BUTTON = { pull: "pull-here", search: "search-here", publish: "publish-open" };
 function light() {
   for (const node of document.querySelectorAll(".lit")) node.classList.remove("lit");
   const s = step();
-  if (!s) return;
-  const target = s.person ? $("people").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
+  const target = !s ? null : s.person ? $("people").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
     : s.place && s.place !== here ? $("here")
     : s.action === "publish" && !$("publish").hidden ? publishNext()
     : $(ACTION_BUTTON[s.action]);
   target?.classList.add("lit");
-  if (s.person) target?.querySelector(".nearby")?.classList.add("lit");
+  $("coach").hidden = !s || $("intro").open || $("handoff").open;
+  if (!s) {
+    document.body.style.paddingBottom = "";
+    return;
+  }
+  const count = `Step ${steps.indexOf(s) + 1} of ${steps.length}`;
+  if ($("coach-count").textContent !== count) {
+    $("coach-count").textContent = count;
+    $("coach-step").textContent = s.text;
+    $("coach-why").textContent = s.why;
+  }
+  placeSoon();
 }
+
+// The tutorial card beside the ringed target on the side with room that covers the fewest other controls; on a phone,
+// docked at the bottom or top, whichever leaves the target and the question box in view and covers fewer controls.
+const GAP = 14;
+const CONTROLS = "button, select, input, summary, .group li, #thread li";
+function placeCoach() {
+  const card = $("coach");
+  const target = document.querySelector(".lit");
+  if (card.hidden) return;
+  const t = target?.getBoundingClientRect();
+  const c = card.getBoundingClientRect();
+  const w = innerWidth, h = innerHeight;
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
+  const meets = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+  const others = [...document.querySelectorAll(CONTROLS)].filter((n) => n !== target && !card.contains(n))
+    .map((n) => n.getBoundingClientRect()).filter((r) => r.width);
+  const at = (side) => {
+    const across = side === "below" || side === "above";
+    const left = across ? clamp(t.left + t.width / 2 - c.width / 2, 8, w - c.width - 8)
+      : side === "left" ? t.left - GAP - c.width : t.right + GAP;
+    const top = !across ? clamp(t.top + t.height / 2 - c.height / 2, 8, h - c.height - 8)
+      : side === "below" ? t.bottom + GAP : t.top - GAP - c.height;
+    const box = { left, top, right: left + c.width, bottom: top + c.height };
+    const fits = left >= 8 && top >= 8 && box.right <= w - 8 && box.bottom <= h - 8;
+    const arrow = across ? t.left + t.width / 2 - left : t.top + t.height / 2 - top;
+    return { side, left, top, fits, covers: others.filter((r) => meets(r, box)).length,
+             arrow: clamp(arrow, 16, (across ? c.width : c.height) - 16) };
+  };
+  const ask = $("ask").getBoundingClientRect();
+  const dock = (side) => {
+    const top = side === "bottom" ? h - 8 - c.height : 60;
+    const box = { left: 8, top, right: w - 8, bottom: top + c.height };
+    return { side, fits: !meets(t, box) && !meets(ask, box), covers: others.filter((r) => meets(r, box)).length };
+  };
+  const spots = !t?.width ? [] : phone.matches ? ["bottom", "top"].map(dock).filter((o) => o.fits)
+    : ["right", "below", "left", "above"].map(at).filter((o) => o.fits);
+  const best = spots.reduce((a, o) => (!a || o.covers < a.covers ? o : a), null) || { side: "bottom" };
+  document.body.style.paddingBottom = phone.matches ? `${c.height + 16}px` : "";
+  if (best.left === undefined) {
+    card.dataset.side = best.side;
+    card.style.left = card.style.top = "";
+    return;
+  }
+  card.dataset.side = best.side;
+  card.style.left = `${best.left}px`;
+  card.style.top = `${best.top}px`;
+  card.style.setProperty("--arrow", `${best.arrow}px`);
+}
+
+let placing = 0;
+function placeSoon() {
+  cancelAnimationFrame(placing);
+  placing = requestAnimationFrame(placeCoach);
+}
+addEventListener("scroll", placeSoon, true);
+addEventListener("resize", placeSoon);
 
 // With the publish form open: the culprit choice until one is picked, then the publish button.
 function publishNext() {
@@ -1073,6 +1153,7 @@ async function loadState() {
   if (state.intro && !introShown) {
     introShown = true;
     $("intro").showModal();
+    light();
   }
   if (state.handoff && !$("handoff").open) handoff(state.handoff);
   if (selected) choose(selected);
@@ -1090,6 +1171,7 @@ function handoff(h) {
 }
 
 $("handoff").addEventListener("close", () => post("/api/handoff", {}));
+$("intro").addEventListener("close", light);
 
 function receive(e) {
   if (e.kind === "usage") $("usage").textContent = e.usage.summary;
