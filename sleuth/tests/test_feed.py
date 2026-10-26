@@ -82,3 +82,9 @@ def test_state_round_trips_as_json_and_ids_go_on_past_it():
     assert fresh.say("next").id == feed.say("next").id
     fresh.ensure_past(40)
     assert fresh.say("later").id == 41
+
+
+def test_pulled_records_carry_the_line_the_page_shows():
+    feed, lines = make()
+    feed.on_pulled("bar", [], player=PID)
+    assert [e.data["text"] for e in feed.recent] == lines == ["You pulled the records at the bar."]

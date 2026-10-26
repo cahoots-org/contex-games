@@ -118,7 +118,8 @@ class Feed:
 
     def on_pulled(self, place: str, records: list[dict], *, player: str) -> None:
         """The footage and logs the podcaster pulled at place into their notebook."""
-        self.emit("pulled", f"You pulled the records at the {place}.", player=player, place=place, records=records)
+        line = f"You pulled the records at the {place}."
+        self.emit("pulled", line, player=player, place=place, records=records, text=line)
 
     def on_episode(self, case_id: str, name: str, held: bool, player: str | None = None) -> None:
         """A podcaster's episode named a resident, and whether it held up."""
