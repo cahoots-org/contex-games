@@ -786,7 +786,7 @@ function talk(tone, fresh, ...children) {
   const item = el("li", { className: tone }, ...children);
   feed.prepend(item);
   while (feed.children.length > MAX_TALK) feed.lastElementChild.remove();
-  $("talk-latest").textContent = item.textContent;
+  $("talk-latest").textContent = children.map((c) => c.textContent ?? c).join(" ");
   if (fresh && !$("talk").open) unread++;
   $("unread").textContent = unread ? `${unread} new` : "";
 }
@@ -809,12 +809,10 @@ function render(e, fresh) {
       break;
     case "case_closed":
       if (caseNow && caseNow.id === e.case_id) {
-        // Off the first case the page moves into the town, and the closing line stays over the town's case.
-        const practice = caseNow.private;
+        // Off the first case the page moves into the town, and the closing line goes to Town talk.
         setCase(null);
         setSteps(null);
-        if (fresh && e.text) say("case-status", e.text);
-        if (fresh) loadState().then(() => { if (practice && e.text) say("case-status", e.text); }).catch(() => {});
+        if (fresh) loadState().catch(() => {});
       }
       if (e.text) talk("quiet", fresh, e.text);
       break;

@@ -221,7 +221,7 @@ def test_the_page_offers_skip_on_the_practice_case_and_starts_clean_in_the_real_
     case = page[page.index("function setCase(c)"):page.index("function setResting")]
     assert '$("skip").hidden = !(open && open.private);' in case
     closed = page[page.index('case "case_closed":'):page.index('case "pulled":')]
-    assert "practice" in closed
+    assert "case-status" not in closed and 'talk("quiet", fresh, e.text)' in closed
     fresh = page[page.index("function reset()"):page.index("async function retell()")]
     assert "selected = null;" in fresh
 

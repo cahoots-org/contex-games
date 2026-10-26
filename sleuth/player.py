@@ -112,7 +112,6 @@ PODCAST = "A true-crime podcast"
 WRONG = "Your episode didn't hold up. The town now believes it, and people are warier of you."
 PRACTICE_WRONG = "Your episode didn't hold up: the evidence doesn't back it."
 HELD = "It holds up. Case closed."
-MEANWHILE = "Meanwhile, on the neighborhood app: "
 RIVAL = "Another podcaster cracked the case first."
 
 
@@ -192,16 +191,11 @@ class Player:
         self._graduate(file, None)
         return None
 
-    def _graduate(self, file: CaseFile, solved_by: str | None, verdict: str = "") -> None:
-        """Close the practice case with its verdict and the real town's news, and move into the real town with a
-        clean notebook and feed, told its open case."""
+    def _graduate(self, file: CaseFile, solved_by: str | None, line: str = "") -> None:
+        """Close the practice case with its closing line, and move into the real town with a clean notebook and
+        feed, told its open case."""
         self.engine.cases.close(file, solved_by)
-        engine, _, game = self._real
-        shared = engine.cases.shared()
-        news = ""
-        if shared and shared.state == "open":
-            news = MEANWHILE + told(shared.crime.text, shared.crime, game.time())
-        self.feed.on_case_closed(file.crime.id, " ".join(filter(None, (verdict, news))), player=self.id)
+        self.feed.on_case_closed(file.crime.id, line, player=self.id)
         self.engine, self.town, self.game = self._real
         self._real = None
         self.engine.players.onboarded.add(self.owner)
@@ -552,7 +546,8 @@ class Player:
             verdict = HELD if held else f"{PRACTICE_WRONG} It was {self.town.get(crime.culprit).name}."
             self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids), verdict=verdict,
                                  player=self.id)
-            self._graduate(file, self.id if held else None, verdict)
+            line = "Your episode held up." if held else f"Your episode didn't hold up. It was {self.town.get(crime.culprit).name}."
+            self._graduate(file, self.id if held else None, line)
             return None
         everyone = [v.id for v in self.town.villagers]
         named = f"{accused.name} {TEMPLATES[crime.template][0]} {victim.name}'s {crime.item}"
