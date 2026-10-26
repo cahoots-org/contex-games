@@ -528,13 +528,17 @@ function setResting(on) {
   $("resting").textContent = on ? RESTING : "";
 }
 
-// The open case's news, or that there is none; a different case starts an empty notebook.
+// The open case's news, or that there is none; a different case starts an empty notebook and publish form.
 function setCase(c) {
   const text = $("case-text");
   const id = c && c.state === "open" ? c.id : "";
   text.textContent = id ? c.text : "No open case";
   text.className = id ? "" : "none";
-  if ($("case").dataset.case !== id) $("notebook").replaceChildren();
+  if ($("case").dataset.case !== id) {
+    $("notebook").replaceChildren();
+    $("culprit").value = "";
+    sayCase("");
+  }
   $("case").dataset.case = id;
   $("case").dataset.private = String(Boolean(id && c.private));
   $("case").hidden = false;
