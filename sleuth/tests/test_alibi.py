@@ -56,6 +56,17 @@ async def test_no_household_word_by_day_or_for_people_living_alone():
 
 
 @pytest.mark.asyncio
-async def test_the_culprit_gives_no_household_word_their_claim_is_their_account():
-    result, jev = await word("cover", "v3", "v4")
-    assert result is None and jev.state is None
+async def test_the_culprit_vouches_for_a_housemate_like_anyone():
+    result, _ = await word("cover", "v3", "v4")
+    assert result == ("Gus Okafor was home with me all night.", True)
+
+
+@pytest.mark.asyncio
+async def test_a_household_word_is_asked_once_per_case_speaker_and_housemate():
+    cases, _, town = make_cases()
+    file = culprit_file(cases)
+    jev = StubJev({"answer": "cover"})
+    first = await household_word(jev, file, town.get("v4"), town.get("v3"))
+    jev.answers, jev.state = {"answer": "honest"}, None
+    assert await household_word(jev, file, town.get("v4"), town.get("v3")) == first and jev.state is None
+    assert (await household_word(jev, file, town.get("v3"), town.get("v4")))[0].startswith("I was asleep")

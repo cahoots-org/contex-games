@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import time
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 from sleuth.alibi import claim, household_word
 from sleuth.case import Record, at, clock_at, record_json, when
@@ -169,7 +169,7 @@ class Player:
         if self.engine.reputation.get(vid, self.id) < self.config.guarded_at:
             return Refusal(f"{villager.name} won't talk to you.")
         found, talk = await self._gather(file, villager)
-        seen = {(r.kind, r.holder, r.text) for r in self.notebook.values()}
+        seen = {(r.kind, r.holder, r.text) for r in self.notebook.values() if r.case == file.crime.id}
         new = []
         for r in found:
             if (r.kind, r.holder, r.text) not in seen:
@@ -177,7 +177,7 @@ class Player:
                 r.id = r.id or self.ids.next("r")
                 self.notebook[r.id] = r
                 new.append(r)
-        line = await self._phrase(villager, file, [r.text for r in new] + talk)
+        line = await self._phrase(villager, file, [r.text for r in found] + talk)
         self.feed.on_interview(vid, villager.name, line, [record_json(r, self.town) for r in new], player=self.id)
         try:
             await self.engine.press(file)
@@ -189,7 +189,7 @@ class Player:
         """What the resident can give: their memory, their claim, their housemates' whereabouts and the best hearsay
         as records, and news-rooted hearsay as talk."""
         crime, vid, name = file.crime, villager.id, villager.name
-        records = [r for r in file.records.values() if r.kind == "memory" and r.holder == vid]
+        records = [replace(r) for r in file.records.values() if r.kind == "memory" and r.holder == vid]
 
         def statement(text: str, sound: bool, source: str | None = None) -> Record:
             return Record("", crime.id, "statement", self.place, self._clock(), text, vid, sound=sound, utterance=source)

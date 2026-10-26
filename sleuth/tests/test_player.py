@@ -15,6 +15,7 @@ from sleuth.players import Players
 from sleuth.config import Config
 from sleuth.alibi import claim
 from sleuth.case import Record
+from sleuth.cases import CaseFile
 from sleuth.feed import Feed
 from sleuth.lineage import Lineage
 from sleuth.tests.helpers import PID, FakeEngine, StubClient, StubJev, StubWriter, wait_for
@@ -249,7 +250,7 @@ async def test_interview_gives_a_witness_their_memory_record():
     player, file, engine, writer = interviewing()
     memory = memory_of(file, player.ids)
     assert await player.interview("v2") is None
-    assert player.notebook[memory.id] is memory
+    assert player.notebook[memory.id] == memory and player.notebook[memory.id] is not memory
     [(vid, topic, heard, _)] = writer.calls
     assert (vid, topic) == ("v2", file.crime.text) and MEMORY in heard
     [event] = [e for e in player.feed.recent if e.kind == "interview"]
@@ -257,7 +258,8 @@ async def test_interview_gives_a_witness_their_memory_record():
     assert memory.id in [r["id"] for r in event.data["records"]]
     assert all("sound" not in r for r in event.data["records"])
     assert await player.interview("v2") is None
-    assert writer.calls[-1][2] == [] and len(player.notebook) == 2
+    assert MEMORY in writer.calls[-1][2] and len(player.notebook) == 2
+    assert player.feed.recent[-1].data["records"] == []
 
 
 @pytest.mark.asyncio
@@ -275,13 +277,30 @@ async def test_interview_records_an_alibi_claim_with_soundness():
 
 
 @pytest.mark.asyncio
-async def test_interview_records_a_housemates_word_but_not_the_culprits():
-    player, *_ = interviewing(answer="cover")
-    await player.interview("v4")
-    [word] = notebook(player)
+async def test_at_a_night_crime_every_resident_with_housemates_gives_housemate_lines_culprit_included():
+    player, file, *_ = interviewing(answer="cover")
+    for v in player.town.villagers:
+        player.place = player.town.place_of(v.id)
+        await player.interview(v.id)
+    speakers = {r.holder for r in notebook(player) if r.text.startswith(f"{player.town.get(r.holder).name}: ")}
+    assert speakers == {v.id for v in player.town.villagers}
+    [word] = [r for r in notebook(player) if r.holder == "v4"]
     assert (word.text, word.sound) == ("Gus Okafor: Fay Okafor was home with me all night.", False)
-    await player.interview("v3")
-    assert not [r for r in notebook(player) if r.holder == "v3" and r.text.startswith("Fay Okafor: ")]
+
+
+@pytest.mark.asyncio
+async def test_a_new_case_records_the_same_words_again_and_a_reinterview_still_knows_them():
+    player, file, engine, writer = interviewing()
+    file.whereabouts = {"v2": ["elm street"]}
+    await player.interview("v2")
+    file.state = "closed"
+    second = CaseFile(replace(file.crime, id="case-2"), {}, "open", whereabouts={"v2": ["elm street"]})
+    engine.cases.files["case-2"] = second
+    await player.interview("v2")
+    assert {r.case for r in notebook(player)} == {"case-1", "case-2"} and len(notebook(player)) == 4
+    await player.interview("v2")
+    assert player.feed.recent[-1].data["records"] == []
+    assert "Eli Reyes says they were on elm street last night." in writer.calls[-1][2]
 
 
 def hearsay(player, engine, root_kind, file):
@@ -371,8 +390,9 @@ async def test_interview_falls_back_to_the_first_records_text_when_phrasing_fail
     player.writer = SimpleNamespace(answer=down)
     await player.interview("v2")
     assert player.feed.recent[-1].data["line"] == f"Eli Reyes says: {MEMORY}"
-    await player.interview("v2")
-    assert player.feed.recent[-1].data["line"] == "Eli Reyes doesn't know anything about it."
+    file.crime.phase, player.place = "evening", "oak street"
+    await player.interview("v6")
+    assert player.feed.recent[-1].data["line"] == "Ivy Burke doesn't know anything about it."
 
 
 @pytest.mark.asyncio

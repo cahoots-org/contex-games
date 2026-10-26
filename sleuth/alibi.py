@@ -18,14 +18,13 @@ def claim(file: CaseFile, vid: str, routine) -> tuple[list[str], bool]:
 
 
 async def household_word(jev, file: CaseFile, speaker: Villager, about: Villager) -> tuple[str, bool] | None:
-    """A housemate's word on where about was on the night of the crime, and whether it is sound.
-
-    The culprit gives none; their account is their claim.
-    """
+    """A housemate's word on where about was on the night of the crime, and whether it is sound; asked once per case."""
     crime = file.crime
-    if (crime.phase != "night" or speaker.id in (about.id, crime.culprit)
-            or speaker.household != about.household):
+    if crime.phase != "night" or speaker.id == about.id or speaker.household != about.household:
         return None
+    key = f"{speaker.id}:{about.id}"
+    if key in file.words:
+        return tuple(file.words[key])
     state = {"speaker": {"name": speaker.name, "personality": speaker.personality},
              "housemate": {"name": about.name, "tie": speaker.relationships.get(about.id, "housemate"),
                            "feeling": warmth_words(speaker.warmth.get(about.id, 0.0))},
@@ -34,5 +33,8 @@ async def household_word(jev, file: CaseFile, speaker: Villager, about: Villager
                       criteria=ANSWERS)
     resp = await jev.system_one(state=state, questions={"answer": question})
     if resp.choices["answer"].choice == "cover":
-        return f"{about.name} was home with me all night.", about.id != crime.culprit
-    return f"I was asleep. I can't say where {about.name} was.", True
+        word = f"{about.name} was home with me all night.", about.id != crime.culprit
+    else:
+        word = f"I was asleep. I can't say where {about.name} was.", True
+    file.words[key] = list(word)
+    return word

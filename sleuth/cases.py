@@ -30,6 +30,7 @@ class CaseFile:
     published: list[str] = field(default_factory=list)
     solved_by: str | None = None
     pressed: str = ""  # "day:phase" last pressed
+    words: dict[str, list] = field(default_factory=dict)  # "speaker:about" → [household word, sound]
 
 
 def case_json(case: CaseFile) -> dict:

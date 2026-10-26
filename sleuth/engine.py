@@ -328,8 +328,7 @@ class Engine:
         return m.clearance >= self.config.fatigue_per_hop * depth + room
 
     async def _clock_loop(self) -> None:
-        """Move the village through the parts of each day, announce each one, ease reputations, run its cases and walk its
-        daily round."""
+        """Run the parts of each day: announce each, ease reputations, run cases and walk the daily round."""
         phase_seconds = self.config.day_seconds / len(PHASES)
         while True:
             await asyncio.sleep(phase_seconds)

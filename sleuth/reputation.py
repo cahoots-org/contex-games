@@ -28,9 +28,9 @@ class Reputation:
     def decay(self) -> None:
         """Move every regard reputation_decay toward 0."""
         step = self.config.reputation_decay
-        for values in self._by_player.values():
-            for vid, v in values.items():
-                values[vid] = max(0.0, v - step) if v > 0 else min(0.0, v + step)
+        for player, values in self._by_player.items():
+            eased = {vid: max(0.0, v - step) if v > 0 else min(0.0, v + step) for vid, v in values.items()}
+            self._by_player[player] = {vid: v for vid, v in eased.items() if v}
 
     def to_state(self) -> dict:
         return {player: dict(values) for player, values in self._by_player.items()}

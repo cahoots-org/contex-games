@@ -29,7 +29,7 @@ Interview a resident where you both stand and the game, not the model, decides w
 
 - a witness's memory record;
 - where they say they were during the crime, a lie when they are the culprit;
-- for a night crime, whether each housemate was home, which Jev decides the speaker covers for or not (the culprit gives no such word);
+- for a night crime, whether each housemate was home, which Jev decides once per case whether the speaker covers for;
 - the best line they heard that traces back to a witness's memory or the culprit's cover story, naming who told them.
 
 Haiku phrases the answer from those facts alone, and a resident who knows nothing says so. Every interview tells the culprit, at most once a part of the day, that a podcaster is asking around. A resident whose regard for you has fallen below `guarded_at` won't talk to you; regard drifts back toward 0 by `reputation_decay` each part of the day.
