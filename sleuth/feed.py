@@ -129,15 +129,15 @@ class Feed:
         self.emit("place", player=player, place=place)
 
     def on_listen(self, place: str, lines: list[Utterance], until: float, *, player: str) -> None:
-        """The player starts listening at place until then, hearing first the lines said there lately."""
+        """The player looks around at place, seeing the lines said there lately; they can look again after until."""
         heard = [f'{u.speaker_name}: "{u.text}"' for u in lines]
-        text = "\n".join([f"You listen at the {place}.", *heard]) if heard else f"You listen at the {place}. It has been quiet here."
+        text = "\n".join([f"Recently said at the {place}:", *heard]) if heard else f"Nothing has been said at the {place} lately."
         self.emit("listen", text, player=player, place=place, until=until, ended=False,
                   lines=[{"speaker": u.speaker, "speaker_name": u.speaker_name, "text": u.text} for u in lines])
 
     def on_listen_end(self, place: str, *, player: str) -> None:
-        """The player stops listening at place."""
-        self.emit("listen", "You stop listening.", player=player, place=place, ended=True)
+        """The player can look around again; the terminal prints nothing."""
+        self.emit("listen", player=player, place=place, ended=True)
 
     def on_delivery(self, utterance: Utterance, listener_ids: list[str]) -> None:
         """Emit a town announcement."""

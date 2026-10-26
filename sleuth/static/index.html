@@ -294,7 +294,7 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
   .composer { padding: .6rem 1rem .8rem; }
   .say-status:empty { min-height: 0; margin: 0; }
   .tile-act, .walk-there { min-height: 2.25rem; }
-  /* The village as one row per place: name and count, the faces, and Walk or Listen. */
+  /* The village as one row per place: name and count, the faces, and Walk or Look around. */
   #town h2 { margin: .25rem 0 .4rem; }
   /* The villager card sticks to the panel's very foot, so the panel ends without padding. */
   #town { padding-bottom: 0; }
@@ -466,7 +466,7 @@ function countFold(block) {
 
 function foldWords(block, n) {
   const { place, ended } = block.dataset;
-  return `You listen at the ${place} · ${plural(n, "line")}${ended ? " · ended" : ""}`;
+  return `Recently said at the ${place} · ${plural(n, "line")}`;
 }
 
 // A line in a fold.
@@ -841,7 +841,7 @@ function renderVillagers() {
     const crowd = sorted(villagers.filter((v) => v.place === place));
     const count = hits.size ? `${crowd.filter((v) => hits.has(v.id)).length} of ${crowd.length}` : String(crowd.length);
     const label = hits.size ? `${capital(place)}, ${count} villagers match` : `${capital(place)}, ${count} villagers`;
-    // A phone has no open tile: every place is one row with its faces and its Walk or Listen.
+    // A phone has no open tile: every place is one row with its faces and its Walk or Look around.
     if (phone.matches) {
       return el("section", { className: "tile" },
         el("p", { className: "place" }, el("span", { className: "visually-hidden", textContent: label }),
@@ -1056,7 +1056,7 @@ function setListening(until) {
   if (until != null) setTimeout(setActions, Math.max(0, until * 1000 - Date.now()) + 100);
 }
 
-// The open tile's button: walk to the place, or listen when the player is already there.
+// The open tile's button: walk to the place, or look around when the player is already there.
 function tileAction(place) {
   const button = el("button", { type: "button", className: "linkish tile-act", dataset: { act: place } });
   fillAction(button);
@@ -1066,7 +1066,7 @@ function tileAction(place) {
 function fillAction(button) {
   const at = button.dataset.act === here;
   const busy = at && listening();
-  button.textContent = !at ? "Walk here" : busy ? "Listening…" : "Listen here";
+  button.textContent = !at ? "Walk here" : busy ? "Just looked" : "Look around";
   button.ariaDisabled = String(busy);
   button.onclick = () => {
     if (button.ariaDisabled === "true") return;

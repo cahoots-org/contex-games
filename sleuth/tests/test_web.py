@@ -130,11 +130,11 @@ def test_page_is_served(game):
 
 def test_page_has_the_walk_listen_and_ask_controls(game):
     html = game.client.get("/").text
-    for needle in ("Walk here", "Listen here", "/api/walk", "/api/listen", "/api/ask", 'case "listen"', 'case "asked"'):
+    for needle in ("Walk here", "Look around", "Recently said at the", "/api/walk", "/api/listen", "/api/ask", 'case "listen"', 'case "asked"'):
         assert needle in html
     assert 'class="ask"' in html or 'className: "ask"' in html
     assert "ariaDisabled" in html
-    assert "innerHTML" not in html
+    assert "innerHTML" not in html and "Listen here" not in html and "You listen at" not in html
 
 
 def test_a_body_too_deeply_nested_to_parse_is_a_bad_request(game, monkeypatch):
@@ -159,7 +159,7 @@ def test_walk_moves_the_player_and_reports_problems(game):
 def test_listen_starts_and_a_second_is_refused(game):
     assert game.client.post("/api/listen").json() == {"ok": True}
     again = game.client.post("/api/listen")
-    assert again.status_code == 400 and again.json() == {"error": "You're already listening."}
+    assert again.status_code == 400 and again.json() == {"error": "You just looked around."}
 
 
 def test_ask_reports_problems_and_answers_through_the_feed(game):

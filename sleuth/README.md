@@ -139,7 +139,7 @@ default.
 Everything is done on the page:
 
 - Walk: open a place's tile and press "Walk here".
-- Listen: at your own place, press "Listen here" to hear the last few lines said there.
+- Look around: at your own place, press "Look around" to see the last few lines said there.
 - Ask around: open a villager's card where you stand and ask what folk have been saying about something; the answer
   goes in the feed and on their card.
 - Inspect: click a face to see a villager's trade, looks, home, household, personality, grudge and relationships.
@@ -162,7 +162,7 @@ A face is generated from the villager's id and trade, so the same villager has
 the same face every game.
 
 Room talk that grows from a case is posted to the neighborhood app and shows in
-the feed. Listen at a place to hear the last few lines said there.
+the feed. Look around a place to see the last few lines said there.
 
 Arrow keys move through the feed's buttons. Reloading the page brings back the
 last 500 feed events.
@@ -212,7 +212,7 @@ The image listens on `0.0.0.0` and on the `PORT` Railway gives it.
 
 The village thinks only while someone is playing: a player counts while one of
 their tabs is open, and for `SLEUTH_IDLE_AFTER_SECONDS` (10 minutes) after
-their last walk, question, listen or closed tab.
+their last walk, question, look around or closed tab.
 A visitor who loads the page but never opens its feed never wakes the village,
 and their run is dropped once it is that old, or sooner once more than
 `SLEUTH_MAX_IDLE_RUNS` such runs pile up. A single open tab keeps the village
@@ -220,7 +220,7 @@ awake, so expect it to spend up to the cap every UTC day.
 
 Once the day's estimated spend reaches `SLEUTH_DAILY_SPEND_CAP` the village
 rests until midnight UTC: villagers stop thinking, the page says so, and
-questions are refused. Walking and listening still
+questions are refused. Walking and looking around still
 work. Calls already under way finish, so the day can go a little over the cap.
 
 The cap counts spend in the running process only. A restart starts the count

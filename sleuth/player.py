@@ -24,7 +24,7 @@ def analytics(event: str, **fields) -> None:
 MAX_ASK_CHARS = 500
 LISTEN_OPENING = 5
 LISTEN_LOOKBACK_DAYS = 1 / 4
-ALREADY_LISTENING = "You're already listening."
+ALREADY_LISTENING = "You just looked around."
 ASK_LINES = 3
 
 
@@ -102,9 +102,9 @@ class Player:
         return None
 
     def listen(self) -> str | None:
-        """Listen to everything said where the player stands for a while; returns why it could not be done, if it couldn't.
+        """Show the last few lines said where the player stands this part of the day; returns why it could not be done.
 
-        It opens with the last few lines said here in this part of the day.
+        The player can look again after listen_seconds or once they walk.
         """
         self.touch()
         if self.listening():
