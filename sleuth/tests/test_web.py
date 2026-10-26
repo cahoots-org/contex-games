@@ -267,6 +267,8 @@ def test_a_closed_case_s_notebook_stays_until_the_next_case_opens(game):
     game.cases.files["case-2"] = CaseFile(crime, {}, "open")
     body = game.client.get("/api/case").json()
     assert body["case"]["id"] == "case-2" and body["notebook"] == []
+    game.cases.files["case-2"].state = "closed"
+    assert game.client.get("/api/case").json()["notebook"] == []
 
 
 def eventually(check, timeout=5.0):

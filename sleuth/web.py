@@ -201,10 +201,10 @@ def create_app(
         }
 
     def case_of(player: Player) -> dict:
-        """The player's open case, and the notebook of it or, till the next opens, of their last case; their times
+        """The player's open case, and the notebook of it or, till the next opens, of the case closed last; their times
         said today."""
         case = cases.for_player(player.id) if cases else None
-        book = player.current_case()
+        book = case or next((f for f in reversed(cases.files.values()) if f.state == "closed"), None) if cases else None
         return {
             "case": case_json(case, town, cases.routine, game.day) if case else None,
             "notebook": [record_json(r, town, book.crime, game.day) for r in player.notebook.values()

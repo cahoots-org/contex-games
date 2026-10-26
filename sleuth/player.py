@@ -510,7 +510,7 @@ class Player:
         and costs it. A guided case closes either way and moves no regard. The town always hears it.
         """
         self.touch()
-        file = self.current_case()
+        file = self._case()
         if file is None:
             return "There's no open case."
         if file.state != "open":
@@ -565,7 +565,7 @@ class Player:
             log.exception("delivering the episode on %s failed", crime.id)
         return None
 
-    def current_case(self) -> CaseFile | None:
+    def _case(self) -> CaseFile | None:
         """The player's open case, else the case of their latest notebook entry."""
         cases = self.engine.cases
         if cases is None:
