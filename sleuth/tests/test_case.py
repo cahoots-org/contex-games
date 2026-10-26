@@ -19,6 +19,7 @@ from sleuth.case import (
 )
 from sleuth.lineage import Ids
 from sleuth.models import Villager
+from sleuth.tests.helpers import StubRoutine
 from sleuth.town import Town
 from sleuth.traits import assign_traits
 
@@ -32,16 +33,6 @@ RESIDENTS = [
     ("v7", "Jo Tran", "h4", "oak street"),
     ("v8", "Kit Tran", "h4", "oak street"),
 ]
-
-
-class StubRoutine:
-    """Each resident's place per phase, from a dict."""
-
-    def __init__(self, places):
-        self.places = places
-
-    def place(self, vid, phase):
-        return self.places.get(vid, {}).get(phase)
 
 
 def make_town():

@@ -21,9 +21,8 @@ from sleuth.lineage import Ids, Lineage
 from sleuth.mind import Mind, mind_project
 from sleuth.models import Utterance
 from sleuth.players import Players
-from sleuth.tests.test_case import StubRoutine
 from sleuth.tests.helpers import (
-    FakeMind, StubContex, make, stub_player, wait_for,
+    FakeMind, StubContex, StubRoutine, make, stub_player, wait_for,
 )
 from sleuth.town import Town
 

@@ -14,7 +14,8 @@ from sleuth.config import Config
 from sleuth.feed import Feed
 from sleuth.lineage import Ids, Lineage
 from sleuth.players import Players
-from sleuth.tests.test_case import StubRoutine, make_routine, make_town
+from sleuth.tests.helpers import StubRoutine
+from sleuth.tests.test_case import make_routine, make_town
 from sleuth.traits import assign_traits
 
 

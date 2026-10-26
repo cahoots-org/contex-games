@@ -18,6 +18,16 @@ PID = "p-1"
 TIMEOUT = 2.0
 
 
+class StubRoutine:
+    """Each resident's place per phase, from a dict."""
+
+    def __init__(self, places):
+        self.places = places
+
+    def place(self, vid, phase):
+        return self.places.get(vid, {}).get(phase)
+
+
 class Always:
     """A stand-in for random.Random whose random() is always the same value."""
 
