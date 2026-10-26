@@ -277,35 +277,54 @@ def test_the_victim_finds_the_crime_after_it_and_names_no_one():
     assert not any(v.name in found.text for v in town.villagers if v.id != "v1")
 
 
-def test_scene_clues_are_one_or_two_traces_or_a_dropped_receipt_from_someone_there():
+def test_scene_clues_are_one_or_two_traces_or_a_dropped_receipt_with_a_store_log():
     town, routine, crime = make_case()
     culprit = town.get(crime.culprit).traits
     there = {crime.culprit, *(v.id for v in town.villagers if routine.place(v.id, "night") == crime.place)} - {crime.victim}
     shapes = set()
     for seed in range(60):
-        clues = scene_clues(crime, town, routine, Random(seed), Ids())
-        assert 1 <= len(clues) <= 2 and len({r.id for r in clues}) == len(clues)
+        records = scene_clues(crime, town, routine, Random(seed), Ids())
+        clues = [r for r in records if r.kind == "clue"]
+        assert 1 <= len(clues) <= 2 and len({r.id for r in records}) == len(records)
         for r in clues:
-            assert (r.kind, r.place, r.case, r.holder, r.day, r.sound) == ("clue", crime.place, "case-1", "", 1, True)
-            if r.who:
-                assert r.who in there and not r.traits and town.get(r.who).name in r.text
-                shapes.add("receipt")
-            else:
+            assert (r.kind, r.place, r.case, r.holder, r.day, r.sound, r.who) == ("clue", crime.place, "case-1", "", 1, True, None)
+            assert not any(v.name in r.text for v in town.villagers)
+            if r.traits:
                 [(trait, value)] = r.traits.items()
                 assert culprit[trait] == value and value in r.text
                 shapes.add(trait)
-            assert not any(v.name in r.text for v in town.villagers if v.id != r.who)
-    assert shapes == {"height", "coat", "car", "receipt"}
+            else:
+                [store] = [r2 for r2 in records if r2.kind == "log"]
+                assert store.place == "grocery" and "grocery" in r.text and store.clock == r.clock and store.clock in r.text
+                assert store.who in there and town.get(store.who).name in store.text and store.trail
+                assert not points_at(crime, crime.culprit, culprit, r)
+                assert points_at(crime, crime.culprit, culprit, store) == (store.who == crime.culprit)
+                shapes.add("receipt" + ("-culprit" if store.who == crime.culprit else "-bystander"))
+        assert len(records) == len(clues) + sum(not r.traits for r in clues)
+    assert shapes == {"height", "coat", "car", "receipt-culprit", "receipt-bystander"}
+
+
+def test_a_culprits_receipt_log_alone_solves_the_case():
+    town, routine, crime = make_case()
+    culprit = town.get(crime.culprit).traits
+    seeds = (Random(s) for s in range(200))
+    records = next(r for r in (scene_clues(crime, town, routine, g, Ids()) for g in seeds)
+                   if len(r) == 2 and r[1].who == crime.culprit and not r[0].traits)
+    assert crime.culprit in suspects(crime, records, town)
+    assert make_solvable(crime, records, town, routine, Random(1), Ids()) is not None
+    assert not any(points_at(crime, crime.culprit, culprit, r) for r in records if r.kind == "clue")
+    assert any(points_at(crime, crime.culprit, culprit, r) for r in records if r.kind == "log")
 
 
 def test_clues_point_and_narrow_like_sightings_and_logs():
     town, _, crime = make_case()
     culprit = town.get(crime.culprit).traits
     thread = Record("r-1", "case-1", "clue", "elm street", "", "", traits={"coat": culprit["coat"]})
-    mine = Record("r-2", "case-1", "clue", "elm street", "11:02pm", "", who=crime.culprit)
-    theirs = Record("r-3", "case-1", "clue", "elm street", "11:02pm", "", who="v2")
+    mine = Record("r-2", "case-1", "log", "grocery", "10:02pm", "", who=crime.culprit, trail=True)
+    theirs = Record("r-3", "case-1", "log", "grocery", "10:02pm", "", who="v2", trail=True)
     assert points_at(crime, crime.culprit, culprit, thread) and points_at(crime, crime.culprit, culprit, mine)
     assert not points_at(crime, crime.culprit, culprit, theirs)
+    assert crime.culprit in suspects(crime, [mine], town)
     assert suspects(crime, [thread], town) == {v.id for v in town.villagers
                                                if v.traits["coat"] == culprit["coat"]} - {crime.victim}
     full = Record("r-4", "case-1", "clue", "elm street", "", "", traits=dict(culprit))

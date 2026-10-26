@@ -31,10 +31,10 @@ WITNESS_ACTION = {"steal": "walked off with something", "vandalize": "was bent o
                   "sabotage": "was fiddling with something", "dog": "was opening a gate",
                   "trailer": "was hauling something off"}
 WITNESS_DRIFT = 20
-# What the culprit can leave behind: a trace of one trait, or a receipt from someone who was there.
+# What the culprit can leave behind: a trace of one trait, or a store receipt whose log names who paid.
 TRACES = {"height": "A boot print {at}, left by {figure}.", "coat": "A thread {at}, snagged from {figure}.",
           "car": "Fresh tracks {at}, from a {value}."}
-RECEIPT = "A grocery receipt dropped {at}, from {name}'s loyalty card, stamped {clock}."
+RECEIPT = "A grocery receipt dropped {at}, stamped {clock}."
 # How many minutes before the crime a dropped receipt was stamped.
 RECEIPT_BEFORE = (20, 180)
 
@@ -65,10 +65,11 @@ class Record:
     text: str
     holder: str = ""  # vid who saw or said it ("" for place records)
     traits: dict[str, str] = field(default_factory=dict)  # what was seen
-    who: str | None = None  # a log's or receipt's named resident; whom a household word is about
+    who: str | None = None  # a log's named resident; whom a household word is about
     sound: bool = True  # traces to the truth
     utterance: str | None = None  # memory: its delivered utterance id; statement: source record id
     day: int = 0  # game day
+    trail: bool = False  # a store log behind a receipt dropped at the scene
 
 
 def clock_at(minute: int) -> str:
@@ -178,15 +179,19 @@ def camera_clip(crime: Crime, town: Town, ids: Ids, traits: tuple[str, ...] = CL
 
 def scene_clues(crime: Crime, town: Town, routine, rng: Random, ids: Ids) -> list[Record]:
     """One or two things left at the scene: a trace of one of the culprit's traits, or a receipt dropped by the
-    culprit or someone expected there."""
+    culprit or someone expected there. A receipt names no one; the grocery's log for its time, returned with it,
+    names who paid."""
     culprit = town.get(crime.culprit).traits
-    clues = []
+    clues: list[Record] = []
     for kind in rng.sample([*TRACES, "receipt"], rng.randint(1, 2)):
         if kind == "receipt":
             who = rng.choice([crime.culprit, *_bystanders(crime, town, routine)])
             clock = clock_at(crime.minute - rng.randint(*RECEIPT_BEFORE))
-            text = RECEIPT.format(at=at(crime.place), name=town.get(who).name, clock=clock)
-            clues.append(Record(ids.next("r"), crime.id, "clue", crime.place, clock, text, who=who, day=crime.day))
+            text = RECEIPT.format(at=at(crime.place), clock=clock)
+            clues.append(Record(ids.next("r"), crime.id, "clue", crime.place, clock, text, day=crime.day))
+            paid = f"{LOG_PLACES['grocery']}: {town.get(who).name}, {clock}"
+            clues.append(Record(ids.next("r"), crime.id, "log", "grocery", clock, paid, who=who, trail=True,
+                                day=crime.day))
         else:
             seen = {kind: culprit[kind]}
             text = TRACES[kind].format(at=at(crime.place), figure=figure(seen), value=seen[kind])
@@ -208,17 +213,17 @@ def logs(crime: Crime, phase_log: dict[str, list[str]], town: Town, rng: Random,
 
 
 def points_at(crime: Crime, culprit: str, traits: dict[str, str], r: Record) -> bool:
-    """Whether a record singles out the culprit: a sighting or trace that fits them, or a log or receipt at the
-    scene. A housemate's "I was asleep" says the same of everyone, so it points at no one."""
+    """Whether a record singles out the culprit: a sighting or trace that fits them, or a log that puts them at the
+    scene or behind a receipt left there. A housemate's "I was asleep" says the same of everyone, so it points at no one."""
     if r.kind in ("memory", "clip", "clue") and r.traits:
         return r.traits.items() <= traits.items()
-    return r.kind in ("log", "clue") and r.who == culprit and r.place == crime.place
+    return r.kind == "log" and r.who == culprit and (r.place == crime.place or r.trail)
 
 
 def suspects(crime: Crime, records: list[Record], town: Town) -> set[str]:
     """Residents who match every sighting and trace and are not logged only elsewhere."""
     sightings = [r.traits for r in records if r.kind in ("memory", "clip", "clue")]
-    logged = [r for r in records if r.kind in ("log", "clue") and r.who]
+    logged = [r for r in records if r.kind == "log" and not r.trail]
     at_scene = {r.who for r in logged if r.place == crime.place}
     alibied = {r.who for r in logged if r.place != crime.place} - at_scene
     return {v.id for v in town.villagers if v.id != crime.victim and v.id not in alibied

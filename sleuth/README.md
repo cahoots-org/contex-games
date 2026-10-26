@@ -24,7 +24,7 @@ witness if that helps and dropping the case quietly if nothing can. A solvable c
 case shows at the top of the Hear panel and goes cold after `case_days`.
 
 **Your first case.** A new podcaster gets an easy private case of their own, opened at once at a place with a
-camera: one witness, a clip showing the culprit's height, coat and hair, a clue or two at the scene, and no logs. Only
+camera: one witness, a clip showing the culprit's height, coat and hair, a clue or two at the scene, and no logs but a receipt's. Only
 they see its news. Short hints walk them through interviewing, pulling records, searching the scene and publishing;
 once it closes, by an episode or by going cold, they play the town's shared case like everyone else. No new private case is opened while the town is
 resting.
@@ -35,8 +35,8 @@ resting.
 |---|---|
 | memory | a witness recalls a few of the culprit's traits, never a name |
 | clip | a camera at the grocery, bar, town hall or elm street catches the culprit's height and coat at the exact minute |
-| log | a gym check-in, bar tab, grocery receipt or library checkout puts a named resident somewhere |
-| clue | left at the crime place: a boot print, coat thread or tracks showing one of the culprit's traits, or a receipt dropped by the culprit or someone who was there |
+| log | a gym check-in, bar tab, grocery receipt or library checkout puts a named resident somewhere; a dropped receipt's time is matched by the grocery's log, which names who paid |
+| clue | left at the crime place: a boot print, coat thread or tracks showing one of the culprit's traits, or a grocery receipt dropped by the culprit or someone who was there, showing only the store and the time |
 | statement | what a resident tells you in an interview: where they or someone else were, what they heard, who'd have a reason |
 
 Statements can be lies: the culprit gives a false alibi, and a housemate may cover for them.
@@ -58,11 +58,12 @@ kept by the residents who work there, or for a street by those who live on it; t
 regards you below `guarded_at`.
 
 **Search** the crime place, once per case, to find the one or two clues left there when the crime was staged.
-The solvability check counts them, so a case may need a search to crack.
+A receipt names no one: pull the grocery's records to see who paid at that time. The solvability check counts the
+clues and that log, so a case may need a search and a pull to crack.
 
 **Publish** an episode: choose a resident and tick between 1 and 5 notebook entries. It holds up when it names the
 culprit, every cited entry is true evidence from this case, and at least one points at the culprit: a memory, clip
-or trace whose traits all fit them, or a log or receipt that puts them at the crime place. Otherwise the evidence
+or trace whose traits all fit them, or a log that puts them at the crime place or behind a receipt found there. Otherwise the evidence
 doesn't back it. One episode per podcaster per case.
 
 - A right episode closes the case for everyone, and every resident thinks better of you (`reputation_right`). Any
