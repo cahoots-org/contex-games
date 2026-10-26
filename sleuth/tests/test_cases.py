@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from sleuth import cases as cases_mod
+from sleuth.alibi import claim
 from sleuth.case import CAMERA_PLACES, Crime, Record
 from sleuth.cases import GUIDED_CLIP_TRAITS, CaseFile, Cases
 from sleuth.config import Config
@@ -241,6 +242,14 @@ async def test_new_owner_gets_a_private_guided_case_with_a_clip_and_one_witness(
     memories = [r for r in case.records.values() if r.kind == "memory"]
     assert 1 <= len(memories) <= 2 and all(r.utterance for r in memories)
     assert town.place_of(case.crime.culprit) == case.crime.place
+
+
+@pytest.mark.asyncio
+async def test_every_resident_in_a_guided_case_says_where_they_were():
+    cases, engine, town = make_cases()
+    case = await cases.open_guided(engine, "p-1", 1, "night")
+    assert all(claim(case, v.id, cases.routine)[0] for v in town.villagers)
+    assert not [r for r in case.records.values() if r.kind == "log"]
 
 
 @pytest.mark.asyncio

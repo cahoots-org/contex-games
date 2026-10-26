@@ -161,6 +161,7 @@ class Cases:
         except Exception:
             log.exception("opening %s failed", crime.id)
             self._drop(case, now)
+        case.whereabouts = {v.id: [self.routine.place(v.id, crime.phase)] for v in self.town.villagers}
         return case if case.state == "open" else None
 
     def _involved(self, witnesses: bool = True) -> set[str]:
