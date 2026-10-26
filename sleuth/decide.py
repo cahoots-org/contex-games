@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from typesafe_sdk import Choice, Score
 
 from sleuth.actions import (
-    ACTION_NOT_FOR, ACTIONS, IGNORE, MOVE, STYLED, STYLES, TARGET_KIND,
-    available_actions,
+    ACTION_NOT_FOR, ACTIONS, IGNORE, MOVE, STYLED, TARGET_KIND,
+    available_actions, available_styles,
 )
 from sleuth.contex_client import Match
 from sleuth.models import Villager
@@ -135,7 +135,7 @@ def _questions(view: TurnView) -> dict[str, Choice | Score]:
     if any(a in STYLED for a in available_actions(view)):
         qs["style"] = Choice(
             instructions="In what manner would this resident say it, given their personality and what they heard?",
-            criteria=dict(STYLES),
+            criteria=available_styles(view),
         )
     return qs
 

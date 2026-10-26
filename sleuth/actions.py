@@ -56,6 +56,10 @@ STYLED = (RETELL, DENY, CONFRONT, SPEAK, ALIBI, BLAME, WARN)
 
 NEEDS_SOMEONE = (RETELL, DENY, CONFRONT, SPEAK, ALIBI, BLAME, WARN)
 
+# Covering tracks, for the culprit of a case alone.
+CULPRIT_ONLY = (DENY, CONFRONT, ALIBI, BLAME)
+CULPRIT_STYLES = ("shift_blame",)
+
 
 def available_actions(view) -> list[str]:
     """Actions this villager can take right now."""
@@ -63,7 +67,7 @@ def available_actions(view) -> list[str]:
     for a in ACTIONS:
         if a in NEEDS_SOMEONE and not view.present:
             continue
-        if a in (ALIBI, BLAME) and not view.case:
+        if a in CULPRIT_ONLY and not view.case:
             continue
         if a == WARN and not view.warn:
             continue
@@ -71,3 +75,8 @@ def available_actions(view) -> list[str]:
             continue
         out.append(a)
     return out
+
+
+def available_styles(view) -> dict[str, str]:
+    """Manners this villager may speak in right now."""
+    return {s: d for s, d in STYLES.items() if view.case or s not in CULPRIT_STYLES}
