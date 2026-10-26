@@ -22,7 +22,7 @@ AT = datetime(2026, 10, 21, 12, 0, tzinfo=UTC)
 
 
 def hop(uid, speaker="Bert", text="the miller waters his flour"):
-    return Utterance(uid, "v1", speaker, "tavern", text, "w-1")
+    return Utterance(uid, "v1", speaker, "bar", text, "w-1")
 
 
 async def make(results=None, error=None, day=100.0):
@@ -156,7 +156,7 @@ async def test_tallies(monkeypatch):
     assert [h["uid"] for h in shown.hops] == ["u-1", "u-2"]
     assert shown.hops[1] == {
         "uid": "u-2", "speaker_id": "v1", "speaker": "Ann", "listeners": ["Cal", "Dee"], "ids": ["v3", "v4"],
-        "place": "tavern", "text": "the miller waters his flour",
+        "place": "bar", "text": "the miller waters his flour",
     }
     assert (card["heard"], card["still"], shown.drifted) == (4, 2, True)
 
@@ -223,7 +223,7 @@ def status(state, vid="v1", name="Marta", **extra):
                  PID)
 
 
-def said(uid, speaker, name, text="the miller waters his flour", place="tavern"):
+def said(uid, speaker, name, text="the miller waters his flour", place="bar"):
     return Utterance(uid, speaker, name, place, text, "w-1")
 
 
@@ -262,7 +262,7 @@ async def test_a_room_hop_is_one_summary_on_its_teller():
     rumors.record("w-1", said("u-1", "v1", "Marta"), {"v2": "Bert", "v3": "Cal", "v4": "Dee"}, True)
     rumors.record("w-1", said("u-2", "v3", "Cal"), {"v5": "Eve"}, True)
     entries = frontier(rumors)
-    assert entries["v1"]["crowd"] == {"place": "tavern", "heard": 3, "passed": 1}
+    assert entries["v1"]["crowd"] == {"place": "bar", "heard": 3, "passed": 1}
     assert "v2" not in entries and "v4" not in entries
     assert entries["v3"]["crowd"] is None and entries["v5"]["state"] == "heard"
     assert set(rumors.cards(PID)[0]["touched"]) == {"v1", "v2", "v3", "v4", "v5"}
@@ -309,7 +309,7 @@ def told_bert(then):
     (told_bert(lambda r: r.reached("w-1", "v2", "Bert", "worn", depth=5)), "It wore out after 5 tellings."),
     (heard_back, "Everyone who heard it had heard it before."),
     (lambda r: r.record("w-1", said("u-1", "v1", "Marta"), {"v2": "Bert", "v3": "Cal", "v4": "Dee"}, True),
-     "It stopped at the tavern: 3 heard it and no one passed it on."),
+     "It stopped at the bar: 3 heard it and no one passed it on."),
     (told_bert(lambda r: r.reached("w-1", "v2", "Bert", "warned")), "It stopped with Bert, who warned others about you."),
     (told_bert(lambda r: r.record("w-1", said("u-2", "v2", "Bert", "the weather"), {"v3": "Cal"}, False)),
      "It turned into another story with Bert."),
@@ -336,12 +336,12 @@ async def test_a_scene_marks_its_people_until_it_ends():
     rumors, _ = await make()
     rumors.record("w-1", said("u-1", "v1", "Marta"), {"v2": "Bert"}, True)
     rumors.reached("w-1", "v2", "Bert", "kept")
-    scene = Scene("s-1", "tavern", "w-1", "w-1", True, "u-1", {"v2", "v3"}, {"v2"}, ["u-1"], 0.5)
+    scene = Scene("s-1", "bar", "w-1", "w-1", True, "u-1", {"v2", "v3"}, {"v2"}, ["u-1"], 0.5)
     rumors.in_scene("w-1", scene, {"v2": "Bert", "v3": "Cal"})
     card, = rumors.cards(PID)
     entries = {e["id"]: e for e in card["frontier"]}
-    assert entries["v2"]["scene"] == {"tone": "argument", "place": "tavern"}
-    assert entries["v3"]["state"] == "heard" and entries["v3"]["scene"] == {"tone": "argument", "place": "tavern"}
+    assert entries["v2"]["scene"] == {"tone": "argument", "place": "bar"}
+    assert entries["v3"]["state"] == "heard" and entries["v3"]["scene"] == {"tone": "argument", "place": "bar"}
     assert card["touched"]["v2"] == "scene" and card["stopped"] is None
     scene.ended = "cooled"
     rumors.in_scene("w-1", scene, {"v2": "Bert", "v3": "Cal"})
@@ -373,11 +373,11 @@ class StubOverhear:
 async def test_a_whisper_card_keeps_its_place_and_claims_and_a_reply_asks_nothing():
     overhear = StubOverhear(["tavern-ghost"])
     rumors = Rumors(StubContex(), StubBaselines(0.5), Config(session="s1"), overhear)
-    await rumors.add("w-1", "a ghost in the tavern", AT, "v1", "Marta", player=PID, place="tavern")
-    await rumors.add("w-2", "it moans", AT, "v1", "Marta", conversation="w-1", player=PID, place="tavern")
+    await rumors.add("w-1", "a ghost in the tavern", AT, "v1", "Marta", player=PID, place="bar")
+    await rumors.add("w-2", "it moans", AT, "v1", "Marta", conversation="w-1", player=PID, place="bar")
     assert overhear.calls == ["a ghost in the tavern"]
     card, = rumors.cards(PID)
-    assert rumors.card("w-1").claims == ["tavern-ghost"] and card["place"] == "tavern"
+    assert rumors.card("w-1").claims == ["tavern-ghost"] and card["place"] == "bar"
     assert "claims" not in card
 
 
@@ -439,7 +439,7 @@ async def test_the_same_wording_to_another_villager_joins_the_first_card():
     rumors, _ = await make()
     await rumors.add("w-2", "the miller waters his flour", AT, "v2", "Bert", conversation="w-1", player=PID)
     rumors.record("w-1", hop("u-1"), {"v3": "Cora"}, True)
-    rumors.record("w-2", Utterance("u-2", "v2", "Bert", "mill", "the miller waters his flour", "w-2"), {"v4": "Dot"}, True)
+    rumors.record("w-2", Utterance("u-2", "v2", "Bert", "gym", "the miller waters his flour", "w-2"), {"v4": "Dot"}, True)
     card, = rumors.cards(PID)
     assert card["uid"] == "w-1" and card["heard"] == 4
     assert {"v1", "v2", "v3", "v4"} == set(card["touched"])
@@ -451,7 +451,7 @@ async def test_state_round_trips_as_json_without_scenes_or_waits():
     rumors, _ = await make()
     rumors.record("w-1", said("u-1", "v1", "Marta"), {"v2": "Bert"}, True)
     rumors.reached("w-1", "v3", "Cal", "busy", until=123.0)
-    scene = Scene("s-1", "tavern", "w-1", "w-1", True, "u-1", {"v2", "v4"}, {"v2"}, ["u-1"], 0.5)
+    scene = Scene("s-1", "bar", "w-1", "w-1", True, "u-1", {"v2", "v4"}, {"v2"}, ["u-1"], 0.5)
     rumors.in_scene("w-1", scene, {"v2": "Bert", "v4": "Dora"})
     assert rumors.first("w-1", "size:2") and rumors.first("w-1", "scene:s-1")
     rumors._cards["w-1"].claims = ["gen-1"]

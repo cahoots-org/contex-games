@@ -34,7 +34,7 @@ PORT = 8765
 BASE = f"http://127.0.0.1:{PORT}"
 WS = f"ws://127.0.0.1:{PORT}/ws"
 GOAL = Goal("cat", "Half the village believes the mayor's cat is a spy", "belief")
-WORLD = world_goal(Goal("well", "A third of the village believes the well is cursed", "belief"))
+WORLD = world_goal(Goal("library", "A third of the village believes the well is cursed", "belief"))
 
 
 def receive(ws, timeout=5.0):
@@ -63,8 +63,8 @@ class FakeEngine(helpers.FakeEngine):
 def game(monkeypatch):
     monkeypatch.setattr(web, "USAGE_POLL_SECONDS", 0.05)
     town, lineage = Town(), Lineage()
-    town.add(Villager("v1", "Marta Hale", "herbalist", "anxious", "the miller", ["SECRET NEED"], {"v2": "rival"}), "well")
-    town.add(Villager("v2", "Bert Cole", "miller", "jolly", "none", ["OTHER NEED"], {}), "mill")
+    town.add(Villager("v1", "Marta Hale", "herbalist", "anxious", "the miller", ["SECRET NEED"], {"v2": "rival"}), "library")
+    town.add(Villager("v2", "Bert Cole", "miller", "jolly", "none", ["OTHER NEED"], {}), "gym")
     feed = Feed(lineage, town, out=None)
     config = Config()
     suspicion, game = Suspicion(config, town), Game()
@@ -119,7 +119,7 @@ def test_state_lists_goals_villagers_and_replay(game):
     assert [v["name"] for v in state["villagers"]] == ["Bert Cole", "Marta Hale"]
     assert state["places"] == list(PLACES) and state["boot"]
     assert state["events"][-1]["text"] == "hello"
-    assert state["place"] == "square"
+    assert state["place"] == "cafe"
     assert (state["time"]["day"], state["time"]["phase"]) == (1, "morning")
     assert 0 <= state["time"]["fraction"] < 0.25 and state["time"]["day_seconds"] > 0
     assert state["trophies"] == []
@@ -265,8 +265,8 @@ def test_whisper_validation_errors_come_back_as_messages(game):
 
 def test_walk_moves_the_player_and_reports_problems(game):
     post = game.client.post
-    assert post("/api/walk", json={"place": "mill"}).json() == {"ok": True}
-    assert game.client.get("/api/state").json()["place"] == "mill"
+    assert post("/api/walk", json={"place": "gym"}).json() == {"ok": True}
+    assert game.client.get("/api/state").json()["place"] == "gym"
     moon = post("/api/walk", json={"place": "moon"})
     assert moon.status_code == 400 and "There's no moon" in moon.json()["error"]
     bad = post("/api/walk", content=b"nope")
@@ -290,7 +290,7 @@ def test_listen_starts_and_a_second_is_refused(game):
 
 def test_ask_reports_problems_and_answers_through_the_feed(game):
     post = game.client.post
-    post("/api/walk", json={"place": "well"})
+    post("/api/walk", json={"place": "library"})
     with game.client.websocket_connect(WS) as ws:
         assert post("/api/ask", json={"villager_id": "v1", "topic": "the mill"}).json() == {"ok": True}
         event = receive(ws)
@@ -298,7 +298,7 @@ def test_ask_reports_problems_and_answers_through_the_feed(game):
             event = receive(ws)
     assert (event["villager_id"], event["line"]) == ("v1", "Marta Hale hasn't heard anything about that.")
     away = post("/api/ask", json={"villager_id": "v2", "topic": "the mill"})
-    assert (away.status_code, away.json()) == (400, {"error": "Bert Cole is at the mill. Walk there to ask them."})
+    assert (away.status_code, away.json()) == (400, {"error": "Bert Cole is at the gym. Walk there to ask them."})
     bad = post("/api/ask", json={"villager_id": "v1"})
     assert (bad.status_code, bad.json()) == (400, {"error": web.BAD_ASK})
     game.suspicion.bump("v1", game.player.id, 0.9, "whispered to them directly")
@@ -330,10 +330,10 @@ def test_websocket_receives_the_whisper(game):
 
 def test_villager_moves_reach_the_websocket(game):
     with game.client.websocket_connect(WS) as ws:
-        game.town.move("v1", "tavern")
+        game.town.move("v1", "bar")
         event = receive(ws)
     assert event["kind"] == "villagers"
-    assert {v["name"]: v["place"] for v in event["villagers"]}["Marta Hale"] == "tavern"
+    assert {v["name"]: v["place"] for v in event["villagers"]}["Marta Hale"] == "bar"
 
 
 @pytest.mark.parametrize("host", ["evil.example:8765", "127.0.0.1:9999", "localhost"])
@@ -370,7 +370,7 @@ def test_closed_tab_is_dropped(game):
 
 
 def test_whisper_by_id_picks_the_right_namesake(game):
-    game.town.add(Villager("v3", "Bert Cole", "baker", "shy", "none", [], {}), "square")
+    game.town.add(Villager("v3", "Bert Cole", "baker", "shy", "none", [], {}), "cafe")
     assert game.client.post("/api/whisper", json={"name": "Bert Cole", "text": "hi"}).status_code == 400
     assert game.client.post("/api/whisper", json={"villager_id": "v3", "text": "hi"}).json() == {"ok": True}
     whisper, = [e for e in game.feed.recent if e.kind == "whisper"]
@@ -519,7 +519,7 @@ def test_no_api_response_contains_a_suspicion_number_or_villager_id_for_suspects
 
 
 def test_scene_event_reaches_the_websocket(game):
-    scene = Scene("s-1", "well", "w-1", "w-1", False, "u-1", {"v1", "v2"}, {"v1", "v2"}, ["u-1", "u-2"], 0.73)
+    scene = Scene("s-1", "library", "w-1", "w-1", False, "u-1", {"v1", "v2"}, {"v1", "v2"}, ["u-1", "u-2"], 0.73)
     with game.client.websocket_connect(WS) as ws:
         game.feed.on_scene(scene)
         event = receive(ws)
@@ -534,7 +534,7 @@ def test_state_carries_cards_beyond_the_replay_window(game):
     game.client.portal.call(partial(
         game.rumors.add, "w-1", "the miller waters his flour", datetime.now(UTC), "v1", "Marta Hale", player=game.player.id,
     ))
-    hop = Utterance("u-1", "v1", "Marta Hale", "well", "the miller cheats", "w-1")
+    hop = Utterance("u-1", "v1", "Marta Hale", "library", "the miller cheats", "w-1")
     game.rumors.record("w-1", hop, {"v2": "Bert Cole"}, True)
     for i in range(REPLAY_EVENTS + 1):
         game.feed.say(f"line {i}")
@@ -565,7 +565,7 @@ def card_with_claims(game, claims):
 
 
 def test_cards_link_goals_and_count_who_each_convinced(game):
-    card_with_claims(game, ["cat", "well"])
+    card_with_claims(game, ["cat", "library"])
     game.judge.roots = {"cat": {"v1": "w-1", "v2": None}, WORLD.id: {"v2": "w-1"}}
     card, = game.client.get("/api/state").json()["rumors"]
     assert card["goals"] == [
@@ -698,8 +698,8 @@ def test_villagers_carry_influence_words_and_no_weights(game):
     villagers = game.client.get("/api/state").json()["villagers"]
     assert all("influence" in v for v in villagers)
     assert "2.0" not in json.dumps(villagers) and "3.0" not in json.dumps(villagers)
-    game.town.add(Villager("v3", "Padre Ox", "Priest", "calm", "none", [], {}), "well")
-    assert game.client.get("/api/villagers/v3").json()["influence"] == "folk listen to the priest"
+    game.town.add(Villager("v3", "Padre Ox", "Mayor", "calm", "none", [], {}), "library")
+    assert game.client.get("/api/villagers/v3").json()["influence"] == "folk listen to the mayor"
     assert game.client.get("/api/villagers/v1").json()["influence"] is None
 
 
@@ -973,7 +973,7 @@ def test_while_resting_model_actions_are_refused_and_walking_is_not(game):
         refused = post(path, json=body)
         assert (refused.status_code, refused.json()) == (409, {"error": RESTING}), path
     assert called == [] and game.rumors.cards(game.player.id) == []
-    assert post("/api/walk", json={"place": "well"}).json() == {"ok": True}
+    assert post("/api/walk", json={"place": "library"}).json() == {"ok": True}
     assert post("/api/listen").json() == {"ok": True}
     assert game.client.get("/api/state").json()["resting"] is True
 

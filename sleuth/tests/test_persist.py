@@ -95,14 +95,14 @@ async def played(monkeypatch):
     })
     g = build(contex)
     for v in VILLAGERS:
-        await g.engine.add_villager(v, "square")
+        await g.engine.add_villager(v, "cafe")
     g.engine.town.found_group("v2", "Millers", "flour first")
     player = g.make("p-abc", "o-abc")
     g.players.add(player)
     player.connected()
     g.judge.deal(player)
     assert await player.whisper_to("v1", WHISPER) is None
-    retold = Utterance(g.engine.ids.next("u"), "v1", "Marta Hale", "square", RETELLING, "w-1", "retold",
+    retold = Utterance(g.engine.ids.next("u"), "v1", "Marta Hale", "cafe", RETELLING, "w-1", "retold",
                        depth=1, action="retell")
     g.engine.lineage.record(retold.id, "w-1")
     g.engine.facts.record(retold)

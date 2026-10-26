@@ -2,7 +2,7 @@ import json
 import pytest
 
 from sleuth.models import Utterance, Villager
-from sleuth.town import Town
+from sleuth.town import PLACES, STREETS, Town
 
 
 def v(vid, name):
@@ -13,7 +13,7 @@ def test_present_excludes_given_id():
     t = Town()
     t.add(v("a", "Ann"))
     t.add(v("b", "Bob"))
-    assert [x.id for x in t.present("square", exclude="a")] == ["b"]
+    assert [x.id for x in t.present("cafe", exclude="a")] == ["b"]
 
 
 def test_find_exact_beats_substring():
@@ -38,9 +38,9 @@ def test_visible_groups_needs_member_in_same_place():
     t.add(v("b", "Bob"))
     g = t.found_group("a", "Club", "creed")
     assert t.visible_groups("b") == [g]
-    t.move("a", "tavern")
+    t.move("a", "bar")
     assert t.visible_groups("b") == []
-    t.move("b", "tavern")
+    t.move("b", "bar")
     assert t.visible_groups("b") == [g]
     t.join("b", g.id)
     assert t.visible_groups("b") == []
@@ -64,7 +64,7 @@ def test_move_rejects_unknown_place():
 
 
 def test_utterance_to_data_is_one_sentence():
-    u = Utterance("u-1", "a", "Bert", "tavern", "the oven is cold", "w-1", verb="said")
+    u = Utterance("u-1", "a", "Bert", "bar", "the oven is cold", "w-1", verb="said")
     assert u.to_data() == {"id": "u-1", "text": "Bert said: the oven is cold"}
 
 
@@ -80,7 +80,7 @@ def test_villagers_lists_current_roster():
 def test_state_round_trips_as_json():
     t = Town()
     t.add(v("a", "Ann"))
-    t.add(v("b", "Bob"), "tavern")
+    t.add(v("b", "Bob"), "bar")
     t.add(Villager("c", "Cy", "smith", "grim", "debt", ["coin"], {"a": "sister"}))
     t.found_group("a", "Club", "creed")
     t.found_group("b", "Gang", "other")
@@ -102,3 +102,7 @@ def test_restore_drops_group_members_who_are_not_living_villagers():
     fresh = Town()
     fresh.restore(state)
     assert fresh.groups[0].members == {"a"}
+
+
+def test_streets_and_modern_places_are_places():
+    assert set(STREETS) <= set(PLACES) and "dog park" in PLACES and "gate" not in PLACES

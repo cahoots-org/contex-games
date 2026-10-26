@@ -25,7 +25,7 @@ def match(key, text="x"):
 
 def view(**kw):
     base = dict(
-        villager=villager(), place="square", present=[villager("v2", "Bo")],
+        villager=villager(), place="cafe", present=[villager("v2", "Bo")],
         member_groups=[], visible_groups=[], new=[match("m1")], recent=[],
         suspicion=0.0, warn_threshold=0.4, names_newcomer=[],
     )
@@ -90,10 +90,10 @@ async def test_retell_maps_chosen_target_and_style():
 @pytest.mark.asyncio
 async def test_move_and_join_use_their_own_target_questions():
     g = Group("g-1", "Chapel Circle", "pray", "v9", {"v9"})
-    jev = StubJev({"action": MOVE, "place_target": "tavern", "join_target": "g-1"})
+    jev = StubJev({"action": MOVE, "place_target": "bar", "join_target": "g-1"})
     d = await decide(jev, view(visible_groups=[g]))
-    assert "square" not in jev.questions["place_target"].criteria
-    assert d.target == "tavern"
+    assert "cafe" not in jev.questions["place_target"].criteria
+    assert d.target == "bar"
     jev = StubJev({"action": JOIN_GROUP, "join_target": "g-1"})
     d = await decide(jev, view(visible_groups=[g]))
     assert d.target == "g-1"
@@ -116,7 +116,7 @@ async def test_style_kept_for_speech_actions(action):
 @pytest.mark.parametrize("action", [JOIN_GROUP, FOUND_GROUP, IGNORE])
 async def test_style_none_for_non_speech(action):
     g = Group("g-1", "Circle", "pray", "v9", {"v9"})
-    jev = StubJev({"action": action, "place_target": "well", "join_target": "g-1", "style": "mock"})
+    jev = StubJev({"action": action, "place_target": "library", "join_target": "g-1", "style": "mock"})
     assert (await decide(jev, view(visible_groups=[g]))).style is None
 
 
@@ -327,9 +327,9 @@ async def test_gossip_is_asked_only_when_requested_and_scaled():
 
 @pytest.mark.asyncio
 async def test_a_move_keeps_its_manner_for_sharing_on_arrival():
-    jev = StubJev({"action": MOVE, "place_target": "tavern", "style": "worried"})
+    jev = StubJev({"action": MOVE, "place_target": "bar", "style": "worried"})
     d = await decide(jev, view())
-    assert (d.action, d.target, d.style) == (MOVE, "tavern", "worried")
+    assert (d.action, d.target, d.style) == (MOVE, "bar", "worried")
 
 
 @pytest.mark.asyncio

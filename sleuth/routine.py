@@ -10,19 +10,18 @@ from typesafe_sdk import Choice
 
 from sleuth.config import Config
 from sleuth.models import Villager
-from sleuth.town import GATE, PLACES
+from sleuth.town import PUBLIC_PLACES
 
 log = logging.getLogger(__name__)
 
-WORK_INSTRUCTIONS = "Where does this villager spend their working day, given their occupation?"
-LEISURE_INSTRUCTIONS = "Where does this villager go to unwind in the evening, given their personality?"
+WORK_INSTRUCTIONS = "Where in town does this resident spend their working day, given their occupation?"
+LEISURE_INSTRUCTIONS = "Where in town does this resident go to unwind in the evening, given their personality?"
 
-ROUTINE_PLACES = tuple(p for p in PLACES if p != GATE)
-AFTERNOON_PLACE = "square"
+ROUTINE_PLACES = PUBLIC_PLACES
 
 
 class Routine:
-    """Where each villager is at each part of the day: work, the square, leisure, work."""
+    """Where each villager is at each part of the day: work, work, leisure, home."""
 
     def __init__(self, jev, path: str, config: Config):
         self.jev = jev
@@ -47,15 +46,14 @@ class Routine:
         entry = self.entries.get(vid)
         if entry is None:
             return None
-        if phase == "afternoon":
-            return AFTERNOON_PLACE
-        return entry["leisure"] if phase == "evening" else entry["work"]
+        return {"evening": entry["leisure"], "night": entry["home"]}.get(phase, entry["work"])
 
     def _known(self, v: Villager) -> bool:
         entry = self.entries.get(v.id)
         return (
             entry is not None
             and entry.get("name") == v.name
+            and entry.get("home") == v.home
             and entry.get("work") in ROUTINE_PLACES
             and entry.get("leisure") in ROUTINE_PLACES
         )
@@ -76,7 +74,7 @@ class Routine:
         except Exception:
             log.warning("no routine for %s", v.id, exc_info=True)
             return
-        self.entries[v.id] = {"name": v.name, "work": work, "leisure": leisure}
+        self.entries[v.id] = {"name": v.name, "home": v.home, "work": work, "leisure": leisure}
 
     def _read(self) -> dict[str, dict]:
         try:

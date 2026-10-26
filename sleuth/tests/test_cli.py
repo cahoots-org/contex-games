@@ -24,7 +24,7 @@ def test_parse_command_forms():
     assert parse_command("Old Bert: hello") == Command("whisper", "Old Bert", "hello")
     assert parse_command("villagers") == Command("villagers")
     assert parse_command("inspect Old Bert") == Command("inspect", "Old Bert")
-    assert parse_command("go Tavern") == Command("go", text="tavern")
+    assert parse_command("go Bar") == Command("go", text="bar")
     assert parse_command("go ") == Command("unknown")
     assert parse_command("goals") == Command("goals")
     assert parse_command("listen") == Command("listen")
@@ -91,7 +91,7 @@ async def test_goals_prints_the_players_goals_the_world_goal_and_the_heat_label(
     suspicion.bump("v1", PID, 0.9, "whispered to them directly")
     monkeypatch.setattr(cli, "_readline", scripted(["goals\n", ""]))
     goal = Goal("g", "cat is a spy", "belief", ("cat spy",), "q", 0.5)
-    world = Goal("world-w", "Two thirds of the village believes the well is cursed", "belief", ("well",), "q", 2 / 3)
+    world = Goal("world-w", "Two thirds of the village believes the well is cursed", "belief", ("library",), "q", 2 / 3)
     judge = SimpleNamespace(progress={"g": 0.4, "world-w": 0.1}, world=world)
     await cli.repl(SimpleNamespace(id=PID, goals=[goal]), town, feed, judge, suspicion=suspicion)
     assert out[-3:] == [
@@ -150,10 +150,10 @@ async def test_trophies_lists_the_case(monkeypatch):
 @pytest.mark.asyncio
 async def test_go_walks_and_prints_problems(monkeypatch):
     player, _, out = make_walker()
-    monkeypatch.setattr(cli, "_readline", scripted(["go moon\n", "go mill\n", ""]))
+    monkeypatch.setattr(cli, "_readline", scripted(["go moon\n", "go gym\n", ""]))
     await cli.repl(player, player.town, player.feed)
     assert [line for line in out if "There's no moon" in line]
-    assert player.place == "mill"
+    assert player.place == "gym"
 
 
 @pytest.mark.asyncio
@@ -163,13 +163,13 @@ async def test_ask_resolves_the_name_and_prints_problems_but_not_a_refusal(monke
 
     async def ask(vid, topic):
         asked.append((vid, topic))
-        return Refusal("Marta turns away from you.") if topic == "rude" else "Marta is at the tavern. Walk there to ask them."
+        return Refusal("Marta turns away from you.") if topic == "rude" else "Marta is at the bar. Walk there to ask them."
 
     player = SimpleNamespace(find=lambda name: town.get("v1") if name == "Marta" else f"No one in town is called {name}.", ask=ask)
     monkeypatch.setattr(cli, "_readline", scripted(["ask Zed: x\n", "ask Marta: the mill\n", "ask Marta: rude\n", ""]))
     await cli.repl(player, town, feed)
     assert asked == [("v1", "the mill"), ("v1", "rude")]
-    assert out[1:] == ["No one in town is called Zed.", "Marta is at the tavern. Walk there to ask them."]
+    assert out[1:] == ["No one in town is called Zed.", "Marta is at the bar. Walk there to ask them."]
     assert "ask <name>: <topic>" in cli.HELP
 
 

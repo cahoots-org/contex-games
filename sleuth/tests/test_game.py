@@ -26,7 +26,7 @@ from sleuth.usage import Usage
 from sleuth.writer import Writer
 
 GOALS = [("cat is a spy", 40)]
-MEETING = "The village meets in the square and runs the newcomer out of town."
+MEETING = "The town meets at town hall and runs the newcomer out of town."
 
 
 async def start(*vids, **cfg):
@@ -325,9 +325,9 @@ async def test_the_engine_announces_each_part_of_the_day():
 @pytest.mark.asyncio
 async def test_the_clock_walks_villagers_to_their_routine_place():
     engine, _, _, _ = await start("v1", "v2", day_seconds=0.2)
-    engine.routine = StubRoutine({"v1": "mill", "v2": "tavern"})
+    engine.routine = StubRoutine({"v1": "gym", "v2": "bar"})
     await engine.run()
-    await wait_for(lambda: (engine.town.place_of("v1"), engine.town.place_of("v2")) == ("mill", "tavern"))
+    await wait_for(lambda: (engine.town.place_of("v1"), engine.town.place_of("v2")) == ("gym", "bar"))
     await engine.stop()
 
 
@@ -335,12 +335,12 @@ async def test_the_clock_walks_villagers_to_their_routine_place():
 async def test_a_villager_in_a_turn_a_scene_or_a_chosen_move_stays_put(monkeypatch):
     vids = ("v1", "v2", "v3", "v4")
     engine, _, _, _ = await start(*vids)
-    engine.routine = StubRoutine(dict.fromkeys(vids, "mill"))
+    engine.routine = StubRoutine(dict.fromkeys(vids, "gym"))
     engine._turning.add("v1")
     monkeypatch.setattr(engine.scenes, "of", lambda vid: object() if vid == "v2" else None)
     engine._chose_move.add("v3")
     await engine._walk("morning", 0.0)
-    assert [engine.town.place_of(v) for v in vids] == ["square", "square", "square", "mill"]
+    assert [engine.town.place_of(v) for v in vids] == ["cafe", "cafe", "cafe", "gym"]
     await engine.stop()
 
 
@@ -363,9 +363,9 @@ async def test_a_failing_round_is_logged(caplog):
 async def test_a_departed_villager_is_not_moved(caplog):
     vids = ("v2", "v3", "v4", "v5", "v6", "v1")
     engine, _, _, _ = await start(*vids)
-    engine.routine = StubRoutine(dict.fromkeys(vids, "mill"))
+    engine.routine = StubRoutine(dict.fromkeys(vids, "gym"))
     walk = asyncio.create_task(engine._walk("morning", 0.4))
-    await wait_for(lambda: engine.town.place_of("v2") == "mill")
+    await wait_for(lambda: engine.town.place_of("v2") == "gym")
     engine.town.remove("v1")
     with caplog.at_level(logging.ERROR):
         await walk
@@ -377,13 +377,13 @@ async def test_a_departed_villager_is_not_moved(caplog):
 @pytest.mark.asyncio
 async def test_a_routine_move_may_carry_the_latest_news(monkeypatch):
     engine, _, _, _ = await start("v1")
-    engine.routine = StubRoutine({"v1": "mill"})
+    engine.routine = StubRoutine({"v1": "gym"})
     moves = record_moves(monkeypatch, engine)
     latest = Match("k1", {"id": "u-1", "text": "the miller cheats"}, clearance=0.05)
     engine._latest["v1"] = latest
     await engine._walk("morning", 0.0)
     [(vid, decision, share, _)] = moves
-    assert (vid, decision.action, decision.source, decision.target) == ("v1", MOVE, latest, "mill")
+    assert (vid, decision.action, decision.source, decision.target) == ("v1", MOVE, latest, "gym")
     assert share == engine.share_chance("v1", latest)
     await engine.stop()
 
@@ -391,12 +391,12 @@ async def test_a_routine_move_may_carry_the_latest_news(monkeypatch):
 @pytest.mark.asyncio
 async def test_a_routine_move_carries_fresh_news_once(monkeypatch):
     engine, _, _, _ = await start("v1", "v2")
-    engine.routine = StubRoutine({"v1": "mill", "v2": "mill"})
+    engine.routine = StubRoutine({"v1": "gym", "v2": "gym"})
     moves = record_moves(monkeypatch, engine)
     engine._latest["v1"] = Match("k1", {"id": "u-1", "text": "the miller cheats"}, clearance=0.05)
     engine._latest["v2"] = Match("k2", {"id": "u-2", "text": "the well is dry"}, clearance=-0.01)
     await engine._walk("morning", 0.0)
-    engine.routine = StubRoutine({"v1": "tavern", "v2": "tavern"})
+    engine.routine = StubRoutine({"v1": "bar", "v2": "bar"})
     await engine._walk("evening", 0.0)
     assert [(vid, d.source and d.source.data_key) for vid, d, *_ in moves] == [
         ("v1", "k1"), ("v2", None), ("v1", None), ("v2", None),
@@ -408,7 +408,7 @@ async def test_a_routine_move_carries_fresh_news_once(monkeypatch):
 async def test_routine_moves_come_in_batches_of_five_across_the_window(monkeypatch):
     vids = [f"v{i}" for i in range(12)]
     engine, _, _, _ = await start(*vids)
-    engine.routine = StubRoutine(dict.fromkeys(vids, "mill"))
+    engine.routine = StubRoutine(dict.fromkeys(vids, "gym"))
     moves = record_moves(monkeypatch, engine)
     spread = 0.6
     await engine._walk("morning", spread)
@@ -424,7 +424,7 @@ async def test_routine_moves_come_in_batches_of_five_across_the_window(monkeypat
 async def test_phases_stay_evenly_spaced_with_a_routine(monkeypatch):
     vids = [f"v{i}" for i in range(12)]
     engine, _, feed, _ = await start(*vids, day_seconds=0.4)
-    engine.routine = StubRoutine(dict.fromkeys(vids, "mill"))
+    engine.routine = StubRoutine(dict.fromkeys(vids, "gym"))
     record_moves(monkeypatch, engine, delay=5.0)
     ticks = []
     on_time = feed.on_time
@@ -451,10 +451,10 @@ async def test_run_out_ends_only_that_players_game():
 @pytest.mark.asyncio
 async def test_villagers_keep_their_places_while_nobody_is_playing():
     engine, player, _, _ = await start("v1")
-    engine.routine = StubRoutine({"v1": "mill"})
+    engine.routine = StubRoutine({"v1": "gym"})
     player.end(Summary("lost", GOALS, []))
     await engine._walk("morning", 0.0)
-    assert engine.town.place_of("v1") == "square"
+    assert engine.town.place_of("v1") == "cafe"
     await engine.stop()
 
 
@@ -490,10 +490,10 @@ def deciding(monkeypatch, action=IGNORE, target=None):
 @pytest.mark.asyncio
 async def test_the_routine_leaves_a_villager_someone_is_talking_with():
     engine, player, _, _ = await start("v1", "v2")
-    engine.routine = StubRoutine({"v1": "mill", "v2": "mill"})
+    engine.routine = StubRoutine({"v1": "gym", "v2": "gym"})
     talking(engine, player)
     await engine._walk("morning", 0.0)
-    assert (engine.town.place_of("v1"), engine.town.place_of("v2")) == ("square", "mill")
+    assert (engine.town.place_of("v1"), engine.town.place_of("v2")) == ("cafe", "gym")
     await engine.stop()
 
 
@@ -502,13 +502,13 @@ async def test_a_villager_stays_while_either_of_two_players_holds_them():
     engine, pa, feed, _ = await start("v1")
     pb = Player(engine, engine.town, engine.lineage, Ids(), feed, engine.config, player_id="p-b")
     engine.players.add(pb)
-    engine.routine = StubRoutine({"v1": "mill"})
+    engine.routine = StubRoutine({"v1": "gym"})
     talking(engine, pb)
     await engine._walk("morning", 0.0)
-    assert engine.town.place_of("v1") == "square"
-    pb.walk("well")
+    assert engine.town.place_of("v1") == "cafe"
+    pb.walk("library")
     await engine._walk("morning", 0.0)
-    assert engine.town.place_of("v1") == "mill"
+    assert engine.town.place_of("v1") == "gym"
     await engine.stop()
 
 
@@ -524,7 +524,7 @@ async def test_a_held_villagers_turn_cannot_walk_off_unless_every_holder_annoys_
     engine.minds["v1"].queue.put_nowait(None)
     await wait_for(lambda: len(views) == 1)
     assert views[0].held
-    pb.walk("well")
+    pb.walk("library")
     engine._last_turn.clear()
     engine.minds["v1"].queue.put_nowait(None)
     await wait_for(lambda: len(views) == 2)
@@ -537,7 +537,7 @@ async def storming(monkeypatch, action, target=None):
     views = deciding(monkeypatch, action, target)
     engine, pa, feed, _ = await start("v1")
     pb = Player(engine, engine.town, engine.lineage, Ids(), feed, engine.config, player_id="p-b")
-    pb.walk("well")
+    pb.walk("library")
     engine.players.add(pb)
     usage = Usage(engine.config)
     engine.writer = Writer(StubClient("I've heard quite enough from you.", "Farewell, all."), "haiku-test", usage)
@@ -551,7 +551,7 @@ async def storming(monkeypatch, action, target=None):
 
 @pytest.mark.asyncio
 async def test_an_annoyed_villager_who_walks_off_storms_off_on_the_player(monkeypatch):
-    engine, feed, usage = await storming(monkeypatch, MOVE, "mill")
+    engine, feed, usage = await storming(monkeypatch, MOVE, "gym")
     stormed = kinds(feed, "stormed_off")
     assert [(e.data["name"], e.data["line"]) for e in stormed] == [("V1", "I've heard quite enough from you.")]
     assert stormed[0].line == 'V1 storms off: "I\'ve heard quite enough from you."'
@@ -560,7 +560,7 @@ async def test_an_annoyed_villager_who_walks_off_storms_off_on_the_player(monkey
     (bump,) = [e for e in engine.suspicion._evidence if e.reason == "stormed off"]
     assert (bump.player, bump.amount) == (PID, engine.config.suspicion_whisper_bump / 2)
     assert usage.cost(PID) > 0 and usage.cost("p-b") == 0
-    assert engine.town.place_of("v1") == "mill"
+    assert engine.town.place_of("v1") == "gym"
     await engine.stop()
 
 
@@ -698,9 +698,9 @@ async def test_no_routine_walks_while_the_only_run_is_away():
     engine, player, feed, _ = await start("v1", "v2")
     engine.players = Players(feed)
     engine.players.add(Player(engine, engine.town, engine.lineage, Ids(), feed, engine.config, player_id="p-away"))
-    engine.routine = StubRoutine({"v1": "mill", "v2": "tavern"})
+    engine.routine = StubRoutine({"v1": "gym", "v2": "bar"})
     await engine._walk("morning", 0.0)
-    assert (engine.town.place_of("v1"), engine.town.place_of("v2")) == ("square", "square")
+    assert (engine.town.place_of("v1"), engine.town.place_of("v2")) == ("cafe", "cafe")
     await engine.stop()
 
 

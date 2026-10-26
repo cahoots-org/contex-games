@@ -110,7 +110,7 @@ async def test_retell_delivers_to_target_with_parent_lineage():
 @pytest.mark.asyncio
 async def test_retell_to_target_who_moved_away_delivers_nothing():
     s = Setup()
-    s.town.move("v2", "tavern")
+    s.town.move("v2", "bar")
     await s.act("v1", Decision(RETELL, source(), "v2", None))
     assert s.hub.delivered == []
 
@@ -122,7 +122,7 @@ async def test_speak_reaches_everyone_present_but_speaker():
     utt, listeners = s.hub.delivered[0]
     assert sorted(listeners) == ["v2", "v3"]
     assert utt.parent is None
-    assert utt.place == "square"
+    assert utt.place == "cafe"
 
 
 @pytest.mark.asyncio
@@ -151,7 +151,7 @@ async def test_preach_reaches_members_in_other_places():
     s = Setup()
     g = s.town.found_group("v1", "Chapel Circle", "be kind")
     s.town.join("v2", g.id)
-    s.town.move("v2", "chapel")
+    s.town.move("v2", "school")
     await s.act("v1", Decision(PREACH, None, g.id, "faithful"))
     utt, listeners = s.hub.delivered[0]
     assert listeners == ["v2"]
@@ -161,28 +161,28 @@ async def test_preach_reaches_members_in_other_places():
 @pytest.mark.asyncio
 async def test_move_changes_place_without_delivery():
     s = Setup()
-    await s.act("v1", Decision(MOVE, None, "tavern", None))
-    assert s.town.place_of("v1") == "tavern"
+    await s.act("v1", Decision(MOVE, None, "bar", None))
+    assert s.town.place_of("v1") == "bar"
     assert s.hub.delivered == []
 
 
 @pytest.mark.asyncio
 async def test_a_villager_who_moves_may_share_the_news_where_they_arrive():
     s = Setup()
-    s.town.move("v2", "tavern")
-    await s.act("v1", Decision(MOVE, source(), "tavern", "worried"), share_chance=1.0)
+    s.town.move("v2", "bar")
+    await s.act("v1", Decision(MOVE, source(), "bar", "worried"), share_chance=1.0)
     utt, listeners = s.hub.delivered[0]
-    assert listeners == ["v2"] and utt.place == "tavern" and utt.parent == "u-0" and utt.action == RETELL
+    assert listeners == ["v2"] and utt.place == "bar" and utt.parent == "u-0" and utt.action == RETELL
     assert s.writer.say_calls == [(RETELL, "Bert stole bread", "Ada")]
 
 
 @pytest.mark.asyncio
 async def test_a_move_shares_nothing_without_luck_news_or_company():
     s = Setup()
-    s.town.move("v2", "tavern")
-    await s.act("v1", Decision(MOVE, source(), "tavern", None), share_chance=0.0)
-    await s.act("v1", Decision(MOVE, None, "square", None), share_chance=1.0)
-    await s.act("v1", Decision(MOVE, source(), "mill", None), share_chance=1.0)
+    s.town.move("v2", "bar")
+    await s.act("v1", Decision(MOVE, source(), "bar", None), share_chance=0.0)
+    await s.act("v1", Decision(MOVE, None, "cafe", None), share_chance=1.0)
+    await s.act("v1", Decision(MOVE, source(), "gym", None), share_chance=1.0)
     assert s.hub.delivered == []
 
 
@@ -217,7 +217,7 @@ async def test_warn_raises_the_targets_suspicion():
 @pytest.mark.asyncio
 async def test_act_records_depth_audience_action_style():
     s = Setup()
-    s.facts.record(Utterance("u-0", "v3", "Cy", "square", "Bert stole bread", None, depth=2))
+    s.facts.record(Utterance("u-0", "v3", "Cy", "cafe", "Bert stole bread", None, depth=2))
     recorded_first = []
 
     async def deliver(utterance, listener_ids, addressed=False):
@@ -240,7 +240,7 @@ async def test_act_records_depth_audience_action_style():
 
 
 def test_payload_unchanged():
-    u = Utterance("u-1", "v1", "Bert", "square", "hi", None, depth=4, names_newcomer=True,
+    u = Utterance("u-1", "v1", "Bert", "cafe", "hi", None, depth=4, names_newcomer=True,
                   audience="room", action=SPEAK, style="sly")
     assert u.to_data() == {"id": "u-1", "text": "Bert said: hi"}
 
@@ -251,7 +251,7 @@ WHISPER = "A newcomer whispered to you: Bert stole bread"
 def whispered(s, uid="w-1"):
     """A player whisper recorded the way the player records one."""
     s.lineage.record(uid, None, player=PID)
-    s.facts.record(Utterance(uid, NEWCOMER, "A newcomer", "square", "Bert stole bread", None, "whispered to you"))
+    s.facts.record(Utterance(uid, NEWCOMER, "A newcomer", "cafe", "Bert stole bread", None, "whispered to you"))
     return Match(f"utt:{uid}", {"id": uid, "text": WHISPER})
 
 
@@ -286,10 +286,10 @@ async def test_faithful_retelling_of_a_whisper_names_the_newcomer():
 @pytest.mark.asyncio
 async def test_a_carried_whisper_names_the_newcomer_only_when_the_move_chose_faithful():
     s = Setup()
-    s.town.move("v2", "tavern")
-    await s.act("v1", Decision(MOVE, whispered(s), "tavern", None), share_chance=1.0)
-    s.town.move("v2", "mill")
-    await s.act("v1", Decision(MOVE, whispered(s), "mill", "faithful"), share_chance=1.0)
+    s.town.move("v2", "bar")
+    await s.act("v1", Decision(MOVE, whispered(s), "bar", None), share_chance=1.0)
+    s.town.move("v2", "gym")
+    await s.act("v1", Decision(MOVE, whispered(s), "gym", "faithful"), share_chance=1.0)
     assert [u.names_newcomer for u, _ in s.hub.delivered] == [False, True]
 
 

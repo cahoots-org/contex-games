@@ -104,7 +104,7 @@ async def test_publish_before_listening_still_wakes_only_the_listener(monkeypatc
         ann = Villager("v1", "Ann", "baker", "kind", "none", ["anything about my bakery"], {})
         early = Mind(client, ann, config, baselines)
         await early.open()
-        utt = Utterance("u-1", "v2", "Bo", "square", "the oven at the bakery is cold", None)
+        utt = Utterance("u-1", "v2", "Bo", "cafe", "the oven at the bakery is cold", None)
         await early.hear("utt:u-1", utt.to_data())
         assert await poll_for(client, early.uris[0], "utt:u-1")
         await engine.add_villager(ann)
@@ -133,9 +133,9 @@ async def test_default_threshold_lets_only_whispers_on_a_need_in():
         ], {})
         mind = Mind(client, marta, config, StubBaselines(0.815))
         await mind.open()
-        off = Utterance("w-1", "newcomer", "A newcomer", "square",
+        off = Utterance("w-1", "newcomer", "A newcomer", "cafe",
                         "lattice gauge theory predicts quark confinement at low energies", None, "whispered to you")
-        on = Utterance("w-2", "newcomer", "A newcomer", "square",
+        on = Utterance("w-2", "newcomer", "A newcomer", "cafe",
                        "the well has been cursed and everyone who drinks from it falls ill", None, "whispered to you")
         await mind.hear("utt:w-1", off.to_data())
         await mind.hear("utt:w-2", on.to_data())
@@ -179,8 +179,8 @@ async def test_direct_check_hits_only_the_need_it_clears():
     async with ContexClient(URL) as client:
         config = Config(contex_url=URL, session=f"test-{uuid.uuid4().hex[:8]}")
         town = Town()
-        town.add(Villager("v1", "Ann", "baker", "kind", "none", [physics, bakery], {}), "square")
-        town.add(Villager("v2", "Bo", "scholar", "dry", "none", [physics], {}), "square")
+        town.add(Villager("v1", "Ann", "baker", "kind", "none", [physics, bakery], {}), "cafe")
+        town.add(Villager("v2", "Bo", "scholar", "dry", "none", [physics], {}), "cafe")
         engine = FakeEngine(Suspicion(config, town), client, StubBaselines(0.99, **{bakery: 0.5}))
 
         async def deliver(utterance, listener_ids):
@@ -202,7 +202,7 @@ async def test_direct_check_hits_only_the_need_it_clears():
 async def test_a_spoken_line_is_found_in_the_said_project_by_a_paraphrase(capsys):
     async with ContexClient(URL) as client:
         config = Config(contex_url=URL, session=f"test-{uuid.uuid4().hex[:8]}")
-        said = Utterance("u-1", "v1", "Ada", "square", "the well water has gone bad and folks are getting sick", None)
+        said = Utterance("u-1", "v1", "Ada", "cafe", "the well water has gone bad and folks are getting sick", None)
         pid = said_project(config.session, "v1")
         await client.publish(pid, "said:u-1", said.to_data())
         found = []

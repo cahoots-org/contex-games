@@ -31,7 +31,7 @@ GOALS = {g.id: g for g in (
 WELL = GOALS["well-cursed"]
 
 
-def line(text="nice weather", place="tavern", action=SPEAK, style="faithful", speaker="v1", verb="said"):
+def line(text="nice weather", place="bar", action=SPEAK, style="faithful", speaker="v1", verb="said"):
     return Utterance("u-1", speaker, "Bert", place, text, None, verb, action=action, style=style)
 
 
@@ -53,16 +53,16 @@ async def test_publishes_only_goals_with_evidence():
 @pytest.mark.asyncio
 async def test_only_the_players_place():
     overhear, _ = await make(rate=1.0, roll=0.0)
-    assert await overhear.keep(line(place="tavern"), "tavern") == "random"
-    assert await overhear.keep(line(place="mill"), "tavern") is None
-    assert await overhear.keep(line(speaker=NEWCOMER), "tavern") is None
-    assert await overhear.keep(line(action="join_group", verb="announced"), "tavern") is None
+    assert await overhear.keep(line(place="bar"), "bar") == "random"
+    assert await overhear.keep(line(place="gym"), "bar") is None
+    assert await overhear.keep(line(speaker=NEWCOMER), "bar") is None
+    assert await overhear.keep(line(action="join_group", verb="announced"), "bar") is None
 
 
 @pytest.mark.asyncio
 async def test_card_hops_are_not_overheard():
     overhear, contex = await make(rate=1.0, roll=0.0)
-    assert await overhear.keep(line(action=CONFRONT), "tavern", hop=True) is None
+    assert await overhear.keep(line(action=CONFRONT), "bar", hop=True) is None
     assert contex.queries == []
 
 
@@ -72,7 +72,7 @@ async def test_card_hops_are_not_overheard():
 ])
 async def test_heated_kept(action, style):
     overhear, contex = await make()
-    assert await overhear.keep(line(action=action, style=style), "tavern") == "heated"
+    assert await overhear.keep(line(action=action, style=style), "bar") == "heated"
     assert contex.queries == []
 
 
@@ -80,14 +80,14 @@ async def test_heated_kept(action, style):
 @pytest.mark.parametrize("style", ["exaggerated", "delighted", "worried", "conspiratorial", "add_detail"])
 async def test_lively_kept(style):
     overhear, contex = await make(roll=0.0)
-    assert await overhear.keep(line(action=RETELL, style=style), "tavern") == "lively"
+    assert await overhear.keep(line(action=RETELL, style=style), "bar") == "lively"
     assert contex.queries == []
 
 
 @pytest.mark.asyncio
 async def test_lively_rate():
     overhear = Overhear(StubContex(), StubBaselines(0.6), Config(overhear_rate=1.0), random.Random(7))
-    kept = [await overhear.keep(line(style="delighted"), "tavern") for _ in range(4000)]
+    kept = [await overhear.keep(line(style="delighted"), "bar") for _ in range(4000)]
     assert set(kept) == {"lively", None}
     assert 0.37 < kept.count("lively") / len(kept) < 0.43
 
@@ -97,8 +97,8 @@ async def test_goal_relevant_kept():
     results = {"the well water tastes of brimstone": [Match("goal:well-cursed", {}, 0.65)],
                "the well is deep": [Match("goal:well-cursed", {}, 0.55)]}
     overhear, contex = await make(results)
-    assert await overhear.keep(line("the well water tastes of brimstone"), "tavern", goals=["well-cursed"]) == "goal"
-    assert await overhear.keep(line("the well is deep"), "tavern", goals=["well-cursed"]) is None
+    assert await overhear.keep(line("the well water tastes of brimstone"), "bar", goals=["well-cursed"]) == "goal"
+    assert await overhear.keep(line("the well is deep"), "bar", goals=["well-cursed"]) is None
     assert contex.queries[0] == ("sleuth:s1:goals", "the well water tastes of brimstone", {"top_k": 1, "threshold": 0})
 
 
@@ -106,15 +106,15 @@ async def test_goal_relevant_kept():
 async def test_goal_reason_uses_only_the_overhearing_players_goals():
     results = {"the well is cursed": [Match("goal:well-cursed", {}, 0.65)]}
     overhear, _ = await make(results, goals=(WELL, GOALS["mayors-cat"]))
-    assert await overhear.keep(line("the well is cursed"), "tavern", goals=["well-cursed"]) == "goal"
-    assert await overhear.keep(line("the well is cursed"), "tavern", goals=["mayors-cat"]) is None
+    assert await overhear.keep(line("the well is cursed"), "bar", goals=["well-cursed"]) == "goal"
+    assert await overhear.keep(line("the well is cursed"), "bar", goals=["mayors-cat"]) is None
 
 
 @pytest.mark.asyncio
 async def test_goal_check_failure_is_not_goal_relevant(caplog):
     overhear, _ = await make(error=RuntimeError("down 0.73"))
     with caplog.at_level(logging.WARNING):
-        assert await overhear.keep(line(), "tavern", goals=["well-cursed"]) is None
+        assert await overhear.keep(line(), "bar", goals=["well-cursed"]) is None
     assert "u-1" in caplog.text and "0.73" not in caplog.text
 
 
@@ -122,7 +122,7 @@ async def test_goal_check_failure_is_not_goal_relevant(caplog):
 async def test_random_rate():
     contex = StubContex()
     overhear = Overhear(contex, StubBaselines(0.6), Config(overhear_rate=0.125), random.Random(7))
-    kept = [await overhear.keep(line(), "tavern") for _ in range(4000)]
+    kept = [await overhear.keep(line(), "bar") for _ in range(4000)]
     assert set(kept) == {"random", None}
     assert 0.1 < kept.count("random") / len(kept) < 0.15
 
@@ -138,18 +138,18 @@ async def test_live_goal_relevance(tmp_path):
         await baselines.load([g.evidence[0] for g in goals])
         overhear = Overhear(client, baselines, cfg, random.Random(1))
         await overhear.publish(goals)
-        assert await overhear.keep(line("They say a curse lies on the well and its water is poisoned."), "tavern", goals=["well-cursed"]) == "goal"
-        assert await overhear.keep(line("My back has ached since the frost came."), "tavern") is None
+        assert await overhear.keep(line("They say a curse lies on the well and its water is poisoned."), "bar", goals=["well-cursed"]) == "goal"
+        assert await overhear.keep(line("My back has ached since the frost came."), "bar") is None
 
 
 @pytest.mark.asyncio
 async def test_listening_hears_every_line_but_not_whispers_hops_or_other_places():
     overhear, contex = await make(roll=0.99)
-    assert await overhear.keep(line(), "tavern", listening=True) == "listen"
-    assert await overhear.keep(line(speaker=NEWCOMER), "tavern", listening=True) is None
-    assert await overhear.keep(line(), "tavern", hop=True, listening=True) is None
-    assert await overhear.keep(line(action=WARN), "tavern", listening=True) is None
-    assert await overhear.keep(line(place="mill"), "tavern", listening=True) is None
+    assert await overhear.keep(line(), "bar", listening=True) == "listen"
+    assert await overhear.keep(line(speaker=NEWCOMER), "bar", listening=True) is None
+    assert await overhear.keep(line(), "bar", hop=True, listening=True) is None
+    assert await overhear.keep(line(action=WARN), "bar", listening=True) is None
+    assert await overhear.keep(line(place="gym"), "bar", listening=True) is None
     assert contex.queries == []
 
 

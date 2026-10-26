@@ -18,10 +18,10 @@ MAX_LENGTH = 80
 SECOND_PERSON = re.compile(r"\byou(rs?|rself)?\b", re.IGNORECASE)
 
 DEFAULT_ACCUSATIONS: tuple[str, ...] = (
-    "is stealing from the tithe box",
-    "waters down the ale",
+    "is stealing from the tip jar",
+    "waters down the beer",
     "cheats at dice",
-    "pockets the market fees",
+    "pockets the farmers market fees",
     "sells spoiled meat",
     "keeps false weights",
     "poisons the neighbours' dogs",
@@ -37,23 +37,23 @@ DEFAULT_ACCUSATIONS: tuple[str, ...] = (
     "sold a stolen horse",
     "spies on the village for outsiders",
     "has been skimming the harvest share",
-    "poisoned the well last winter",
+    "poisoned the pond at the dog park last winter",
 )
 
 DEFAULT_CLAIMS: tuple[str, ...] = (
     "the mayor's cat is a spy",
-    "the well is cursed",
+    "the drinking fountain at the gym is cursed",
     "the miller cheats customers by watering down flour",
-    "the tavern is haunted by a ghost",
-    "treasure is buried under the chapel",
+    "the bar is haunted by a ghost",
+    "treasure is buried under the school playground",
     "the coming harvest will fail",
     "a dangerous stranger is hiding in the village",
-    "the mayor will impose a new market tax",
+    "the mayor will impose a new parking tax",
     "the strange moon is an omen of disaster",
     "a plague is coming to the village",
-    "there is a gold mine beyond the gate",
+    "there is a gold mine beyond the dog park",
     "the mayor is stealing from the village",
-    "a dragon lives in the hills",
+    "a mountain lion lives in the hills",
     "a secret midnight festival is being planned",
 )
 

@@ -215,7 +215,7 @@ async def test_answer_names_the_topic_and_what_was_heard_in_one_line():
     assert "Ada" in call["system"] and "Never mention suspicion" in call["system"]
     await writer.answer(villager(), "the well", [])
     assert "nothing about it" in client.messages.calls[1]["messages"][0]["content"]
-    assert "You know everyone in the village" in call["system"]
+    assert "You know everyone in the town" in call["system"]
 
 
 @pytest.mark.asyncio
@@ -257,7 +257,7 @@ async def test_reply_is_told_who_the_neighbours_in_the_line_are():
     await writer.reply(villager(), "Everard Coke stole the bells", [], [], ["Everard Coke, the tanner"])
     call = client.messages.calls[0]
     assert "Neighbours you know: Everard Coke, the tanner" in call["messages"][0]["content"]
-    assert "You know everyone in the village" in call["system"]
+    assert "You know everyone in the town" in call["system"]
 
 
 @pytest.mark.asyncio

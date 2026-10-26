@@ -271,7 +271,7 @@ async def test_a_players_whisper_counts_as_heard_but_is_never_the_saying():
 async def test_the_saying_is_the_line_as_the_game_kept_it():
     _, contex, _, feed, town = make(n=1)
     facts = Facts()
-    sermon = Utterance("u-3", "v9", "Wren Crane", "chapel", "the cat: a devil in fur", None, "preached")
+    sermon = Utterance("u-3", "v9", "Wren Crane", "school", "the cat: a devil in fur", None, "preached")
     facts.record(sermon)
     judge = Judge(contex, StubJev(0.2), town, CONFIG, feed, baselines=StubBaselines(), facts=facts, maker=goal_maker(town))
     contex.minds[mind_project(CONFIG.session, "v0")] = [Match("utt:u-3", sermon.to_data(), 0.9)]

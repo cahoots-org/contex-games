@@ -21,7 +21,7 @@ def make():
 
 
 def utt(uid):
-    return Utterance(uid, "v1", "Bert", "tavern", "the miller waters his flour", "w-1")
+    return Utterance(uid, "v1", "Bert", "bar", "the miller waters his flour", "w-1")
 
 
 def test_only_player_rooted_deliveries_print():
@@ -30,7 +30,7 @@ def test_only_player_rooted_deliveries_print():
     assert lines == []
     feed.on_delivery(utt("u-1"), ["v2"])
     assert len(lines) == 1
-    whisper = Utterance("w-1", "newcomer", "A newcomer", "tavern", "psst", None, "whispered to you")
+    whisper = Utterance("w-1", "newcomer", "A newcomer", "bar", "psst", None, "whispered to you")
     feed.on_delivery(whisper, ["v2"])
     assert len(lines) == 1
 
@@ -41,7 +41,7 @@ def test_single_and_group_line_formats():
     feed.on_delivery(utt("u-1"), ["v2", "v1", "v3", "v4"])
     assert lines == [
         'Bert told Marta: "the miller waters his flour"',
-        'Bert said at the tavern (heard by 4): "the miller waters his flour"',
+        'Bert said at the bar (heard by 4): "the miller waters his flour"',
     ]
 
 
@@ -49,9 +49,9 @@ def test_single_and_group_line_formats():
 def test_events_carry_ids_depth_and_listener_names():
     feed, lines = make()
     feed.lineage.record("u-3", "u-1")
-    whisper = Utterance("w-1", "newcomer", "A newcomer", "tavern", "psst", None, "whispered to you")
+    whisper = Utterance("w-1", "newcomer", "A newcomer", "bar", "psst", None, "whispered to you")
     feed.on_delivery(whisper, ["v1"])
-    feed.on_delivery(Utterance("u-3", "v2", "Marta", "well", "the miller drowns flour", "u-1"), ["v1"])
+    feed.on_delivery(Utterance("u-3", "v2", "Marta", "library", "the miller drowns flour", "u-1"), ["v1"])
     w, hop = feed.recent
     assert (w.kind, w.data["uid"], w.data["target"], w.data["text"]) == ("whisper", "w-1", "Bert", "psst")
     assert hop.kind == "hop" and hop.id > w.id and hop.at >= w.at
@@ -65,7 +65,7 @@ def test_unrooted_announcements_reach_sinks_but_not_the_terminal():
     feed, lines = make()
     seen = []
     feed.sinks.append(seen.append)
-    feed.on_delivery(Utterance("u-2", "v1", "Bert", "square", "Bert joined The Watch", None, "announced"), [])
+    feed.on_delivery(Utterance("u-2", "v1", "Bert", "cafe", "Bert joined The Watch", None, "announced"), [])
     feed.on_delivery(utt("u-2"), ["v2"])
     assert [e.kind for e in seen] == ["announcement"]
     assert lines == []
@@ -126,7 +126,7 @@ def test_refusal_event_and_terminal_lines():
 
 def test_warning_event_has_names_and_no_line_or_score():
     feed, lines = make()
-    warning = Utterance("u-9", "v1", "Bert", "tavern", "the newcomer is behind it", None, "warned", about=PID)
+    warning = Utterance("u-9", "v1", "Bert", "bar", "the newcomer is behind it", None, "warned", about=PID)
     feed.on_delivery(warning, ["v2"])
     assert lines == ["Bert warned Marta about you."]
     (event,) = feed.recent
@@ -189,13 +189,13 @@ def test_time_lines_name_the_day_at_dawn():
 
 def test_scene_event_carries_counts_and_no_momentum():
     feed, lines = make()
-    scene = Scene("s-1", "tavern", "w-1", "w-1", True, "u-1", {"v1", "v2"}, {"v1", "v2"}, ["u-1", "u-2"], 0.83)
+    scene = Scene("s-1", "bar", "w-1", "w-1", True, "u-1", {"v1", "v2"}, {"v1", "v2"}, ["u-1", "u-2"], 0.83)
     feed.on_scene(scene)
     scene.ended = "cooled"
     feed.on_scene(scene)
     feed.on_delivery(utt("u-1"), ["v2"], scene="s-1")
     going, ended, hop = feed.recent
-    assert going.data == {"scene_id": "s-1", "rumor": "w-1", "opening": "u-1", "place": "tavern", "tone": "argument",
+    assert going.data == {"scene_id": "s-1", "rumor": "w-1", "opening": "u-1", "place": "bar", "tone": "argument",
                           "people": 2, "lines": 2, "ended": None}
     assert ended.data["ended"] == "The argument died down."
     assert hop.data["scene"] == "s-1"
@@ -204,7 +204,7 @@ def test_scene_event_carries_counts_and_no_momentum():
 
 def test_a_scene_is_silent_until_two_people_have_spoken():
     feed, _ = make()
-    scene = Scene("s-1", "tavern", "w-1", "w-1", False, "u-1", {"v1", "v2"}, {"v1"}, ["u-1"], 0.8)
+    scene = Scene("s-1", "bar", "w-1", "w-1", False, "u-1", {"v1", "v2"}, {"v1"}, ["u-1"], 0.8)
     feed.on_scene(scene)
     scene.ended = "cooled"
     feed.on_scene(scene)
@@ -234,7 +234,7 @@ def test_events_go_to_the_player_whose_whisper_they_follow():
     lineage.record("u-2", "w-2")
     feed = Feed(lineage, town, out=None)
     feed.on_whisper_status("w-1", "v1", "Bert", "checking")
-    feed.on_delivery(Utterance("u-2", "v1", "Bert", "tavern", "news", "w-2"), ["v1"])
+    feed.on_delivery(Utterance("u-2", "v1", "Bert", "bar", "news", "w-2"), ["v1"])
     feed.on_time(1, "afternoon")
     assert [e.kind for e in feed.replay("p-a")] == ["whisper_status", "time"]
     assert [e.kind for e in feed.replay("p-b")] == ["hop", "time"]
@@ -252,7 +252,7 @@ def test_a_view_passes_only_what_its_player_sees():
 
 def test_a_warning_reaches_only_the_player_it_is_about():
     feed, _ = make()
-    warning = Utterance("u-9", "v1", "Bert", "tavern", "the newcomer is behind it", None, "warned", about="p-a")
+    warning = Utterance("u-9", "v1", "Bert", "bar", "the newcomer is behind it", None, "warned", about="p-a")
     feed.on_delivery(warning, ["v2"])
     assert [e.kind for e in feed.replay("p-a")] == ["warning"] and feed.replay("p-b") == []
 
@@ -274,16 +274,16 @@ def test_the_page_shows_the_servers_world_met_line():
 
 def test_listen_events_reach_only_the_listener_and_print_the_lines():
     feed, lines = make()
-    said = Utterance("u-9", "v3", "Ada", "square", "the well is dry", None)
-    feed.on_listen("square", [said], 123.0, player=PID)
+    said = Utterance("u-9", "v3", "Ada", "cafe", "the well is dry", None)
+    feed.on_listen("cafe", [said], 123.0, player=PID)
     event = feed.recent[-1]
     assert (event.kind, event.player, event.data["ended"], event.data["until"]) == ("listen", PID, False, 123.0)
     assert event.data["lines"] == [{"speaker": "v3", "speaker_name": "Ada", "text": "the well is dry"}]
-    assert lines == ["You listen at the square.\nAda: \"the well is dry\""]
+    assert lines == ["You listen at the cafe.\nAda: \"the well is dry\""]
     assert not feed.sees("p-2", event)
-    feed.on_listen("mill", [], 124.0, player=PID)
-    assert lines[-1] == "You listen at the mill. It has been quiet here."
-    feed.on_listen_end("mill", player=PID)
+    feed.on_listen("gym", [], 124.0, player=PID)
+    assert lines[-1] == "You listen at the gym. It has been quiet here."
+    feed.on_listen_end("gym", player=PID)
     assert (feed.recent[-1].data["ended"], feed.recent[-1].player, lines[-1]) == (True, PID, "You stop listening.")
     feed.on_overheard(said, "listen", player=PID)
     assert lines[-1] == 'Ada: "the well is dry"'

@@ -48,7 +48,7 @@ ROUTINE_BATCH = 5
 ROUTINE_SPREAD = 0.5
 # How much of a whisper's suspicion a subject takes on, by hops from the whisper.
 TRACE_SCALE = {1: 1, 2: 0.5, 3: 0.25}
-MEETING = "The village meets in the square and runs the newcomer out of town."
+MEETING = "The town meets at town hall and runs the newcomer out of town."
 
 
 class Engine:

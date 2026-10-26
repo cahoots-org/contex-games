@@ -169,7 +169,7 @@ class FakeEngine:
         return self.free_at
 
 
-def stub_player(pid=PID, place="square", listening=False):
+def stub_player(pid=PID, place="cafe", listening=False):
     """A player standing at place whose game is not over."""
     return SimpleNamespace(
         id=pid, owner=pid, place=place, goals=[], over=lambda: False, active=lambda: True, listening=lambda: listening,
@@ -183,7 +183,7 @@ def make_player(*names, cooldown=0.0):
     engine = FakeEngine(Suspicion(config, town))
     lineage = Lineage()
     for i, name in enumerate(names, 1):
-        town.add(Villager(f"v{i}", name, "baker", "calm", "none", [], {}), "tavern")
+        town.add(Villager(f"v{i}", name, "baker", "calm", "none", [], {}), "bar")
     feed = Feed(lineage, town, out=lines.append)
     player = Player(engine, town, lineage, Ids(), feed, config, player_id=PID)
     return player, town, lines, engine, lineage
@@ -222,7 +222,7 @@ class StubRoutine:
         if vid not in self.work:
             return None
         if phase == "afternoon":
-            return "square"
+            return "cafe"
         return self.leisure.get(vid, self.work[vid]) if phase == "evening" else self.work[vid]
 
 

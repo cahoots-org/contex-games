@@ -5,10 +5,10 @@ from dataclasses import asdict
 
 from sleuth.models import Group, Villager
 
-PLACES = ("square", "tavern", "market", "well", "mill", "chapel", "gate")
+PUBLIC_PLACES = ("cafe", "gym", "school", "bar", "dog park", "hardware store", "grocery", "town hall", "library")
 STREETS = ("elm street", "oak street", "maple street")
-START_PLACE = "square"
-GATE = "gate"
+PLACES = PUBLIC_PLACES + STREETS
+START_PLACE = "cafe"
 NEWCOMER = "newcomer"
 
 

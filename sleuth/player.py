@@ -244,7 +244,7 @@ class Player:
             gone = self.town.name_of(villager_id)
             return f"{gone} has left town." if gone else "No one in town has that id."
         if not text:
-            return "Whisper what? Try: the miller waters his flour"
+            return "Whisper what? Try: the gymer waters his flour"
         if len(text) > MAX_WHISPER_CHARS:
             return f"Too long: a whisper is at most {MAX_WHISPER_CHARS} characters."
         target = self.town.get(villager_id)
@@ -410,7 +410,7 @@ class Player:
             return f"{gone} has left town." if gone else "No one in town has that id."
         topic = topic.strip()
         if not topic:
-            return "Ask about what? Try: the mill"
+            return "Ask about what? Try: the gym"
         if len(topic) > MAX_WHISPER_CHARS:
             return f"Too long: a question is at most {MAX_WHISPER_CHARS} characters."
         villager = self.town.get(villager_id)

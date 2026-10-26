@@ -32,7 +32,7 @@ from sleuth.pool import load_pool
 from sleuth.players import LOCAL_OWNER, Players, new_player_id
 from sleuth.routine import Routine
 from sleuth.rumors import Rumors
-from sleuth.town import GATE, PLACES, Town
+from sleuth.town import PUBLIC_PLACES, Town
 from sleuth.town_gen import SeedMismatch, load_or_generate, world_path
 from sleuth.usage import CountingJev, Usage
 from sleuth.web import create_app
@@ -102,7 +102,6 @@ async def play(web: bool) -> None:
             villagers = town.villagers
         else:
             feed.on_world(judge.world, judge.counts_of(judge.world))
-        places = [p for p in PLACES if p != GATE]
         judging = saving = None
         try:
             await baselines.load([need for v in villagers for need in v.needs])
@@ -111,7 +110,7 @@ async def play(web: bool) -> None:
             await routine.load(villagers)
             await asyncio.gather(*(
                 engine.add_villager(
-                    v, town.place_of(v.id) if v.id in town else routine.place(v.id, "morning") or rng.choice(places),
+                    v, town.place_of(v.id) if v.id in town else routine.place(v.id, "morning") or rng.choice(PUBLIC_PLACES),
                 ) for v in villagers
             ))
 

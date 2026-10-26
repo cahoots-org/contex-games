@@ -54,12 +54,8 @@ def test_level_weights_influential_roles():
 
 def test_weight_table_is_case_insensitive_substring():
     s, _ = make()
-    assert s.weight(v("a", "Head Priest")) == 2.0
-    assert s.weight(v("a", "INNKEEPER")) == 2.0
-    assert s.weight(v("a", "Constable")) == 2.0
-    assert s.weight(v("a", "reeve of the mill")) == 2.0
-    assert s.weight(v("a", "Ale brewer and tavern keeper")) == 2.0
-    assert s.weight(v("a", "Village bailiff and law keeper")) == 2.0
+    assert s.weight(v("a", "Deputy Mayor")) == 3.0
+    assert s.weight(v("a", "MAYOR")) == 3.0
     assert s.weight(v("a", "baker")) == 1.0
 
 
@@ -165,8 +161,7 @@ def test_asking_has_its_own_reason_line():
 
 
 def test_influence_is_words_for_the_weighted_roles_only():
-    assert influence(v("a", "Priest")) == "folk listen to the priest"
-    assert influence(v("b", "Tavern keeper")) == "folk listen to the tavern keeper"
+    assert influence(v("a", "Mayor")) == "folk listen to the mayor"
     assert influence(v("c", "baker")) is None
 
 

@@ -4,6 +4,10 @@ A small-town deduction game on the Whispers engine, being built from the design 
 [docs/superpowers/specs/2026-10-25-sleuth-design.md](../docs/superpowers/specs/2026-10-25-sleuth-design.md).
 It started as a copy of Whispers and still plays like it; this README describes the game as it stands.
 
+## Places and routine
+
+The public places are the cafe, gym, school, bar, dog park, hardware store, grocery, town hall and library. Households live on elm, oak or maple street, and each street is one place. Jev picks each resident's work place and evening place once; the day runs work, work, leisure, then home on their street at night. The choices are kept beside the seed and asked again if a resident's name or home changes.
+
 ## How it uses Contex
 
 | Feature | Where |
@@ -77,7 +81,7 @@ sweep; the override uses 60 seconds.
 The embedding model gives almost any two village sentences a similarity
 between about 0.72 and 0.82, related or not, and each need sits at its own
 level within that band. So each need gets a baseline: its mean similarity to
-20 ordinary sentences (weather, chores, prices, a lost goat) that concern no
+20 ordinary sentences (weather, chores, prices, a repainted parking lot) that concern no
 one. A line matches a need when it scores at least `SLEUTH_MATCH_MARGIN`
 (0.015) above that need's baseline. Each need's subscription uses that
 threshold, so Contex pushes only real matches.
@@ -191,8 +195,7 @@ not what was said. A villager who suspects you strongly turns you away: your
 whisper doesn't reach them, and trying again makes them more suspicious.
 
 Suspicion fades a little each day. The village's mood is a mean of everyone's
-suspicion in which the mayor, priest, innkeeper, tavern keeper, constable,
-bailiff, and reeve count for more. You see it as one of four lines, under your
+suspicion in which the mayor counts for more. You see it as one of four lines, under your
 goals on the browser page and after `goals` in the terminal:
 
 | Label | What it says |
@@ -203,7 +206,7 @@ goals on the browser page and after `goals` in the terminal:
 | hunted | The village is hunting for you. |
 
 The village checks its mood four times a game day. If it is at the run-out
-level for three checks in a row, the village meets in the square and runs you
+level for three checks in a row, the town meets at town hall and runs you
 out of town, and you lose. The summary lists your goals with their percent and
 says what gave you away, such as "Marta Hale heard it from you directly." You
 win when every goal is met before that happens. Either way the game is over:
@@ -214,7 +217,7 @@ whispers are refused, and you restart the program to play again.
 The page has the feed with your goals pinned above it, a whisper box, and the
 village in the sidebar.
 
-The village is one tile per place, each with how many villagers are there and
+The town is one tile per place (nine public places and three streets), each with how many villagers are there and
 their faces. One tile is open at a time and lists everyone there: face, name,
 trade, what you know about them, and the last line they brushed you off with.
 The page remembers which tile you opened. The search box above the tiles finds
@@ -257,7 +260,7 @@ turned to other things after this." and shows no more of that thread.
 Warnings, refusals, the mood line, and goal changes stay outside the cards.
 
 Between the cards is village talk: lines you overhear where you are, which is
-where you last whispered ("You're at the tavern" above the feed). You don't
+where you last whispered ("You're at the bar" above the feed). You don't
 hear everything, only four kinds of line: heated ones (someone mocking,
 blaming, confronting, or denying), four in ten lively ones (someone telling
 it with relish, worry, or a lowered voice, or exaggerating or embellishing

@@ -1705,7 +1705,7 @@ const SKIN = ["#f1d3b3", "#e2b48f", "#c98f63", "#9c6644", "#6e4630", "#f3dcc8"];
 const HAIR = ["#2b2118", "#5a3a22", "#8a5a2b", "#b88a4a", "#d9c7a3", "#9a9a9a", "#6b2f1f"];
 const TINT = ["#dfe6d6", "#e6dfd2", "#d9e0e8", "#e8dcdc", "#dde4df"];
 const CLOTHES = [
-  [/priest|brother|chapel|friar|nun/i, "#4a4a5e"], [/smith|forge/i, "#5b4a3f"], [/mill/i, "#c9b98f"],
+  [/teacher|librarian|professor/i, "#4a4a5e"], [/smith|forge/i, "#5b4a3f"], [/mill/i, "#c9b98f"],
   [/wine|vintner|merchant/i, "#7a2f3b"], [/dye/i, "#3d5f8a"], [/mayor|reeve|steward|bailiff/i, "#2f5d4a"],
   [/thatch|carpent|joiner/i, "#8a6a3a"], [/herb|heal|apothec|midwife/i, "#5e7a3e"],
 ];
@@ -1743,7 +1743,6 @@ function drawFace(id, trade) {
   px(7, 5, "#2a2a2a");
   if (r() < 0.35) { rect(4, 8, 7, 8, hair); px(3, 6, hair); px(8, 6, hair); }
   else { px(5, 7, "#a5584a"); px(6, 7, "#a5584a"); }
-  if (/priest|brother|chapel|friar|nun/i.test(trade)) rect(3, 9, 2, 3, clothes);
   if (/smith/i.test(trade)) { px(3, 10, "#3a3a3a"); px(8, 10, "#3a3a3a"); }
   return canvas;
 }
@@ -2580,7 +2579,7 @@ function setAsk() {
 
 function askForm(id, name) {
   const input = el("input", { type: "text", id: "ask-topic", maxLength: 500, autocomplete: "off", required: true,
-    placeholder: "the mill", disabled: over });
+    placeholder: "the gym", disabled: over });
   const button = el("button", { className: "primary", type: "submit", textContent: "Ask", disabled: over });
   const status = el("p", { className: "ask-status", role: "status" });
   const say = (text, error = false) => {

@@ -36,9 +36,9 @@ USAGE_POLL_SECONDS = 3.0
 # How many messages a tab may fall behind before its socket is closed.
 CLIENT_QUEUE = 256
 BAD_WHISPER = 'Send JSON like {"name": "Marta", "text": "the miller waters his flour"}.'
-BAD_WALK = 'Send JSON like {"place": "tavern"}.'
+BAD_WALK = 'Send JSON like {"place": "bar"}.'
 BAD_SWAP = 'Send JSON like {"goal_id": "g1"}.'
-BAD_ASK = 'Send JSON like {"villager_id": "v1", "topic": "the mill"}.'
+BAD_ASK = 'Send JSON like {"villager_id": "v1", "topic": "the gym"}.'
 COOKIE = "sleuth_player"
 COOKIE_SECONDS = 365 * 24 * 3600
 RELOAD = "Reload the page to join the village."

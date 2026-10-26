@@ -1,4 +1,4 @@
-"""Per-need baselines: how a need scores against ordinary village talk, so matching can use a margin."""
+"""Per-need baselines: how a need scores against ordinary town talk, so matching can use a margin."""
 
 import asyncio
 import hashlib
@@ -18,30 +18,30 @@ CONCURRENT_QUERIES = 8
 
 CALIBRATION = (
     "It looks like rain again this afternoon.",
-    "The market had cabbages at two coppers apiece today.",
-    "Somebody's goat wandered off and has not come back.",
-    "The bread is rising slowly in this cold.",
-    "The gate hinge squeaks every time the wind pushes it.",
+    "The school parking lot was repainted on Tuesday.",
+    "The grocery had avocados on sale for a dollar.",
+    "The bus to the next town runs late on Sundays.",
+    "The hinge on the back door squeaks in the wind.",
     "I swept the front step before breakfast.",
-    "The well rope is getting frayed near the bucket.",
+    "The gym changed its opening hours for the summer.",
     "Eggs were cheaper last week than they are now.",
-    "The road to the next village is muddy after the storm.",
+    "Someone left a bag of tennis balls at the dog park.",
     "A crow has been sitting on the fence all morning.",
-    "I need to mend my boots before the weather turns.",
-    "The hay cart came through a little late today.",
-    "Wood is stacked high behind the shed.",
-    "There is a stray cat sleeping on the church wall.",
-    "The evening bells rang a bit early.",
+    "My running shoes need replacing before the marathon.",
+    "The recycling truck came through a little late today.",
+    "Firewood is stacked high behind the shed.",
+    "There is a stray cat sleeping on the library steps.",
+    "The town hall clock chimes a bit early.",
     "Apples are ripening on the tree by the lane.",
     "The river is lower than it was at midsummer.",
     "My shutters need a fresh coat of paint.",
-    "A peddler sold ribbons by the fountain this morning.",
-    "The chickens will not stay out of the garden.",
+    "The cafe has a new seasonal latte on the board.",
+    "The neighbour's dog will not stay out of the garden.",
 )
 
 
 def _calibration_data(i: int, sentence: str) -> dict:
-    return Utterance(f"cal-{i}", "newcomer", "A newcomer", "square", sentence, None, "whispered to you").to_data()
+    return Utterance(f"cal-{i}", "newcomer", "A newcomer", "cafe", sentence, None, "whispered to you").to_data()
 
 
 # Baselines cached under other calibration keys or payloads are not reused.
@@ -50,7 +50,7 @@ FINGERPRINT = hashlib.sha256(
 ).hexdigest()[:16]
 
 
-# Baselines depend only on a need's words, so every village shares one cache.
+# Baselines depend only on a need's words, so every town shares one cache.
 BASELINES_PATH = "sleuth_baselines.json"
 
 

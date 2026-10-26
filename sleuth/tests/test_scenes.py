@@ -10,14 +10,14 @@ from sleuth.tests.helpers import Always, make
 from sleuth.town import Town
 
 
-def town_with(*ids, place="tavern"):
+def town_with(*ids, place="bar"):
     town = Town()
     for vid in ids:
         town.add(make(vid), place)
     return town
 
 
-def opening(action=SPEAK, style="faithful", speaker="v1", place="tavern", uid="u-1"):
+def opening(action=SPEAK, style="faithful", speaker="v1", place="bar", uid="u-1"):
     return Utterance(uid, speaker, speaker.upper(), place, "news", None, action=action, style=style)
 
 
@@ -87,7 +87,7 @@ def test_a_non_speech_turn_leaves_and_two_becomes_alone():
 def test_a_participant_who_walked_off_is_not_at_the_place():
     scenes, town = scenes_for("v1", "v2")
     scene = scenes.start(opening(), "v2", "w-1", None)
-    town.move("v2", "well")
+    town.move("v2", "library")
     assert scenes.turned(scene, "v1", SPEAK, "mock", 1.0, False) == "alone"
 
 
@@ -111,7 +111,7 @@ def test_join_stops_at_six():
 
 def test_addressed_draws_bystanders_at_momentum_times_join_rate():
     scenes, town = scenes_for("v1", "v2", "v3", "v4", rng=Always(0.0))
-    town.add(make("v5"), "well")
+    town.add(make("v5"), "library")
     scene = scenes.start(opening(), "v2", "w-1", None)
     assert scenes.addressed(scene, "v1") == ["v2", "v3", "v4"]
     scenes.rng = Always(0.99)
@@ -136,5 +136,5 @@ def test_speaking_needs_speech_at_the_scene_place():
     scene = scenes.start(opening(), "v2", "w-1", None)
     assert scenes.speaking(opening(RETELL, speaker="v2")) is scene
     assert scenes.speaking(opening(MOVE, speaker="v2")) is None
-    assert scenes.speaking(opening(speaker="v2", place="well")) is None
+    assert scenes.speaking(opening(speaker="v2", place="library")) is None
     assert scenes.speaking(opening(speaker="v3")) is None

@@ -67,7 +67,7 @@ async def test_whisper_is_delivered_and_rooted_in_lineage():
     (utterance, listeners), = engine.delivered
     assert listeners == ["v1"]
     assert (utterance.id, utterance.speaker, utterance.speaker_name) == ("w-1", NEWCOMER, "A newcomer")
-    assert (utterance.verb, utterance.place, utterance.parent) == ("whispered to you", "tavern", None)
+    assert (utterance.verb, utterance.place, utterance.parent) == ("whispered to you", "bar", None)
     assert utterance.text == "the miller waters his flour"
     assert lineage.is_player_rooted("w-1")
     assert player.whispered_at is not None
@@ -147,7 +147,7 @@ class StubWriter:
 
 def make_hinting(writer):
     player, town, lines, engine, lineage = make()
-    town.add(Villager("v1", "Aldwin Miller", "miller", "tired", "the smith", list(NEEDS), {}), "mill")
+    town.add(Villager("v1", "Aldwin Miller", "miller", "tired", "the smith", list(NEEDS), {}), "gym")
     player.writer = writer
     return player, lines
 
@@ -453,14 +453,14 @@ async def test_direct_hit_carries_clearance():
 @pytest.mark.asyncio
 async def test_place_follows_the_last_whisper():
     player, town, lines, engine, _ = make("Marta", "Bert")
-    town.move("v2", "mill")
-    assert player.place == "square"
+    town.move("v2", "gym")
+    assert player.place == "cafe"
     await player.whisper_to("v1", "psst")
     await player.whisper_to("v1", "psst again")
     await player.whisper_to("v2", "psst")
     places = [e for e in player.feed.recent if e.kind == "place"]
-    assert (player.place, [e.data["place"] for e in places]) == ("mill", ["tavern", "mill"])
-    assert all(e.line == "" for e in places) and not any("mill" in line for line in lines)
+    assert (player.place, [e.data["place"] for e in places]) == ("gym", ["bar", "gym"])
+    assert all(e.line == "" for e in places) and not any("gym" in line for line in lines)
 
 
 @pytest.mark.asyncio
@@ -472,7 +472,7 @@ async def test_place_stays_when_the_whisper_fails():
 
     engine.deliver = fail
     await player.whisper_to("v1", "psst")
-    assert player.place == "square"
+    assert player.place == "cafe"
 
 
 @pytest.mark.asyncio
@@ -879,7 +879,7 @@ def test_a_run_plays_while_connected_and_for_idle_after_seconds_after_it_disconn
     assert not players.any_playing() and players.at(p.place) == []
 
 
-@pytest.mark.parametrize("act", [lambda p: p.typing(), lambda p: p.walk("well"), lambda p: p.touch()])
+@pytest.mark.parametrize("act", [lambda p: p.typing(), lambda p: p.walk("library"), lambda p: p.touch()])
 def test_a_run_plays_for_idle_after_seconds_after_an_action(clock, act):
     players = Players(None)
     p = make("Ann")[0]
@@ -910,10 +910,10 @@ def test_a_new_run_prunes_only_stale_runs_that_never_played(clock):
 @pytest.mark.asyncio
 async def test_walk_moves_the_player_and_tells_only_them():
     player, town, _, engine, _ = make("Marta")
-    assert player.walk("mill") is None
-    assert player.place == "mill"
+    assert player.walk("gym") is None
+    assert player.place == "gym"
     last = player.feed.replay(PID)[-1]
-    assert (last.kind, last.player, last.data["place"]) == ("place", PID, "mill")
+    assert (last.kind, last.player, last.data["place"]) == ("place", PID, "gym")
     assert engine.delivered == []
     assert all(engine.suspicion.score(v.id, PID) == 0 for v in town.find(""))
 
@@ -922,12 +922,12 @@ async def test_walk_moves_the_player_and_tells_only_them():
 async def test_walk_refuses_an_unknown_place_the_same_place_and_a_finished_game():
     player, _, _, _, _ = make("Marta")
     assert "There's no moon here" in player.walk("moon")
-    assert player.walk("square") == "You're already at the square."
+    assert player.walk("cafe") == "You're already at the cafe."
     player.end(Summary("lost", [], []))
-    assert player.walk("mill") == GAME_OVER
+    assert player.walk("gym") == GAME_OVER
 
 
-def square_line(uid, text, speaker="v1", place="square", action=SPEAK):
+def square_line(uid, text, speaker="v1", place="cafe", action=SPEAK):
     return Utterance(uid, speaker, speaker.upper(), place, text, None, action=action)
 
 
@@ -942,12 +942,12 @@ async def test_listen_opens_with_the_last_five_lines_of_this_part_of_the_day(mon
     lineage.record("w-1", None, player=PID)
     lineage.record("h-1", "w-1")
     engine.facts.record(square_line("h-1", "my own rumor"))
-    engine.facts.record(square_line("t-1", "tavern talk", place="tavern"))
+    engine.facts.record(square_line("t-1", "tavern talk", place="bar"))
     engine.facts.record(square_line("n-1", "psst", speaker=NEWCOMER))
     engine.facts.record(square_line("x-1", "beware", action=WARN))
     assert player.listen() is None
     event = next(e for e in player.feed.replay(PID) if e.kind == "listen")
-    assert event.player == PID and event.data["ended"] is False and event.data["place"] == "square"
+    assert event.player == PID and event.data["ended"] is False and event.data["place"] == "cafe"
     assert [line["text"] for line in event.data["lines"]] == [f"line {i}" for i in range(2, 7)]
     assert event.data["lines"][0] == {"speaker": "v1", "speaker_name": "V1", "text": "line 2"}
     player.close()
@@ -970,10 +970,10 @@ async def test_one_listen_at_a_time_and_it_ends_after_listen_seconds():
 async def test_walking_away_stops_listening():
     player, _, _, _, _ = make("Marta")
     player.listen()
-    player.walk("mill")
+    player.walk("gym")
     *_, ended, moved = player.feed.replay(PID)
-    assert (ended.kind, ended.data["ended"], ended.data["place"]) == ("listen", True, "square")
-    assert (moved.kind, moved.data["place"]) == ("place", "mill")
+    assert (ended.kind, ended.data["ended"], ended.data["place"]) == ("listen", True, "cafe")
+    assert (moved.kind, moved.data["place"]) == ("place", "gym")
     assert not player.listening()
     player.close()
 
@@ -1004,7 +1004,7 @@ async def test_listen_makes_no_model_calls_and_raises_no_suspicion():
 def asking(*names):
     """A player at the tavern with the villagers, where make_player puts them."""
     player, town, lines, engine, lineage = make(*names)
-    player.place = "tavern"
+    player.place = "bar"
     return player, town, lines, engine, lineage
 
 
@@ -1015,13 +1015,13 @@ def asked_user_text(client):
 @pytest.mark.asyncio
 async def test_ask_answers_from_what_the_villager_heard():
     player, _, _, engine, _ = asking("Marta")
-    engine.facts.record(Utterance("u-3", "v2", "Tom", "mill", "the mill is haunted", None, action=SPEAK))
+    engine.facts.record(Utterance("u-3", "v2", "Tom", "gym", "the mill is haunted", None, action=SPEAK))
     engine.heard = [Match("utt:u-3", {"id": "u-3"}, 0.9)]
     client = StubClient("Tom told me so.")
     player.writer = Writer(client, "haiku-test")
     assert await player.ask("v1", "the mill") is None
     assert engine.recalls == [("v1", "the mill", "")]
-    assert "Tom at the mill: the mill is haunted" in asked_user_text(client)
+    assert "Tom at the gym: the mill is haunted" in asked_user_text(client)
     [event] = [e for e in player.feed.recent if e.kind == "asked"]
     assert (event.player, event.data["line"]) == (PID, "Tom told me so.")
     assert engine.delivered == []
@@ -1031,8 +1031,8 @@ async def test_ask_answers_from_what_the_villager_heard():
 async def test_ask_about_a_neighbour_tells_the_writer_who_they_are():
     player, _, _, engine, _ = asking("Marta")
     engine.heard = []
-    player.town.add(Villager("v9", "Everard Coke", "tanner", "dour", "", [], {}), "mill")
-    player.town.add(Villager("v8", "Ida Coke", "baker", "warm", "", [], {}), "mill")
+    player.town.add(Villager("v9", "Everard Coke", "tanner", "dour", "", [], {}), "gym")
+    player.town.add(Villager("v8", "Ida Coke", "baker", "warm", "", [], {}), "gym")
     player.town.remove("v8")
     player.town.get("v1").relationships["v9"] = "rival"
     client = StubClient("Everard? The tanner. Nothing new of him.")
@@ -1061,8 +1061,8 @@ async def _blank():
 @pytest.mark.asyncio
 async def test_ask_needs_the_villager_at_your_place():
     player, _, _, engine, _ = asking("Marta")
-    player.place = "square"
-    assert await player.ask("v1", "the mill") == "Marta is at the tavern. Walk there to ask them."
+    player.place = "cafe"
+    assert await player.ask("v1", "the mill") == "Marta is at the bar. Walk there to ask them."
     assert engine.recalls == []
     assert engine.suspicion.score("v1", PID) == 0
 
@@ -1070,7 +1070,7 @@ async def test_ask_needs_the_villager_at_your_place():
 @pytest.mark.asyncio
 async def test_ask_checks_the_game_the_villager_and_the_topic():
     player, town, _, engine, _ = asking("Marta")
-    assert await player.ask("v1", "  ") == "Ask about what? Try: the mill"
+    assert await player.ask("v1", "  ") == "Ask about what? Try: the gym"
     too_long = await player.ask("v1", "x" * (MAX_WHISPER_CHARS + 1))
     assert too_long == f"Too long: a question is at most {MAX_WHISPER_CHARS} characters."
     assert await player.ask("v9", "the mill") == "No one in town has that id."
@@ -1109,8 +1109,8 @@ async def test_lines_about_another_newcomer_are_never_told():
     player, _, _, engine, lineage = asking("Marta")
     lineage.record("w-9", None, player="p-2")
     lineage.record("u-4", "w-9")
-    engine.facts.record(Utterance("u-4", "v2", "Tom", "mill", "the newcomer started it", "w-9", names_newcomer=True))
-    engine.facts.record(Utterance("u-5", "v2", "Tom", "mill", "watch that newcomer", None, "warned", action=WARN, about="p-2"))
+    engine.facts.record(Utterance("u-4", "v2", "Tom", "gym", "the newcomer started it", "w-9", names_newcomer=True))
+    engine.facts.record(Utterance("u-5", "v2", "Tom", "gym", "watch that newcomer", None, "warned", action=WARN, about="p-2"))
     engine.heard = [Match(f"utt:{uid}", {"id": uid}, 0.9) for uid in ("u-4", "u-5", "u-6")]
     client = StubClient("Not a word.")
     player.writer = Writer(client, "haiku-test")
@@ -1124,8 +1124,8 @@ async def test_lines_about_the_asker_can_be_told():
     player, _, _, engine, lineage = asking("Marta")
     lineage.record("w-1", None, player=PID)
     lineage.record("u-4", "w-1")
-    engine.facts.record(Utterance("u-4", "v2", "Tom", "mill", "the newcomer started it", "w-1", names_newcomer=True))
-    engine.facts.record(Utterance("u-5", "v2", "Tom", "mill", "watch that newcomer", None, "warned", action=WARN, about=PID))
+    engine.facts.record(Utterance("u-4", "v2", "Tom", "gym", "the newcomer started it", "w-1", names_newcomer=True))
+    engine.facts.record(Utterance("u-5", "v2", "Tom", "gym", "watch that newcomer", None, "warned", action=WARN, about=PID))
     engine.heard = [Match(f"utt:{uid}", {"id": uid}, 0.9) for uid in ("u-4", "u-5")]
     client = StubClient("Not a word.")
     player.writer = Writer(client, "haiku-test")
@@ -1286,8 +1286,8 @@ async def missed_once():
 @pytest.mark.asyncio
 async def test_a_villager_you_are_talking_with_is_held_where_you_both_stand():
     player = await missed_once()
-    assert player.place == "tavern" and player.holds("v1")
-    player.walk("mill")
+    assert player.place == "bar" and player.holds("v1")
+    player.walk("gym")
     assert not player.holds("v1")
 
 
@@ -1492,7 +1492,7 @@ def durable(p):
 def test_players_round_trip_as_json_with_no_sockets():
     player, town, _, engine, lineage = make("Bert")
     goal = Goal("gen-1", "Bert is a spy", "belief", evidence=("bert spies",), audience=("v1",), owner=PID)
-    player.goals, player.met, player.place = [goal], {"gen-1"}, "tavern"
+    player.goals, player.met, player.place = [goal], {"gen-1"}, "bar"
     player._threads["v1"] = {"id": "w-1", "need": "bread", "at": 5.0}
     player._held["v1"] = ("w-1", "w-1")
     player._hinted["v1"] = {1, 2}

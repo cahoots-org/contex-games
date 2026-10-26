@@ -20,7 +20,7 @@ DOT = Villager("v4", "Dot Reed", "baker", "kind", "", [], {})
 FARMERS = [Villager(f"v{i}", f"Farmer{i} Field", "farmer", "calm", "", [], {}) for i in (5, 6, 7)]
 ALE = Pool((Entry("waters down the ale", 3),), (Entry("the well is cursed", 3),))
 NO_CLAIMS = Pool((Entry("waters down the ale", 2), Entry("cheats at dice", 2)), ())
-TAVERN = StubRoutine(work={v.id: "tavern" for v in (AGNES, *FARMERS)})
+TAVERN = StubRoutine(work={v.id: "bar" for v in (AGNES, *FARMERS)})
 
 
 @pytest.fixture
@@ -68,7 +68,7 @@ class BrokenJev:
 
 PATTERNS = (
     r"Convince \w+ \w+ that \w+ \w+ waters down the ale",
-    r"Get half of the tavern regulars to believe \w+ \w+ waters down the ale",
+    r"Get half of the bar regulars to believe \w+ \w+ waters down the ale",
     r"Half of the village believes the well is cursed",
 )
 
@@ -83,9 +83,9 @@ def test_draw_fills_personal_circle_and_village_templates():
     assert personal.audience == (AGNES.id,) and personal.subject == HOB.id and personal.audience_label == "Agnes Thatch"
     assert personal.claim_text == "Hob Miller waters down the ale" and personal.evidence == ("Hob Miller waters down the ale",)
     assert personal.believer_question == "Does this villager believe Hob Miller waters down the ale?"
-    circle = by_text["Get half of the tavern regulars to believe Hob Miller waters down the ale"]
+    circle = by_text["Get half of the bar regulars to believe Hob Miller waters down the ale"]
     assert set(circle.audience) == {AGNES.id, *(f.id for f in FARMERS)} and circle.target_fraction == BANDS[3][0]
-    assert circle.audience_label == "the tavern regulars" and circle.subject == HOB.id
+    assert circle.audience_label == "the bar regulars" and circle.subject == HOB.id
     village = by_text["Half of the village believes the well is cursed"]
     assert village.audience == () and village.subject is None and village.claim_text == "the well is cursed"
     assert all(g.owner == "p-1" and g.id.startswith("gen-p-1-") and not g.long_shot for g in drawn)
@@ -190,19 +190,19 @@ def test_world_goal_falls_back_when_every_claim_is_taken():
     assert goal.claim_text == "the well is cursed"
 
 
-def test_regulars_exclude_square_and_gate_and_subject():
+def test_regulars_exclude_cafe_and_unlisted_places_and_subject():
     regulars = (COB, DOT, *FARMERS)
-    routine = StubRoutine(work={v.id: "mill" for v in regulars}, leisure={v.id: "gate" for v in regulars})
-    routine.work |= {AGNES.id: "square", HOB.id: "mill"}
+    routine = StubRoutine(work={v.id: "gym" for v in regulars}, leisure={v.id: "gate" for v in regulars})
+    routine.work |= {AGNES.id: "cafe", HOB.id: "gym"}
     town = town_of(AGNES, HOB, *regulars)
     drawn = [g for seed in range(100) for g in goal_maker(town, ALE, routine, rng=random.Random(seed)).draw("p-1", set(), 1)]
     circles = [g for g in drawn if len(g.audience) > 1]
-    assert circles and {g.audience_label for g in circles} == {"the mill regulars"}
+    assert circles and {g.audience_label for g in circles} == {"the gym regulars"}
     assert all(g.subject not in g.audience for g in circles)
 
 
 def test_a_circle_needs_three_besides_the_subject():
-    routine = StubRoutine(work={v.id: "mill" for v in (AGNES, HOB, COB)})
+    routine = StubRoutine(work={v.id: "gym" for v in (AGNES, HOB, COB)})
     drawn = [g for seed in range(50) for g in goal_maker(town_of(AGNES, HOB, COB), ALE, routine, rng=random.Random(seed)).draw("p-1", set(), 1)]
     assert all(len(g.audience) <= 1 for g in drawn)
 

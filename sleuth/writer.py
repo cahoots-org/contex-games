@@ -51,12 +51,12 @@ def _mood(mood: str) -> str:
 
 
 POOL_SYSTEM = (
-    "You write the rumors for a village gossip game. Given the villagers, reply with only a JSON object "
+    "You write the rumors for a town gossip game. Given the villagers, reply with only a JSON object "
     '{"accusations": ["..."], "claims": ["..."]}.\n'
     "- About 40 accusations. Each completes the sentence \"{someone} ...\", such as \"is stealing from the "
     "tithe box\" or \"waters down the ale\": petty, specific, and fitted to the trades and grudges listed, "
     "though never to one villager in particular.\n"
-    "- About 15 claims. Each is a whole statement about the village, such as \"the well is cursed\".\n"
+    "- About 15 claims. Each is a whole statement about the town, such as \"the drinking fountain is cursed\".\n"
     "Rules:\n"
     "- Under 80 characters each.\n"
     "- Third person. Never use \"you\" or \"your\".\n"
@@ -93,7 +93,7 @@ class Writer:
         Unless names_newcomer, the newcomer's whisper framing is removed and the villager keeps the source unnamed.
         """
         system = (
-            f"You are {villager.name}, a {villager.occupation} in a small village. "
+            f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             + _grudge(villager, "Bring it up only when it fits. ")
             + "Reply with one or two short sentences, under 30 words, in your own voice, the way people gossip. "
@@ -116,7 +116,7 @@ class Writer:
     async def brush_off(self, villager: Villager, concern: str, mood: str = "") -> str:
         """The villager waving off the newcomer in character, alluding to their concern, in one line."""
         system = (
-            f"You are {villager.name}, a {villager.occupation} in a small village. "
+            f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             "A newcomer just whispered something to you that you don't care about. Wave them off "
             "in one short sentence, under 25 words, in your own voice and in keeping with your "
@@ -132,7 +132,7 @@ class Writer:
     async def go_on(self, villager: Villager, newcomer_line: str, mood: str = "") -> str:
         """The villager leaning in to urge the newcomer on, in one line, without saying what interests them."""
         system = (
-            f"You are {villager.name}, a {villager.occupation} in a small village. "
+            f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             "A newcomer just whispered something that nearly caught your interest. Urge them to go on "
             "in one short sentence, under 15 words, in your own voice. "
@@ -145,7 +145,7 @@ class Writer:
     async def turn_away(self, villager: Villager) -> str:
         """The villager refusing to hear the newcomer any more, in one line."""
         system = (
-            f"You are {villager.name}, a {villager.occupation} in a small village. "
+            f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             "You have grown wary of the newcomer who keeps whispering to you. Refuse to hear "
             "them out in one short sentence, about 15 words, in your own voice. "
@@ -159,7 +159,7 @@ class Writer:
     async def storm_off(self, villager: Villager) -> str:
         """The villager breaking off with the newcomer who has tried their patience, in one line."""
         system = (
-            f"You are {villager.name}, a {villager.occupation} in a small village. "
+            f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             "The newcomer you were talking with has tried your patience, and you storm off. Say your parting "
             "words in one short sentence, about 15 words, in your own voice. "
@@ -173,7 +173,7 @@ class Writer:
     async def lose_patience(self, villager: Villager) -> str:
         """The villager ending a conversation that has worn out her interest, in one line, in her temper."""
         system = (
-            f"You are {villager.name}, a {villager.occupation} in a small village. "
+            f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             "The newcomer you were talking with has worn out your interest, and you end the conversation. Say so "
             "in one short sentence, under 20 words, in your own voice and in keeping with your temperament: "
@@ -188,7 +188,7 @@ class Writer:
     async def deny(self, villager: Villager, claim: str) -> str:
         """The villager flatly denying the claim about them, in one line."""
         system = (
-            f"You are {villager.name}, a {villager.occupation} in a small village. "
+            f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             "A rumor is going around about you and you deny it flatly. Say so in one short sentence, under 20 words, "
             "in your own voice. "
@@ -201,7 +201,7 @@ class Writer:
     async def warn(self, villager: Villager, target: Villager) -> str:
         """The villager warning the target that the newcomer is behind the rumors, in one line."""
         system = (
-            f"You are {villager.name}, a {villager.occupation} in a small village. "
+            f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             "You have come to believe a newcomer in town is behind the rumors going around. "
             "Warn the person you are talking to in one short sentence, under 25 words, in your own voice. "
@@ -217,10 +217,10 @@ class Writer:
     ) -> str:
         """The villager answering what the newcomer just said to them, in one line; known as for answer."""
         system = (
-            f"You are {villager.name}, a {villager.occupation} in a small village. "
+            f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             + _grudge(villager)
-            + "You know everyone in the village by name and trade. "
+            + "You know everyone in the town by name and trade. "
             "The newcomer in town just said something to you that you care about. Answer them "
             "in one short sentence, under 30 words, in your own voice, responding to what they said. "
             "Never mention suspicion. "
@@ -243,9 +243,9 @@ class Writer:
         known describes the neighbours the question names, whom the villager knows even with no gossip about them.
         """
         system = (
-            f"You are {villager.name}, a {villager.occupation} in a small village. "
+            f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
-            "You know everyone in the village by name and trade. "
+            "You know everyone in the town by name and trade. "
             "The newcomer asks what folk have been saying about something. Answer in one short sentence, "
             "under 30 words, in your own voice, naming who told you and where. If you heard nothing about it, "
             "say so. Never mention suspicion. No stage directions, no quotation marks, no preamble."
@@ -262,7 +262,7 @@ class Writer:
         """A name and creed for a group the villager founds."""
         system = (
             f"You are {villager.name}, a {villager.occupation} ({villager.personality}). "
-            "You are founding a village group. Reply with only a JSON object "
+            "You are founding a town group. Reply with only a JSON object "
             '{"name": "...", "creed": "..."}: a short name and a one-sentence creed.'
         )
         user = "What inspired you:\n" + "\n".join(f"- {t}" for t in inspiration)

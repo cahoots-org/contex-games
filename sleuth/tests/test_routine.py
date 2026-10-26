@@ -7,17 +7,19 @@ import pytest
 from sleuth.config import Config
 from sleuth.models import Villager
 from sleuth.routine import LEISURE_INSTRUCTIONS, WORK_INSTRUCTIONS, Routine
-from sleuth.town import GATE, PLACES
+from sleuth.game import PHASES
+from sleuth.routine import ROUTINE_PLACES
+from sleuth.town import PUBLIC_PLACES
 
 CONFIG = Config()
 
 
 def villager(vid="v1", name="Ada"):
-    return Villager(vid, name, "miller", "shy", "", [], {})
+    return Villager(vid, name, "miller", "shy", "", [], {}, home="oak street")
 
 
 class CountingJev:
-    def __init__(self, work="mill", leisure="tavern", fail=()):
+    def __init__(self, work="gym", leisure="bar", fail=()):
         self.answers = {"work": work, "leisure": leisure}
         self.fail = set(fail)
         self.calls = []
@@ -47,8 +49,8 @@ async def test_load_asks_once_per_villager_and_writes_the_sidecar(tmp_path):
     assert set(questions) == {"work", "leisure"}
     assert questions["work"].instructions == WORK_INSTRUCTIONS
     assert questions["leisure"].instructions == LEISURE_INSTRUCTIONS
-    assert set(questions["work"].criteria) == set(PLACES) - {GATE}
-    assert routine.place("v2", "morning") == "mill"
+    assert set(questions["work"].criteria) == set(PUBLIC_PLACES)
+    assert routine.place("v2", "morning") == "gym"
     assert '"v2"' in path.read_text()
 
 
@@ -56,24 +58,24 @@ async def test_load_asks_once_per_villager_and_writes_the_sidecar(tmp_path):
 async def test_load_reuses_the_sidecar(tmp_path):
     path = str(tmp_path / "places.json")
     await Routine(CountingJev(), path, CONFIG).load([villager()])
-    jev = CountingJev(work="well")
+    jev = CountingJev(work="library")
     routine = Routine(jev, path, CONFIG)
     await routine.load([villager()])
     assert jev.calls == []
-    assert routine.place("v1", "morning") == "mill"
+    assert routine.place("v1", "morning") == "gym"
 
 
 @pytest.mark.asyncio
 async def test_a_renamed_or_invalid_entry_is_asked_again(tmp_path):
     path = tmp_path / "places.json"
-    path.write_text('{"v1": {"name": "Old", "work": "mill", "leisure": "tavern"},'
-                    ' "v2": {"name": "Bo", "work": "nowhere", "leisure": "tavern"}}')
-    jev = CountingJev(work="well")
+    path.write_text('{"v1": {"name": "Old", "work": "gym", "leisure": "bar"},'
+                    ' "v2": {"name": "Bo", "work": "nowhere", "leisure": "bar"}}')
+    jev = CountingJev(work="library")
     routine = Routine(jev, str(path), CONFIG)
     await routine.load([villager("v1", "Ada"), villager("v2", "Bo")])
     assert len(jev.calls) == 2
-    assert routine.place("v1", "morning") == "well"
-    assert routine.place("v2", "morning") == "well"
+    assert routine.place("v1", "morning") == "library"
+    assert routine.place("v2", "morning") == "library"
 
 
 @pytest.mark.asyncio
@@ -89,10 +91,10 @@ async def test_an_unreadable_sidecar_is_rewritten(tmp_path):
 
 @pytest.mark.asyncio
 async def test_place_follows_the_part_of_the_day(tmp_path):
-    routine = Routine(CountingJev(work="mill", leisure="tavern"), str(tmp_path / "p.json"), CONFIG)
+    routine = Routine(CountingJev(work="gym", leisure="bar"), str(tmp_path / "p.json"), CONFIG)
     await routine.load([villager()])
     assert [routine.place("v1", p) for p in ("morning", "afternoon", "evening", "night")] == [
-        "mill", "square", "tavern", "mill",
+        "gym", "gym", "bar", "oak street",
     ]
     assert routine.place("nobody", "morning") is None
 
@@ -104,7 +106,7 @@ async def test_a_failed_choice_leaves_the_villager_without_a_routine(tmp_path, c
     routine = Routine(jev, str(path), CONFIG)
     with caplog.at_level(logging.WARNING):
         await routine.load([villager("v1", "Ada"), villager("v2", "Bo")])
-    assert routine.place("v1", "morning") == "mill"
+    assert routine.place("v1", "morning") == "gym"
     assert routine.place("v2", "morning") is None
     assert "v2" in caplog.text
     assert "Bo" not in caplog.text
@@ -119,7 +121,7 @@ async def test_add_writes_the_newcomer(tmp_path):
     path = str(tmp_path / "places.json")
     routine = Routine(CountingJev(), path, CONFIG)
     await routine.add(villager("n1", "Newt"))
-    assert routine.place("n1", "evening") == "tavern"
+    assert routine.place("n1", "evening") == "bar"
     again = CountingJev()
     await Routine(again, path, CONFIG).load([villager("n1", "Newt")])
     assert again.calls == []
@@ -139,5 +141,22 @@ async def test_a_failed_sidecar_write_is_logged_and_add_goes_on(tmp_path, caplog
     routine = Routine(CountingJev(), str(tmp_path / "missing" / "places.json"), CONFIG)
     with caplog.at_level(logging.WARNING):
         await routine.add(villager("n1", "Newt"))
-    assert routine.place("n1", "evening") == "tavern"
+    assert routine.place("n1", "evening") == "bar"
     assert "places" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_routine_reasks_when_home_changed(tmp_path):
+    path = str(tmp_path / "places.json")
+    await Routine(CountingJev(), path, CONFIG).load([villager()])
+    moved = villager()
+    moved.home = "elm street"
+    jev = CountingJev(work="library")
+    routine = Routine(jev, path, CONFIG)
+    await routine.load([moved])
+    assert len(jev.calls) == 1
+    assert [routine.place("v1", p) for p in PHASES][-1] == "elm street"
+
+
+def test_routine_places_are_the_public_places():
+    assert ROUTINE_PLACES == PUBLIC_PLACES

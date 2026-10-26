@@ -9,8 +9,7 @@ from sleuth.models import Villager
 from sleuth.town import Town
 
 # Occupation substring (lowercase) to how much that villager's suspicion counts.
-WEIGHTS = {"mayor": 3.0, "priest": 2.0, "innkeeper": 2.0, "constable": 2.0, "reeve": 2.0,
-           "tavern": 2.0, "bailiff": 2.0}
+WEIGHTS = {"mayor": 3.0}
 # What the player is told about a villager whose suspicion counts for more.
 INFLUENCE = "folk listen to the {}"
 # Upper bound of each label as a fraction of the run-out level.
