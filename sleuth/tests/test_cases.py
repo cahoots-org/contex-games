@@ -206,3 +206,9 @@ def test_mark_cover_roots_the_line_in_the_culprits_case():
     file = culprit_file(cases)
     cases.mark_cover("v3", "u-9")
     assert cases.root_kind("u-9") == (file, "cover")
+
+
+def test_alibi_on_a_street_is_being_at_home():
+    cases, _, _ = make_cases()
+    culprit_file(cases)
+    assert cases.alibi("v3") == "I was at home on elm street last night, all night."

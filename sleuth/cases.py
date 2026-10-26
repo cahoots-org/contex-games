@@ -10,7 +10,7 @@ from sleuth.config import Config
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
-from sleuth.town import Town
+from sleuth.town import STREETS, Town
 
 log = logging.getLogger(__name__)
 
@@ -84,7 +84,8 @@ class Cases:
         phase = case.crime.phase
         place = self.routine.place(vid, phase)
         case.alibi = [place]
-        return f"I was {at(place)} {when(phase)}, all {phase}."
+        where = f"at home on {place}" if place in STREETS else at(place)
+        return f"I was {where} {when(phase)}, all {phase}."
 
     def blame(self, vid: str) -> str | None:
         """The culprit's hint at someone who dislikes the victim, else at the culprit's own coldest tie."""

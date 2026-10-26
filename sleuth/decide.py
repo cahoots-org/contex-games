@@ -137,6 +137,8 @@ def _state(view: TurnView) -> dict:
         "groups": [g.name for g in view.member_groups],
         "suspicion_of_the_newcomer": _suspicion_words(view),
     }
+    if view.case:
+        state["your_secret"] = f"You did this, and people are talking about it: {view.case}"
     if view.taken:
         state["how taken they were with the newcomer's story"] = view.taken
     if view.said:

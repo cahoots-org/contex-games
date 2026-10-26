@@ -360,3 +360,13 @@ async def test_decide_state_says_how_taken():
     await decide(jev, view(taken="eager"))
     assert jev.state["how taken they were with the newcomer's story"] == "eager"
 
+
+
+@pytest.mark.asyncio
+async def test_a_culprits_state_holds_their_crime_and_no_one_elses_does():
+    news = "Someone stole Dana Reyes's bike on elm street last night."
+    jev = StubJev({"action": IGNORE})
+    await decide(jev, view(case=news))
+    assert news in jev.state["your_secret"]
+    await decide(jev, view())
+    assert "your_secret" not in jev.state and news not in str(jev.state)
