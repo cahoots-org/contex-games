@@ -14,6 +14,8 @@ from sleuth.town import Town
 KINDS = {
     "where_were_you": "where this resident was at some part of the day",
     "where_was": "where someone else was",
+    "what_happened": 'what happened in the case as this resident knows it, as in "Tell me what happened to your bike" '
+                     'or "What do you know about it?"',
     "what_did_you_see": "what this resident saw or found",
     "who_told_you": "who this resident heard something from, or what they heard",
     "who_had_reason": "who would have a reason to do it, like a grudge or a feud with the victim",

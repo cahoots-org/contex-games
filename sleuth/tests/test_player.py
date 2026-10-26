@@ -902,3 +902,35 @@ async def test_a_search_brings_the_publish_hint():
     await ask(player, "v2", "what_did_you_see")
     assert player.search() is None
     assert guides(player)[-1].startswith("When the evidence points to one person")
+
+
+@pytest.mark.asyncio
+async def test_what_happened_is_a_routed_kind_for_telling_the_case():
+    player, file, engine, writer = interviewing()
+    await ask(player, "v2", "none", "Tell me what happened to your thermos")
+    criterion = engine.jev.questions["kind"].criteria["what_happened"]
+    assert "tell me what happened to your" in criterion.lower()
+
+
+@pytest.mark.asyncio
+async def test_what_happened_gives_the_victim_their_discovery_and_a_witness_their_memory():
+    player, file, engine, writer = interviewing()
+    found = Record(player.ids.next("r"), file.crime.id, "discovery", "elm street", "11:58pm",
+                   "Around 11:58pm, Dana Reyes found the bike missing on Elm Street.", "v1")
+    file.records[found.id] = found
+    memory = memory_of(file, player.ids)
+    await ask(player, "v1", "what_happened", "Tell me what happened to your bike")
+    await ask(player, "v2", "what_happened")
+    assert player.notebook[found.id] == found and player.notebook[memory.id] == memory
+
+
+@pytest.mark.asyncio
+async def test_what_happened_gives_anyone_else_what_they_heard():
+    player, file, engine, writer = interviewing()
+    hearsay(player, engine, "memory", file)
+    await ask(player, "v6", "what_happened")
+    [said] = notebook(player)
+    assert said.text == "Ivy Burke heard from Kit Tran: someone tall took a bike"
+    hearsay(player, engine, "news", file)
+    await ask(player, "v6", "what_happened")
+    assert writer.calls[-1][4] == ["Kit Tran: someone tall took a bike"]

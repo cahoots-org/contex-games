@@ -291,12 +291,10 @@ class Player:
             text = f"{name} says they saw {about.name} {at(met[0])} {WHEN}."
             return [self._statement(file, vid, text, True, who=about.id)], []
         if kind == "what_did_you_see":
-            records = [replace(r) for r in file.records.values()
-                       if r.kind in ("memory", "discovery") and r.holder == vid]
-            if self.engine.reputation.get(vid, self.id) >= self.config.trusted_at:
-                culprit = self.town.get(crime.culprit).traits
-                records = [recall_more(crime, r, culprit) if r.kind == "memory" else r for r in records]
-            return records, []
+            return self._seen(file, vid), []
+        if kind == "what_happened":
+            seen = self._seen(file, vid)
+            return (seen, []) if seen else await self._hearsay(file, villager)
         if kind == "who_told_you":
             return await self._hearsay(file, villager)
         if kind == "who_had_reason":
@@ -313,6 +311,15 @@ class Player:
             feeling = warmth_words(villager.warmth.get(about.id, 0.0))
             return [], [f"{about.name} is {name}'s {tie}, and they are on {feeling} terms."] if tie else []
         return [], []
+
+    def _seen(self, file: CaseFile, vid: str) -> list[Record]:
+        """What the resident saw or found of the case; a trusting witness recalls more."""
+        crime = file.crime
+        records = [replace(r) for r in file.records.values() if r.kind in ("memory", "discovery") and r.holder == vid]
+        if self.engine.reputation.get(vid, self.id) >= self.config.trusted_at:
+            culprit = self.town.get(crime.culprit).traits
+            records = [recall_more(crime, r, culprit) if r.kind == "memory" else r for r in records]
+        return records
 
     async def _hearsay(self, file: CaseFile, villager: Villager) -> tuple[list[Record], list[str]]:
         """The best case hearsay the resident heard: a record when it traces to evidence, else news as talk."""
