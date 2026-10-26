@@ -27,8 +27,9 @@ case shows at the top of the Hear panel and goes cold after `case_days`.
 start; they come back on a reload only until the podcaster has asked anyone anything. A new podcaster gets an easy private case of their own, opened at once at a place with a
 camera: one witness, a clip showing the culprit's height, coat and hair, a clue or two at the scene, and no logs but a receipt's. Only
 they see its news. A checklist in the case header walks them through it: ask the victim what happened, ask the
-witness what they saw (or, with no witness, pull the records at the scene), search the scene, and publish. The game
-ticks each step from what they have actually done and lights the person or button the current step needs. Town talk stays hidden and the notebook appears with its first
+witness what they saw (or, with no witness, pull the records at the scene), search the scene, and publish. Each step
+says why under it, from the case: the victim reported it, the witness is usually at the scene at that time of day, and
+so on. The game ticks each step from what they have actually done and lights the person or button the current step needs. Town talk stays hidden and the notebook appears with its first
 entry until the first case closes; once it closes, by an episode or by going cold, they play the town's shared case like everyone else. No new private case is opened while the town is
 resting.
 
@@ -56,6 +57,12 @@ culprit, at most once a part of the day, that a podcaster is asking around, and 
 someone they're close to that the podcaster is stirring up trouble, at most once a part of the day per case: that
 resident thinks less of the podcaster who last asked around (`reputation_warned`), and the warning spreads like any
 other line. You only hear that someone in town seems colder toward you.
+
+**Finding witnesses.** People who are usually at the scene in the part of the day it happened may have seen
+something. The people list tags them "usually nearby" and ranks them near the top; type "nearby" in its search to see
+only them. The tag comes from each resident's routine (their work place by day, their evening place, their street at
+night), not from where anyone actually was, so most of the people it marks are innocent regulars. It's a lead: ask
+them what they saw.
 
 Walking still matters for the scene and the records: you search a place and pull its records only while you're there.
 
@@ -86,7 +93,8 @@ Everything is done on one page, built around the case. On the left: the case wit
 which opens the form in place (choose a resident, tick notebook entries); the notebook grouped by kind (Seen, Clip,
 Logs, Said, Found, Heard), newest first; where you are, with Search here and Pull records when they apply and the
 places you can go; and town talk, one strip that stays closed until you open it and counts what's new. On the right:
-everyone in town, searchable by name or looks and marked victim or witness once you know, and the conversation with
+everyone in town, searchable by name or looks, marked victim or witness once you know and "usually nearby" when
+their routine puts them at the scene, and the conversation with
 whoever you pick. On a phone the two columns stack.
 
 ## How it uses Contex
