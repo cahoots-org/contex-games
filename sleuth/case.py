@@ -75,7 +75,7 @@ def when(phase: str) -> str:
     return "last night" if phase == "night" else f"this {phase}"
 
 
-def _motive(culprit, victim) -> str:
+def motive_of(culprit, victim) -> str:
     if culprit.warmth.get(victim.id, 0.0) < 0:
         return "rival"
     first = re.escape(victim.name.split()[0])
@@ -89,7 +89,7 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
     residents = [v for v in town.villagers if v.id not in exclude and routine.place(v.id, phase) is not None]
     crimes = [(t, item) for t, (_, items) in TEMPLATES.items() for item in items]
     for template, item in rng.sample(crimes, len(crimes)):
-        pairs = [(c, w, _motive(c, w)) for w in residents for c in residents
+        pairs = [(c, w, motive_of(c, w)) for w in residents for c in residents
                  if c.household != w.household
                  and routine.place(w.id, phase) in ITEM_PLACES[item]
                  and (places is None or routine.place(w.id, phase) in places)

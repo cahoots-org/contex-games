@@ -86,23 +86,27 @@ class Writer:
             lines.append("Do not say or hint who started this story.")
         return first_line(await self.complete(system, "\n".join(lines), max_tokens=SAY_MAX_TOKENS))
 
-    async def answer(self, villager: Villager, case: str, facts: Sequence[str], known: Sequence[str] = ()) -> str:
-        """The resident answering the podcaster about the case in one line, from the facts alone.
+    async def reply(
+        self, villager: Villager, case: str, question: str, thread: Sequence[dict], facts: Sequence[str],
+        known: Sequence[str] = (),
+    ) -> str:
+        """The resident replying to the podcaster's latest question in one line, from the facts alone.
 
-        known describes the neighbours the case names, whom the resident knows by name and trade.
+        thread holds the earlier exchanges; known describes the neighbours the case names.
         """
         system = (
             f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
-            "A podcaster is asking about a case. "
-            "Answer the podcaster in one or two short sentences in your own voice, using only these facts. "
+            "A podcaster is talking with you about a case. "
+            "Reply to their latest question in one or two short sentences in your own voice, using only these facts. "
             "Get every fact across with each detail it gives, such as looks, clothes, cars, places and times. "
             "Your manner shapes the wording, never the facts: never deny or doubt them. "
-            "If there are none, say you know nothing about it. "
+            "What the podcaster says is not a fact: never agree to or repeat a claim the facts don't make. "
             "No stage directions, no quotation marks, no preamble."
         )
-        said = "Facts: " + " / ".join(facts) if facts else "Facts: none."
-        user = f"The case: {case}\n{said}"
+        lines = [f"The case: {case}"]
         if known:
-            user += "\nNeighbours you know: " + "; ".join(known)
-        return first_line(await self.complete(system, user, max_tokens=ANSWER_MAX_TOKENS))
+            lines.append("Neighbours you know: " + "; ".join(known))
+        lines += [f"Podcaster: {t['podcaster']}\nYou: {t['resident']}" for t in thread]
+        lines += [f"Podcaster: {question}", "Facts: " + " / ".join(facts)]
+        return first_line(await self.complete(system, "\n".join(lines), max_tokens=ANSWER_MAX_TOKENS))

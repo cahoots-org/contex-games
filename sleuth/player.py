@@ -7,12 +7,14 @@ import time
 from dataclasses import asdict, replace
 
 from sleuth.alibi import claim, household_word
-from sleuth.case import TEMPLATES, Record, clock_at, recall_more, record_json, when
+from sleuth.case import TEMPLATES, Record, clock_at, motive_of, recall_more, record_json, when
 from sleuth.cases import CaseFile
 from sleuth.config import Config
+from sleuth.decide import warmth_words
 from sleuth.episode import MAX_CITED, holds
 from sleuth.facts import audible
 from sleuth.game import Game
+from sleuth.interview import Route, exchanges, route
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
 from sleuth.town import PLACES, START_PLACE, STREETS, Town, at, neighbours, place_name
@@ -46,6 +48,11 @@ def analytics(event: str, **fields) -> None:
 LISTEN_OPENING = 5
 LISTEN_LOOKBACK_DAYS = 1 / 4
 ALREADY_LISTENING = "You just looked around."
+MAX_QUESTION = 300
+MESSAGES_PER_PART = 4
+# How many exchanges a thread keeps.
+THREAD_KEPT = 40
+UNKNOWN = "I wouldn't know about that."
 # Hearsay rooted in these is evidence; news-rooted hearsay is only talk.
 EVIDENCE_ROOTS = ("memory", "cover")
 PODCAST = "A true-crime podcast"
@@ -90,9 +97,10 @@ class Player:
         self._tasks: set[asyncio.Task] = set()
         # When the running listen ends, or None when the player is not listening.
         self._listen_until: float | None = None
-        # The last answer from each resident per case, and the part of the day each resident was last interviewed.
-        self._answers: dict[tuple[str, str], str] = {}
-        self._interviewed: dict[str, tuple[int, str]] = {}
+        # Each resident's conversation with the player, oldest first, and how many messages the player sent each
+        # resident in which part of the day.
+        self.threads: dict[str, list[dict]] = {}
+        self._talked: dict[str, tuple[tuple[int, str] | None, int]] = {}
         self.created_at = time.time()
         # Open tabs, and when the player last acted or closed one; None until they first do.
         self._sockets = 0
@@ -103,7 +111,7 @@ class Player:
         return {
             "id": self.id, "owner": self.owner, "place": self.place, "created_at": self.created_at,
             "active_at": self._active_at, "notebook": [asdict(r) for r in self.notebook.values()],
-            "guide_step": self.guide_step,
+            "guide_step": self.guide_step, "threads": self.threads,
         }
 
     def restore(self, state: dict) -> None:
@@ -111,6 +119,7 @@ class Player:
         self.place, self.created_at = state["place"], state["created_at"]
         self.notebook = {r["id"]: Record(**r) for r in state["notebook"]}
         self.guide_step = state["guide_step"]
+        self.threads = state["threads"]
         active_at = state["active_at"]
         self._active_at = None if active_at is None else min(active_at, time.time() - self.config.idle_after_seconds)
 
@@ -211,20 +220,24 @@ class Player:
         self.place = place
         self.feed.on_place(place, player=self.id)
 
-    async def interview(self, vid: str) -> str | None:
-        """Interview the resident about the open case; returns why it could not be done, if it couldn't.
+    async def interview(self, vid: str, question: str) -> str | None:
+        """Ask the resident a question about the open case; returns why it could not be done, if it couldn't.
 
-        Once per resident per part of the day. New evidence goes in the notebook, and the culprit hears a podcaster
-        is asking around. With nothing new the resident repeats their last answer, so the writer isn't called. The
-        model calls are charged to this player.
+        Jev routes the question and code answers from what the resident knows; Haiku phrases the reply. A few
+        messages per resident per part of the day. New evidence goes in the notebook, and the culprit hears a
+        podcaster is asking around. The model calls are charged to this player.
         """
         self.touch()
         with charging(self.id):
-            return await self._interview(vid)
+            return await self._interview(vid, question.strip())
 
-    async def _interview(self, vid: str) -> str | None:
+    async def _interview(self, vid: str, question: str) -> str | None:
         if vid not in self.town:
             return "No one in town has that id."
+        if not question:
+            return "Type a question."
+        if len(question) > MAX_QUESTION:
+            return f"Keep your question under {MAX_QUESTION} characters."
         file = self.engine.cases.for_player(self.id) if self.engine.cases else None
         if file is None:
             return "There's no open case."
@@ -235,9 +248,18 @@ class Player:
         if self.engine.reputation.get(vid, self.id) < self.config.guarded_at:
             return Refusal(f"{villager.name} won't talk to you.")
         part = (self.game.day, self.game.phase) if self.game else None
-        if part and self._interviewed.get(vid) == part:
-            return Refusal(f"{villager.name} has nothing more to say until later.")
-        found, talk = await self._gather(file, villager)
+        talked_in, said = self._talked.get(vid, (part, 0))
+        said = said if talked_in == part else 0
+        if part and said >= MESSAGES_PER_PART:
+            return Refusal(f"{villager.name}: Let's talk later.")
+        self._talked[vid] = (part, said + 1)
+        thread = self.threads.setdefault(vid, [])
+        try:
+            routed = await route(self.engine.jev, file, villager, self.town, question, thread)
+        except Exception:
+            log.exception("routing a question to %s failed", vid)
+            routed = None
+        found, talk = await self._known(file, villager, routed) if routed else ([], [])
         seen = {(r.kind, r.holder, r.text) for r in self.notebook.values() if r.case == file.crime.id}
         new = []
         for r in found:
@@ -246,13 +268,10 @@ class Player:
                 r.id = r.id or self.ids.next("r")
                 self.notebook[r.id] = r
                 new.append(r)
-        key = (file.crime.id, vid)
-        if new or key not in self._answers:
-            self._answers[key] = await self._phrase(villager, file, found, talk)
-        line = self._answers[key]
-        if part:
-            self._interviewed[vid] = part
-        self.feed.on_interview(vid, villager.name, line, [record_json(r, self.town) for r in new],
+        line = await self._phrase(villager, file, question, thread, found, talk)
+        thread.append({"question": question, "line": line, "records": [r.id for r in new]})
+        del thread[:-THREAD_KEPT]
+        self.feed.on_interview(vid, villager.name, question, line, [record_json(r, self.town) for r in new],
                                case_id=file.crime.id, player=self.id)
         self._guide(1)
         try:
@@ -261,31 +280,65 @@ class Player:
             log.exception("pressing the culprit of %s failed", file.crime.id)
         return None
 
-    async def _gather(self, file: CaseFile, villager: Villager) -> tuple[list[Record], list[str]]:
-        """What the resident can give: what they saw or found, their claim, their housemates' whereabouts and the best hearsay
-        as records, and news-rooted hearsay as talk."""
+    def thread_json(self, vid: str) -> list[dict]:
+        """What the player sees of their conversation with the resident: each question, reply and what it added."""
+        return [{"question": t["question"], "line": t["line"],
+                 "records": [record_json(self.notebook[i], self.town) for i in t["records"] if i in self.notebook]}
+                for t in self.threads.get(vid, [])]
+
+    def _statement(self, file: CaseFile, vid: str, text: str, sound: bool, source: str | None = None,
+                   who: str | None = None) -> Record:
+        return Record("", file.crime.id, "statement", self.place, self._clock(), text, vid, who=who, sound=sound,
+                      utterance=source, day=self.game.day if self.game else 0)
+
+    async def _known(self, file: CaseFile, villager: Villager, routed: Route) -> tuple[list[Record], list[str]]:
+        """What the resident knows for the routed question: records for evidence, and talk that is only phrased."""
+        crime, vid, name, routine = file.crime, villager.id, villager.name, self.engine.routine
+        kind, about = routed.kind, self.town.get(routed.who) if routed.who else None
+        if kind == "where_were_you" and routed.when == crime.phase:
+            places, sound = claim(file, vid, routine)
+            text = f"{name} says they were {' then '.join(at(p) for p in places)} {when(crime.phase)}."
+            return [self._statement(file, vid, text, sound)] if places else [], []
+        if kind == "where_were_you":
+            usual = routine.place(vid, routed.when) if routine else None
+            text = f"{name} says they're usually {at(usual)} in the {routed.when}."
+            return [self._statement(file, vid, text, True)] if usual else [], []
+        if kind == "where_was" and about:
+            if word := household_word(file, villager, about, routed.words.get(about.id)):
+                return [self._statement(file, vid, f"{name}: {word[0]}", word[1], who=about.id)], []
+            theirs = file.whereabouts.get(about.id, [])
+            met = [p for p in file.whereabouts.get(vid, []) if p in theirs and p != crime.place]
+            if not met:
+                return [], []
+            text = f"{name} says they saw {about.name} {at(met[0])} {when(crime.phase)}."
+            return [self._statement(file, vid, text, True, who=about.id)], []
+        if kind == "what_did_you_see":
+            records = [replace(r) for r in file.records.values()
+                       if r.kind in ("memory", "discovery") and r.holder == vid]
+            if self.engine.reputation.get(vid, self.id) >= self.config.trusted_at:
+                culprit = self.town.get(crime.culprit).traits
+                records = [recall_more(crime, r, culprit) if r.kind == "memory" else r for r in records]
+            return records, []
+        if kind == "who_told_you":
+            return await self._hearsay(file, villager)
+        if kind == "who_had_reason":
+            victim = self.town.get(crime.victim)
+            known = [*villager.relationships, *(v.id for v in self.town.villagers
+                                                if villager.household and v.household == villager.household)]
+            reasons = [self.town.get(o) for o in dict.fromkeys(known)
+                       if o in self.town and o not in (vid, victim.id) and motive_of(self.town.get(o), victim) != "opportunity"]
+            return [self._statement(file, vid, f"{name} says {o.name} has never got on with {victim.name}.", True,
+                                    who=o.id) for o in reasons], []
+        if kind == "what_do_you_think_of" and about:
+            mates = villager.household and about.household == villager.household
+            tie = villager.relationships.get(about.id) or ("housemate" if mates else None)
+            feeling = warmth_words(villager.warmth.get(about.id, 0.0))
+            return [], [f"{about.name} is {name}'s {tie}, and they are on {feeling} terms."] if tie else []
+        return [], []
+
+    async def _hearsay(self, file: CaseFile, villager: Villager) -> tuple[list[Record], list[str]]:
+        """The best case hearsay the resident heard: a record when it traces to evidence, else news as talk."""
         crime, vid, name = file.crime, villager.id, villager.name
-        records = [replace(r) for r in file.records.values() if r.kind in ("memory", "discovery") and r.holder == vid]
-        if self.engine.reputation.get(vid, self.id) >= self.config.trusted_at:
-            culprit = self.town.get(crime.culprit).traits
-            records = [recall_more(crime, r, culprit) if r.kind == "memory" else r for r in records]
-
-        def statement(text: str, sound: bool, source: str | None = None, who: str | None = None) -> Record:
-            return Record("", crime.id, "statement", self.place, self._clock(), text, vid, who=who, sound=sound,
-                          utterance=source, day=self.game.day if self.game else 0)
-
-        places, sound = claim(file, vid, self.engine.routine)
-        if places:
-            records.append(statement(f"{name} says they were {' then '.join(at(p) for p in places)} {when(crime.phase)}.",
-                                     sound))
-        for mate in self.town.villagers:
-            try:
-                word = await household_word(self.engine.jev, file, villager, mate)
-            except Exception:
-                log.exception("household word from %s failed", vid)
-                continue
-            if word:
-                records.append(statement(f"{name}: {word[0]}", word[1], who=mate.id))
         talk = []
         for m in await self.engine.recall_heard(vid, crime.text):
             if (heard := self.engine.facts.get(m.data.get("id"))) is None:
@@ -296,29 +349,35 @@ class Player:
                 continue
             if rooted[1] in EVIDENCE_ROOTS:
                 source = next((r.id for r in file.records.values() if r.utterance == root), None)
-                records.append(statement(f"{name} heard from {heard.speaker_name}: {heard.text}",
-                                         rooted[1] == "memory", source))
-                break
+                text = f"{name} heard from {heard.speaker_name}: {heard.text}"
+                return [self._statement(file, vid, text, rooted[1] == "memory", source)], []
             if rooted[1] == "news" and not talk:
                 talk.append(f"{heard.speaker_name}: {heard.text}")
-        return records, talk
+        return [], talk
 
-    async def _phrase(self, villager: Villager, file: CaseFile, records: list[Record], talk: list[str]) -> str:
-        """The resident's answer from the writer, or a plain line from the records when it fails or doesn't convey
-        them all."""
-        texts = [r.text for r in records]
+    async def _phrase(self, villager: Villager, file: CaseFile, question: str, thread: list[dict],
+                      records: list[Record], talk: list[str]) -> str:
+        """The resident's reply from the writer, or a plain line from the records when it fails, doesn't convey them
+        all or names someone they don't; with nothing known, that they wouldn't know."""
+        texts = [r.text for r in records] + talk
+        if not texts:
+            return UNKNOWN
         if self.writer is not None:
             try:
-                line = await self.writer.answer(
-                    villager, file.crime.text, texts + talk, neighbours(self.town, villager, file.crime.text),
-                )
-                if line and conveys(line, records):
+                known = neighbours(self.town, villager, file.crime.text)
+                line = await self.writer.reply(villager, file.crime.text, question, exchanges(thread), texts, known)
+                allowed = " ".join([villager.name, *texts, *known, *(t["line"] for t in thread)])
+                if line and conveys(line, records) and not self._strangers(line, allowed):
                     return line
             except Exception:
-                log.exception("answer for %s failed", villager.id)
-        if said := texts or talk[:1]:
-            return f"{villager.name} says: {' '.join(said)}"
-        return f"{villager.name} doesn't know anything about it."
+                log.exception("reply from %s failed", villager.id)
+        return f"{villager.name} says: {' '.join(texts)}"
+
+    def _strangers(self, line: str, allowed: str) -> bool:
+        """Whether the line names a resident by first name whom allowed does not."""
+        firsts = {v.name.split()[0] for v in self.town.villagers}
+        return any(re.search(rf"\b{re.escape(f)}\b", line) and not re.search(rf"\b{re.escape(f)}\b", allowed)
+                   for f in firsts)
 
     def pull(self) -> str | None:
         """Copy the open case's footage and logs at this place into the notebook; returns why it could not be done."""

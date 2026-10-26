@@ -177,6 +177,9 @@ def test_listen_starts_and_a_second_is_refused(game):
     assert again.status_code == 400 and again.json() == {"error": "You just looked around."}
 
 
+ASK = {"villager_id": "v1", "text": "Where were you last night?"}
+
+
 def open_case(game, culprit="v2"):
     crime = Crime("case-1", "steal", "bike", culprit, "v1", "library", 1, "night", 1422, "rival",
                   "Someone stole Marta Hale's bike at the library last night.")
@@ -187,16 +190,19 @@ def open_case(game, culprit="v2"):
 def test_interview_reports_problems_and_answers_through_the_feed(game):
     post = game.client.post
     post("/api/walk", json={"place": "library"})
-    none = post("/api/interview", json={"villager_id": "v1"})
+    none = post("/api/interview", json=ASK)
     assert (none.status_code, none.json()) == (400, {"error": "There's no open case."})
     open_case(game)
     with game.client.websocket_connect(WS) as ws:
-        assert post("/api/interview", json={"villager_id": "v1"}).json() == {"ok": True}
+        assert post("/api/interview", json=ASK).json() == {"ok": True}
         event = receive(ws)
         while event["kind"] != "interview":
             event = receive(ws)
-    assert (event["villager_id"], event["line"]) == ("v1", "Marta Hale doesn't know anything about it.")
-    away = post("/api/interview", json={"villager_id": "v2"})
+    assert (event["villager_id"], event["question"], event["line"]) == ("v1", ASK["text"], "I wouldn't know about that.")
+    thread = game.client.get("/api/villagers/v1").json()["thread"]
+    assert thread == [{"question": ASK["text"], "line": "I wouldn't know about that.", "records": []}]
+    assert post("/api/interview", json={"villager_id": "v1"}).json() == {"error": web.BAD_INTERVIEW}
+    away = post("/api/interview", json={**ASK, "villager_id": "v2"})
     assert (away.status_code, away.json()) == (400, {"error": "Bert Cole is at the gym. Walk there to talk to them."})
     bad = post("/api/interview", json={})
     assert (bad.status_code, bad.json()) == (400, {"error": web.BAD_INTERVIEW})
@@ -207,7 +213,7 @@ def test_a_guarded_resident_is_a_conflict(game):
     open_case(game)
     game.client.post("/api/walk", json={"place": "library"})
     game.engine.reputation.nudge("v1", game.player.id, -1)
-    refused = game.client.post("/api/interview", json={"villager_id": "v1"})
+    refused = game.client.post("/api/interview", json=ASK)
     assert refused.status_code == 409 and "Marta Hale" in refused.json()["error"]
 
 
@@ -453,7 +459,7 @@ def test_case_actions_refused_while_resting(game):
     spend_the_day(game)
     post = game.client.post
     for path, body in (
-        ("/api/interview", {"villager_id": "v1"}),
+        ("/api/interview", ASK),
         ("/api/pull", {}),
         ("/api/publish", {"culprit_id": "v1", "record_ids": ["r-1"]}),
     ):

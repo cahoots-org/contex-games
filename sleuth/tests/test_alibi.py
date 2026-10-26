@@ -1,7 +1,4 @@
-import pytest
-
-from sleuth.alibi import claim, household_word
-from sleuth.tests.helpers import StubJev
+from sleuth.alibi import claim, household_question, household_word
 from sleuth.tests.test_case import make_routine
 from sleuth.tests.test_cases import culprit_file, make_cases
 
@@ -22,51 +19,42 @@ def test_culprit_claim_omits_the_crime_place_and_is_unsound():
     assert claim(file, "v3", make_routine()) == (["library"], False)
 
 
-async def word(answer, speaker, about, phase="night"):
+def word(answer, speaker, about, phase="night"):
     cases, _, town = make_cases()
     file = culprit_file(cases, phase=phase)
-    jev = StubJev({"answer": answer})
-    return await household_word(jev, file, town.get(speaker), town.get(about)), jev
+    return household_word(file, town.get(speaker), town.get(about), answer), file
 
 
-@pytest.mark.asyncio
-async def test_household_cover_for_the_culprit_is_unsound():
-    result, jev = await word("cover", "v4", "v3")
-    assert result == ("Fay Okafor was home with me all night.", False)
-    assert set(jev.questions["answer"].criteria) == {"honest", "cover"}
-    assert jev.state["crime"] == "Someone stole Dana Reyes's bike on Elm Street last night."
-
-
-@pytest.mark.asyncio
-async def test_household_cover_for_an_innocent_is_sound():
-    result, _ = await word("cover", "v1", "v2")
-    assert result == ("Eli Reyes was home with me all night.", True)
-
-
-@pytest.mark.asyncio
-async def test_household_honest_answer_is_sound():
-    result, _ = await word("honest", "v4", "v3")
-    assert result == ("I was asleep. I can't say where Fay Okafor was.", True)
-
-
-@pytest.mark.asyncio
-async def test_no_household_word_by_day_or_for_people_living_alone():
-    assert (await word("cover", "v4", "v3", phase="evening"))[0] is None
-    assert (await word("cover", "v5", "v3"))[0] is None
-
-
-@pytest.mark.asyncio
-async def test_the_culprit_vouches_for_a_housemate_like_anyone():
-    result, _ = await word("cover", "v3", "v4")
-    assert result == ("Gus Okafor was home with me all night.", True)
-
-
-@pytest.mark.asyncio
-async def test_a_household_word_is_asked_once_per_case_speaker_and_housemate():
+def test_household_cover_for_the_culprit_is_unsound():
     cases, _, town = make_cases()
     file = culprit_file(cases)
-    jev = StubJev({"answer": "cover"})
-    first = await household_word(jev, file, town.get("v4"), town.get("v3"))
-    jev.answers, jev.state = {"answer": "honest"}, None
-    assert await household_word(jev, file, town.get("v4"), town.get("v3")) == first and jev.state is None
-    assert (await household_word(jev, file, town.get("v3"), town.get("v4")))[0].startswith("I was asleep")
+    question = household_question(file, town.get("v4"), town.get("v3"))
+    assert set(question.criteria) == {"honest", "cover"} and "Fay Okafor" in question.instructions
+    assert household_word(file, town.get("v4"), town.get("v3"), "cover") == ("Fay Okafor was home with me all night.", False)
+
+
+def test_household_cover_for_an_innocent_is_sound():
+    assert word("cover", "v1", "v2")[0] == ("Eli Reyes was home with me all night.", True)
+
+
+def test_household_honest_answer_is_sound():
+    assert word("honest", "v4", "v3")[0] == ("I was asleep. I can't say where Fay Okafor was.", True)
+
+
+def test_no_household_word_by_day_or_for_people_living_alone():
+    assert word("cover", "v4", "v3", phase="evening")[0] is None
+    assert word("cover", "v5", "v3")[0] is None
+
+
+def test_the_culprit_vouches_for_a_housemate_like_anyone():
+    assert word("cover", "v3", "v4")[0] == ("Gus Okafor was home with me all night.", True)
+
+
+def test_a_household_word_is_asked_once_per_case_speaker_and_housemate():
+    cases, _, town = make_cases()
+    file = culprit_file(cases)
+    gus, fay = town.get("v4"), town.get("v3")
+    assert household_word(file, gus, fay) is None
+    first = household_word(file, gus, fay, "cover")
+    assert household_word(file, gus, fay, "honest") == first and household_question(file, gus, fay) is None
+    assert household_word(file, fay, gus, "honest")[0].startswith("I was asleep")

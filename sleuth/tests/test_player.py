@@ -11,10 +11,9 @@ from sleuth.contex_client import Match
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
 from sleuth.actions import SPEAK
-from sleuth.player import ALREADY_LISTENING, GUIDED_WRONG, Player, Refusal, conveys
+from sleuth.player import ALREADY_LISTENING, GUIDED_WRONG, MAX_QUESTION, MESSAGES_PER_PART, Player, Refusal, conveys
 from sleuth.players import Players
 from sleuth.config import Config
-from sleuth.alibi import claim
 from sleuth.case import Record
 from sleuth.cases import CaseFile
 from sleuth.feed import Feed
@@ -224,17 +223,23 @@ MEMORY = "Around 11:40pm, on Elm Street, someone tall in a grey hoodie walked of
 SEEN = "I saw someone tall in a grey hoodie take it."
 
 
-def interviewing(answer="honest"):
+def interviewing():
     """A podcaster on Elm Street, where everyone is, with the shared case open: Fay (v3) stole Dana's (v1) bike."""
     cases, _, town = make_cases()
     file = culprit_file(cases)
     engine = FakeEngine()
-    engine.cases, engine.routine, engine.jev = cases, cases.routine, StubJev({"answer": answer})
+    engine.cases, engine.routine, engine.jev = cases, cases.routine, StubJev({"kind": "none"})
     lineage, writer = Lineage(), StubWriter()
     feed = Feed(lineage, town, out=None)
     player = Player(engine, town, lineage, cases.ids, feed, Config(), writer, player_id=PID)
     player.place = "elm street"
     return player, file, engine, writer
+
+
+async def ask(player, vid, kind, question="?", **answers):
+    """Ask vid a question that Jev routes to kind, with answers for who, when and household words."""
+    player.engine.jev.answers = {"kind": kind, "when": "night", **answers}
+    return await player.interview(vid, question)
 
 
 def memory_of(file, ids, holder="v2", utterance="u-1"):
@@ -244,58 +249,44 @@ def memory_of(file, ids, holder="v2", utterance="u-1"):
     return m
 
 
-@pytest.mark.asyncio
-async def test_a_second_interview_with_nothing_new_repeats_the_answer_without_the_writer():
-    player, file, engine, writer = interviewing()
-    memory_of(file, player.ids)
-    writer.line = SEEN
-    assert await player.interview("v2") is None
-    assert await player.interview("v2") is None
-    assert len(writer.calls) == 1
-    assert [e.data["line"] for e in player.feed.recent if e.kind == "interview"] == [SEEN] * 2
-
-
-@pytest.mark.asyncio
-async def test_one_interview_per_resident_per_part_of_the_day():
-    player, file, engine, writer = interviewing()
-    player.game = Game()
-    assert await player.interview("v2") is None
-    refused = await player.interview("v2")
-    assert isinstance(refused, Refusal) and refused == "Eli Reyes has nothing more to say until later."
-    assert await player.interview("v1") is None
-    player.game.tick()
-    assert await player.interview("v2") is None
-
-
-@pytest.mark.asyncio
-async def test_statements_carry_the_game_day():
-    player, *_ = interviewing()
-    player.game = Game()
-    player.game.day = 3
-    await player.interview("v2")
-    assert {r.day for r in notebook(player)} == {3}
-
-
 def notebook(player, kind="statement"):
     return [r for r in player.notebook.values() if r.kind == kind]
 
 
+def replies(player):
+    return [e.data["line"] for e in player.feed.recent if e.kind == "interview"]
+
+
 @pytest.mark.asyncio
-async def test_interview_gives_a_witness_their_memory_record():
+async def test_jev_routes_with_the_question_and_recent_thread_once_per_message():
+    player, file, engine, writer = interviewing()
+    memory_of(file, player.ids)
+    writer.line = SEEN
+    assert await ask(player, "v2", "what_did_you_see", "Hi, what did you see?") is None
+    assert await ask(player, "v2", "what_did_you_see", "Anything else?") is None
+    assert engine.jev.calls == 2 and len(writer.calls) == 2
+    assert engine.jev.state["podcaster_asks"] == "Anything else?"
+    assert engine.jev.state["conversation"] == [{"podcaster": "Hi, what did you see?", "resident": SEEN}]
+    assert {"kind", "who", "when"} <= set(engine.jev.questions) and "none" in engine.jev.questions["kind"].criteria
+    assert writer.calls[1][2:4] == ("Anything else?", [{"podcaster": "Hi, what did you see?", "resident": SEEN}])
+    assert [t["question"] for t in player.thread_json("v2")] == ["Hi, what did you see?", "Anything else?"]
+
+
+@pytest.mark.asyncio
+async def test_what_did_you_see_gives_a_witness_their_memory_record():
     player, file, engine, writer = interviewing()
     memory = memory_of(file, player.ids)
     writer.line = SEEN
-    assert await player.interview("v2") is None
+    assert await ask(player, "v2", "what_did_you_see") is None
     assert player.notebook[memory.id] == memory and player.notebook[memory.id] is not memory
-    [(vid, topic, heard, _)] = writer.calls
-    assert (vid, topic) == ("v2", file.crime.text) and MEMORY in heard
+    assert writer.calls[0][4] == [MEMORY]
     [event] = [e for e in player.feed.recent if e.kind == "interview"]
-    assert (event.player, event.data["villager_id"], event.data["line"]) == (PID, "v2", writer.line)
-    assert memory.id in [r["id"] for r in event.data["records"]]
+    assert (event.player, event.data["villager_id"], event.data["question"], event.data["line"]) == (PID, "v2", "?", SEEN)
+    assert [r["id"] for r in event.data["records"]] == [memory.id]
     assert all("sound" not in r for r in event.data["records"])
-    assert await player.interview("v2") is None
-    assert MEMORY in writer.calls[-1][2] and len(player.notebook) == 2
-    assert player.feed.recent[-1].data["records"] == []
+    await ask(player, "v2", "what_did_you_see")
+    assert len(player.notebook) == 1 and player.feed.recent[-1].data["records"] == []
+    assert [t["records"] for t in player.thread_json("v2")] == [event.data["records"], []]
 
 
 @pytest.mark.asyncio
@@ -303,53 +294,145 @@ async def test_a_trusting_witness_recalls_one_more_of_the_culprit_s_traits():
     player, file, engine, _ = interviewing()
     memory = memory_of(file, player.ids)
     engine.reputation.nudge("v2", PID, player.config.trusted_at)
-    await player.interview("v2")
+    await ask(player, "v2", "what_did_you_see")
     [fuller] = notebook(player, "memory")
     assert fuller.id not in (memory.id, "") and fuller.sound and fuller.holder == "v2"
     hair = player.town.get("v3").traits["hair"]
     assert fuller.traits == {"height": "tall", "hair": hair, "coat": "grey hoodie"}
-    assert fuller.text == f"Around 11:40pm, on Elm Street, someone tall, {hair}, in a grey hoodie walked off with something."
 
 
 @pytest.mark.asyncio
-async def test_interview_records_an_alibi_claim_with_soundness():
+async def test_where_were_you_at_the_crime_records_the_claim_with_soundness():
     player, file, *_ = interviewing()
+    player.game = Game()
+    player.game.day = 3
     file.whereabouts = {"v2": ["elm street", "bar"]}
     file.alibi = ["gym"]
-    await player.interview("v2")
-    await player.interview("v3")
-    claims = {r.holder: r for r in notebook(player) if " says they were " in r.text}
+    await ask(player, "v2", "where_were_you")
+    await ask(player, "v3", "where_were_you")
+    claims = {r.holder: r for r in notebook(player)}
     assert claims["v2"].text == "Eli Reyes says they were on Elm Street then at the bar last night."
     assert claims["v3"].text == "Fay Okafor says they were at the gym last night."
-    assert (claims["v2"].sound, claims["v3"].sound) == (True, False)
-    assert claim(file, "v3", player.engine.routine)[1] is False
+    assert (claims["v2"].sound, claims["v3"].sound) == (True, False) and {r.day for r in claims.values()} == {3}
 
 
 @pytest.mark.asyncio
-async def test_at_a_night_crime_every_resident_with_housemates_gives_housemate_lines_culprit_included():
-    player, file, *_ = interviewing(answer="cover")
-    for v in player.town.villagers:
-        player.place = player.town.place_of(v.id)
-        await player.interview(v.id)
-    speakers = {r.holder for r in notebook(player) if r.text.startswith(f"{player.town.get(r.holder).name}: ")}
-    assert speakers == {v.id for v in player.town.villagers}
-    [word] = [r for r in notebook(player) if r.holder == "v4"]
-    assert (word.text, word.sound) == ("Gus Okafor: Fay Okafor was home with me all night.", False)
+async def test_where_were_you_at_another_part_of_the_day_is_where_they_usually_are():
+    player, file, engine, _ = interviewing()
+    engine.routine = StubRoutine({"v2": {"morning": "library"}})
+    await ask(player, "v2", "where_were_you", when="morning")
+    [said] = notebook(player)
+    assert (said.text, said.sound) == ("Eli Reyes says they're usually at the library in the morning.", True)
 
 
 @pytest.mark.asyncio
-async def test_a_new_case_records_the_same_words_again_and_a_reinterview_still_knows_them():
+async def test_where_was_a_housemate_is_their_household_word_from_the_same_jev_call():
+    player, file, engine, _ = interviewing()
+    await ask(player, "v4", "where_was", who="v3", **{"word:v3": "cover"})
+    assert engine.jev.calls == 1 and "word:v3" in engine.jev.questions
+    [word] = notebook(player)
+    assert (word.text, word.sound, word.who) == ("Gus Okafor: Fay Okafor was home with me all night.", False, "v3")
+    await ask(player, "v4", "where_was", who="v3")
+    assert "word:v3" not in engine.jev.questions and len(notebook(player)) == 1
+
+
+@pytest.mark.asyncio
+async def test_where_was_someone_else_is_where_the_log_put_them_together_never_the_crime_place():
+    player, file, *_ = interviewing()
+    file.whereabouts = {"v2": ["elm street", "bar"], "v5": ["elm street", "bar"], "v6": ["elm street"]}
+    await ask(player, "v2", "where_was", who="v5")
+    [seen] = notebook(player)
+    assert (seen.text, seen.sound) == ("Eli Reyes says they saw Hal Burke at the bar last night.", True)
+    await ask(player, "v2", "where_was", who="v6")
+    assert len(notebook(player)) == 1 and replies(player)[-1] == "I wouldn't know about that."
+
+
+@pytest.mark.asyncio
+async def test_who_had_reason_names_ties_who_feud_with_the_victim():
+    player, file, *_ = interviewing()
+    player.place = "oak street"
+    await ask(player, "v6", "who_had_reason")
+    [said] = notebook(player)
+    assert (said.text, said.who) == ("Ivy Burke says Hal Burke has never got on with Dana Reyes.", "v5")
+    await ask(player, "v5", "who_had_reason")
+    assert replies(player)[-1] == "I wouldn't know about that."
+
+
+@pytest.mark.asyncio
+async def test_what_do_you_think_of_someone_is_phrased_from_the_tie_but_not_recorded():
+    player, file, engine, writer = interviewing()
+    player.place = "oak street"
+    await ask(player, "v5", "what_do_you_think_of", who="v1")
+    assert player.notebook == {}
+    assert writer.calls[0][4] == ["Dana Reyes is Hal Burke's rival, and they are on hostile terms."]
+    await ask(player, "v5", "what_do_you_think_of", who="v8")
+    assert replies(player)[-1] == "I wouldn't know about that." and len(writer.calls) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["none", "what_did_you_see", "nonsense"])
+async def test_none_or_nothing_known_is_an_honest_i_wouldnt_know_without_the_writer(kind):
+    player, file, engine, writer = interviewing()
+    assert await ask(player, "v2", kind) is None
+    assert replies(player) == ["I wouldn't know about that."] and writer.calls == [] and player.notebook == {}
+    assert player.thread_json("v2") == [{"question": "?", "line": "I wouldn't know about that.", "records": []}]
+
+
+@pytest.mark.asyncio
+async def test_a_failed_route_is_an_honest_i_wouldnt_know():
+    player, file, engine, writer = interviewing()
+
+    async def down(**_):
+        raise RuntimeError("jev down")
+
+    engine.jev = SimpleNamespace(system_one=down)
+    assert await player.interview("v2", "Hello?") is None
+    assert replies(player) == ["I wouldn't know about that."]
+
+
+@pytest.mark.asyncio
+async def test_a_few_messages_per_resident_per_part_of_the_day_then_lets_talk_later():
+    player, file, engine, writer = interviewing()
+    player.game = Game()
+    for _ in range(MESSAGES_PER_PART):
+        assert await ask(player, "v2", "none") is None
+    refused = await ask(player, "v2", "none")
+    assert isinstance(refused, Refusal) and refused == "Eli Reyes: Let's talk later."
+    assert engine.jev.calls == MESSAGES_PER_PART
+    assert await ask(player, "v1", "none") is None
+    player.game.tick()
+    assert await ask(player, "v2", "none") is None
+
+
+@pytest.mark.asyncio
+async def test_a_question_must_be_typed_and_short():
+    player, *_ = interviewing()
+    assert await player.interview("v2", "   ") == "Type a question."
+    assert await player.interview("v2", "x" * (MAX_QUESTION + 1)) == f"Keep your question under {MAX_QUESTION} characters."
+    assert player.threads == {}
+
+
+@pytest.mark.asyncio
+async def test_threads_and_notebook_round_trip_with_the_run():
+    player, file, engine, writer = interviewing()
+    memory_of(file, player.ids)
+    writer.line = SEEN
+    await ask(player, "v2", "what_did_you_see", "What did you see?")
+    fresh = Player(engine, player.town, player.lineage, Ids(), player.feed, player.config, writer, player_id=PID)
+    fresh.restore(json.loads(json.dumps(player.to_state())))
+    assert fresh.thread_json("v2") == player.thread_json("v2") and fresh.thread_json("v2")[0]["records"]
+
+
+@pytest.mark.asyncio
+async def test_a_new_case_records_the_same_words_again():
     player, file, engine, writer = interviewing()
     file.whereabouts = {"v2": ["elm street"]}
-    await player.interview("v2")
+    await ask(player, "v2", "where_were_you")
     file.state = "closed"
     second = CaseFile(replace(file.crime, id="case-2"), {}, "open", whereabouts={"v2": ["elm street"]})
     engine.cases.files["case-2"] = second
-    await player.interview("v2")
-    assert {r.case for r in notebook(player)} == {"case-1", "case-2"} and len(notebook(player)) == 4
-    await player.interview("v2")
-    assert player.feed.recent[-1].data["records"] == []
-    assert "Eli Reyes says they were on Elm Street last night." in writer.calls[-1][2]
+    await ask(player, "v2", "where_were_you")
+    assert {r.case for r in notebook(player)} == {"case-1", "case-2"} and len(notebook(player)) == 2
 
 
 def hearsay(player, engine, root_kind, file):
@@ -364,22 +447,22 @@ def hearsay(player, engine, root_kind, file):
 
 
 @pytest.mark.asyncio
-async def test_interview_hearsay_traced_to_a_memory_is_sound_and_names_the_teller():
+async def test_who_told_you_traced_to_a_memory_is_sound_and_names_the_teller():
     player, file, engine, _ = interviewing()
     memory = hearsay(player, engine, "memory", file)
-    await player.interview("v6")
-    [said] = [r for r in notebook(player) if " heard from " in r.text]
+    await ask(player, "v6", "who_told_you")
+    [said] = notebook(player)
     assert said.text == "Ivy Burke heard from Kit Tran: someone tall took a bike"
     assert (said.sound, said.utterance, said.holder) == (True, memory.id, "v6")
     assert engine.recalls == [("v6", file.crime.text)]
 
 
 @pytest.mark.asyncio
-async def test_interview_hearsay_from_a_cover_story_is_unsound():
+async def test_who_told_you_from_a_cover_story_is_unsound():
     player, file, engine, _ = interviewing()
     hearsay(player, engine, "cover", file)
-    await player.interview("v6")
-    [said] = [r for r in notebook(player) if " heard from " in r.text]
+    await ask(player, "v6", "who_told_you")
+    [said] = notebook(player)
     assert said.sound is False
 
 
@@ -387,17 +470,17 @@ async def test_interview_hearsay_from_a_cover_story_is_unsound():
 async def test_news_hearsay_is_phrased_but_not_recorded():
     player, file, engine, writer = interviewing()
     hearsay(player, engine, "news", file)
-    await player.interview("v6")
-    assert not [r for r in notebook(player) if " heard from " in r.text]
-    assert "Kit Tran: someone tall took a bike" in writer.calls[0][2]
+    await ask(player, "v6", "who_told_you")
+    assert notebook(player) == [] and writer.calls[0][4] == ["Kit Tran: someone tall took a bike"]
 
 
 @pytest.mark.asyncio
-async def test_interview_never_hands_the_writer_the_culprits_name_from_a_witness():
+async def test_the_writer_never_gets_the_culprits_name_from_a_witness():
     player, file, engine, writer = interviewing()
     memory_of(file, player.ids)
     file.whereabouts = {"v2": ["elm street"]}
-    await player.interview("v2")
+    await ask(player, "v2", "what_did_you_see")
+    await ask(player, "v2", "where_were_you")
     assert "Fay" not in json.dumps(writer.calls) and "Okafor" not in json.dumps(writer.calls)
 
 
@@ -405,66 +488,53 @@ async def test_interview_never_hands_the_writer_the_culprits_name_from_a_witness
 async def test_guarded_resident_turns_the_podcaster_away():
     player, file, engine, writer = interviewing()
     engine.reputation.nudge("v2", PID, player.config.guarded_at - 0.1)
-    refused = await player.interview("v2")
+    refused = await ask(player, "v2", "what_did_you_see")
     assert isinstance(refused, Refusal) and "Eli Reyes" in refused
-    assert writer.calls == [] and engine.pressed == [] and player.notebook == {}
+    assert writer.calls == [] and engine.pressed == [] and player.notebook == {} and engine.jev.calls == 0
 
 
 @pytest.mark.asyncio
 async def test_interview_requires_an_open_case_and_the_same_place():
     player, file, engine, writer = interviewing()
     player.place = "gym"
-    assert await player.interview("v2") == "Eli Reyes is on Elm Street. Walk there to talk to them."
-    assert await player.interview("v99") == "No one in town has that id."
+    assert await ask(player, "v2", "none") == "Eli Reyes is on Elm Street. Walk there to talk to them."
+    assert await ask(player, "v99", "none") == "No one in town has that id."
     file.state = "closed"
-    assert await player.interview("v2") == "There's no open case."
-    assert writer.calls == [] and engine.recalls == []
+    assert await ask(player, "v2", "none") == "There's no open case."
+    assert writer.calls == [] and engine.jev.calls == 0
 
 
 @pytest.mark.asyncio
 async def test_interview_presses_the_culprit():
     player, file, engine, _ = interviewing()
-    await player.interview("v2")
+    await ask(player, "v2", "none")
     assert engine.pressed == [file]
 
 
 @pytest.mark.asyncio
-async def test_interview_falls_back_to_the_records_text_when_phrasing_fails():
+async def test_a_reply_falls_back_to_the_records_text_when_phrasing_fails():
     player, file, _, _ = interviewing()
     memory_of(file, player.ids)
 
     async def down(*_):
         raise RuntimeError("haiku down")
 
-    player.writer = SimpleNamespace(answer=down)
-    await player.interview("v2")
-    line = player.feed.recent[-1].data["line"]
-    assert line.startswith(f"Eli Reyes says: {MEMORY}") and all(r.text in line for r in player.notebook.values())
-    file.crime.phase, player.place = "evening", "oak street"
-    await player.interview("v6")
-    assert player.feed.recent[-1].data["line"] == "Ivy Burke doesn't know anything about it."
+    player.writer = SimpleNamespace(reply=down)
+    await ask(player, "v2", "what_did_you_see")
+    assert replies(player)[-1] == f"Eli Reyes says: {MEMORY}"
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reply", ["I didn’t see anything, someone tall in a grey hoodie or not.",
-                                   "I saw someone tall."])
-async def test_an_answer_that_denies_or_drops_its_records_falls_back_to_every_record(reply):
+                                   "I saw someone tall.", "It was Fay Okafor, someone tall in a grey hoodie."])
+async def test_a_reply_that_denies_drops_or_names_beyond_its_records_falls_back(reply):
     player, file, _, writer = interviewing()
     memory_of(file, player.ids)
-    file.whereabouts = {"v2": ["elm street"]}
     writer.line = reply
-    await player.interview("v2")
-    line = player.feed.recent[-1].data["line"]
-    assert line.startswith(f"Eli Reyes says: {MEMORY} ")
-    assert all(r.text in line for r in player.notebook.values())
+    await ask(player, "v2", "what_did_you_see", "Was it Fay?")
+    assert replies(player)[-1] == f"Eli Reyes says: {MEMORY}"
 
 
-@pytest.mark.asyncio
-async def test_an_answer_with_no_records_may_say_it_knows_nothing():
-    player, file, _, writer = interviewing()
-    file.crime.phase, player.place = "evening", "oak street"
-    await player.interview("v6")
-    assert player.feed.recent[-1].data["line"] == writer.line
 
 
 @pytest.mark.asyncio
@@ -472,10 +542,11 @@ async def test_notebook_round_trips():
     player, file, *_ = interviewing()
     memory_of(file, player.ids)
     file.whereabouts = {"v2": ["elm street"]}
-    await player.interview("v2")
+    await ask(player, "v2", "what_did_you_see")
+    await ask(player, "v2", "where_were_you")
     fresh = run_of(player, PID)
     fresh.restore(json.loads(json.dumps(player.to_state())))
-    assert fresh.notebook == player.notebook and len(fresh.notebook) == 3
+    assert fresh.notebook == player.notebook and len(fresh.notebook) == 2
 
 
 def place_record(file, kind, place, rid):
@@ -648,9 +719,9 @@ def guides(player):
     return [e.line for e in player.feed.recent if e.kind == "guide"]
 
 
-def guided(answer="honest"):
+def guided():
     """A new podcaster on Elm Street whose guided case is open: Fay (v3) stole Dana's (v1) bike there."""
-    player, file, engine, writer = interviewing(answer)
+    player, file, engine, writer = interviewing()
     file.crime.owner = PID
     player.game = Game()
     opened = []
@@ -670,8 +741,8 @@ async def test_guide_walks_a_new_player_through_interview_pull_and_publish():
     memory = memory_of(file, player.ids)
     place_record(file, "clip", "elm street", "r-11")
     await player.start()
-    await player.interview("v2")
-    await player.interview("v2")
+    await ask(player, "v2", "what_did_you_see")
+    await ask(player, "v2", "what_did_you_see")
     assert player.pull() is None
     assert player.pull() is None
     assert await player.publish("v3", [memory.id]) is None
@@ -703,7 +774,7 @@ async def test_no_guide_without_a_guided_case():
 
     engine.cases.open_guided = nothing
     await player.start()
-    await player.interview("v2")
+    await ask(player, "v2", "none")
     assert guides(player) == [] and player.guide_step == 0
 
 
@@ -788,6 +859,6 @@ async def test_interviewing_the_victim_gives_what_they_found():
                    "Around 11:58pm, Dana Reyes found the bike missing on Elm Street.", "v1")
     file.records[found.id] = found
     engine.reputation.nudge_all(PID, 1.0, ["v1"])
-    assert await player.interview("v1") is None
+    assert await ask(player, "v1", "what_did_you_see") is None
     assert player.notebook[found.id] == found
-    assert found.text in writer.calls[-1][2]
+    assert found.text in writer.calls[-1][4]

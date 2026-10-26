@@ -111,11 +111,11 @@ class Feed:
 
         return seen
 
-    def on_interview(self, villager_id: str, name: str, line: str, records: list[dict], *, case_id: str,
-                     player: str) -> None:
-        """The resident's answer to the podcaster, and the records it added to their notebook."""
-        self.emit("interview", f'{name}: "{line}"', player=player, villager_id=villager_id, name=name, line=line,
-                  records=records, case_id=case_id)
+    def on_interview(self, villager_id: str, name: str, question: str, line: str, records: list[dict], *,
+                     case_id: str, player: str) -> None:
+        """The podcaster's question to a resident, the reply, and the records it added to their notebook."""
+        self.emit("interview", f'{name}: "{line}"', player=player, villager_id=villager_id, name=name,
+                  question=question, line=line, records=records, case_id=case_id)
 
     def on_case(self, case: dict, player: str | None = None) -> None:
         """A case opened or changed in the neighborhood app."""

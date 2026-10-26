@@ -17,23 +17,35 @@ def claim(file: CaseFile, vid: str, routine) -> tuple[list[str], bool]:
     return file.alibi or [routine.place(vid, file.crime.phase)], False
 
 
-async def household_word(jev, file: CaseFile, speaker: Villager, about: Villager) -> tuple[str, bool] | None:
-    """A housemate's word on where about was on the night of the crime, and whether it is sound; asked once per case."""
-    crime = file.crime
-    if crime.phase != "night" or speaker.id == about.id or speaker.household != about.household:
+def _vouches(file: CaseFile, speaker: Villager, about: Villager) -> bool:
+    """Whether speaker can vouch for about: housemates, on the night of a crime."""
+    return file.crime.phase == "night" and speaker.id != about.id and speaker.household == about.household
+
+
+def household_question(file: CaseFile, speaker: Villager, about: Villager) -> Choice | None:
+    """Jev's question for speaker's word on where about was that night; None when there is none or it was answered."""
+    if not _vouches(file, speaker, about) or f"{speaker.id}:{about.id}" in file.words:
+        return None
+    tie = speaker.relationships.get(about.id, "housemate")
+    feeling = warmth_words(speaker.warmth.get(about.id, 0.0))
+    return Choice(instructions=f"Asked where {about.name}, their {tie} whom they feel {feeling} toward, was that "
+                               f"night, how does {speaker.name} answer?", criteria=ANSWERS)
+
+
+def household_word(file: CaseFile, speaker: Villager, about: Villager, answer: str | None = None) -> tuple[str, bool] | None:
+    """A housemate's word on where about was on the night of the crime, and whether it is sound.
+
+    It comes from Jev's answer to household_question and is kept for the case; None when there is none.
+    """
+    if not _vouches(file, speaker, about):
         return None
     key = f"{speaker.id}:{about.id}"
     if key in file.words:
         return tuple(file.words[key])
-    state = {"speaker": {"name": speaker.name, "personality": speaker.personality},
-             "housemate": {"name": about.name, "tie": speaker.relationships.get(about.id, "housemate"),
-                           "feeling": warmth_words(speaker.warmth.get(about.id, 0.0))},
-             "crime": crime.text}
-    question = Choice(instructions=f"Asked where {about.name} was that night, how does {speaker.name} answer?",
-                      criteria=ANSWERS)
-    resp = await jev.system_one(state=state, questions={"answer": question})
-    if resp.choices["answer"].choice == "cover":
-        word = f"{about.name} was home with me all night.", about.id != crime.culprit
+    if answer is None:
+        return None
+    if answer == "cover":
+        word = f"{about.name} was home with me all night.", about.id != file.crime.culprit
     else:
         word = f"I was asleep. I can't say where {about.name} was.", True
     file.words[key] = list(word)

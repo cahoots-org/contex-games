@@ -85,8 +85,10 @@ class StubJev:
         self.scores = scores
         self.questions = {}
         self.state = None
+        self.calls = 0
 
     async def system_one(self, state, questions):
+        self.calls += 1
         self.state = state
         self.questions = questions
         choices = {
@@ -166,14 +168,14 @@ class FakeEngine:
 
 
 class StubWriter:
-    """Records what each answer was given, and answers with line."""
+    """Records what each reply was given, and replies with line."""
 
     def __init__(self, line="Can't say I know much."):
         self.line = line
         self.calls = []
 
-    async def answer(self, villager, topic, heard, known=()):
-        self.calls.append((villager.id, topic, list(heard), list(known)))
+    async def reply(self, villager, case, question, thread, facts, known=()):
+        self.calls.append((villager.id, case, question, list(thread), list(facts), list(known)))
         return self.line
 
 

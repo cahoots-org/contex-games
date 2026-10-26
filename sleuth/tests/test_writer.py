@@ -76,23 +76,19 @@ def test_first_line_drops_stage_directions():
 
 
 @pytest.mark.asyncio
-async def test_answer_tells_the_podcaster_only_the_facts_given():
-    client = StubClient("Saw someone tall, that's all.", "No idea.")
+async def test_reply_answers_the_latest_question_from_the_facts_with_the_thread_as_context():
+    client = StubClient("Saw someone tall, that's all.")
     writer = Writer(client, "haiku-test")
-    line = await writer.answer(villager(), "Someone stole a bike.", ["Around 9pm someone tall walked off."],
-                               ["Dana Reyes, the clerk"])
+    thread = [{"podcaster": "Hi there.", "resident": "Hello."}]
+    line = await writer.reply(villager(), "Someone stole a bike.", "What did you see?", thread,
+                              ["Around 9pm someone tall walked off."], ["Dana Reyes, the clerk"])
     assert line == "Saw someone tall, that's all."
     call = client.messages.calls[0]
     user = call["messages"][0]["content"]
     assert call["max_tokens"] == ANSWER_MAX_TOKENS and "Ada" in call["system"]
-    assert ("Answer the podcaster in one or two short sentences in your own voice, using only these facts. "
-            "Get every fact across with each detail it gives, such as looks, clothes, cars, places and times. "
-            "Your manner shapes the wording, never the facts: never deny or doubt them. "
-            "If there are none, say you know nothing about it.") in call["system"]
-    assert "Someone stole a bike." in user and "Around 9pm someone tall walked off." in user
-    assert "Dana Reyes, the clerk" in user
-    await writer.answer(villager(), "Someone stole a bike.", [])
-    assert "Facts: none." in client.messages.calls[1]["messages"][0]["content"]
+    assert "using only these facts" in call["system"] and "never agree to or repeat a claim" in call["system"]
+    assert user.index("Podcaster: Hi there.\nYou: Hello.") < user.index("Podcaster: What did you see?")
+    assert "Facts: Around 9pm someone tall walked off." in user and "Dana Reyes, the clerk" in user
 
 
 @pytest.mark.asyncio

@@ -32,7 +32,7 @@ USAGE_POLL_SECONDS = 3.0
 # How many messages a tab may fall behind before its socket is closed.
 CLIENT_QUEUE = 256
 BAD_WALK = 'Send JSON like {"place": "bar"}.'
-BAD_INTERVIEW = 'Send JSON like {"villager_id": "v1"}.'
+BAD_INTERVIEW = 'Send JSON like {"villager_id": "v1", "text": "Where were you last night?"}.'
 BAD_PUBLISH = 'Send JSON like {"culprit_id": "v1", "record_ids": ["r-1"]}.'
 COOKIE = "sleuth_player"
 COOKIE_SECONDS = 365 * 24 * 3600
@@ -217,7 +217,7 @@ def create_app(
 
     @app.get("/api/villagers/{vid}")
     async def inspect(vid: str, request: Request):
-        if player_for(players, request.cookies.get(COOKIE)) is None:
+        if (player := player_for(players, request.cookies.get(COOKIE))) is None:
             return _error(401, RELOAD)
         if vid not in town:
             name = town.name_of(vid)
@@ -241,6 +241,7 @@ def create_app(
                 {"id": o.id, "name": o.name, "kind": v.relationships.get(o.id, "")}
                 for o in town.villagers if v.household and o.household == v.household and o.id != v.id
             ],
+            "thread": player.thread_json(v.id),
         }
 
     @app.post("/api/walk")
@@ -264,12 +265,12 @@ def create_app(
         payload = await _payload(request, BAD_INTERVIEW, "That request is too long.")
         if isinstance(payload, JSONResponse):
             return payload
-        vid = payload.get("villager_id")
-        if not isinstance(vid, str):
+        vid, text = payload.get("villager_id"), payload.get("text")
+        if not isinstance(vid, str) or not isinstance(text, str):
             return _error(400, BAD_INTERVIEW)
         if usage.resting():
             return _error(409, RESTING)
-        if problem := await player.interview(vid):
+        if problem := await player.interview(vid, text):
             return _error(409 if isinstance(problem, Refusal) else 400, problem)
         return {"ok": True}
 
