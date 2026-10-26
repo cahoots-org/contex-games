@@ -16,8 +16,8 @@ from sleuth.effects import act
 from sleuth.facts import Facts
 from sleuth.game import PHASES, Game
 from sleuth.lineage import Ids, Lineage
-from sleuth.mind import Mind, group_project, mind_project
-from sleuth.models import Group, Utterance, Villager
+from sleuth.mind import Mind, mind_project
+from sleuth.models import Utterance, Villager
 from sleuth.players import Players
 from sleuth.reputation import Reputation
 from sleuth.routine import Routine
@@ -159,7 +159,6 @@ class Engine:
                 self.hear_directly(vid, Match(f"utt:{utterance.id}", data))
         if listeners and not heard:
             raise next(r for r in results if isinstance(r, Exception))
-        self.feed.on_delivery(utterance, heard)
         if utterance.audience == "room" and self.cases is not None:
             if rooted := self.cases.root_kind(self.lineage.root(utterance.id)):
                 self.feed.on_post(utterance, rooted[0].crime.id, player=rooted[0].crime.owner)
@@ -196,10 +195,6 @@ class Engine:
         if last is None:
             return time.time()
         return time.time() + last + cooldown - time.monotonic()
-
-    async def publish_group(self, group: Group) -> None:
-        data = {"id": group.id, "name": group.name, "creed": group.creed, "founder": group.founder}
-        await self.contex.publish(group_project(self.config.session, group.id), f"group:{group.id}", data)
 
     async def _listen(self, mind: Mind, wake: asyncio.Event) -> None:
         """Own the push stream for one mind; a push only sets the wake event."""
@@ -271,8 +266,6 @@ class Engine:
             villager=v,
             place=place,
             present=self.town.present(place, exclude=v.id),
-            member_groups=self.town.member_groups(v.id),
-            visible_groups=self.town.visible_groups(v.id),
             new=new,
             recent=stale + [m for m in mind.matches if m.data_key not in keys | stale_keys],
             ask_gossip=v.id not in self._gossip,
@@ -285,7 +278,6 @@ class Engine:
             await act(
                 decision, v, town=self.town, writer=self.writer, hub=self,
                 lineage=self.lineage, ids=self.ids, facts=self.facts,
-                inspiration=[m.data.get("text", "") for m in new],
                 share_chance=self.share_chance(v.id, decision.source) if decision.action == MOVE else 0.0,
             )
             if decision.action == MOVE:

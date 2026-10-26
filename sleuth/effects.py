@@ -1,16 +1,15 @@
 """Turn a villager's decision into town changes and speech."""
 
 import random
-from collections.abc import Sequence
 from typing import Protocol
 
 from sleuth.actions import (
-    ALIBI, BLAME, CONFRONT, DENY, FOUND_GROUP, IGNORE, JOIN_GROUP, LEAVE_GROUP, MOVE, PREACH, RETELL, SPEAK,
+    ALIBI, BLAME, CONFRONT, DENY, IGNORE, MOVE, RETELL, SPEAK,
 )
 from sleuth.decide import Decision
 from sleuth.facts import Facts
 from sleuth.lineage import Ids, Lineage
-from sleuth.models import Group, Utterance, Villager
+from sleuth.models import Utterance, Villager
 from sleuth.town import Town
 from sleuth.writer import Writer
 
@@ -21,8 +20,6 @@ ONE = "one"
 
 class Hub(Protocol):
     async def deliver(self, utterance: Utterance, listener_ids: list[str], addressed: bool = False) -> None: ...
-
-    async def publish_group(self, group: Group) -> None: ...
 
     def cover_story(self, vid: str, action: str) -> str | None: ...
 
@@ -39,7 +36,6 @@ async def act(
     lineage: Lineage,
     ids: Ids,
     facts: Facts,
-    inspiration: Sequence[str] = (),
     share_chance: float = 0.0,
 ) -> None:
     """Apply the decision to the town and deliver any speech it produces.
@@ -84,7 +80,6 @@ async def act(
             shared = Decision(RETELL, decision.source, random.choice(arrived), decision.style)
             await act(
                 shared, villager, town=town, writer=writer, hub=hub, lineage=lineage, ids=ids, facts=facts,
-                inspiration=inspiration,
             )
     elif action in DIRECT:
         if decision.target in others():
@@ -97,18 +92,3 @@ async def act(
     elif action == SPEAK:
         text = await writer.say(villager, decision, source_text, place)
         await say(text, others(), ROOM)
-    elif action == FOUND_GROUP:
-        name, creed = await writer.describe_group(villager, list(inspiration))
-        group = town.found_group(vid, name, creed)
-        await hub.publish_group(group)
-        await say(f"{villager.name} founded {name}: {creed}", others(), ROOM, "announced")
-    elif action == JOIN_GROUP:
-        group = next(g for g in town.visible_groups(vid) if g.id == decision.target)
-        town.join(vid, group.id)
-        await say(f"{villager.name} joined {group.name}", others(), ROOM, "announced")
-    elif action == LEAVE_GROUP:
-        town.leave(vid, decision.target)
-    elif action == PREACH:
-        group = next(g for g in town.member_groups(vid) if g.id == decision.target)
-        text = await writer.say(villager, decision, source_text, group.name)
-        await say(text, list(group.members), ROOM, "preached")

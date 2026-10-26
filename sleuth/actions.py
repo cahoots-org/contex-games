@@ -6,10 +6,6 @@ DENY = "deny"
 CONFRONT = "confront"
 SPEAK = "speak"
 MOVE = "move"
-FOUND_GROUP = "found_group"
-JOIN_GROUP = "join_group"
-LEAVE_GROUP = "leave_group"
-PREACH = "preach"
 ALIBI = "alibi"
 BLAME = "blame"
 
@@ -20,10 +16,6 @@ ACTIONS = {
     CONFRONT: "Challenge one specific person nearby about what they said or did.",
     SPEAK: "Tell everyone nearby: spread what you just heard, or say what is on your mind.",
     MOVE: "Walk off to a different place in town, taking the news with you.",
-    FOUND_GROUP: "Start a new group around a belief, fear, or cause you feel strongly about: a cult, a watch, a guild, a protest.",
-    JOIN_GROUP: "Join a group that has members nearby and a cause you share.",
-    LEAVE_GROUP: "Quit a group you belong to that you no longer believe in.",
-    PREACH: "Speak up for one of your groups' beliefs to the people nearby.",
     ALIBI: "Tell one specific person nearby where you supposedly were when the crime happened.",
     BLAME: "Hint to one specific person nearby that someone else had a reason to do the crime.",
 }
@@ -53,15 +45,12 @@ TARGET_KIND = {
     DENY: "villager",
     CONFRONT: "villager",
     MOVE: "place",
-    JOIN_GROUP: "group",
-    LEAVE_GROUP: "group",
-    PREACH: "group",
     ALIBI: "villager",
     BLAME: "villager",
 }
 
 # Speech actions, which carry a style.
-STYLED = (RETELL, DENY, CONFRONT, SPEAK, PREACH, ALIBI, BLAME)
+STYLED = (RETELL, DENY, CONFRONT, SPEAK, ALIBI, BLAME)
 
 NEEDS_SOMEONE = (RETELL, DENY, CONFRONT, SPEAK, ALIBI, BLAME)
 
@@ -71,10 +60,6 @@ def available_actions(view) -> list[str]:
     out = []
     for a in ACTIONS:
         if a in NEEDS_SOMEONE and not view.present:
-            continue
-        if a == JOIN_GROUP and not view.visible_groups:
-            continue
-        if a in (LEAVE_GROUP, PREACH) and not view.member_groups:
             continue
         if a in (ALIBI, BLAME) and not view.case:
             continue

@@ -21,16 +21,6 @@ def utt(uid):
     return Utterance(uid, "v1", "Bert", "bar", "the miller waters his flour", "w-1")
 
 
-def test_unrooted_announcements_reach_sinks_but_not_the_terminal():
-    feed, lines = make()
-    seen = []
-    feed.sinks.append(seen.append)
-    feed.on_delivery(Utterance("u-2", "v1", "Bert", "cafe", "Bert joined The Watch", None, "announced"), [])
-    feed.on_delivery(utt("u-2"), ["v2"])
-    assert [e.kind for e in seen] == ["announcement"]
-    assert lines == []
-
-
 def test_replay_is_bounded():
     feed, _ = make()
     for _ in range(REPLAY_EVENTS):

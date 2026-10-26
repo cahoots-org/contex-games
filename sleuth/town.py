@@ -1,9 +1,9 @@
-"""Town state: villagers, their places, and groups."""
+"""Town state: villagers, their places and whereabouts."""
 
 import re
 from dataclasses import asdict
 
-from sleuth.models import Group, Villager
+from sleuth.models import Villager
 
 PUBLIC_PLACES = ("cafe", "gym", "school", "bar", "dog park", "hardware store", "grocery", "town hall", "library")
 STREETS = ("elm street", "oak street", "maple street")
@@ -16,15 +16,13 @@ class Town:
     def __init__(self) -> None:
         self._villagers: dict[str, Villager] = {}
         self._places: dict[str, str] = {}
-        self._groups: dict[str, Group] = {}
         self.departed: list[Villager] = []
         self._phase_starts: dict[str, str] = {}
         self._phase_moves: dict[str, list[str]] = {}
 
     def to_state(self) -> dict:
-        """Villagers, places, groups, departed villagers and this phase's whereabouts as plain JSON."""
+        """Villagers, places, departed villagers and this phase's whereabouts as plain JSON."""
         return {"villagers": [asdict(v) for v in self._villagers.values()], "places": dict(self._places),
-                "groups": [{**asdict(g), "members": sorted(g.members)} for g in self._groups.values()],
                 "departed": [asdict(v) for v in self.departed],
                 "phase_starts": dict(self._phase_starts), "phase_moves": {k: list(m) for k, m in self._phase_moves.items()}}
 
@@ -32,8 +30,6 @@ class Town:
         """Replace the town with a saved state."""
         self._villagers = {v["id"]: Villager(**v) for v in state["villagers"]}
         self._places = dict(state["places"])
-        self._groups = {g["id"]: Group(**{**g, "members": {m for m in g["members"] if m in self._villagers}})
-                        for g in state["groups"]}
         self.departed = [Villager(**v) for v in state["departed"]]
         self._phase_starts = dict(state["phase_starts"])
         self._phase_moves = {k: list(m) for k, m in state["phase_moves"].items()}
@@ -55,18 +51,12 @@ class Town:
         self._places.pop(vid, None)
         self._phase_starts.pop(vid, None)
         self._phase_moves.pop(vid, None)
-        for g in self._groups.values():
-            g.members.discard(vid)
         self.departed.append(v)
         return v
 
     @property
     def villagers(self) -> list[Villager]:
         return list(self._villagers.values())
-
-    @property
-    def groups(self) -> list[Group]:
-        return list(self._groups.values())
 
     def get(self, vid: str) -> Villager:
         return self._villagers[vid]
@@ -108,29 +98,6 @@ class Town:
         if exact:
             return exact
         return [v for v in self._villagers.values() if needle in v.name.lower()]
-
-    def found_group(self, founder_id: str, name: str, creed: str) -> Group:
-        g = Group(f"g-{len(self._groups) + 1}", name, creed, founder_id, {founder_id})
-        self._groups[g.id] = g
-        return g
-
-    def join(self, vid: str, gid: str) -> None:
-        self._groups[gid].members.add(vid)
-
-    def leave(self, vid: str, gid: str) -> None:
-        self._groups[gid].members.discard(vid)
-
-    def member_groups(self, vid: str) -> list[Group]:
-        return [g for g in self._groups.values() if vid in g.members]
-
-    def visible_groups(self, vid: str) -> list[Group]:
-        place = self._places[vid]
-        return [
-            g
-            for g in self._groups.values()
-            if vid not in g.members
-            and any(self._places.get(m) == place for m in g.members)
-        ]
 
 
 def neighbours(town: Town, villager: Villager, text: str) -> list[str]:

@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-WORDS = re.compile(r"\b(church\w*|chapel\w*|priest\w*|pious|pray\w*|sermon\w*|religio\w*)\b", re.I)
+WORDS = re.compile(r"\b(church\w*|chapel\w*|priest\w*|pious|pray\w*|sermon\w*|religio\w*|cults?|creed\w*|preach\w*)\b", re.I)
 
 
 def test_no_religion_in_code_or_copy():

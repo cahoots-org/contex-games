@@ -1,7 +1,7 @@
 import pytest
 
 from sleuth.actions import (
-    ALIBI, BLAME, FOUND_GROUP, MOVE, PREACH, RETELL, SPEAK,
+    ALIBI, BLAME, MOVE, RETELL, SPEAK,
 )
 from sleuth.contex_client import Match
 from sleuth.decide import Decision
@@ -15,22 +15,17 @@ from sleuth.town import Town
 class StubWriter:
     def __init__(self):
         self.say_calls = []
-        self.group_calls = []
 
     async def say(self, villager, decision, source_text, audience):
         self.say_calls.append((decision.action, source_text, audience))
         return "words"
 
-    async def describe_group(self, villager, inspiration):
-        self.group_calls.append(list(inspiration))
-        return "Book Circle", "be kind"
 
 
 class RecordingHub:
     def __init__(self):
         self.delivered = []
         self.addressed = []
-        self.groups = []
         self.facts = {}
         self.covers = []
 
@@ -43,10 +38,6 @@ class RecordingHub:
     async def deliver(self, utterance, listener_ids, addressed=False):
         self.delivered.append((utterance, listener_ids))
         self.addressed.append(addressed)
-
-    async def publish_group(self, group):
-        self.groups.append(group)
-
 
 def make(vid, name):
     return Villager(vid, name, "baker", "calm", "none", [], {})
@@ -108,33 +99,8 @@ async def test_speak_reaches_everyone_present_but_speaker():
 async def test_speaker_never_receives_own_utterance():
     s = Setup()
     await s.act("v1", Decision(SPEAK, None, None, None))
-    s.town.found_group("v1", "G", "c")
-    await s.act("v1", Decision(PREACH, None, "g-1", None))
+    await s.act("v1", Decision(RETELL, None, "v2", None))
     assert all("v1" not in ids for _, ids in s.hub.delivered)
-
-
-@pytest.mark.asyncio
-async def test_found_group_adds_group_and_publishes_record():
-    s = Setup()
-    await s.act("v1", Decision(FOUND_GROUP, None, None, None), inspiration=["a rumor"])
-    assert s.writer.group_calls == [["a rumor"]]
-    assert s.hub.groups[0].name == "Book Circle"
-    assert s.town.member_groups("v1")[0].creed == "be kind"
-    utt, listeners = s.hub.delivered[0]
-    assert sorted(listeners) == ["v2", "v3"]
-    assert "Book Circle" in utt.text
-
-
-@pytest.mark.asyncio
-async def test_preach_reaches_members_in_other_places():
-    s = Setup()
-    g = s.town.found_group("v1", "Book Circle", "be kind")
-    s.town.join("v2", g.id)
-    s.town.move("v2", "school")
-    await s.act("v1", Decision(PREACH, None, g.id, "faithful"))
-    utt, listeners = s.hub.delivered[0]
-    assert listeners == ["v2"]
-    assert s.writer.say_calls == [(PREACH, None, "Book Circle")]
 
 
 @pytest.mark.asyncio
@@ -178,10 +144,9 @@ async def test_act_records_depth_audience_action_style():
     s.hub.deliver = deliver
     await s.act("v1", Decision(RETELL, source("u-0"), "v2", "faithful"))
     await s.act("v1", Decision(SPEAK, source("u-unknown"), None, "angry"))
-    await s.act("v1", Decision(FOUND_GROUP, source("u-0"), None, None))
     got = [(u.depth, u.audience, u.action, u.style) for u, _ in s.hub.delivered]
-    assert got == [(3, "one", RETELL, "faithful"), (0, "room", SPEAK, "angry"), (3, "room", FOUND_GROUP, None)]
-    assert recorded_first == [True] * 3
+    assert got == [(3, "one", RETELL, "faithful"), (0, "room", SPEAK, "angry")]
+    assert recorded_first == [True] * 2
 
 
 def test_payload_unchanged():

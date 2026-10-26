@@ -32,10 +32,6 @@ SETTLE = 0.1
 class RecordingFeed(Feed):
     def __init__(self):
         super().__init__(Lineage(), Town(), out=None)
-        self.deliveries = []
-
-    def on_delivery(self, utterance, listener_ids):
-        self.deliveries.append((utterance.id, listener_ids))
 
 
 class Turns:
@@ -53,7 +49,7 @@ class Turns:
         return Decision(IGNORE, None, None, None, self.strength)
 
     async def act(self, decision, villager, *, town, **kw):
-        self.acts.append((villager.id, kw["inspiration"]))
+        self.acts.append(villager.id)
         if self.leave:
             town.remove(villager.id)
 
@@ -143,14 +139,13 @@ async def test_departed_villager_worker_ends(turns):
 
 
 @pytest.mark.asyncio
-async def test_deliver_skips_departed_listeners_and_notifies_feed(turns):
+async def test_deliver_skips_departed_listeners(turns):
     engine, minds, feed = await setup("v1", "v2", "v3")
     engine.town.remove("v3")
     utt = Utterance("u-1", "v1", "V1", "cafe", "hello", None)
     await engine.deliver(utt, ["v2", "v3"])
     assert minds["v2"].heard == [("utt:u-1", utt.to_data())]
     assert minds["v3"].heard == []
-    assert feed.deliveries == [("u-1", ["v2"])]
     await engine.stop()
 
 
@@ -203,7 +198,6 @@ async def test_one_failing_listener_does_not_hide_the_others(turns, caplog):
     with caplog.at_level(logging.ERROR):
         await engine.deliver(utt, ["v2", "v3"])
     assert minds["v2"].heard == [("utt:u-1", utt.to_data())]
-    assert feed.deliveries == [("u-1", ["v2"])]
     assert "v3" in caplog.text
     await engine.stop()
 
@@ -215,7 +209,6 @@ async def test_deliver_raises_when_every_listener_fails(turns):
     utt = Utterance("u-1", "v1", "V1", "cafe", "hello", None)
     with pytest.raises(RuntimeError):
         await engine.deliver(utt, ["v2"])
-    assert feed.deliveries == []
     await engine.stop()
 
 
@@ -315,7 +308,6 @@ async def test_addressed_message_to_a_departed_villager_is_dropped_quietly(turns
     assert engine._pending == {}
     assert "v2" not in engine._wakes
     assert minds["v2"].heard == []
-    assert feed.deliveries == [("u-1", [])]
     await engine.stop()
 
 
@@ -335,7 +327,6 @@ async def test_addressed_listener_who_leaves_during_delivery_is_skipped(turns):
     release.set()
     await delivery
     assert "v2" not in engine._pending
-    assert feed.deliveries == [("u-1", ["v2", "v3"])]
     await wait_for(lambda: [v.villager.id for v in turns.views] == ["v3"])
     await engine.stop()
 
@@ -447,7 +438,6 @@ async def test_stale_items_become_memories(turns):
     view = turns.views[0]
     assert view.new == [fresh]
     assert stale in view.recent
-    assert turns.acts[0][1] == ["hot news"]
     await engine.stop()
 
 

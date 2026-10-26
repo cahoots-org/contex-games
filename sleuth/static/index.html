@@ -612,8 +612,6 @@ function render(e, fresh) {
     case "time":
       setClock(e);
       return null;
-    case "announcement":
-      return line("quiet", e.text);
     case "system":
       return line("quiet", e.text);
     case "guide":

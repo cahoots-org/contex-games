@@ -1,4 +1,4 @@
-"""Plain data types for villagers, utterances, and groups."""
+"""Plain data types for villagers and utterances."""
 
 from dataclasses import dataclass, field
 
@@ -39,12 +39,3 @@ class Utterance:
         The place stays out: it would pull every line said there toward news about that place.
         """
         return {"id": self.id, "text": f"{self.speaker_name} {self.verb}: {self.text}"}
-
-
-@dataclass
-class Group:
-    id: str
-    name: str
-    creed: str
-    founder: str
-    members: set[str] = field(default_factory=set)

@@ -7,11 +7,11 @@ from dataclasses import dataclass
 from typesafe_sdk import Choice, Score
 
 from sleuth.actions import (
-    ACTION_NOT_FOR, ACTIONS, IGNORE, JOIN_GROUP, MOVE, STYLED, STYLES, TARGET_KIND,
+    ACTION_NOT_FOR, ACTIONS, IGNORE, MOVE, STYLED, STYLES, TARGET_KIND,
     available_actions,
 )
 from sleuth.contex_client import Match
-from sleuth.models import Group, Villager
+from sleuth.models import Villager
 from sleuth.town import PLACES
 
 log = logging.getLogger(__name__)
@@ -28,8 +28,7 @@ ACTION_INSTRUCTIONS = (
     "they love or resent, and usually pass it on, argue about it, or act on it. "
     "They do nothing about news that does not concern them, or that they have already "
     "heard: if the same story is among their recent memories, they have dealt with it. "
-    "News that alarms or inspires them can move them to walk elsewhere, start or join a "
-    "group."
+    "News that alarms them can move them to walk elsewhere."
 )
 
 GOSSIP_LEVELS = ["keeps news to themselves", "shares now and then", "loves to share", "can't hold anything in"]
@@ -41,8 +40,6 @@ class TurnView:
     villager: Villager
     place: str
     present: list[Villager]
-    member_groups: list[Group]
-    visible_groups: list[Group]
     new: list[Match]
     recent: list[Match]
     # Whether to ask how much of a gossip the villager is, which is asked once per villager.
@@ -96,7 +93,6 @@ def _state(view: TurnView) -> dict:
         "present": [p.name for p in view.present],
         "just_heard": [_text(m) for m in view.new],
         "recent_memories": [_text(m) for m in view.recent[:MAX_RECENT]],
-        "groups": [g.name for g in view.member_groups],
     }
     if view.case:
         state["your_secret"] = f"You did this, and people are talking about it: {view.case}"
@@ -131,16 +127,6 @@ def _questions(view: TurnView) -> dict[str, Choice | Score]:
         instructions="Which place does this villager walk to?",
         criteria={p: None for p in PLACES if p != view.place},
     )
-    if view.visible_groups:
-        qs["join_target"] = Choice(
-            instructions="Which group, with members nearby, does this villager join?",
-            criteria={g.id: f"{g.name}: {g.creed}" for g in view.visible_groups[:MAX_OPTIONS]},
-        )
-    if view.member_groups:
-        qs["group_target"] = Choice(
-            instructions="Which of this villager's own groups does the action concern?",
-            criteria={g.id: f"{g.name}: {g.creed}" for g in view.member_groups[:MAX_OPTIONS]},
-        )
     if any(a in STYLED for a in available_actions(view)):
         qs["style"] = Choice(
             instructions="In what manner would this villager say it, given their personality and what they heard?",
@@ -184,7 +170,6 @@ async def decide(jev, view: TurnView) -> Decision:
     target_key = {
         "villager": "villager_target",
         "place": "place_target",
-        "group": "join_target" if action == JOIN_GROUP else "group_target",
     }.get(kind)
     target = pick.get(target_key) if target_key else None
     # A move keeps a manner in case the villager shares the news where they arrive.

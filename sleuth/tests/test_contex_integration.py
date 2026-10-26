@@ -74,8 +74,7 @@ async def test_mind_projects_are_isolated():
 
 
 class NullFeed:
-    def on_delivery(self, utterance, listener_ids):
-        pass
+    pass
 
 
 async def test_publish_before_listening_still_wakes_only_the_listener(monkeypatch):

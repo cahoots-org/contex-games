@@ -99,17 +99,3 @@ class Writer:
         if known:
             user += "\nNeighbours you know: " + "; ".join(known)
         return first_line(await self.complete(system, user, max_tokens=SAY_MAX_TOKENS))
-
-    async def describe_group(
-        self, villager: Villager, inspiration: list[str],
-    ) -> tuple[str, str]:
-        """A name and creed for a group the villager founds."""
-        system = (
-            f"You are {villager.name}, a {villager.occupation} ({villager.personality}). "
-            "You are founding a town group. Reply with only a JSON object "
-            '{"name": "...", "creed": "..."}: a short name and a one-sentence creed.'
-        )
-        user = "What inspired you:\n" + "\n".join(f"- {t}" for t in inspiration)
-        parsed = extract_json(await self.complete(system, user))
-        return parsed["name"], parsed["creed"]
-

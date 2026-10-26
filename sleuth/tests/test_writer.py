@@ -32,16 +32,6 @@ async def test_say_includes_style_and_audience_in_prompt():
 
 
 @pytest.mark.asyncio
-async def test_describe_group_parses_name_and_creed():
-    client = StubClient('Sure:\n```json\n{"name": "The Quiet Hand", "creed": "Say less."}\n```')
-    writer = Writer(client, "haiku-test")
-
-    name, creed = await writer.describe_group(villager(), ["bread is life"])
-
-    assert (name, creed) == ("The Quiet Hand", "Say less.")
-
-
-@pytest.mark.asyncio
 async def test_say_caps_tokens():
     client = StubClient("Hm.")
     await Writer(client, "haiku-test").say(villager(), Decision("speak", None, None, None), None, "all")

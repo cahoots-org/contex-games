@@ -4,13 +4,13 @@ import random
 import pytest
 
 from sleuth.actions import (
-    CONFRONT, DENY, FOUND_GROUP, IGNORE, JOIN_GROUP, LEAVE_GROUP, MOVE, PREACH, RETELL, SPEAK,
+    CONFRONT, DENY, IGNORE, MOVE, RETELL, SPEAK,
 )
 from sleuth.contex_client import Match
 from sleuth.decide import (
     GOSSIP_LEVELS, Decision, TurnView, decide, warmth_words,
 )
-from sleuth.models import Group, Villager
+from sleuth.models import Villager
 from sleuth.tests.helpers import StubJev
 
 
@@ -25,7 +25,7 @@ def match(key, text="x"):
 def view(**kw):
     base = dict(
         villager=villager(), place="cafe", present=[villager("v2", "Bo")],
-        member_groups=[], visible_groups=[], new=[match("m1")], recent=[],
+        new=[match("m1")], recent=[],
     )
     return TurnView(**{**base, **kw})
 
@@ -38,14 +38,6 @@ async def test_alone_in_place_excludes_social_actions_and_target_question():
     for a in (RETELL, DENY, CONFRONT, SPEAK):
         assert a not in criteria
     assert "villager_target" not in jev.questions
-
-
-@pytest.mark.asyncio
-async def test_no_groups_omits_group_questions_and_actions():
-    jev = StubJev({"action": IGNORE})
-    await decide(jev, view())
-    assert JOIN_GROUP not in jev.questions["action"].criteria
-    assert not {"join_target", "group_target"} & set(jev.questions)
 
 
 @pytest.mark.asyncio
@@ -86,15 +78,11 @@ async def test_retell_maps_chosen_target_and_style():
 
 
 @pytest.mark.asyncio
-async def test_move_and_join_use_their_own_target_questions():
-    g = Group("g-1", "Book Circle", "read", "v9", {"v9"})
-    jev = StubJev({"action": MOVE, "place_target": "bar", "join_target": "g-1"})
-    d = await decide(jev, view(visible_groups=[g]))
+async def test_move_uses_its_own_target_question():
+    jev = StubJev({"action": MOVE, "place_target": "bar"})
+    d = await decide(jev, view())
     assert "cafe" not in jev.questions["place_target"].criteria
     assert d.target == "bar"
-    jev = StubJev({"action": JOIN_GROUP, "join_target": "g-1"})
-    d = await decide(jev, view(visible_groups=[g]))
-    assert d.target == "g-1"
 
 
 @pytest.mark.asyncio
@@ -111,38 +99,16 @@ async def test_style_kept_for_speech_actions(action):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("action", [JOIN_GROUP, FOUND_GROUP, IGNORE])
-async def test_style_none_for_non_speech(action):
-    g = Group("g-1", "Circle", "read", "v9", {"v9"})
-    jev = StubJev({"action": action, "place_target": "library", "join_target": "g-1", "style": "mock"})
-    assert (await decide(jev, view(visible_groups=[g]))).style is None
-
-
-@pytest.mark.asyncio
-async def test_leave_group_style_none_and_target_consumed():
-    g = Group("g-1", "Circle", "read", "v1", {"v1"})
-    jev = StubJev({"action": LEAVE_GROUP, "group_target": "g-1", "style": "mock"})
-    d = await decide(jev, view(member_groups=[g]))
-    assert (d.target, d.style) == ("g-1", None)
-
-
-@pytest.mark.asyncio
-async def test_preach_in_empty_room_gets_style_and_group_target():
-    g = Group("g-1", "Circle", "read", "v1", {"v1"})
-    jev = StubJev({"action": PREACH, "group_target": "g-1", "style": "exaggerated"})
-    d = await decide(jev, view(present=[], member_groups=[g]))
-    assert "style" in jev.questions
-    assert (d.target, d.style) == ("g-1", "exaggerated")
+async def test_style_none_for_non_speech():
+    jev = StubJev({"action": IGNORE, "style": "mock"})
+    assert (await decide(jev, view())).style is None
 
 
 @pytest.mark.asyncio
 async def test_target_descriptions_include_names():
-    g = Group("g-1", "Book Circle", "read", "v9", {"v9"})
     jev = StubJev({"action": IGNORE})
-    await decide(jev, view(visible_groups=[g], member_groups=[g]))
+    await decide(jev, view())
     assert "Bo" in jev.questions["villager_target"].criteria["v2"]
-    for q in ("join_target", "group_target"):
-        assert "Book Circle" in jev.questions[q].criteria["g-1"]
 
 
 @pytest.mark.asyncio
@@ -176,12 +142,12 @@ async def test_action_is_drawn_from_jev_probabilities():
 
     async def system_one(state, questions):
         resp = await real(state, questions)
-        resp.choices["action"].probabilities = {SPEAK: 0.0, FOUND_GROUP: 1.0}
+        resp.choices["action"].probabilities = {SPEAK: 0.0, MOVE: 1.0}
         return resp
 
     jev.system_one = system_one
     decision = await decide(jev, view())
-    assert decision.action == FOUND_GROUP
+    assert decision.action == MOVE
 
 
 def with_odds(odds):
@@ -200,14 +166,14 @@ def with_odds(odds):
 @pytest.mark.asyncio
 async def test_options_below_the_floor_are_never_drawn():
     random.seed(7)
-    jev = with_odds({SPEAK: 0.57, RETELL: 0.40, FOUND_GROUP: 0.03})
+    jev = with_odds({SPEAK: 0.57, RETELL: 0.40, MOVE: 0.03})
     drawn = {(await decide(jev, view())).action for _ in range(500)}
     assert drawn == {SPEAK, RETELL}
 
 
 @pytest.mark.asyncio
 async def test_argmax_chosen_when_every_option_is_below_the_floor():
-    jev = with_odds({SPEAK: 0.09, RETELL: 0.05, FOUND_GROUP: 0.04})
+    jev = with_odds({SPEAK: 0.09, RETELL: 0.05, MOVE: 0.04})
     assert {(await decide(jev, view())).action for _ in range(50)} == {SPEAK}
 
 

@@ -152,8 +152,3 @@ class Feed:
         """The player can look around again; the terminal prints nothing."""
         self.emit("listen", player=player, place=place, ended=True)
 
-    def on_delivery(self, utterance: Utterance, listener_ids: list[str]) -> None:
-        """Emit a town announcement."""
-        u = utterance
-        if u.verb == "announced":
-            self.emit("announcement", speaker=u.speaker_name, place=u.place, text=u.text)

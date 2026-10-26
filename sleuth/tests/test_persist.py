@@ -87,7 +87,6 @@ async def played(monkeypatch):
     g = build()
     for v in VILLAGERS:
         await g.engine.add_villager(v, "cafe")
-    g.engine.town.found_group("v2", "Millers", "flour first")
     player = g.make("p-abc", "o-abc")
     g.players.add(player)
     player.connected()
@@ -122,14 +121,12 @@ async def test_a_played_game_restores_to_the_same_state_with_fresh_ids(monkeypat
     assert resume_game(path, SESSION, fresh.parts, fresh.make)
     restored = fresh.players.get(player.id)
     assert await api_state(fresh, player.owner) == before
-    assert fresh.parts["town"].groups == g.engine.town.groups
     assert not fresh.players.any_playing()
     restored.connected()
     assert fresh.players.any_playing()
 
     assert_next_ids_are_new(fresh, g, player)
     assert fresh.feed.say("next").id == g.feed.recent[-1].id + 1
-    assert fresh.engine.town.found_group("v1", "New", "x").id == "g-2"
 
 
 @pytest.mark.asyncio

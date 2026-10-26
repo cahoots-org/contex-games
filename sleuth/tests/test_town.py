@@ -23,37 +23,12 @@ def test_find_exact_beats_substring():
     assert [x.id for x in t.find("bert")] == ["a"]
 
 
-def test_remove_records_departure_and_drops_membership():
+def test_remove_records_departure():
     t = Town()
     t.add(v("a", "Ann"))
-    g = t.found_group("a", "Club", "creed")
     gone = t.remove("a")
     assert gone.id == "a" and t.departed == [gone]
-    assert "a" not in g.members and t.alive_count == 0
-
-
-def test_visible_groups_needs_member_in_same_place():
-    t = Town()
-    t.add(v("a", "Ann"))
-    t.add(v("b", "Bob"))
-    g = t.found_group("a", "Club", "creed")
-    assert t.visible_groups("b") == [g]
-    t.move("a", "bar")
-    assert t.visible_groups("b") == []
-    t.move("b", "bar")
-    assert t.visible_groups("b") == [g]
-    t.join("b", g.id)
-    assert t.visible_groups("b") == []
-
-
-def test_found_group_makes_founder_member():
-    t = Town()
-    t.add(v("a", "Ann"))
-    g = t.found_group("a", "Club", "creed")
-    assert g.id == "g-1" and g.members == {"a"}
-    assert t.member_groups("a") == [g]
-    t.leave("a", g.id)
-    assert t.member_groups("a") == []
+    assert t.alive_count == 0
 
 
 def test_move_rejects_unknown_place():
@@ -82,26 +57,11 @@ def test_state_round_trips_as_json():
     t.add(v("a", "Ann"))
     t.add(v("b", "Bob"), "bar")
     t.add(Villager("c", "Cy", "smith", "grim", "debt", ["coin"], {"a": "sister"}))
-    t.found_group("a", "Club", "creed")
-    t.found_group("b", "Gang", "other")
-    t.join("c", "g-1")
     t.remove("c")
     fresh = Town()
     fresh.restore(json.loads(json.dumps(t.to_state())))
     assert fresh._villagers == t._villagers and fresh._places == t._places
-    assert fresh._groups == t._groups and fresh.departed == t.departed
-    assert fresh.found_group("a", "Third", "x").id == "g-3"
-
-
-def test_restore_drops_group_members_who_are_not_living_villagers():
-    t = Town()
-    t.add(v("a", "Ann"))
-    t.found_group("a", "Club", "creed")
-    state = t.to_state()
-    state["groups"][0]["members"] += ["gone", "never"]
-    fresh = Town()
-    fresh.restore(state)
-    assert fresh.groups[0].members == {"a"}
+    assert fresh.departed == t.departed
 
 
 def test_streets_and_modern_places_are_places():

@@ -21,10 +21,6 @@ def said_project(session: str, villager_id: str) -> str:
     return f"sleuth:{session}:said:{villager_id}"
 
 
-def group_project(session: str, gid: str) -> str:
-    return f"sleuth:{session}:group:{gid}"
-
-
 class Mind:
     def __init__(self, contex: ContexClient, villager: Villager, config: Config, baselines: Baselines):
         self.contex = contex
