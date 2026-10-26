@@ -664,3 +664,9 @@ def test_the_page_reloads_the_case_when_its_own_closes_and_keeps_a_private_one(g
     opened = page[page.index('case "case":'):page.index('case "case_closed":')]
     assert "e.case.private" in opened and "caseNow.private" in opened
 
+
+
+def test_a_verdict_clears_when_another_case_opens(game):
+    page = game.client.get("/").text
+    changed = page[page.index("function setCase(c)"):page.index("caseNow = open;")]
+    assert 'if (open) say("case-status", "");' in changed

@@ -477,6 +477,8 @@ function setCase(c) {
   if ((open && open.id) !== (caseNow && caseNow.id)) {
     notebook.clear();
     openPublish(false);
+    // A verdict or error belongs to the case it came with; it stays only while no other case is open.
+    if (open) say("case-status", "");
   }
   caseNow = open;
   $("case-whose").textContent = open ? (open.private ? "Your case" : "The town's case") : "No open case";
