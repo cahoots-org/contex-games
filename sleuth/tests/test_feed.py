@@ -122,3 +122,9 @@ def test_only_its_author_sees_an_episode_as_theirs_with_its_verdict():
     assert (mine["mine"], mine["cited"], mine["verdict"]) == (True, 2, "It didn't hold up.")
     assert theirs["mine"] is False and "verdict" not in theirs
     assert "by" not in mine and "by" not in theirs
+
+
+def test_a_search_says_where_it_was():
+    feed, lines = make()
+    feed.on_searched("bar", [], case_id="case-1", player=PID)
+    assert feed.recent[-1].data["text"] == lines[-1] == "You searched the bar."

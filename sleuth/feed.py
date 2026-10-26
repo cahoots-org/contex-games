@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 
 from sleuth.lineage import Lineage
 from sleuth.models import Utterance
-from sleuth.town import Town, at
+from sleuth.town import STREETS, Town, at, place_name
 
 REPLAY_EVENTS = 500
 TIME_LINES = {
@@ -131,6 +131,11 @@ class Feed:
         """The footage and logs the podcaster pulled at place into their notebook."""
         line = f"You pulled the records {at(place)}."
         self.emit("pulled", line, player=player, place=place, records=records, text=line, case_id=case_id)
+
+    def on_searched(self, place: str, records: list[dict], *, case_id: str, player: str) -> None:
+        """What the podcaster found searching the crime place, added to their notebook."""
+        line = f"You searched {place_name(place) if place in STREETS else f'the {place}'}."
+        self.emit("searched", line, player=player, place=place, records=records, text=line, case_id=case_id)
 
     def on_episode(self, case_id: str, name: str, held: bool, *, by: str, cited: int, verdict: str,
                    player: str | None = None) -> None:

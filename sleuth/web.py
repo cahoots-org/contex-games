@@ -284,6 +284,16 @@ def create_app(
             return _error(400, problem)
         return {"ok": True}
 
+    @app.post("/api/search")
+    async def search(request: Request):
+        if (player := player_for(players, request.cookies.get(COOKIE))) is None:
+            return _error(401, RELOAD)
+        if usage.resting():
+            return _error(409, RESTING)
+        if problem := player.search():
+            return _error(400, problem)
+        return {"ok": True}
+
     @app.post("/api/publish")
     async def publish(request: Request):
         if (player := player_for(players, request.cookies.get(COOKIE))) is None:

@@ -585,6 +585,26 @@ def test_pull_adds_the_clip_and_logs_at_the_place():
     assert player.pull() == "There's no open case."
 
 
+def test_search_finds_the_clues_at_the_crime_place_once_per_case():
+    player, file, *_ = interviewing()
+    clue = place_record(file, "clue", "elm street", "r-11")
+    place_record(file, "clip", "elm street", "r-12")
+    player.place = "gym"
+    assert player.search() == "There's nothing to search for here."
+    player.place = "elm street"
+    assert player.search() is None
+    assert list(player.notebook) == [clue.id] and player.notebook[clue.id] is not clue
+    [event] = [e for e in player.feed.recent if e.kind == "searched"]
+    assert event.player == PID and event.data["text"] == "You searched Elm Street."
+    assert [r["id"] for r in event.data["records"]] == [clue.id] and "sound" not in event.data["records"][0]
+    assert player.search() == "You've already searched here."
+    fresh = run_of(player, PID)
+    fresh.restore(json.loads(json.dumps(player.to_state())))
+    assert fresh.search() == "You've already searched here."
+    file.state = "closed"
+    assert player.search() == "There's no open case."
+
+
 def test_pull_refused_when_no_one_who_lives_on_the_street_trusts_you():
     player, file, engine, _ = interviewing()
     place_record(file, "clip", "elm street", "r-11")

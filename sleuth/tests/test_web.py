@@ -461,6 +461,7 @@ def test_case_actions_refused_while_resting(game):
     for path, body in (
         ("/api/interview", ASK),
         ("/api/pull", {}),
+        ("/api/search", {}),
         ("/api/publish", {"culprit_id": "v1", "record_ids": ["r-1"]}),
     ):
         refused = post(path, json=body)
@@ -650,6 +651,7 @@ def test_publish_reports_problems_and_bad_bodies(game):
     none = post("/api/publish", json={"culprit_id": "v1", "record_ids": ["r-1"]})
     assert (none.status_code, none.json()) == (400, {"error": "There's no open case."})
     assert post("/api/pull").json() == {"error": "There's no open case."}
+    assert post("/api/search").json() == {"error": "There's no open case."}
 
 
 def test_whisper_endpoint_is_gone(game):

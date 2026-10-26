@@ -101,6 +101,8 @@ class Player:
         # Each resident's conversation with the player, oldest first, and how many messages the player sent each
         # resident in which part of the day.
         self.threads: dict[str, list[dict]] = {}
+        # The cases whose crime place the player has searched.
+        self.searched: list[str] = []
         self._talked: dict[str, tuple[tuple[int, str] | None, int]] = {}
         self.created_at = time.time()
         # Open tabs, and when the player last acted or closed one; None until they first do.
@@ -112,7 +114,7 @@ class Player:
         return {
             "id": self.id, "owner": self.owner, "place": self.place, "created_at": self.created_at,
             "active_at": self._active_at, "notebook": [asdict(r) for r in self.notebook.values()],
-            "guide_step": self.guide_step, "threads": self.threads,
+            "guide_step": self.guide_step, "threads": self.threads, "searched": self.searched,
         }
 
     def restore(self, state: dict) -> None:
@@ -121,6 +123,7 @@ class Player:
         self.notebook = {r["id"]: Record(**r) for r in state["notebook"]}
         self.guide_step = state["guide_step"]
         self.threads = state["threads"]
+        self.searched = state["searched"]
         active_at = state["active_at"]
         self._active_at = None if active_at is None else min(active_at, time.time() - self.config.idle_after_seconds)
 
@@ -394,6 +397,25 @@ class Player:
         self.feed.on_pulled(self.place, [record_json(r, self.town) for r in new], case_id=file.crime.id,
                             player=self.id)
         self._guide(2)
+        return None
+
+    def search(self) -> str | None:
+        """Search the open case's crime place, once per case, adding what was left there to the notebook; returns
+        why it could not be done."""
+        self.touch()
+        file = self.engine.cases.for_player(self.id) if self.engine.cases else None
+        if file is None:
+            return "There's no open case."
+        if self.place != file.crime.place:
+            return "There's nothing to search for here."
+        if file.crime.id in self.searched:
+            return "You've already searched here."
+        self.searched.append(file.crime.id)
+        found = [replace(r) for r in file.records.values() if r.kind == "clue"]
+        for r in found:
+            self.notebook[r.id] = r
+        self.feed.on_searched(self.place, [record_json(r, self.town) for r in found], case_id=file.crime.id,
+                              player=self.id)
         return None
 
     def _keepers(self) -> list[str]:
