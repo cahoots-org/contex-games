@@ -70,6 +70,9 @@ class Player:
         self._tasks: set[asyncio.Task] = set()
         # When the running listen ends, or None when the player is not listening.
         self._listen_until: float | None = None
+        # The last answer from each resident per case, and the part of the day each resident was last interviewed.
+        self._answers: dict[tuple[str, str], str] = {}
+        self._interviewed: dict[str, tuple[int, str]] = {}
         self.created_at = time.time()
         # Open tabs, and when the player last acted or closed one; None until they first do.
         self._sockets = 0
@@ -191,8 +194,9 @@ class Player:
     async def interview(self, vid: str) -> str | None:
         """Interview the resident about the open case; returns why it could not be done, if it couldn't.
 
-        New evidence goes in the notebook, and the culprit hears a podcaster is asking around. The model calls are
-        charged to this player.
+        Once per resident per part of the day. New evidence goes in the notebook, and the culprit hears a podcaster
+        is asking around. With nothing new the resident repeats their last answer, so the writer isn't called. The
+        model calls are charged to this player.
         """
         self.touch()
         with charging(self.id):
@@ -210,6 +214,9 @@ class Player:
             return f"{villager.name} is at the {place}. Walk there to talk to them."
         if self.engine.reputation.get(vid, self.id) < self.config.guarded_at:
             return Refusal(f"{villager.name} won't talk to you.")
+        part = (self.game.day, self.game.phase) if self.game else None
+        if part and self._interviewed.get(vid) == part:
+            return Refusal(f"{villager.name} has nothing more to say until later.")
         found, talk = await self._gather(file, villager)
         seen = {(r.kind, r.holder, r.text) for r in self.notebook.values() if r.case == file.crime.id}
         new = []
@@ -219,7 +226,12 @@ class Player:
                 r.id = r.id or self.ids.next("r")
                 self.notebook[r.id] = r
                 new.append(r)
-        line = await self._phrase(villager, file, [r.text for r in found] + talk)
+        key = (file.crime.id, vid)
+        if new or key not in self._answers:
+            self._answers[key] = await self._phrase(villager, file, [r.text for r in found] + talk)
+        line = self._answers[key]
+        if part:
+            self._interviewed[vid] = part
         self.feed.on_interview(vid, villager.name, line, [record_json(r, self.town) for r in new], player=self.id)
         self._guide(1)
         try:

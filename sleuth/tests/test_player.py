@@ -243,6 +243,29 @@ def memory_of(file, ids, holder="v2", utterance="u-1"):
     return m
 
 
+@pytest.mark.asyncio
+async def test_a_second_interview_with_nothing_new_repeats_the_answer_without_the_writer():
+    player, file, engine, writer = interviewing()
+    memory_of(file, player.ids)
+    writer.line = "I saw someone tall."
+    assert await player.interview("v2") is None
+    assert await player.interview("v2") is None
+    assert len(writer.calls) == 1
+    assert [e.data["line"] for e in player.feed.recent if e.kind == "interview"] == ["I saw someone tall."] * 2
+
+
+@pytest.mark.asyncio
+async def test_one_interview_per_resident_per_part_of_the_day():
+    player, file, engine, writer = interviewing()
+    player.game = Game()
+    assert await player.interview("v2") is None
+    refused = await player.interview("v2")
+    assert isinstance(refused, Refusal) and refused == "Eli Reyes has nothing more to say until later."
+    assert await player.interview("v1") is None
+    player.game.tick()
+    assert await player.interview("v2") is None
+
+
 def notebook(player, kind="statement"):
     return [r for r in player.notebook.values() if r.kind == kind]
 
