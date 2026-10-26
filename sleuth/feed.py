@@ -112,6 +112,15 @@ class Feed:
         self.emit("post", f'{u.speaker_name} posted: "{u.text}"', player=player, case_id=case_id, speaker=u.speaker_name,
                   text=u.text)
 
+    def on_pulled(self, place: str, records: list[dict], *, player: str) -> None:
+        """The footage and logs the podcaster pulled at place into their notebook."""
+        self.emit("pulled", f"You pulled the records at the {place}.", player=player, place=place, records=records)
+
+    def on_episode(self, case_id: str, name: str, held: bool, player: str | None = None) -> None:
+        """A podcaster's episode named a resident, and whether it held up."""
+        line = f"A podcaster's episode names {name}" + (", and it holds up. Case closed." if held else ".")
+        self.emit("episode", line, player=player, case_id=case_id, name=name, held=held, text=line)
+
     def on_case_closed(self, case_id: str, line: str, player: str | None = None) -> None:
         self.emit("case_closed", line, player=player, case_id=case_id, text=line)
 

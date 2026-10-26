@@ -434,12 +434,14 @@ def spend_the_day(game):
     game.usage.record("haiku", 50_000_000, 0)
 
 
-def test_while_resting_model_actions_are_refused_and_walking_is_not(game):
+def test_case_actions_refused_while_resting(game):
     assert game.client.get("/api/state").json()["resting"] is False
     spend_the_day(game)
     post = game.client.post
     for path, body in (
         ("/api/interview", {"villager_id": "v1"}),
+        ("/api/pull", {}),
+        ("/api/publish", {"culprit_id": "v1", "record_ids": ["r-1"]}),
     ):
         refused = post(path, json=body)
         assert (refused.status_code, refused.json()) == (409, {"error": RESTING}), path
@@ -617,6 +619,17 @@ def test_state_shows_the_case_without_its_culprit(game):
 def test_page_has_the_case_panel(game):
     page = game.client.get("/").text
     assert '<section class="case" id="case" hidden>' in page and "No open case" in page
+    for needle in ("Pull records here", "/api/pull", "/api/publish", 'id="culprit"', 'case "pulled"', 'case "episode"'):
+        assert needle in page, needle
+
+
+def test_publish_reports_problems_and_bad_bodies(game):
+    post = game.client.post
+    bad = post("/api/publish", json={"culprit_id": "v1", "record_ids": "r-1"})
+    assert (bad.status_code, bad.json()) == (400, {"error": web.BAD_PUBLISH})
+    none = post("/api/publish", json={"culprit_id": "v1", "record_ids": ["r-1"]})
+    assert (none.status_code, none.json()) == (400, {"error": "There's no open case."})
+    assert post("/api/pull").json() == {"error": "There's no open case."}
 
 
 def test_whisper_endpoint_is_gone(game):

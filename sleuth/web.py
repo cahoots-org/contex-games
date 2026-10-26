@@ -33,6 +33,7 @@ USAGE_POLL_SECONDS = 3.0
 CLIENT_QUEUE = 256
 BAD_WALK = 'Send JSON like {"place": "bar"}.'
 BAD_INTERVIEW = 'Send JSON like {"villager_id": "v1"}.'
+BAD_PUBLISH = 'Send JSON like {"culprit_id": "v1", "record_ids": ["r-1"]}.'
 COOKIE = "sleuth_player"
 COOKIE_SECONDS = 365 * 24 * 3600
 RELOAD = "Reload the page to join the village."
@@ -269,6 +270,32 @@ def create_app(
             return _error(409, RESTING)
         if problem := await player.interview(vid):
             return _error(409 if isinstance(problem, Refusal) else 400, problem)
+        return {"ok": True}
+
+    @app.post("/api/pull")
+    async def pull(request: Request):
+        if (player := player_for(players, request.cookies.get(COOKIE))) is None:
+            return _error(401, RELOAD)
+        if usage.resting():
+            return _error(409, RESTING)
+        if problem := player.pull():
+            return _error(400, problem)
+        return {"ok": True}
+
+    @app.post("/api/publish")
+    async def publish(request: Request):
+        if (player := player_for(players, request.cookies.get(COOKIE))) is None:
+            return _error(401, RELOAD)
+        payload = await _payload(request, BAD_PUBLISH, "That request is too long.")
+        if isinstance(payload, JSONResponse):
+            return payload
+        culprit, ids = payload.get("culprit_id"), payload.get("record_ids")
+        if not isinstance(culprit, str) or not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
+            return _error(400, BAD_PUBLISH)
+        if usage.resting():
+            return _error(409, RESTING)
+        if problem := await player.publish(culprit, ids):
+            return _error(400, problem)
         return {"ok": True}
 
     @app.post("/api/listen")

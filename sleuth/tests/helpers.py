@@ -140,6 +140,10 @@ class FakeEngine:
         self.jev = None
         self.reputation = Reputation(Config())
         self.pressed = []
+        self.delivered = []
+
+    async def deliver(self, utterance, listener_ids, addressed=False):
+        self.delivered.append((utterance, listener_ids, addressed))
 
     async def recall_heard(self, vid, text):
         self.recalls.append((vid, text))

@@ -188,6 +188,9 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
 .case p.none { color: var(--muted); font-size: .875rem; }
 .notebook { margin: .4rem 0 0; padding-left: 1.25rem; max-width: 46rem; font-size: .85rem; }
 .notebook:empty { display: none; }
+.publish { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .5rem 0 0; font-size: .875rem; }
+.publish[hidden] { display: none; }
+.publish p { flex-basis: 100%; }
 #search { width: 100%; }
 .find { display: contents; }
 .find-status { margin: .25rem 0 0; min-height: 1.25rem; font-size: .8rem; color: var(--muted); }
@@ -362,7 +365,14 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
 
   <main id="hear-panel">
     <section class="case" id="case" hidden><p id="case-text" class="none">No open case</p>
-      <ol class="notebook" id="notebook" aria-label="Your notebook"></ol></section>
+      <ol class="notebook" id="notebook" aria-label="Your notebook"></ol>
+      <form class="publish" id="publish" hidden>
+        <button type="button" class="linkish" id="pull">Pull records here</button>
+        <label for="culprit">Who did it</label>
+        <select id="culprit"><option value="">Choose a resident</option></select>
+        <button type="submit" class="primary">Publish</button>
+        <p class="ask-status" id="case-status" role="status"></p>
+      </form></section>
     <div class="stage">
       <ol class="feed" id="feed" role="log" aria-live="off" aria-label="What the village is saying"></ol>
       <p class="empty" id="empty">Walk somewhere and talk to the people there.</p>
@@ -526,14 +536,50 @@ function setCase(c) {
   if ($("case").dataset.case !== id) $("notebook").replaceChildren();
   $("case").dataset.case = id;
   $("case").hidden = false;
+  $("publish").hidden = !id;
 }
 
-// The evidence the player has gathered, once each, as "kind · from · clock · text".
+function sayCase(text, error = false) {
+  $("case-status").textContent = text;
+  $("case-status").classList.toggle("error", error);
+}
+
+$("pull").addEventListener("click", async () => {
+  const { ok, error } = await post("/api/pull", {});
+  sayCase(ok ? "" : error, !ok);
+});
+
+// Publish an episode naming the chosen resident on the ticked notebook entries.
+$("publish").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const button = $("publish").querySelector("button[type=submit]");
+  const cited = [...$("notebook").querySelectorAll("input:checked")].map((box) => box.value);
+  button.disabled = true;
+  const { ok, error } = await post("/api/publish", { culprit_id: $("culprit").value, record_ids: cited });
+  button.disabled = false;
+  sayCase(ok ? "Published. It's in the feed." : error, !ok);
+});
+
+// The culprit choices: every resident by name, redrawn only when the residents change.
+let culpritsKey = "";
+function setCulprits() {
+  const key = villagers.map((v) => v.id).join("|");
+  if (key === culpritsKey) return;
+  culpritsKey = key;
+  const select = $("culprit");
+  const kept = select.value;
+  select.replaceChildren(el("option", { value: "", textContent: "Choose a resident" }),
+    ...villagers.map((v) => el("option", { value: v.id, textContent: v.name })));
+  select.value = kept;
+}
+
+// The evidence the player has gathered, once each, as "kind · from · clock · text", each with a box to cite it.
 function note(records) {
   const book = $("notebook");
   for (const r of records) {
     if (book.querySelector(`[data-id="${CSS.escape(r.id)}"]`)) continue;
-    book.append(el("li", { dataset: { id: r.id }, textContent: [r.kind, r.from, r.clock, r.text].filter(Boolean).join(" · ") }));
+    book.append(el("li", { dataset: { id: r.id } }, el("label", {},
+      el("input", { type: "checkbox", value: r.id }), " ", [r.kind, r.from, r.clock, r.text].filter(Boolean).join(" · "))));
   }
 }
 
@@ -544,7 +590,12 @@ function render(e, fresh) {
       return null;
     case "case_closed":
       if ($("case").dataset.case === e.case_id) setCase(null);
+      return e.text ? line("quiet", e.text) : null;
+    case "pulled":
+      note(e.records);
       return line("quiet", e.text);
+    case "episode":
+      return line("loud", e.text);
     case "post":
       return line("speech", el("span", { className: "tag", textContent: "App" }), " ", `${e.speaker}: “${e.text}”`);
     case "place":
@@ -888,6 +939,7 @@ function setVillagers(list) {
   if (key === villagersKey) return;
   villagers = list;
   villagersKey = key;
+  setCulprits();
   refreshVillagers();
   setAsk();
 }

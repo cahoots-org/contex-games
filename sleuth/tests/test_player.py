@@ -404,3 +404,112 @@ async def test_notebook_round_trips():
     fresh = run_of(player, PID)
     fresh.restore(json.loads(json.dumps(player.to_state())))
     assert fresh.notebook == player.notebook and len(fresh.notebook) == 3
+
+
+def place_record(file, kind, place, rid):
+    r = Record(rid, file.crime.id, kind, place, "11:42pm", f"{kind} at the {place}")
+    file.records[r.id] = r
+    return r
+
+
+def test_pull_adds_the_clip_and_logs_at_the_place():
+    player, file, *_ = interviewing()
+    clip, log = place_record(file, "clip", "grocery", "r-11"), place_record(file, "log", "grocery", "r-12")
+    memory_of(file, player.ids).place = "grocery"
+    player.place = "gym"
+    assert player.pull() == "There's no footage or log for the case here."
+    player.place = "grocery"
+    assert player.pull() is None
+    assert set(player.notebook) == {clip.id, log.id} and player.notebook[clip.id] is not clip
+    [event] = [e for e in player.feed.recent if e.kind == "pulled"]
+    assert event.player == PID and [r["id"] for r in event.data["records"]] == [clip.id, log.id]
+    assert all("sound" not in r for r in event.data["records"])
+    file.state = "closed"
+    assert player.pull() == "There's no open case."
+
+
+def test_pull_refused_when_the_town_is_wary():
+    player, file, engine, _ = interviewing()
+    place_record(file, "clip", "elm street", "r-11")
+    engine.reputation.nudge_all(PID, player.config.guarded_at - 0.1, [v.id for v in player.town.villagers])
+    assert player.pull() == "People here won't share records with you right now."
+    assert player.notebook == {}
+
+
+def cite(player, file, *records):
+    for r in records:
+        player.notebook[r.id] = replace(r)
+    return [r.id for r in records]
+
+
+def regard(engine, vid):
+    return engine.reputation.get(vid, PID)
+
+
+@pytest.mark.asyncio
+async def test_publish_right_closes_the_case_and_raises_reputation():
+    player, file, engine, _ = interviewing()
+    ids = cite(player, file, memory_of(file, player.ids))
+    assert await player.publish("v3", ids) is None
+    assert (file.state, file.solved_by, file.published) == ("closed", PID, [PID])
+    assert engine.cases.last_closed == engine.cases.now
+    assert all(regard(engine, v.id) == pytest.approx(player.config.reputation_right) for v in player.town.villagers)
+    [(u, listeners, _)] = engine.delivered
+    assert (u.speaker, u.speaker_name, u.verb) == ("podcast", "A true-crime podcast", "reported")
+    assert u.text == "Fay Okafor stole Dana Reyes's bike, and the evidence holds up."
+    assert set(listeners) == {"v1", "v2", "v3", "v4"} and file.roots[u.id] == "episode"
+    [episode] = [e for e in player.feed.recent if e.kind == "episode"]
+    assert episode.player is None and episode.line == "A podcaster's episode names Fay Okafor, and it holds up. Case closed."
+    assert [e.data["case_id"] for e in player.feed.recent if e.kind == "case_closed"] == [file.crime.id]
+
+
+@pytest.mark.asyncio
+async def test_publish_wrong_spreads_the_accusation_and_lowers_reputation():
+    player, file, engine, _ = interviewing()
+    ids = cite(player, file, memory_of(file, player.ids))
+    player.place = "gym"
+    assert await player.publish("v5", ids) is None
+    assert file.state == "open" and file.solved_by is None and file.published == [PID]
+    config = player.config
+    assert regard(engine, "v1") == pytest.approx(config.reputation_wrong)
+    assert regard(engine, "v5") == pytest.approx(config.reputation_wrong + config.reputation_accused)
+    [(u, listeners, _)] = engine.delivered
+    assert u.text == "Hal Burke stole Dana Reyes's bike." and set(listeners) == {"v5", "v6"}
+    assert file.roots[u.id] == "episode"
+    [episode] = [e for e in player.feed.recent if e.kind == "episode"]
+    assert episode.player is None and episode.line == "A podcaster's episode names Hal Burke."
+    [own] = [e for e in player.feed.recent if e.kind == "system"]
+    assert own.player == PID
+    assert own.line == "Your episode didn't hold up. The town now believes it, and people are warier of you."
+
+
+@pytest.mark.asyncio
+async def test_one_episode_per_player_per_case():
+    player, file, *_ = interviewing()
+    ids = cite(player, file, memory_of(file, player.ids))
+    await player.publish("v5", ids)
+    assert await player.publish("v3", ids) == "You've already published on this case."
+    assert file.state == "open"
+
+
+@pytest.mark.asyncio
+async def test_publish_rejects_ids_not_in_the_notebook():
+    player, file, engine, _ = interviewing()
+    ids = cite(player, file, memory_of(file, player.ids))
+    assert await player.publish("v3", ids + ["r-99"]) == "Cite only entries from your notebook."
+    assert await player.publish("v3", []) == "Cite between 1 and 5 notebook entries."
+    assert await player.publish("v3", ids * 6) == "Cite between 1 and 5 notebook entries."
+    assert await player.publish("v99", ids) == "No one in town has that id."
+    assert file.published == [] and engine.delivered == []
+
+
+@pytest.mark.asyncio
+async def test_publish_after_case_closed_is_refused():
+    player, file, engine, _ = interviewing()
+    rival = Player(engine, player.town, player.lineage, player.ids, player.feed, player.config, player_id="p-2")
+    memory = memory_of(file, player.ids)
+    assert await rival.publish("v3", cite(rival, file, memory)) is None
+    assert await player.publish("v3", cite(player, file, memory)) == "That case is closed."
+    assert all(regard(engine, v.id) == 0 for v in player.town.villagers) and file.published == ["p-2"]
+    player.notebook = {}
+    assert await player.publish("v3", ["r-1"]) == "There's no open case."

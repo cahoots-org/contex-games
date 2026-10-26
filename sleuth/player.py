@@ -1,4 +1,4 @@
-"""A player's run: walking, looking around and interviewing residents into a notebook."""
+"""A player's run: walking, looking around, gathering evidence into a notebook and publishing episodes."""
 
 import asyncio
 import logging
@@ -6,13 +6,14 @@ import time
 from dataclasses import asdict, replace
 
 from sleuth.alibi import claim, household_word
-from sleuth.case import Record, at, clock_at, record_json, when
+from sleuth.case import TEMPLATES, Record, at, clock_at, record_json, when
 from sleuth.cases import CaseFile
 from sleuth.config import Config
+from sleuth.episode import MAX_CITED, holds
 from sleuth.facts import audible
 from sleuth.game import Game
 from sleuth.lineage import Ids, Lineage
-from sleuth.models import Villager
+from sleuth.models import Utterance, Villager
 from sleuth.town import PLACES, START_PLACE, Town, neighbours
 from sleuth.usage import charging
 
@@ -29,6 +30,8 @@ LISTEN_LOOKBACK_DAYS = 1 / 4
 ALREADY_LISTENING = "You just looked around."
 # Hearsay rooted in these is evidence; news-rooted hearsay is only talk.
 EVIDENCE_ROOTS = ("memory", "cover")
+PODCAST = "A true-crime podcast"
+WRONG = "Your episode didn't hold up. The town now believes it, and people are warier of you."
 
 
 class Refusal(str):
@@ -236,6 +239,77 @@ class Player:
         if facts:
             return f"{villager.name} says: {facts[0]}"
         return f"{villager.name} doesn't know anything about it."
+
+    def pull(self) -> str | None:
+        """Copy the open case's footage and logs at this place into the notebook; returns why it could not be done."""
+        self.touch()
+        file = self.engine.cases.for_player(self.id) if self.engine.cases else None
+        if file is None:
+            return "There's no open case."
+        if self.engine.reputation.mean(self.id, (v.id for v in self.town.villagers)) < self.config.guarded_at:
+            return "People here won't share records with you right now."
+        found = [replace(r) for r in file.records.values() if r.kind in ("clip", "log") and r.place == self.place]
+        if not found:
+            return "There's no footage or log for the case here."
+        for r in found:
+            self.notebook[r.id] = r
+        self.feed.on_pulled(self.place, [record_json(r, self.town) for r in found], player=self.id)
+        return None
+
+    async def publish(self, culprit_id: str, record_ids: list[str]) -> str | None:
+        """Publish an episode naming culprit_id on the evidence cited; returns why it could not be done.
+
+        Code judges it. A right one closes the case and wins the town's regard; a wrong one spreads the accusation
+        and costs it. Either way the town hears it.
+        """
+        self.touch()
+        file = self._case()
+        if file is None:
+            return "There's no open case."
+        if file.state != "open":
+            return "That case is closed."
+        if self.id in file.published:
+            return "You've already published on this case."
+        if not 1 <= len(record_ids) <= MAX_CITED:
+            return f"Cite between 1 and {MAX_CITED} notebook entries."
+        if any(i not in self.notebook for i in record_ids):
+            return "Cite only entries from your notebook."
+        if culprit_id not in self.town:
+            return "No one in town has that id."
+        file.published.append(self.id)
+        crime, reputation = file.crime, self.engine.reputation
+        everyone = [v.id for v in self.town.villagers]
+        accused, victim = self.town.get(culprit_id), self.town.get(crime.victim)
+        named = f"{accused.name} {TEMPLATES[crime.template][0]} {victim.name}'s {crime.item}"
+        held = holds(crime, culprit_id, [self.notebook[i] for i in record_ids])
+        self.feed.on_episode(crime.id, accused.name, held, player=crime.owner)
+        if held:
+            self.engine.cases.close(file, self.id)
+            reputation.nudge_all(self.id, self.config.reputation_right, everyone)
+            self.feed.on_case_closed(crime.id, "", player=crime.owner)
+            text = f"{named}, and the evidence holds up."
+        else:
+            reputation.nudge_all(self.id, self.config.reputation_wrong, everyone)
+            reputation.nudge(culprit_id, self.id, self.config.reputation_accused)
+            self.feed.say(WRONG, player=self.id)
+            text = f"{named}."
+        u = Utterance(self.ids.next("u"), "podcast", PODCAST, self.place, text, None, "reported")
+        file.roots[u.id] = "episode"
+        household = [v.id for v in self.town.villagers if accused.household and v.household == accused.household]
+        listeners = [*(v.id for v in self.town.present(self.place)), culprit_id, *household]
+        try:
+            await self.engine.deliver(u, list(dict.fromkeys(listeners)))
+        except Exception:
+            log.exception("delivering the episode on %s failed", crime.id)
+        return None
+
+    def _case(self) -> CaseFile | None:
+        """The player's open case, else the case of their latest notebook entry."""
+        cases = self.engine.cases
+        if cases is None:
+            return None
+        latest = next(reversed(self.notebook.values()), None)
+        return cases.for_player(self.id) or (cases.files.get(latest.case) if latest else None)
 
     def _clock(self) -> str:
         """The game's time of day, like "9:40am"; empty without a game."""

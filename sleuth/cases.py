@@ -49,6 +49,8 @@ class Cases:
         self.ids = ids
         self.files: dict[str, CaseFile] = {}
         self.last_closed = -math.inf
+        # Game time (day + phase index / 4) of the last tick.
+        self.now = 0.0
 
     def to_state(self) -> dict:
         """Every case file and when the last shared case closed, as plain JSON."""
@@ -105,6 +107,12 @@ class Cases:
         name = self.town.get(pick[1]).name
         return f"{name} has never liked {victim.name.split()[0]}. I'd ask where they were {when(crime.phase)}."
 
+    def close(self, file: CaseFile, solved_by: str) -> None:
+        """Close a case a podcaster solved; the next shared crime waits crime_every_days from now."""
+        file.state, file.solved_by = "closed", solved_by
+        if file.crime.owner is None:
+            self.last_closed = self.now
+
     def mark_cover(self, vid: str, uid: str) -> None:
         if case := self.culprit_case(vid):
             case.roots[uid] = "cover"
@@ -115,7 +123,7 @@ class Cases:
 
     async def on_tick(self, engine, day: int, phase: str, finished: dict[str, list[str]], playing: bool) -> None:
         """Finish setup cases, let old ones go cold, and stage a crime when it is time."""
-        now = day + PHASES.index(phase) / len(PHASES)
+        now = self.now = day + PHASES.index(phase) / len(PHASES)
         for case in [f for f in self.files.values() if f.state == "setup"]:
             try:
                 await self._finish(engine, case, finished, now)
