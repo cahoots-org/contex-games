@@ -1,7 +1,7 @@
 import random
 
 from sleuth.models import Villager
-from sleuth.traits import COLOURS, TRAITS, assign_traits, describe, face
+from sleuth.traits import COLOURS, TRAITS, assign_traits, describe, face, figure
 
 
 def ring(n):
@@ -11,6 +11,13 @@ def ring(n):
 def test_describe_orders_and_phrases_traits():
     assert describe({"coat": "grey hoodie", "height": "tall"}) == "tall, in a grey hoodie"
     assert describe({"car": "red pickup", "hair": "red-haired"}) == "red-haired, with a red pickup"
+
+
+def test_figure_puts_looks_before_the_noun_and_clothes_after():
+    assert figure({"coat": "black puffer", "hair": "dark-haired", "height": "tall"}) == (
+        "a tall, dark-haired figure in a black puffer")
+    assert figure({"height": "average height", "car": "bicycle"}) == "an average-height figure with a bicycle"
+    assert figure({"coat": "grey hoodie", "car": "white sedan"}) == "a figure in a grey hoodie, with a white sedan"
 
 
 def test_assign_traits_gives_one_value_per_category_and_unique_combinations():

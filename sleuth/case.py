@@ -6,7 +6,7 @@ from random import Random
 
 from sleuth.lineage import Ids
 from sleuth.town import Town, at, place_name
-from sleuth.traits import describe
+from sleuth.traits import describe, figure
 
 TEMPLATES = {"steal": ("stole", ("bike", "tote bag", "thermos")), "vandalize": ("vandalized", ("car", "bike")),
              "sabotage": ("sabotaged", ("county fair pumpkin", "prize jam", "fair quilt")),
@@ -128,7 +128,7 @@ def camera_clip(crime: Crime, town: Town, ids: Ids, traits: tuple[str, ...] = CL
     culprit = town.get(crime.culprit).traits
     seen = {c: culprit[c] for c in traits}
     clock = clock_at(crime.minute)
-    text = f"{clock}, {place_name(crime.place)} camera: a figure {describe(seen)} {WITNESS_ACTION[crime.template]}."
+    text = f"{clock}, {place_name(crime.place)} camera: {figure(seen)} {WITNESS_ACTION[crime.template]}."
     return Record(ids.next("r"), crime.id, "clip", crime.place, clock, text, traits=seen)
 
 

@@ -172,7 +172,7 @@ def test_clip_only_at_camera_places():
     clip = camera_clip(crime, town, Ids())
     assert clip.kind == "clip" and clip.traits.keys() == set(CLIP_TRAITS) and clip.holder == ""
     assert clip.traits.items() <= town.get("v5").traits.items()
-    assert clip.text.startswith("11:42pm, bar camera: a figure ") and clip.clock == "11:42pm"
+    assert clip.text.startswith("11:42pm, bar camera: a") and " figure in a " in clip.text and clip.clock == "11:42pm"
 
 
 def test_logs_list_whoever_was_at_a_log_place():

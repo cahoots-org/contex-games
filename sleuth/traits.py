@@ -54,6 +54,15 @@ def describe(traits: dict[str, str]) -> str:
     return ", ".join(PHRASES[c].format(traits[c]) for c in TRAITS if c in traits)
 
 
+def figure(traits: dict[str, str]) -> str:
+    """The traits around "figure", e.g. "a tall, bald figure in a grey hoodie, with a bicycle"."""
+    looks = [traits[c].replace(" ", "-") for c in ("height", "hair") if c in traits]
+    gear = describe({c: traits[c] for c in ("coat", "car") if c in traits})
+    words = ", ".join(looks) + " figure" if looks else "figure"
+    article = "an" if words[0] in "aeiou" else "a"
+    return f"{article} {words} {gear}".rstrip()
+
+
 def face(traits: dict[str, str]) -> dict:
     """What the page needs to draw a face that matches the traits: hair and coat colours, and height 0 to 2."""
     height = traits.get("height")
