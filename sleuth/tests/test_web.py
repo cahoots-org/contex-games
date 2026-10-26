@@ -178,6 +178,15 @@ def open_case(game, culprit="v2"):
     return game.cases.files["case-1"]
 
 
+def test_state_offers_the_intro_until_the_player_starts_or_is_onboarded(game):
+    assert game.client.get("/api/state").json()["intro"] is True
+    game.player.threads = {"v1": [{"question": "?", "line": "!", "records": []}]}
+    assert game.client.get("/api/state").json()["intro"] is False
+    game.player.threads = {}
+    game.players.onboarded.add(game.player.owner)
+    assert game.client.get("/api/state").json()["intro"] is False
+
+
 def test_state_and_case_carry_the_guided_checklist(game):
     assert game.client.get("/api/state").json()["steps"] is None
     open_case(game).crime.owner = game.player.id
@@ -612,7 +621,7 @@ def test_page_is_built_around_the_case(game):
     order = ['id="case"', 'id="notebook"', 'id="here"', 'id="talk"', 'id="people"', 'id="convo"']
     assert [html.index(n) for n in order] == sorted(html.index(n) for n in order)
     for needle in ('id="publish-open"', 'id="culprit"', "/api/publish", "/api/interview", "/api/walk", "/api/pull",
-                   "/api/search", 'case "interview"', 'case "pulled"', 'case "searched"', 'case "steps"',
+                   "/api/search", 'case "interview"', 'case "pulled"', 'case "searched"', 'case "steps"', 'id="intro"',
                    "@media (max-width: 600px)"):
         assert needle in html, needle
     for gone in ("/api/listen", "Look around", "tiles", "card-title", 'role="tablist"', "innerHTML"):

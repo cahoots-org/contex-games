@@ -247,6 +247,18 @@ select, input[type="text"], input[type="search"] {
 .ask { display: flex; gap: .4rem; margin-top: .6rem; }
 .ask input { flex: 1; }
 
+/* The intro a new player sees before the page. */
+.intro { width: min(46rem, 100%); max-width: none; border: 0; padding: 1.5rem 1rem; background: transparent; color: var(--ink); }
+.intro::backdrop { background: var(--bg, #eef0ea); }
+.intro h2 { font-size: 1.9rem; margin-bottom: 1rem; }
+.cards { list-style: none; margin: 0 0 1.5rem; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .75rem; counter-reset: card; }
+.cards li {
+  counter-increment: card; padding: 1rem 1.1rem 1.2rem; border: 1px solid var(--rail); border-radius: 8px;
+  background: var(--panel); font: 1.15rem/1.45 var(--serif);
+}
+.cards li::before { content: counter(card); display: block; margin-bottom: .35rem; font: 700 .8rem var(--ui); color: var(--muted); }
+.intro .primary { padding: .65rem 1.4rem; font-size: 1.05rem; }
+
 @media (max-width: 900px) {
   header, .desk { padding-left: 1rem; padding-right: 1rem; }
   .group { grid-template-columns: 3.9rem minmax(0, 1fr); }
@@ -283,6 +295,15 @@ select, input[type="text"], input[type="search"] {
 </style>
 </head>
 <body>
+<dialog class="intro" id="intro" aria-labelledby="intro-title">
+  <h2 id="intro-title">Sleuth</h2>
+  <ol class="cards">
+    <li>You're a true-crime podcaster in a small town.</li>
+    <li>Something just happened. Talk to people and gather evidence.</li>
+    <li>When you know who did it, publish an episode naming them.</li>
+  </ol>
+  <form method="dialog"><button class="primary" autofocus>Start your first case</button></form>
+</dialog>
 <div class="app" id="app">
   <header>
     <h1>Sleuth</h1>
@@ -403,6 +424,8 @@ let caseNow = null;
 let talked = {};
 let selected = null;
 let unread = 0;
+// Whether this page has shown the intro; the server says whether the player still needs it.
+let introShown = false;
 // The guided case's checklist from the server; null off a guided case.
 let steps = null;
 // The notebook by record id, in the order the player got each entry.
@@ -985,6 +1008,10 @@ async function loadState() {
   notebook.clear();
   note(state.notebook);
   setSteps(state.steps);
+  if (state.intro && !introShown) {
+    introShown = true;
+    $("intro").showModal();
+  }
   if (selected) choose(selected);
 }
 

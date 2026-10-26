@@ -212,6 +212,7 @@ def create_app(
             "events": [e.to_json(player.id) for e in feed.replay(player.id)],
             "usage": usage.to_json(player.id),
             "resting": usage.resting(),
+            "intro": player.owner not in players.onboarded and not player.threads and not player.notebook,
             **case_of(player),
         }
 

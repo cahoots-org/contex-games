@@ -23,7 +23,8 @@ the crime place. At the next part of the day the game checks that the evidence n
 witness if that helps and dropping the case quietly if nothing can. A solvable case opens: its witnesses are told what they saw, and the neighborhood app posts the news. The
 case shows at the top of the Hear panel and goes cold after `case_days`.
 
-**Your first case.** A new podcaster gets an easy private case of their own, opened at once at a place with a
+**Your first case.** Before the page, a new podcaster sees three short cards on what the game is and a button to
+start; they come back on a reload only until the podcaster has asked anyone anything. A new podcaster gets an easy private case of their own, opened at once at a place with a
 camera: one witness, a clip showing the culprit's height, coat and hair, a clue or two at the scene, and no logs but a receipt's. Only
 they see its news. A checklist in the case header walks them through it: ask the victim what happened, ask the
 witness what they saw (or, with no witness, pull the records at the scene), search the scene, and publish. The game
