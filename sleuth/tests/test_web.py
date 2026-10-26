@@ -256,6 +256,19 @@ def test_state_notebook_hides_soundness(game):
     assert "sound" not in json.dumps(body["notebook"])
 
 
+def test_a_closed_case_s_notebook_stays_until_the_next_case_opens(game):
+    file = open_case(game)
+    said = Record("r-1", "case-1", "statement", "gym", "9:00am", "Bert Cole says they were at the gym.", "v2")
+    game.player.notebook = {said.id: said}
+    file.state = "closed"
+    body = game.client.get("/api/state").json()
+    assert body["case"] is None and [r["id"] for r in body["notebook"]] == ["r-1"]
+    crime = Crime("case-2", "steal", "bike", "v1", "v2", "gym", 1, "night", 1422, "rival", "Someone stole a bike.")
+    game.cases.files["case-2"] = CaseFile(crime, {}, "open")
+    body = game.client.get("/api/case").json()
+    assert body["case"]["id"] == "case-2" and body["notebook"] == []
+
+
 def eventually(check, timeout=5.0):
     """Whether check comes true within timeout, for state another thread changes."""
     done = threading.Event()

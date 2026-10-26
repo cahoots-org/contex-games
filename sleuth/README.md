@@ -21,7 +21,8 @@ the feed doesn't show it, so you learn it only by interviewing someone.
 shared case closed. The culprit comes from another household than the victim's, and one or two clues are left at
 the crime place. At the next part of the day the game checks that the evidence narrows to the culprit alone, adding a
 witness if that helps and dropping the case quietly if nothing can. A solvable case opens: its witnesses are told what they saw, and the neighborhood app posts the news. The
-case shows at the top of the Hear panel and goes cold after `case_days`.
+case shows at the top of the Hear panel and goes cold after `case_days`, when the town learns who did it. Your
+notebook for a closed case stays on the page until the next case opens.
 
 **Your first case.** Before the page, a new podcaster sees three short cards on what the game is and a button to
 start; they come back on a reload only until the podcaster has asked anyone anything. A new podcaster gets an easy private case of their own, opened at once at a place with a
@@ -30,7 +31,7 @@ they see its news. A checklist in the case header walks them through it: ask the
 witness what they saw (or, with no witness, pull the records at the scene), search the scene, and publish. Each step
 says why under it, from the case: the victim reported it, the witness is usually at the scene at that time of day, and
 so on. The game ticks each step from what they have actually done and lights the person or button the current step needs. Town talk stays hidden and the notebook appears with its first
-entry until the first case closes; once it closes, by an episode or by going cold, they play the town's shared case like everyone else. No new private case is opened while the town is
+entry until the first case closes; once it closes, by an episode or by going cold, they are shown the town's open case and its news, and play it like everyone else. No new private case is opened while the town is
 resting.
 
 **Evidence** is held by the game as records with ids like `r-12`; the models never invent any of it.

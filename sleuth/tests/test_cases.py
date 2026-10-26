@@ -147,7 +147,12 @@ async def test_case_goes_cold_after_case_days():
     await tick(cases, engine, day=5, playing=False)
     assert case.state == "closed" and cases.last_closed == 5.75 and cases.for_player("p-1") is None
     [closed] = kinds(engine, "case_closed")
-    assert closed.data["case_id"] == case.crime.id and "The case went cold." in engine.lines
+    assert closed.data["case_id"] == case.crime.id
+    assert f"The case went cold. It was {town_name(cases, case.crime.culprit)}." in engine.lines
+
+
+def town_name(cases, vid):
+    return cases.town.get(vid).name
 
 
 @pytest.mark.asyncio
@@ -293,6 +298,24 @@ async def test_guided_case_going_cold_onboards_the_owner():
     await cases.open_guided(engine, "p-1", 1, "night")
     await tick(cases, engine, day=5, playing=False)
     assert engine.players.onboarded == {"o-1"} and cases.last_closed == -math.inf
+
+
+@pytest.mark.asyncio
+async def test_a_player_off_their_guided_case_is_told_the_town_s_open_case():
+    cases, engine, _ = make_cases()
+    guided = await cases.open_guided(engine, "p-1", 1, "night")
+    shared = culprit_file(cases)
+    shared.crime.text = "Someone stole Dana Reyes's bike on Elm Street {when}."
+    engine.feed.recent.clear()
+    cases.close(guided, None)
+    cases.brief(engine.feed, "p-1", 2)
+    case, post = engine.feed.recent
+    assert (case.kind, case.player, case.data["case"]["id"]) == ("case", "p-1", shared.crime.id)
+    assert (post.kind, post.player, post.data["app"]) == ("post", "p-1", True)
+    assert post.data["text"] == "Someone stole Dana Reyes's bike on Elm Street last night."
+    shared.state = "closed"
+    cases.brief(engine.feed, "p-1", 2)
+    assert len(engine.feed.recent) == 2
 
 
 def test_for_player_prefers_the_private_case():

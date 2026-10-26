@@ -18,7 +18,7 @@ from sleuth.town import STREETS, Town, at
 log = logging.getLogger(__name__)
 
 APP = "The neighborhood app"
-COLD = "The case went cold."
+COLD = "The case went cold. It was {name}."
 GUIDED_CLIP_TRAITS = ("height", "coat", "hair")
 
 
@@ -127,6 +127,16 @@ class Cases:
         if file.crime.owner is None:
             self.last_closed = self.now
 
+    def brief(self, feed, player_id: str, today: int | None) -> None:
+        """Tell a player just off their guided case the town's open case and its news, hidden from them till now."""
+        case = self.shared()
+        if case is None or case.state != "open":
+            return
+        crime = case.crime
+        feed.on_case(case_json(case, self.town, self.routine, today), player=player_id)
+        news = Utterance("", "app", APP, crime.place, told(crime.text, crime, today), None, "posted")
+        feed.on_post(news, crime.id, player=player_id)
+
     def mark_cover(self, vid: str, uid: str) -> None:
         if case := self.culprit_case(vid):
             case.roots[uid] = "cover"
@@ -147,7 +157,10 @@ class Cases:
         for case in [f for f in self.files.values() if f.state == "open"]:
             if now - case.opened >= self.config.case_days:
                 self.close(case, None)
-                engine.feed.on_case_closed(case.crime.id, COLD, player=case.crime.owner)
+                cold = COLD.format(name=self.town.name_of(case.crime.culprit))
+                engine.feed.on_case_closed(case.crime.id, cold, player=case.crime.owner)
+                if case.crime.owner:
+                    self.brief(engine.feed, case.crime.owner, day)
                 if run := engine.players.get(case.crime.owner):
                     engine.players.onboarded.add(run.owner)
         if playing and self.shared() is None and now - self.last_closed >= self.config.crime_every_days:

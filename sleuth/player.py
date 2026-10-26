@@ -510,7 +510,7 @@ class Player:
         and costs it. A guided case closes either way and moves no regard. The town always hears it.
         """
         self.touch()
-        file = self._case()
+        file = self.current_case()
         if file is None:
             return "There's no open case."
         if file.state != "open":
@@ -545,6 +545,7 @@ class Player:
             self.feed.on_case_closed(crime.id, "", player=crime.owner)
         if crime.owner:
             self.engine.players.onboarded.add(self.owner)
+            self.engine.cases.brief(self.feed, self.id, self._today())
         if held:
             if not crime.owner:
                 reputation.nudge_all(self.id, self.config.reputation_right, everyone)
@@ -564,7 +565,7 @@ class Player:
             log.exception("delivering the episode on %s failed", crime.id)
         return None
 
-    def _case(self) -> CaseFile | None:
+    def current_case(self) -> CaseFile | None:
         """The player's open case, else the case of their latest notebook entry."""
         cases = self.engine.cases
         if cases is None:

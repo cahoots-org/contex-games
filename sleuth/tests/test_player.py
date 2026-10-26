@@ -754,6 +754,17 @@ async def test_publish_wrong_spreads_the_accusation_and_lowers_reputation():
 
 
 @pytest.mark.asyncio
+async def test_closing_the_guided_case_tells_its_owner_the_town_s_open_case():
+    player, file, engine, _ = interviewing()
+    file.crime.owner = PID
+    shared = CaseFile(replace(file.crime, id="case-2", owner=None), {}, "open")
+    engine.cases.files["case-2"] = shared
+    await player.publish("v3", cite(player, file, memory_of(file, player.ids)))
+    [case] = [e for e in player.feed.recent if e.kind == "case"]
+    assert (case.player, case.data["case"]["id"]) == (PID, "case-2")
+
+
+@pytest.mark.asyncio
 async def test_one_episode_per_player_per_case():
     player, file, *_ = interviewing()
     ids = cite(player, file, memory_of(file, player.ids))
