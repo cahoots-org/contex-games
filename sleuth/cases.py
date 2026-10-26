@@ -1,5 +1,6 @@
 """The town's cases as they happen: staged, checked for solvability, opened in the neighborhood app, gone cold."""
 
+import logging
 import math
 from dataclasses import asdict, dataclass, field
 from random import Random
@@ -10,6 +11,8 @@ from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
 from sleuth.town import Town
+
+log = logging.getLogger(__name__)
 
 APP = "The neighborhood app"
 COLD = "The case went cold."
@@ -81,7 +84,11 @@ class Cases:
         """Finish setup cases, let old ones go cold, and stage a crime when it is time."""
         now = day + PHASES.index(phase) / len(PHASES)
         for case in [f for f in self.files.values() if f.state == "setup"]:
-            await self._finish(engine, case, finished, now)
+            try:
+                await self._finish(engine, case, finished, now)
+            except Exception:
+                log.exception("finishing %s failed", case.crime.id)
+                self._drop(case, now)
         for case in [f for f in self.files.values() if f.state == "open"]:
             if now - case.opened >= self.config.case_days:
                 case.state = "closed"
@@ -89,20 +96,22 @@ class Cases:
                 if case.crime.owner is None:
                     self.last_closed = now
         if playing and self.shared() is None and now - self.last_closed >= self.config.crime_every_days:
-            await self._stage(engine, day, phase)
+            self._stage(day, phase)
 
     async def _finish(self, engine, case: CaseFile, finished: dict[str, list[str]], now: float) -> None:
-        """Add the phase's logs, then open the case if it is solvable and drop it if not."""
+        """Add the phase's logs, then open the case and tell its witnesses if it is solvable, and drop it if not."""
         crime = case.crime
         for r in logs(crime, finished, self.town, self.rng, self.ids):
             case.records[r.id] = r
         added = make_solvable(crime, list(case.records.values()), self.town, self.routine, self.rng, self.ids)
         if added is None:
-            del self.files[crime.id]
+            self._drop(case, now)
             return
         for m in added:
             case.records[m.id] = m
-            await self._remember(engine, case, m)
+        for m in case.records.values():
+            if m.kind == "memory":
+                await self._remember(engine, case, m)
         case.state, case.opened = "open", now
         news = Utterance(self.ids.next("u"), "app", APP, crime.place, crime.text, None, "posted")
         victim = self.town.get(crime.victim)
@@ -113,17 +122,20 @@ class Cases:
         engine.feed.on_case(case_json(case), player=crime.owner)
         engine.feed.on_post(news, crime.id, player=crime.owner)
 
-    async def _stage(self, engine, day: int, phase: str) -> None:
+    def _drop(self, case: CaseFile, now: float) -> None:
+        """Forget a case that never opened; a shared one waits crime_every_days like a closed one."""
+        self.files.pop(case.crime.id, None)
+        if case.crime.owner is None:
+            self.last_closed = now
+
+    def _stage(self, day: int, phase: str) -> None:
         crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"))
         if crime is None:
             return
         self.town.move(crime.culprit, crime.place)
         records = witness_memories(crime, self.town, self.routine, self.rng, self.ids)
         clip = camera_clip(crime, self.town, self.ids)
-        case = CaseFile(crime, {r.id: r for r in [*records, *([clip] if clip else [])]}, "setup")
-        self.files[crime.id] = case
-        for m in records:
-            await self._remember(engine, case, m)
+        self.files[crime.id] = CaseFile(crime, {r.id: r for r in [*records, *([clip] if clip else [])]}, "setup")
 
     async def _remember(self, engine, case: CaseFile, m: Record) -> None:
         """Tell the witness what they saw, rooted in the case."""

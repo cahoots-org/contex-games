@@ -60,6 +60,8 @@ async def test_culprit_is_moved_to_the_crime_place():
 async def test_witness_memory_is_delivered_to_the_witness_alone_and_rooted():
     cases, engine, _ = make_cases()
     await tick(cases, engine)
+    assert not engine.delivered
+    await tick(cases, engine, day=2)
     [case] = cases.files.values()
     memory = next(r for r in case.records.values() if r.kind == "memory")
     witness = memory.holder
@@ -95,7 +97,28 @@ async def test_unsolvable_case_is_dropped_without_news(monkeypatch):
     await tick(cases, engine)
     [first] = cases.files
     await tick(cases, engine, day=2)
-    assert first not in cases.files and not kinds(engine, "case")
+    assert not cases.files and not kinds(engine, "case") and not engine.delivered
+    assert cases.last_closed == 2.75
+    await tick(cases, engine, day=3)
+    assert first not in cases.files and len(cases.files) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_case_that_fails_to_finish_is_dropped_and_crimes_go_on(monkeypatch, caplog):
+    cases, engine, _ = make_cases()
+    await tick(cases, engine)
+    [first] = cases.files
+
+    def broken(*a):
+        raise KeyError("v1")
+
+    monkeypatch.setattr(cases_mod, "make_solvable", broken)
+    await tick(cases, engine, day=2)
+    assert not cases.files and not cases.busy() and "case-1" in caplog.text
+    monkeypatch.undo()
+    await tick(cases, engine, day=3)
+    [second] = cases.files
+    assert second != first
 
 
 @pytest.mark.asyncio

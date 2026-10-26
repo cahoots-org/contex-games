@@ -10,9 +10,9 @@ The public places are the cafe, gym, school, bar, dog park, hardware store, groc
 
 ## Cases
 
-While someone is playing and no shared case is open, a petty crime is staged at the start of a part of the day, `crime_every_days` after the last shared case closed. The culprit is drawn from a household other than the victim's, someone the routine expects elsewhere, and is sent to the crime place and kept there for the rest of that part of the day. Witnesses the routine expects at the scene are told what they saw.
+While someone is playing and no shared case is open, a petty crime is staged at the start of a part of the day, `crime_every_days` after the last shared case closed. The culprit is drawn from a household other than the victim's, someone the routine expects elsewhere, and is sent to the crime place and kept there for the rest of that part of the day.
 
-At the next tick the case is checked. Its evidence must narrow to the culprit alone; a witness is added if that helps, and a case no evidence can solve is dropped without a word. A solvable case opens: the neighborhood app posts the news to the victim, their household and whoever is at the crime place, and the case shows at the top of the Hear panel. An open case goes cold after `case_days`.
+At the next tick the case is checked. Its evidence must narrow to the culprit alone; a witness is added if that helps, and a case no evidence can solve is dropped without a word, the next crime waiting as if it had closed. A solvable case opens: its witnesses, residents the routine expected at the scene, are told what they saw, then the neighborhood app posts the news to the victim, their household and whoever is at the crime place, and the case shows at the top of the Hear panel. An open case goes cold after `case_days`.
 
 Evidence is held by the game as records with ids like `r-12`, and the models never invent any of it:
 
