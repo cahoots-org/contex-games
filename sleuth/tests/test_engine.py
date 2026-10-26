@@ -7,7 +7,7 @@ import time
 import pytest
 
 from sleuth import engine as engine_mod
-from sleuth.actions import IGNORE
+from sleuth.actions import IGNORE, MOVE
 from sleuth.calibration import Baselines
 from sleuth.case import Crime
 from sleuth.cases import CaseFile, Cases
@@ -585,6 +585,33 @@ async def test_a_resident_mid_turn_at_the_night_round_goes_home_after_it(turns, 
     assert moves == [] and turns.views[0].night
     release.set()
     await wait_for(lambda: moves == [("v1", "elm street")])
+    await engine.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_move_picked_after_the_night_round_still_ends_the_night_at_home(turns, monkeypatch):
+    game = Game()
+    game.phase = "evening"
+    engine, minds, _ = await setup("v1", game=game)
+    engine.routine = StubRoutine({"v1": {"night": "elm street"}})
+    release, moves = asyncio.Event(), []
+
+    async def slow_decide(jev, view):
+        turns.views.append(view)
+        await release.wait()
+        return Decision(MOVE, None, "gym", None)
+
+    async def act(decision, villager, **kw):
+        moves.append((villager.id, decision.target))
+
+    monkeypatch.setattr(engine_mod, "decide", slow_decide)
+    monkeypatch.setattr(engine_mod, "act", act)
+    push(minds["v1"])
+    await wait_for(lambda: turns.views)
+    game.phase = "night"
+    engine._chose_move.clear()
+    release.set()
+    await wait_for(lambda: moves == [("v1", "gym"), ("v1", "elm street")])
     await engine.stop()
 
 

@@ -273,6 +273,7 @@ class Engine:
             case=own_case.crime.text if own_case else None,
             night=self.game is not None and self.game.phase == "night",
         )
+        phase = self.game.phase if self.game is not None else None
         async with self._turns:
             decision = await decide(self.jev, view)
             if decision.gossip is not None:
@@ -282,7 +283,7 @@ class Engine:
                 lineage=self.lineage, ids=self.ids, facts=self.facts,
                 share_chance=self.share_chance(v.id, decision.source) if decision.action == MOVE else 0.0,
             )
-            if decision.action == MOVE:
+            if decision.action == MOVE and (self.game.phase if self.game is not None else None) == phase:
                 self._chose_move.add(v.id)
         return True
 
