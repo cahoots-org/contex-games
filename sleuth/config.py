@@ -28,7 +28,8 @@ class Config:
     reputation_decay: float = 0.02
     # Below this regard a resident won't talk to the podcaster.
     guarded_at: float = -0.3
-    judge_concurrency: int = 10
+    # How many routine questions Jev is asked at once.
+    routine_concurrency: int = 10
     turn_concurrency: int = 20
     top_k: int = 5
     # How far above a need's ordinary-talk similarity a line must score to match it.

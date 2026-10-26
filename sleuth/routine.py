@@ -27,7 +27,7 @@ class Routine:
         self.jev = jev
         self.path = path
         self.entries: dict[str, dict] = {}
-        self._asking = asyncio.Semaphore(config.judge_concurrency)
+        self._asking = asyncio.Semaphore(config.routine_concurrency)
 
     async def load(self, villagers: list[Villager]) -> None:
         """Read the sidecar, then ask Jev about every villager it lacks."""

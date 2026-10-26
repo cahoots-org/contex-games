@@ -128,9 +128,9 @@ async def test_add_writes_the_newcomer(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_load_asks_at_most_judge_concurrency_at_once(tmp_path):
+async def test_load_asks_at_most_routine_concurrency_at_once(tmp_path):
     jev = CountingJev()
-    routine = Routine(jev, str(tmp_path / "places.json"), Config(judge_concurrency=2))
+    routine = Routine(jev, str(tmp_path / "places.json"), Config(routine_concurrency=2))
     await routine.load([villager(f"v{i}", f"N{i}") for i in range(6)])
     assert len(jev.calls) == 6
     assert jev.most == 2

@@ -71,8 +71,8 @@ def test_summary_for_a_player_shows_only_their_share():
     usage = Usage(Config())
     usage.record("haiku", 1_000_000, 200_000, player="p-a")
     usage.record("haiku", 3_000_000, 0, player="p-b")
-    assert usage.summary("p-a") == "Your rumors have cost about $0.20 so far"
-    assert usage.summary("p-c") == "Your rumors have cost about $0.00 so far"
+    assert usage.summary("p-a") == "Your investigation has cost about $0.20 so far"
+    assert usage.summary("p-c") == "Your investigation has cost about $0.00 so far"
     assert usage.summary() == "Estimated cost so far: $0.50 (Haiku 4.0M in / 200k out)"
     assert usage.to_json("p-a") == {"summary": usage.summary("p-a"), "cost": 0.2}
 
@@ -80,7 +80,7 @@ def test_summary_for_a_player_shows_only_their_share():
 def test_a_players_sub_cent_share_reads_less_than_a_cent():
     usage = Usage(Config())
     usage.record("haiku", 1_000, 0, player="p-a")
-    assert usage.summary("p-a") == "Your rumors have cost less than $0.01 so far"
+    assert usage.summary("p-a") == "Your investigation has cost less than $0.01 so far"
 
 
 def at_utc(*parts):

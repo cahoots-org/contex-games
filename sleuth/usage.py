@@ -98,7 +98,7 @@ class Usage:
     def summary(self, player: str | None = None) -> str:
         """The cost so far as one line: the village total with its tokens, or player's share."""
         if player is not None:
-            return f"Your rumors have cost {_money(self.cost(player), 'about ')} so far"
+            return f"Your investigation has cost {_money(self.cost(player), 'about ')} so far"
         parts = []
         for name, (inp, out) in (("Haiku", self.tokens["haiku"]), ("Jev", self.tokens["jev"])):
             if inp or out:

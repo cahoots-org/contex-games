@@ -274,12 +274,12 @@ def test_closed_tab_is_dropped(game):
 
 
 def test_usage_is_in_state_and_reaches_the_websocket(game):
-    assert game.client.get("/api/state").json()["usage"]["summary"] == "Your rumors have cost about $0.00 so far"
+    assert game.client.get("/api/state").json()["usage"]["summary"] == "Your investigation has cost about $0.00 so far"
     with game.client.websocket_connect(WS) as ws:
         game.usage.record("haiku", 100_000, 20_000, player=game.player.id)
         event = receive(ws)
     assert event["kind"] == "usage"
-    assert event["usage"]["summary"] == "Your rumors have cost about $0.02 so far"
+    assert event["usage"]["summary"] == "Your investigation has cost about $0.02 so far"
 
 
 def test_each_session_sees_only_its_own_cost(game):
@@ -289,13 +289,13 @@ def test_each_session_sees_only_its_own_cost(game):
     game.usage.record("haiku", 10_000_000, 0, player=a.id)
     game.usage.record("haiku", 1_000_000, 0)
     with game.client.websocket_connect(WS) as ws:
-        assert game.client.get("/api/state").json()["usage"]["summary"] == "Your rumors have cost about $0.00 so far"
+        assert game.client.get("/api/state").json()["usage"]["summary"] == "Your investigation has cost about $0.00 so far"
         game.usage.record("haiku", 20_000_000, 0, player=a.id)
         game.usage.record("haiku", 30_000_000, 0, player=b.id)
         event = receive(ws)
-    assert event == {"kind": "usage", "usage": {"summary": "Your rumors have cost about $3.00 so far", "cost": 3.0}}
+    assert event == {"kind": "usage", "usage": {"summary": "Your investigation has cost about $3.00 so far", "cost": 3.0}}
     as_owner(game.client, a.owner)
-    assert game.client.get("/api/state").json()["usage"]["summary"] == "Your rumors have cost about $3.00 so far"
+    assert game.client.get("/api/state").json()["usage"]["summary"] == "Your investigation has cost about $3.00 so far"
 
 
 def test_first_visit_sets_an_owner_cookie(game):
