@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import re
 import time
 from dataclasses import asdict, replace
 
@@ -18,6 +19,23 @@ from sleuth.town import PLACES, START_PLACE, STREETS, Town, neighbours
 from sleuth.usage import charging
 
 log = logging.getLogger(__name__)
+# ponytail: a phrase list, not a judge; it only ever swaps a model line for the plain record text.
+DENIAL = re.compile(r"\b(can't say|cannot say|couldn't say|didn't see|did not see|never saw|haven't seen|"
+                    r"don't know|do not know|no idea|not sure|nothing)\b")
+
+
+def _denials(text: str) -> set[str]:
+    return set(DENIAL.findall(text.lower().replace("\u2019", "'")))
+
+
+def conveys(line: str, records: list[Record]) -> bool:
+    """Whether an answer keeps to its records: no denial the records don't make themselves, and every trait a memory
+    saw."""
+    if not records:
+        return True
+    hedged = set().union(*(_denials(r.text) for r in records))
+    said = line.lower()
+    return not _denials(line) - hedged and all(value in said for r in records for value in r.traits.values())
 
 
 def analytics(event: str, **fields) -> None:
@@ -229,7 +247,7 @@ class Player:
                 new.append(r)
         key = (file.crime.id, vid)
         if new or key not in self._answers:
-            self._answers[key] = await self._phrase(villager, file, [r.text for r in found] + talk)
+            self._answers[key] = await self._phrase(villager, file, found, talk)
         line = self._answers[key]
         if part:
             self._interviewed[vid] = part
@@ -279,18 +297,21 @@ class Player:
                 talk.append(f"{heard.speaker_name}: {heard.text}")
         return records, talk
 
-    async def _phrase(self, villager: Villager, file: CaseFile, facts: list[str]) -> str:
-        """The resident's answer from the writer, or a plain line when there is none or it fails."""
+    async def _phrase(self, villager: Villager, file: CaseFile, records: list[Record], talk: list[str]) -> str:
+        """The resident's answer from the writer, or a plain line from the records when it fails or doesn't convey
+        them all."""
+        texts = [r.text for r in records]
         if self.writer is not None:
             try:
-                if line := await self.writer.answer(
-                    villager, file.crime.text, facts, neighbours(self.town, villager, file.crime.text),
-                ):
+                line = await self.writer.answer(
+                    villager, file.crime.text, texts + talk, neighbours(self.town, villager, file.crime.text),
+                )
+                if line and conveys(line, records):
                     return line
             except Exception:
                 log.exception("answer for %s failed", villager.id)
-        if facts:
-            return f"{villager.name} says: {facts[0]}"
+        if said := texts or talk[:1]:
+            return f"{villager.name} says: {' '.join(said)}"
         return f"{villager.name} doesn't know anything about it."
 
     def pull(self) -> str | None:

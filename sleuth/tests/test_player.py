@@ -11,7 +11,7 @@ from sleuth.contex_client import Match
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
 from sleuth.actions import SPEAK
-from sleuth.player import ALREADY_LISTENING, GUIDED_WRONG, WRONG, Player, Refusal
+from sleuth.player import ALREADY_LISTENING, GUIDED_WRONG, WRONG, Player, Refusal, conveys
 from sleuth.players import Players
 from sleuth.config import Config
 from sleuth.alibi import claim
@@ -221,6 +221,7 @@ async def test_a_first_visit_is_logged_for_counting(capsys):
 
 
 MEMORY = "Around 11:40pm, on elm street, someone tall in a grey hoodie walked off with something."
+SEEN = "I saw someone tall in a grey hoodie take it."
 
 
 def interviewing(answer="honest"):
@@ -247,11 +248,11 @@ def memory_of(file, ids, holder="v2", utterance="u-1"):
 async def test_a_second_interview_with_nothing_new_repeats_the_answer_without_the_writer():
     player, file, engine, writer = interviewing()
     memory_of(file, player.ids)
-    writer.line = "I saw someone tall."
+    writer.line = SEEN
     assert await player.interview("v2") is None
     assert await player.interview("v2") is None
     assert len(writer.calls) == 1
-    assert [e.data["line"] for e in player.feed.recent if e.kind == "interview"] == ["I saw someone tall."] * 2
+    assert [e.data["line"] for e in player.feed.recent if e.kind == "interview"] == [SEEN] * 2
 
 
 @pytest.mark.asyncio
@@ -274,6 +275,7 @@ def notebook(player, kind="statement"):
 async def test_interview_gives_a_witness_their_memory_record():
     player, file, engine, writer = interviewing()
     memory = memory_of(file, player.ids)
+    writer.line = SEEN
     assert await player.interview("v2") is None
     assert player.notebook[memory.id] == memory and player.notebook[memory.id] is not memory
     [(vid, topic, heard, _)] = writer.calls
@@ -405,7 +407,7 @@ async def test_interview_presses_the_culprit():
 
 
 @pytest.mark.asyncio
-async def test_interview_falls_back_to_the_first_records_text_when_phrasing_fails():
+async def test_interview_falls_back_to_the_records_text_when_phrasing_fails():
     player, file, _, _ = interviewing()
     memory_of(file, player.ids)
 
@@ -414,10 +416,33 @@ async def test_interview_falls_back_to_the_first_records_text_when_phrasing_fail
 
     player.writer = SimpleNamespace(answer=down)
     await player.interview("v2")
-    assert player.feed.recent[-1].data["line"] == f"Eli Reyes says: {MEMORY}"
+    line = player.feed.recent[-1].data["line"]
+    assert line.startswith(f"Eli Reyes says: {MEMORY}") and all(r.text in line for r in player.notebook.values())
     file.crime.phase, player.place = "evening", "oak street"
     await player.interview("v6")
     assert player.feed.recent[-1].data["line"] == "Ivy Burke doesn't know anything about it."
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reply", ["I didn’t see anything, someone tall in a grey hoodie or not.",
+                                   "I saw someone tall."])
+async def test_an_answer_that_denies_or_drops_its_records_falls_back_to_every_record(reply):
+    player, file, _, writer = interviewing()
+    memory_of(file, player.ids)
+    file.whereabouts = {"v2": ["elm street"]}
+    writer.line = reply
+    await player.interview("v2")
+    line = player.feed.recent[-1].data["line"]
+    assert line.startswith(f"Eli Reyes says: {MEMORY} ")
+    assert all(r.text in line for r in player.notebook.values())
+
+
+@pytest.mark.asyncio
+async def test_an_answer_with_no_records_may_say_it_knows_nothing():
+    player, file, _, writer = interviewing()
+    file.crime.phase, player.place = "evening", "oak street"
+    await player.interview("v6")
+    assert player.feed.recent[-1].data["line"] == writer.line
 
 
 @pytest.mark.asyncio
@@ -709,3 +734,10 @@ async def test_with_no_witness_at_the_scene_the_first_line_points_to_the_records
     assert guides(player) == [
         "A case just for you: Someone stole Dana Reyes's bike on elm street last night. Watch the neighborhood app, "
         "then walk to elm street and pull the records there."]
+
+
+def test_a_hedge_the_records_make_themselves_still_conveys_them():
+    hedge = Record("r-1", "case-1", "statement", "elm street", "9:00am", "Eli Reyes: I can't say where Dana was.", "v2")
+    assert conveys("I can't say where Dana was, honestly.", [hedge])
+    assert not conveys("I can't say I saw anything.", [replace(hedge, text="Eli Reyes says they were at the bar.")])
+    assert not conveys("No idea, I can't say where Dana was.", [hedge])

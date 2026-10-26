@@ -10,6 +10,7 @@ from sleuth.models import Villager
 from sleuth.usage import charged_to
 
 SAY_MAX_TOKENS = 80
+ANSWER_MAX_TOKENS = 120
 
 
 STAGE_DIRECTION = re.compile(r"\*[^*]*\*")
@@ -90,7 +91,9 @@ class Writer:
             f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             "A podcaster is asking about a case. "
-            "Answer the podcaster in one short sentence in your own voice, using only these facts. "
+            "Answer the podcaster in one or two short sentences in your own voice, using only these facts. "
+            "Get every fact across with each detail it gives, such as looks, clothes, cars, places and times. "
+            "Your manner shapes the wording, never the facts: never deny or doubt them. "
             "If there are none, say you know nothing about it. "
             "No stage directions, no quotation marks, no preamble."
         )
@@ -98,4 +101,4 @@ class Writer:
         user = f"The case: {case}\n{said}"
         if known:
             user += "\nNeighbours you know: " + "; ".join(known)
-        return first_line(await self.complete(system, user, max_tokens=SAY_MAX_TOKENS))
+        return first_line(await self.complete(system, user, max_tokens=ANSWER_MAX_TOKENS))

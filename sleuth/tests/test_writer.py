@@ -6,7 +6,7 @@ from sleuth.config import Config
 from sleuth.models import Villager
 from sleuth.usage import Usage
 from sleuth.tests.helpers import StubClient
-from sleuth.writer import SAY_MAX_TOKENS, Writer, first_line
+from sleuth.writer import ANSWER_MAX_TOKENS, Writer, first_line
 
 
 def villager():
@@ -82,8 +82,10 @@ async def test_answer_tells_the_podcaster_only_the_facts_given():
     assert line == "Saw someone tall, that's all."
     call = client.messages.calls[0]
     user = call["messages"][0]["content"]
-    assert call["max_tokens"] == SAY_MAX_TOKENS and "Ada" in call["system"]
-    assert ("Answer the podcaster in one short sentence in your own voice, using only these facts. "
+    assert call["max_tokens"] == ANSWER_MAX_TOKENS and "Ada" in call["system"]
+    assert ("Answer the podcaster in one or two short sentences in your own voice, using only these facts. "
+            "Get every fact across with each detail it gives, such as looks, clothes, cars, places and times. "
+            "Your manner shapes the wording, never the facts: never deny or doubt them. "
             "If there are none, say you know nothing about it.") in call["system"]
     assert "Someone stole a bike." in user and "Around 9pm someone tall walked off." in user
     assert "Dana Reyes, the clerk" in user
