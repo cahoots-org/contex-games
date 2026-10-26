@@ -179,7 +179,7 @@ async def test_cases_round_trip_through_state():
 
 def culprit_file(cases, culprit="v3", victim="v1", phase="night"):
     crime = Crime("case-1", "steal", "bike", culprit, victim, "elm street", 1, phase, 1400, "opportunity",
-                  "Someone stole Dana Reyes's bike on elm street last night.")
+                  "Someone stole Dana Reyes's bike on Elm Street last night.")
     cases.files[crime.id] = CaseFile(crime, {}, "open")
     return cases.files[crime.id]
 
@@ -217,7 +217,7 @@ def test_mark_cover_roots_the_line_in_the_culprits_case():
 def test_alibi_on_a_street_is_being_at_home():
     cases, _, _ = make_cases()
     culprit_file(cases)
-    assert cases.alibi("v3") == "I was at home on elm street last night, all night."
+    assert cases.alibi("v3") == "I was at home on Elm Street last night, all night."
 
 
 @pytest.mark.asyncio

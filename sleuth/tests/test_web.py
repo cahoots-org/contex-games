@@ -144,7 +144,7 @@ def test_page_is_served(game):
 
 def test_page_has_the_walk_listen_and_ask_controls(game):
     html = game.client.get("/").text
-    for needle in ("Walk here", "Look around", "Recently said at the", "/api/walk", "/api/listen", "/api/interview", 'case "listen"', 'case "interview"',
+    for needle in ("Walk here", "Look around", "Recently said ${atPlace(place)}", "/api/walk", "/api/listen", "/api/interview", 'case "listen"', 'case "interview"',
                    'id="notebook"', '"Interview"'):
         assert needle in html
     assert "/api/ask" not in html and 'case "asked"' not in html

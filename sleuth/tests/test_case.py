@@ -115,14 +115,14 @@ def test_news_names_victim_place_and_time_not_culprit():
                  if (c := stage_crime(town, routine, Random(seed), 1, "night", "case-1")).victim == "v1"
                  and c.template == "steal" and c.item == "bike")
     culprit = town.get(crime.culprit)
-    assert crime.text == "Someone stole Dana Reyes's bike on elm street last night." and culprit.name not in crime.text
+    assert crime.text == "Someone stole Dana Reyes's bike on Elm Street last night." and culprit.name not in crime.text
     assert isinstance(crime, Crime) and crime.id == "case-1" and crime.day == 1 and crime.owner is None
     assert 1320 <= crime.minute < 1740
 
 
 @pytest.mark.parametrize("template, text", [
-    ("dog", "Someone let out Dana Reyes's dog on elm street last night."),
-    ("trailer", "Someone drove off with Dana Reyes's marching band trailer on elm street last night."),
+    ("dog", "Someone let out Dana Reyes's dog on Elm Street last night."),
+    ("trailer", "Someone drove off with Dana Reyes's marching band trailer on Elm Street last night."),
 ])
 def test_dog_and_trailer_crimes_read_like_the_others(template, text):
     town, routine = make_town(), make_routine()
@@ -138,7 +138,7 @@ def test_clock_at_formats_twelve_hour_time():
 
 
 def make_case(place="elm street"):
-    """A town with unique looks and a night crime on elm street against v1 by v5."""
+    """A town with unique looks and a night crime on Elm Street against v1 by v5."""
     town, routine = make_town(), make_routine()
     assign_traits(town.villagers, Random(0))
     crime = Crime("case-1", "steal", "bike", "v5", "v1", place, 1, "night", 1422, "rival", "Someone stole a bike.")
@@ -160,7 +160,7 @@ def test_witness_sees_two_culprit_traits_and_never_a_name():
     culprit = town.get(crime.culprit)
     m = witness_memories(crime, town, routine, Random(3), Ids())[0]
     assert len(m.traits) == 2 and m.traits.items() <= culprit.traits.items() and culprit.name not in m.text
-    assert m.id == "r-1" and m.text.startswith(f"Around {m.clock}, on elm street, someone ")
+    assert m.id == "r-1" and m.text.startswith(f"Around {m.clock}, on Elm Street, someone ")
     assert m.text.endswith(" walked off with something.")
     assert any(clock_at(minute) == m.clock for minute in range(1402, 1443))
 

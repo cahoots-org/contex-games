@@ -5,12 +5,12 @@ import math
 from dataclasses import asdict, dataclass, field
 from random import Random
 
-from sleuth.case import CAMERA_PLACES, Crime, Record, at, camera_clip, logs, make_solvable, stage_crime, when, witness_memories
+from sleuth.case import CAMERA_PLACES, Crime, Record, camera_clip, logs, make_solvable, stage_crime, when, witness_memories
 from sleuth.config import Config
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
-from sleuth.town import STREETS, Town
+from sleuth.town import STREETS, Town, at
 
 log = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ class Cases:
         phase = case.crime.phase
         place = self.routine.place(vid, phase)
         case.alibi = [place]
-        where = f"at home on {place}" if place in STREETS else at(place)
+        where = f"at home {at(place)}" if place in STREETS else at(place)
         return f"I was {where} {when(phase)}, all {phase}."
 
     def blame(self, vid: str) -> str | None:

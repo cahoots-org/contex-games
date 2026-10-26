@@ -220,12 +220,12 @@ async def test_a_first_visit_is_logged_for_counting(capsys):
     player.close()
 
 
-MEMORY = "Around 11:40pm, on elm street, someone tall in a grey hoodie walked off with something."
+MEMORY = "Around 11:40pm, on Elm Street, someone tall in a grey hoodie walked off with something."
 SEEN = "I saw someone tall in a grey hoodie take it."
 
 
 def interviewing(answer="honest"):
-    """A podcaster on elm street, where everyone is, with the shared case open: Fay (v3) stole Dana's (v1) bike."""
+    """A podcaster on Elm Street, where everyone is, with the shared case open: Fay (v3) stole Dana's (v1) bike."""
     cases, _, town = make_cases()
     file = culprit_file(cases)
     engine = FakeEngine()
@@ -297,7 +297,7 @@ async def test_interview_records_an_alibi_claim_with_soundness():
     await player.interview("v2")
     await player.interview("v3")
     claims = {r.holder: r for r in notebook(player) if " says they were " in r.text}
-    assert claims["v2"].text == "Eli Reyes says they were on elm street then at the bar last night."
+    assert claims["v2"].text == "Eli Reyes says they were on Elm Street then at the bar last night."
     assert claims["v3"].text == "Fay Okafor says they were at the gym last night."
     assert (claims["v2"].sound, claims["v3"].sound) == (True, False)
     assert claim(file, "v3", player.engine.routine)[1] is False
@@ -327,11 +327,11 @@ async def test_a_new_case_records_the_same_words_again_and_a_reinterview_still_k
     assert {r.case for r in notebook(player)} == {"case-1", "case-2"} and len(notebook(player)) == 4
     await player.interview("v2")
     assert player.feed.recent[-1].data["records"] == []
-    assert "Eli Reyes says they were on elm street last night." in writer.calls[-1][2]
+    assert "Eli Reyes says they were on Elm Street last night." in writer.calls[-1][2]
 
 
 def hearsay(player, engine, root_kind, file):
-    """Ivy (v6), on oak street with the podcaster, heard Kit retell a line rooted in root_kind."""
+    """Ivy (v6), on Oak Street with the podcaster, heard Kit retell a line rooted in root_kind."""
     player.place = "oak street"
     memory = memory_of(file, player.ids, holder="v7", utterance="u-1")
     file.roots["u-1"] = root_kind
@@ -392,7 +392,7 @@ async def test_guarded_resident_turns_the_podcaster_away():
 async def test_interview_requires_an_open_case_and_the_same_place():
     player, file, engine, writer = interviewing()
     player.place = "gym"
-    assert await player.interview("v2") == "Eli Reyes is at the elm street. Walk there to talk to them."
+    assert await player.interview("v2") == "Eli Reyes is on Elm Street. Walk there to talk to them."
     assert await player.interview("v99") == "No one in town has that id."
     file.state = "closed"
     assert await player.interview("v2") == "There's no open case."
@@ -609,7 +609,7 @@ def guides(player):
 
 
 def guided(answer="honest"):
-    """A new podcaster on elm street whose guided case is open: Fay (v3) stole Dana's (v1) bike there."""
+    """A new podcaster on Elm Street whose guided case is open: Fay (v3) stole Dana's (v1) bike there."""
     player, file, engine, writer = interviewing(answer)
     file.crime.owner = PID
     player.game = Game()
@@ -636,8 +636,8 @@ async def test_guide_walks_a_new_player_through_interview_pull_and_publish():
     assert player.pull() is None
     assert await player.publish("v3", [memory.id]) is None
     assert guides(player) == [
-        "A case just for you: Someone stole Dana Reyes's bike on elm street last night. Watch the neighborhood app, "
-        "then walk to elm street and interview whoever is there.",
+        "A case just for you: Someone stole Dana Reyes's bike on Elm Street last night. Watch the neighborhood app, "
+        "then walk to Elm Street and interview whoever is there.",
         "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Pull records where "
         "a place has a camera or keeps logs.",
         "When the evidence points to one person, publish an episode. Name them and cite what backs it up.",
@@ -732,8 +732,8 @@ async def test_with_no_witness_at_the_scene_the_first_line_points_to_the_records
     memory_of(file, player.ids, holder="v5")
     await player.start()
     assert guides(player) == [
-        "A case just for you: Someone stole Dana Reyes's bike on elm street last night. Watch the neighborhood app, "
-        "then walk to elm street and pull the records there."]
+        "A case just for you: Someone stole Dana Reyes's bike on Elm Street last night. Watch the neighborhood app, "
+        "then walk to Elm Street and pull the records there."]
 
 
 def test_a_hedge_the_records_make_themselves_still_conveys_them():

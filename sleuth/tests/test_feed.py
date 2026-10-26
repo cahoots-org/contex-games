@@ -88,7 +88,9 @@ def test_state_round_trips_as_json_and_ids_go_on_past_it():
 def test_pulled_records_carry_the_line_the_page_shows():
     feed, lines = make()
     feed.on_pulled("bar", [], player=PID)
-    assert [e.data["text"] for e in feed.recent] == lines == ["You pulled the records at the bar."]
+    feed.on_pulled("elm street", [], player=PID)
+    assert [e.data["text"] for e in feed.recent] == lines == ["You pulled the records at the bar.",
+                                                              "You pulled the records on Elm Street."]
 
 
 def test_a_player_on_a_private_case_sees_no_other_case_news_or_posts():

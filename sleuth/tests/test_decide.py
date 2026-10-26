@@ -211,7 +211,7 @@ async def test_a_move_keeps_its_manner_for_sharing_on_arrival():
 
 @pytest.mark.asyncio
 async def test_a_culprits_state_holds_their_crime_and_no_one_elses_does():
-    news = "Someone stole Dana Reyes's bike on elm street last night."
+    news = "Someone stole Dana Reyes's bike on Elm Street last night."
     jev = StubJev({"action": IGNORE})
     await decide(jev, view(case=news))
     assert news in jev.state["your_secret"]

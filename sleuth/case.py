@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from random import Random
 
 from sleuth.lineage import Ids
-from sleuth.town import STREETS, Town
+from sleuth.town import Town, at, place_name
 from sleuth.traits import describe
 
 TEMPLATES = {"steal": ("stole", ("bike", "tote bag", "thermos")), "vandalize": ("vandalized", ("car", "bike")),
@@ -63,10 +63,6 @@ def clock_at(minute: int) -> str:
 
 def when(phase: str) -> str:
     return "last night" if phase == "night" else f"this {phase}"
-
-
-def at(place: str) -> str:
-    return f"on {place}" if place in STREETS else f"at the {place}"
 
 
 def _motive(culprit, victim) -> str:
@@ -132,7 +128,7 @@ def camera_clip(crime: Crime, town: Town, ids: Ids, traits: tuple[str, ...] = CL
     culprit = town.get(crime.culprit).traits
     seen = {c: culprit[c] for c in traits}
     clock = clock_at(crime.minute)
-    text = f"{clock}, {crime.place} camera: a figure {describe(seen)} {WITNESS_ACTION[crime.template]}."
+    text = f"{clock}, {place_name(crime.place)} camera: a figure {describe(seen)} {WITNESS_ACTION[crime.template]}."
     return Record(ids.next("r"), crime.id, "clip", crime.place, clock, text, traits=seen)
 
 

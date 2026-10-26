@@ -9,6 +9,16 @@ PUBLIC_PLACES = ("cafe", "gym", "school", "bar", "dog park", "hardware store", "
 STREETS = ("elm street", "oak street", "maple street")
 PLACES = PUBLIC_PLACES + STREETS
 START_PLACE = "cafe"
+
+
+def place_name(place: str) -> str:
+    """The place as written in a sentence: streets are proper names."""
+    return place.title() if place in STREETS else place
+
+
+def at(place: str) -> str:
+    """Where someone is, like "at the cafe" or "on Elm Street"."""
+    return f"on {place_name(place)}" if place in STREETS else f"at the {place}"
 NEWCOMER = "newcomer"
 
 

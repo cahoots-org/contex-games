@@ -8,4 +8,4 @@ def test_no_one_can_leave_town():
 
 def test_alibi_and_blame_only_for_the_culprit():
     assert not {ALIBI, BLAME} & set(available_actions(view(case=None)))
-    assert {ALIBI, BLAME} <= set(available_actions(view(case="Someone stole Dana Reyes's bike on elm street last night.")))
+    assert {ALIBI, BLAME} <= set(available_actions(view(case="Someone stole Dana Reyes's bike on Elm Street last night.")))

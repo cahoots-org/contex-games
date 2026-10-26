@@ -448,6 +448,11 @@ function plural(n, word) {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
+// Where someone is, like "at the cafe" or "on Elm Street".
+function atPlace(place) {
+  return place.endsWith(" street") ? `on ${place.replace(/\b\w/g, (c) => c.toUpperCase())}` : `at the ${place}`;
+}
+
 // One feed line: loud, speech, quiet or hint.
 function line(tone, ...children) {
   return el("li", { className: `line ${tone}` }, el("span", { className: "line-text" }, ...children));
@@ -478,7 +483,7 @@ function countFold(block) {
 
 function foldWords(block, n) {
   const { place, ended } = block.dataset;
-  return `Recently said at the ${place} · ${plural(n, "line")}`;
+  return `Recently said ${atPlace(place)} · ${plural(n, "line")}`;
 }
 
 // A line in a fold.
@@ -931,7 +936,7 @@ function renderVillagers() {
       place === open ? openTile(crowd, hits) : closedTile(place, crowd, hits));
   }));
   const said = !query.trim() ? ""
-    : found.length ? `${found.length} found. Best match: ${found[0].name}, at the ${found[0].place}.`
+    : found.length ? `${found.length} found. Best match: ${found[0].name}, ${atPlace(found[0].place)}.`
     : "No one matches. Try part of a name, a job, or a look like \"red-haired\".";
   if ($("find-status").textContent !== said) $("find-status").textContent = said;
   const again = key && people.querySelector(key);
@@ -1054,7 +1059,7 @@ function updateCard() {
   const { id } = slot.dataset;
   const place = villagers.find((v) => v.id === id)?.place || slot.dataset.place;
   const meta = $("card").querySelector(".card-place");
-  meta.textContent = `${meta.dataset.occupation}, at the ${place}`;
+  meta.textContent = `${meta.dataset.occupation}, ${atPlace(place)}`;
   const answers = noteOf(id);
   $("card").querySelector(".card-known").replaceChildren(
     ...(answers.length ? answers.map((h) => el("span", { className: "brush", textContent: `“${h}”` }))
@@ -1130,7 +1135,7 @@ async function post(path, body) {
 
 function setHere(place) {
   here = place;
-  $("where").textContent = `You're at the ${place}`;
+  $("where").textContent = `You're ${atPlace(place)}`;
   setActions();
   setAsk();
 }
@@ -1190,7 +1195,7 @@ function setAsk() {
   const inside = slot.contains(document.activeElement);
   slot.dataset.key = key;
   slot.replaceChildren(...(key ? [
-    el("p", { textContent: `${name} is at the ${place}.` }),
+    el("p", { textContent: `${name} is ${atPlace(place)}.` }),
     el("button", { type: "button", className: "linkish walk-there", textContent: "Walk there", onclick: () => walkTo(place) }),
   ] : interviewForm(id, name)));
   if (inside) slot.querySelector("button").focus();

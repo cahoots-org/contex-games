@@ -34,7 +34,7 @@ async def test_household_cover_for_the_culprit_is_unsound():
     result, jev = await word("cover", "v4", "v3")
     assert result == ("Fay Okafor was home with me all night.", False)
     assert set(jev.questions["answer"].criteria) == {"honest", "cover"}
-    assert jev.state["crime"] == "Someone stole Dana Reyes's bike on elm street last night."
+    assert jev.state["crime"] == "Someone stole Dana Reyes's bike on Elm Street last night."
 
 
 @pytest.mark.asyncio

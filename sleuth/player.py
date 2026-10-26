@@ -7,7 +7,7 @@ import time
 from dataclasses import asdict, replace
 
 from sleuth.alibi import claim, household_word
-from sleuth.case import TEMPLATES, Record, at, clock_at, record_json, when
+from sleuth.case import TEMPLATES, Record, clock_at, record_json, when
 from sleuth.cases import CaseFile
 from sleuth.config import Config
 from sleuth.episode import MAX_CITED, holds
@@ -15,7 +15,7 @@ from sleuth.facts import audible
 from sleuth.game import Game
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
-from sleuth.town import PLACES, START_PLACE, STREETS, Town, neighbours
+from sleuth.town import PLACES, START_PLACE, STREETS, Town, at, neighbours, place_name
 from sleuth.usage import charging
 
 log = logging.getLogger(__name__)
@@ -123,7 +123,7 @@ class Player:
                 crime = case.crime
                 there = any(r.kind == "memory" and self.town.place_of(r.holder) == crime.place
                             for r in case.records.values())
-                self._guide(0, case=crime.text.rstrip("."), place=crime.place if crime.place in STREETS else f"the {crime.place}",
+                self._guide(0, case=crime.text.rstrip("."), place=place_name(crime.place) if crime.place in STREETS else f"the {crime.place}",
                             then="interview whoever is there" if there else "pull the records there")
         except Exception:
             log.exception("opening a guided case for %s failed", self.id)
@@ -170,7 +170,7 @@ class Player:
         if place not in PLACES:
             return f"There's no {place} here. Try one of: {', '.join(PLACES)}."
         if place == self.place:
-            return f"You're already at the {place}."
+            return f"You're already {at(place)}."
         self._move(place)
         return None
 
@@ -230,7 +230,7 @@ class Player:
         villager = self.town.get(vid)
         place = self.town.place_of(vid)
         if place != self.place:
-            return f"{villager.name} is at the {place}. Walk there to talk to them."
+            return f"{villager.name} is {at(place)}. Walk there to talk to them."
         if self.engine.reputation.get(vid, self.id) < self.config.guarded_at:
             return Refusal(f"{villager.name} won't talk to you.")
         part = (self.game.day, self.game.phase) if self.game else None

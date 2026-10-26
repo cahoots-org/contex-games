@@ -2,7 +2,7 @@ from sleuth.case import Crime, Record
 from sleuth.episode import holds
 
 CRIME = Crime("case-1", "steal", "bike", "v3", "v1", "elm street", 1, "night", 1400, "opportunity",
-              "Someone stole Dana Reyes's bike on elm street last night.")
+              "Someone stole Dana Reyes's bike on Elm Street last night.")
 
 
 def record(rid="r-1", case="case-1", kind="memory", sound=True):

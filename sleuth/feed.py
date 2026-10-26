@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 
 from sleuth.lineage import Lineage
 from sleuth.models import Utterance
-from sleuth.town import Town
+from sleuth.town import Town, at
 
 REPLAY_EVENTS = 500
 TIME_LINES = {
@@ -122,7 +122,7 @@ class Feed:
 
     def on_pulled(self, place: str, records: list[dict], *, player: str) -> None:
         """The footage and logs the podcaster pulled at place into their notebook."""
-        line = f"You pulled the records at the {place}."
+        line = f"You pulled the records {at(place)}."
         self.emit("pulled", line, player=player, place=place, records=records, text=line)
 
     def on_episode(self, case_id: str, name: str, held: bool, player: str | None = None) -> None:
@@ -149,7 +149,7 @@ class Feed:
     def on_listen(self, place: str, lines: list[Utterance], until: float, *, player: str) -> None:
         """The player looks around at place, seeing the lines said there lately; they can look again after until."""
         heard = [f'{u.speaker_name}: "{u.text}"' for u in lines]
-        text = "\n".join([f"Recently said at the {place}:", *heard]) if heard else f"Nothing has been said at the {place} lately."
+        text = "\n".join([f"Recently said {at(place)}:", *heard]) if heard else f"Nothing has been said {at(place)} lately."
         self.emit("listen", text, player=player, place=place, until=until, ended=False,
                   lines=[{"speaker": u.speaker, "speaker_name": u.speaker_name, "text": u.text} for u in lines])
 
