@@ -149,7 +149,7 @@ def record_json(r: Record, town: Town, crime: Crime | None = None, today: int | 
     """What the player sees of a record, its case's time said on today."""
     text = told(r.text, crime, today) if crime else r.text
     return {"id": r.id, "kind": r.kind, "place": r.place, "day": r.day, "clock": r.clock, "text": text,
-            "from": town.get(r.holder).name if r.holder else ""}
+            "from": town.get(r.holder).name if r.holder else "", "holder": r.holder}
 
 
 def _memory_text(crime: Crime, clock: str, seen: dict[str, str]) -> str:

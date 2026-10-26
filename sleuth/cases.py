@@ -43,7 +43,7 @@ def case_json(case: CaseFile, town: Town, today: int | None = None) -> dict:
     """What a player sees of a case on today, titled like "Ada Reyes's bike"."""
     c = case.crime
     return {"id": c.id, "text": told(c.text, c, today), "place": c.place, "phase": c.phase, "day": c.day, "state": case.state,
-            "private": c.owner is not None, "title": f"{town.name_of(c.victim)}'s {c.item}"}
+            "private": c.owner is not None, "title": f"{town.name_of(c.victim)}'s {c.item}", "victim": c.victim}
 
 
 class Cases:

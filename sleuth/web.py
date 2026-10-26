@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from starlette.datastructures import Headers
 from starlette.websockets import WebSocketClose
 
-from sleuth.case import record_json
+from sleuth.case import CAMERA_PLACES, LOG_PLACES, record_json
 from sleuth.cases import Cases, case_json
 from sleuth.feed import RESTING, Event, Feed
 from sleuth.game import Game
@@ -207,6 +207,8 @@ def create_app(
             "place": player.place,
             "time": game.clock(),
             "villagers": villagers(town),
+            "talked": {vid: len(thread) for vid, thread in player.threads.items()},
+            "records_at": sorted({*CAMERA_PLACES, *LOG_PLACES}),
             "events": [e.to_json(player.id) for e in feed.replay(player.id)],
             "usage": usage.to_json(player.id),
             "resting": usage.resting(),

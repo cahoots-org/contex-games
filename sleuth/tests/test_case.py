@@ -285,7 +285,7 @@ def test_record_json_hides_soundness_and_traits():
     town, routine, crime = make_case()
     m = witness_memories(crime, town, routine, Random(3), Ids())[0]
     assert record_json(m, town) == {"id": m.id, "kind": "memory", "place": "elm street", "day": 1, "clock": m.clock,
-                                    "text": m.text, "from": town.get(m.holder).name}
+                                    "text": m.text, "from": town.get(m.holder).name, "holder": m.holder}
     log = Record("r-9", "case-1", "log", "gym", "11:00pm", "Gym check-in: Hal Burke, 11:00pm", who="v5")
     assert record_json(log, town)["from"] == ""
     said = Record("r-8", "case-1", "statement", "gym", "9:00am", f"Hal Burke says they were at the gym {WHEN}.", "v5")

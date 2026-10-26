@@ -96,6 +96,13 @@ def test_state_lists_villagers_and_replay(game):
     assert "NEED" not in game.client.get("/api/state").text
 
 
+def test_state_counts_each_conversation_and_names_where_records_are_kept(game):
+    game.player.threads = {"v1": [{"question": "?", "line": "!", "records": []}] * 2}
+    state = game.client.get("/api/state").json()
+    assert state["talked"] == {"v1": 2}
+    assert set(state["records_at"]) == {"grocery", "bar", "town hall", "elm street", "gym", "library"}
+
+
 def test_state_lists_each_villagers_looks_and_face(game):
     game.town.get("v1").traits = {"height": "tall", "hair": "bald", "coat": "denim jacket", "car": "bicycle"}
     marta = next(v for v in game.client.get("/api/state").json()["villagers"] if v["id"] == "v1")
@@ -240,7 +247,7 @@ def test_state_notebook_hides_soundness(game):
     game.player.notebook = {r.id: r for r in (lie, old)}
     body = game.client.get("/api/state").json()
     assert body["notebook"] == [{"id": "r-1", "kind": "statement", "place": "gym", "day": 0,
-                                 "clock": "9:00am", "text": lie.text, "from": "Bert Cole"}]
+                                 "clock": "9:00am", "text": lie.text, "from": "Bert Cole", "holder": "v2"}]
     assert "sound" not in json.dumps(body["notebook"])
 
 
@@ -647,7 +654,7 @@ def test_state_shows_the_case_without_its_culprit(game):
     game.cases.files["case-1"] = CaseFile(crime, {}, "open")
     body = game.client.get("/api/state").json()
     assert body["case"] == {"id": "case-1", "text": crime.text, "place": "library", "phase": "night", "day": 1,
-                            "state": "open", "private": False, "title": "Marta Hale's bike"}
+                            "state": "open", "private": False, "title": "Marta Hale's bike", "victim": "v1"}
     assert "culprit" not in json.dumps(body["case"]) and "Bert Cole" not in json.dumps(body["case"])
 
 
