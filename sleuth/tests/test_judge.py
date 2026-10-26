@@ -271,10 +271,10 @@ async def test_a_players_whisper_counts_as_heard_but_is_never_the_saying():
 async def test_the_saying_is_the_line_as_the_game_kept_it():
     _, contex, _, feed, town = make(n=1)
     facts = Facts()
-    sermon = Utterance("u-3", "v9", "Wren Crane", "school", "the cat: a devil in fur", None, "preached")
-    facts.record(sermon)
+    rant = Utterance("u-3", "v9", "Wren Crane", "school", "the cat: a devil in fur", None, "preached")
+    facts.record(rant)
     judge = Judge(contex, StubJev(0.2), town, CONFIG, feed, baselines=StubBaselines(), facts=facts, maker=goal_maker(town))
-    contex.minds[mind_project(CONFIG.session, "v0")] = [Match("utt:u-3", sermon.to_data(), 0.9)]
+    contex.minds[mind_project(CONFIG.session, "v0")] = [Match("utt:u-3", rant.to_data(), 0.9)]
     await judge.check(BELIEF)
     assert judge.doubt[BELIEF.id]["saying"] == "the cat: a devil in fur"
 
@@ -422,7 +422,7 @@ async def test_world_goal_met_draws_a_new_one():
 
 def test_the_next_world_goal_is_a_claim_no_player_holds():
     judge, *_ = make()
-    claims = ("the well is cursed", "a dragon lives in the hills", "the mill is haunted")
+    claims = ("the fountain is cursed", "a mountain lion lives in the hills", "the gym is haunted")
     judge.maker.pool = Pool((), tuple(Entry(c, 2) for c in claims))
     judge.world = world_goal(Goal("world-0", "w", "belief", claim_text=claims[0]))
     judge._players = players(holder("p-b", Goal("theirs", "t", "belief", claim_text=claims[1])))
@@ -433,8 +433,8 @@ def test_the_next_world_goal_is_a_claim_no_player_holds():
 @pytest.mark.asyncio
 async def test_deal_leaves_out_the_claims_in_play():
     judge, *_ = make()
-    judge.world = world_goal(Goal("w", "w", "belief", ("the well is cursed",), claim_text="the well is cursed"))
-    judge.maker.pool = Pool((Entry("waters down the ale", 2),), (Entry("the well is cursed", 2), Entry("a dragon", 2)))
+    judge.world = world_goal(Goal("w", "w", "belief", ("the fountain is cursed",), claim_text="the fountain is cursed"))
+    judge.maker.pool = Pool((Entry("waters down the ale", 2),), (Entry("the fountain is cursed", 2), Entry("a mountain lion", 2)))
     theirs = Goal("theirs", "t", "belief", ("x",), claim_text="Vi Name0 waters down the ale")
     judge._players = players(holder("p-b", theirs))
     for seed in range(20):
@@ -442,7 +442,7 @@ async def test_deal_leaves_out_the_claims_in_play():
         pa = holder("p-a")
         judge.deal(pa)
         claims = {g.claim_text.lower() for g in pa.goals}
-        assert len(pa.goals) == 3 and not claims & {"the well is cursed", "vi name0 waters down the ale"}
+        assert len(pa.goals) == 3 and not claims & {"the fountain is cursed", "vi name0 waters down the ale"}
 
 
 @pytest.mark.asyncio

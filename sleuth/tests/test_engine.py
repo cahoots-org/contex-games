@@ -2022,8 +2022,8 @@ async def test_moments_mark_five_and_ten_hearers_once(turns):
 
 @pytest.mark.asyncio
 async def test_reaching_an_influential_villager_or_a_new_place_is_a_moment(turns):
-    priest = Villager("v2", "V2", "Mayor", "calm", "none", [], {})
-    engine, feed = await moment_engine(await stub_rumors(0.9), make("v1"), priest)
+    mayor = Villager("v2", "V2", "Mayor", "calm", "none", [], {})
+    engine, feed = await moment_engine(await stub_rumors(0.9), make("v1"), mayor)
     engine.lineage.record("u-1", "w-1")
     await engine.deliver(Utterance("u-1", "v1", "V1", "bar", "psst again", "w-1"), ["v2"])
     await engine.deliver(Utterance("u-1", "v1", "V1", "bar", "psst again", "w-1"), ["v2"])

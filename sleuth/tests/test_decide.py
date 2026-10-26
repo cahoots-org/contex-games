@@ -89,7 +89,7 @@ async def test_retell_maps_chosen_target_and_style():
 
 @pytest.mark.asyncio
 async def test_move_and_join_use_their_own_target_questions():
-    g = Group("g-1", "Chapel Circle", "pray", "v9", {"v9"})
+    g = Group("g-1", "Book Circle", "read", "v9", {"v9"})
     jev = StubJev({"action": MOVE, "place_target": "bar", "join_target": "g-1"})
     d = await decide(jev, view(visible_groups=[g]))
     assert "cafe" not in jev.questions["place_target"].criteria
@@ -115,14 +115,14 @@ async def test_style_kept_for_speech_actions(action):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("action", [JOIN_GROUP, FOUND_GROUP, IGNORE])
 async def test_style_none_for_non_speech(action):
-    g = Group("g-1", "Circle", "pray", "v9", {"v9"})
+    g = Group("g-1", "Circle", "read", "v9", {"v9"})
     jev = StubJev({"action": action, "place_target": "library", "join_target": "g-1", "style": "mock"})
     assert (await decide(jev, view(visible_groups=[g]))).style is None
 
 
 @pytest.mark.asyncio
 async def test_leave_group_style_none_and_target_consumed():
-    g = Group("g-1", "Circle", "pray", "v1", {"v1"})
+    g = Group("g-1", "Circle", "read", "v1", {"v1"})
     jev = StubJev({"action": LEAVE_GROUP, "group_target": "g-1", "style": "mock"})
     d = await decide(jev, view(member_groups=[g]))
     assert (d.target, d.style) == ("g-1", None)
@@ -130,7 +130,7 @@ async def test_leave_group_style_none_and_target_consumed():
 
 @pytest.mark.asyncio
 async def test_preach_in_empty_room_gets_style_and_group_target():
-    g = Group("g-1", "Circle", "pray", "v1", {"v1"})
+    g = Group("g-1", "Circle", "read", "v1", {"v1"})
     jev = StubJev({"action": PREACH, "group_target": "g-1", "style": "exaggerated"})
     d = await decide(jev, view(present=[], member_groups=[g]))
     assert "style" in jev.questions
@@ -139,12 +139,12 @@ async def test_preach_in_empty_room_gets_style_and_group_target():
 
 @pytest.mark.asyncio
 async def test_target_descriptions_include_names():
-    g = Group("g-1", "Chapel Circle", "pray", "v9", {"v9"})
+    g = Group("g-1", "Book Circle", "read", "v9", {"v9"})
     jev = StubJev({"action": IGNORE})
     await decide(jev, view(visible_groups=[g], member_groups=[g]))
     assert "Bo" in jev.questions["villager_target"].criteria["v2"]
     for q in ("join_target", "group_target"):
-        assert "Chapel Circle" in jev.questions[q].criteria["g-1"]
+        assert "Book Circle" in jev.questions[q].criteria["g-1"]
 
 
 @pytest.mark.asyncio

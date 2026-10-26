@@ -8,6 +8,7 @@ import pytest
 
 from sleuth.models import Villager
 from sleuth.town import STREETS
+from sleuth.tests.test_copy import WORDS
 from sleuth.town_gen import (
     HOUSEHOLDS, MAX_FAILED_BATCHES, SeedMismatch, form_households, generate_villagers,
     load_or_generate, wire_relationships, world_path,
@@ -336,4 +337,4 @@ async def test_generation_asks_for_a_modern_town():
     system, user = prompts[0]
     assert "small modern American town" in system
     assert "break-ins, layoffs, gossip" in user
-    assert "pious" not in user and "church" not in user and "mayor" not in user
+    assert not WORDS.search(user) and "mayor" not in user

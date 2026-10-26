@@ -40,7 +40,7 @@ class StubWriter:
 
     async def describe_group(self, villager, inspiration):
         self.group_calls.append(list(inspiration))
-        return "Chapel Circle", "be kind"
+        return "Book Circle", "be kind"
 
 
 class RecordingHub:
@@ -139,23 +139,23 @@ async def test_found_group_adds_group_and_publishes_record():
     s = Setup()
     await s.act("v1", Decision(FOUND_GROUP, None, None, None), inspiration=["a rumor"])
     assert s.writer.group_calls == [["a rumor"]]
-    assert s.hub.groups[0].name == "Chapel Circle"
+    assert s.hub.groups[0].name == "Book Circle"
     assert s.town.member_groups("v1")[0].creed == "be kind"
     utt, listeners = s.hub.delivered[0]
     assert sorted(listeners) == ["v2", "v3"]
-    assert "Chapel Circle" in utt.text
+    assert "Book Circle" in utt.text
 
 
 @pytest.mark.asyncio
 async def test_preach_reaches_members_in_other_places():
     s = Setup()
-    g = s.town.found_group("v1", "Chapel Circle", "be kind")
+    g = s.town.found_group("v1", "Book Circle", "be kind")
     s.town.join("v2", g.id)
     s.town.move("v2", "school")
     await s.act("v1", Decision(PREACH, None, g.id, "faithful"))
     utt, listeners = s.hub.delivered[0]
     assert listeners == ["v2"]
-    assert s.writer.say_calls == [(PREACH, None, "Chapel Circle")]
+    assert s.writer.say_calls == [(PREACH, None, "Book Circle")]
 
 
 @pytest.mark.asyncio
