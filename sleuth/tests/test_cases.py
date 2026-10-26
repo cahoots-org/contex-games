@@ -298,3 +298,38 @@ async def test_no_guided_case_when_nothing_fits():
     cases.routine = make_routine(night={v.id: "gym" for v in cases.town.villagers})
     assert await cases.open_guided(engine, "p-1", 1, "night") is None
     assert not cases.files and not engine.feed.recent
+
+
+@pytest.mark.asyncio
+async def test_dropping_a_runs_private_case_frees_its_people():
+    cases, engine, _ = make_cases()
+    case = await cases.open_guided(engine, "p-1", 1, "night")
+    cases.drop_private("p-1")
+    assert case.crime.id not in cases.files and cases.for_player("p-1") is None
+
+
+@pytest.mark.asyncio
+async def test_shared_staging_may_use_a_guided_witness_but_not_its_culprit_or_victim():
+    cases, engine, town = make_cases()
+    guided = culprit_file(cases)
+    guided.crime.owner = "p-1"
+    guided.records["r-1"] = Record("r-1", guided.crime.id, "memory", "elm street", "11:40pm", "saw", "v2")
+    cases.ids.ensure_past("case", 1)
+    people = set()
+    for seed in range(40):
+        cases.rng.seed(seed)
+        cases._stage(1, "night")
+        for f in [f for f in cases.files.values() if f.crime.owner is None]:
+            people |= {f.crime.culprit, f.crime.victim}
+            del cases.files[f.crime.id]
+    assert "v2" in people and not people & {"v1", "v3"}
+
+
+@pytest.mark.asyncio
+async def test_no_guided_case_when_every_resident_is_involved():
+    cases, engine, town = make_cases()
+    file = culprit_file(cases)
+    file.records = {f"r-{v.id}": Record(f"r-{v.id}", file.crime.id, "memory", "elm street", "", "", v.id)
+                    for v in town.villagers}
+    cases.ids.ensure_past("case", 1)
+    assert await cases.open_guided(engine, "p-1", 1, "night") is None

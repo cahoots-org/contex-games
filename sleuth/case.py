@@ -123,7 +123,7 @@ def witness_memories(crime: Crime, town: Town, routine, rng: Random, ids: Ids) -
     return memories
 
 
-def camera_clip(crime: Crime, town: Town, ids: Ids, traits=CLIP_TRAITS) -> Record | None:
+def camera_clip(crime: Crime, town: Town, ids: Ids, traits: tuple[str, ...] = CLIP_TRAITS) -> Record | None:
     """The scene's camera footage at the crime minute, if the place has a camera."""
     if crime.place not in CAMERA_PLACES:
         return None

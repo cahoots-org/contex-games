@@ -523,7 +523,6 @@ async def test_publish_rejects_duplicate_and_other_case_citations_without_spendi
     ids = cite(player, file, memory_of(file, player.ids))
     other = Record("r-50", "case-9", "clip", "grocery", "9:00am", "a clip from another case")
     player.notebook[other.id] = other
-    assert await player.publish("v3", ids * 2) == "Cite each entry once."
     assert await player.publish("v3", ids + [other.id]) == "Cite only evidence from this case."
     assert file.published == [] and engine.delivered == []
     assert await player.publish("v3", ids) is None and file.state == "closed"
@@ -562,7 +561,14 @@ def guided(answer="honest"):
     player, file, engine, writer = interviewing(answer)
     file.crime.owner = PID
     player.game = Game()
-    engine.cases.open_guided = lambda *a: asyncio.sleep(0, file)
+    opened = []
+
+    async def open_guided(*args):
+        opened.append(args[1:])
+        return file
+
+    engine.cases.open_guided = open_guided
+    engine.opened = opened
     return player, file, engine
 
 
@@ -601,7 +607,10 @@ async def test_guide_skips_steps_out_of_order():
 @pytest.mark.asyncio
 async def test_no_guide_without_a_guided_case():
     player, file, engine = guided()
-    engine.cases.open_guided = lambda *a: asyncio.sleep(0, None)
+    async def nothing(*args):
+        return None
+
+    engine.cases.open_guided = nothing
     await player.start()
     await player.interview("v2")
     assert guides(player) == [] and player.guide_step == 0
@@ -627,3 +636,39 @@ async def test_rival_hears_the_case_was_cracked_first():
     told = [e for e in player.feed.recent if e.kind in ("system", "episode")]
     assert [(e.kind, e.player) for e in told] == [("system", "p-2"), ("episode", None)]
     assert told[0].line == "Another podcaster cracked the case first."
+
+
+@pytest.mark.asyncio
+async def test_onboarded_owner_gets_no_guided_case():
+    player, file, engine = guided()
+    engine.players.onboarded.add(player.owner)
+    await player.start()
+    assert engine.opened == [] and guides(player) == []
+
+
+@pytest.mark.asyncio
+async def test_no_guided_case_while_the_town_rests():
+    player, file, engine = guided()
+    engine.players.usage = SimpleNamespace(resting=lambda: True)
+    await player.start()
+    assert engine.opened == [] and guides(player) == []
+
+
+@pytest.mark.asyncio
+async def test_the_first_connect_opens_the_guided_case_in_the_background():
+    player, file, engine = guided()
+    player.connected()
+    assert engine.opened == []
+    await wait_for(lambda: player.guide_step == 1)
+    player.disconnected()
+    player.connected()
+    await asyncio.sleep(0)
+    assert engine.opened == [(PID, 1, "morning")]
+
+
+@pytest.mark.asyncio
+async def test_publish_refuses_a_repeated_citation_without_spending_the_episode():
+    player, file, engine, _ = interviewing()
+    ids = cite(player, file, memory_of(file, player.ids))
+    assert await player.publish("v3", ids * 2) == "Cite each entry once."
+    assert file.published == [] and engine.delivered == []

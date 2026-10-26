@@ -66,6 +66,7 @@ class Player:
         self.notebook: dict[str, Record] = {}
         # The next GUIDE line to send.
         self.guide_step = 0
+        self._starting = False
         self._tasks: set[asyncio.Task] = set()
         # When the running listen ends, or None when the player is not listening.
         self._listen_until: float | None = None
@@ -91,9 +92,17 @@ class Player:
         self._active_at = None if active_at is None else min(active_at, time.time() - self.config.idle_after_seconds)
 
     async def start(self) -> None:
-        """Open a guided first case for this run, and tell the player about it, if one fits."""
-        if case := await self.engine.cases.open_guided(self.engine, self.id, self.game.day, self.game.phase):
-            self._guide(0, case=case.crime.text.rstrip("."), place=at(case.crime.place))
+        """Open a guided first case for a new, not yet onboarded owner while the town is awake, and tell them."""
+        players = self.engine.players
+        try:
+            if self.owner in players.onboarded or players.resting():
+                return
+            if case := await self.engine.cases.open_guided(self.engine, self.id, self.game.day, self.game.phase):
+                self._guide(0, case=case.crime.text.rstrip("."), place=at(case.crime.place))
+        except Exception:
+            log.exception("opening a guided case for %s failed", self.id)
+        finally:
+            self._starting = False
 
     def _guide(self, step: int, **fields) -> None:
         """Send GUIDE[step] to the player when it is the next one due."""
@@ -107,6 +116,9 @@ class Player:
             analytics("visit", owner=self.owner, run=self.id)
         self._sockets += 1
         self.touch()
+        if self.guide_step == 0 and not self._starting and self.engine.cases is not None and self.game is not None:
+            self._starting = True
+            self._track(asyncio.create_task(self.start()))
 
     def disconnected(self) -> None:
         """A tab closed its feed."""

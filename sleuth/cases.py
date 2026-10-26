@@ -159,10 +159,16 @@ class Cases:
             self._drop(case, now)
         return case if case.state == "open" else None
 
-    def _involved(self) -> set[str]:
-        """The culprits, victims and witnesses of every case not yet closed."""
+    def _involved(self, witnesses: bool = True) -> set[str]:
+        """The culprits and victims, and optionally witnesses, of every case not yet closed."""
         return {vid for f in self.files.values() if f.state != "closed"
-                for vid in (f.crime.culprit, f.crime.victim, *(r.holder for r in f.records.values() if r.kind == "memory"))}
+                for vid in (f.crime.culprit, f.crime.victim,
+                            *(r.holder for r in f.records.values() if witnesses and r.kind == "memory"))}
+
+    def drop_private(self, player_id: str) -> None:
+        """Forget the run's open private case, freeing its people."""
+        for f in [f for f in self.files.values() if f.crime.owner == player_id and f.state != "closed"]:
+            del self.files[f.crime.id]
 
     async def _finish(self, engine, case: CaseFile, finished: dict[str, list[str]], now: float) -> None:
         """Add the phase's logs, then open the case and tell its witnesses if it is solvable, and drop it if not."""
@@ -196,7 +202,8 @@ class Cases:
             self.last_closed = now
 
     def _stage(self, day: int, phase: str) -> None:
-        crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"), exclude=self._involved())
+        crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"),
+                            exclude=self._involved(witnesses=False))
         if crime is None:
             return
         self.town.move(crime.culprit, crime.place)
