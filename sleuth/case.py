@@ -146,6 +146,14 @@ def logs(crime: Crime, phase_log: dict[str, list[str]], town: Town, rng: Random,
     return records
 
 
+def points_at(crime: Crime, culprit: str, traits: dict[str, str], r: Record) -> bool:
+    """Whether a record singles out the culprit: a sighting that fits them or a log at the scene. A housemate's "I was
+    asleep" says the same of everyone, so it points at no one."""
+    if r.kind in ("memory", "clip"):
+        return bool(r.traits) and r.traits.items() <= traits.items()
+    return r.kind == "log" and r.who == culprit and r.place == crime.place
+
+
 def suspects(crime: Crime, records: list[Record], town: Town) -> set[str]:
     """Residents who match every sighting and are not logged only elsewhere."""
     sightings = [r.traits for r in records if r.kind in ("memory", "clip")]
@@ -157,23 +165,25 @@ def suspects(crime: Crime, records: list[Record], town: Town) -> set[str]:
 
 
 def make_solvable(crime: Crime, records: list[Record], town: Town, routine, rng: Random, ids: Ids) -> list[Record] | None:
-    """The extra memory that narrows the case to the culprit: [] if none is needed, None if none can."""
+    """The extra memory that narrows the case to the culprit and points at them: [] if none is needed, None if none
+    can."""
     left = suspects(crime, records, town)
-    if left == {crime.culprit}:
-        return []
     if crime.culprit not in left:
         return None
     culprit = town.get(crime.culprit).traits
     seen: dict[str, str] = {}
-    while len(left) > 1:
+    pointing = any(r.sound and points_at(crime, crime.culprit, culprit, r) for r in records)
+    while len(left) > 1 or not (seen or pointing):
         unseen = [c for c in culprit if c not in seen]
         if not unseen:
             return None
         best = max(unseen, key=lambda c: sum(town.get(s).traits.get(c) != culprit[c] for s in left))
         narrowed = {s for s in left if town.get(s).traits.get(best) == culprit[best]}
-        if narrowed == left:
+        if narrowed == left and len(left) > 1:
             return None
         seen[best], left = culprit[best], narrowed
+    if not seen:
+        return []
     seen_by = {r.holder for r in records if r.kind == "memory"}
     others = [v.id for v in town.villagers if v.id not in (crime.culprit, crime.victim)]
     witness = next((w for w in _bystanders(crime, town, routine) + others if w not in seen_by), None)

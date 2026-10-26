@@ -11,6 +11,7 @@ from sleuth.case import (
     clock_at,
     logs,
     make_solvable,
+    points_at,
     record_json,
     stage_crime,
     suspects,
@@ -221,6 +222,16 @@ def test_make_solvable_returns_none_when_the_culprit_is_logged_elsewhere():
 def test_make_solvable_returns_none_when_traits_cannot_single_out_the_culprit():
     town, routine, crime = make_town(), make_routine(), make_case()[2]
     assert make_solvable(crime, [], town, routine, Random(1), Ids()) is None
+
+
+def test_make_solvable_adds_a_pointing_record_when_only_logs_elsewhere_narrow_the_case():
+    town, routine, crime = make_case()
+    elsewhere = [Record(f"r-{i}", "case-1", "log", "gym", "11:00pm", "", who=v.id)
+                 for i, v in enumerate(town.villagers) if v.id not in (crime.culprit, crime.victim)]
+    assert suspects(crime, elsewhere, town) == {crime.culprit}
+    added = make_solvable(crime, elsewhere, town, routine, Random(1), Ids())
+    culprit = town.get(crime.culprit).traits
+    assert added and any(points_at(crime, crime.culprit, culprit, r) for r in added)
 
 
 def test_record_json_hides_soundness_and_traits():
