@@ -550,10 +550,16 @@ async def test_guarded_resident_turns_the_podcaster_away():
 
 
 @pytest.mark.asyncio
-async def test_interview_requires_an_open_case_and_the_same_place():
+async def test_interview_reaches_a_resident_from_anywhere():
     player, file, engine, writer = interviewing()
     player.place = "gym"
-    assert await ask(player, "v2", "none") == "Eli Reyes is on Elm Street. Walk there to talk to them."
+    assert await ask(player, "v2", "none") is None
+    assert replies(player) == ["I wouldn't know about that."]
+
+
+@pytest.mark.asyncio
+async def test_interview_requires_an_open_case():
+    player, file, engine, writer = interviewing()
     assert await ask(player, "v99", "none") == "No one in town has that id."
     file.state = "closed"
     assert await ask(player, "v2", "none") == "There's no open case."
@@ -824,7 +830,8 @@ async def test_guide_walks_a_new_player_through_interview_pull_and_publish():
     assert player.pull() is None
     assert await player.publish("v3", [memory.id]) is None
     assert guides(player) == [
-        "This one's yours. Walk to Elm Street and ask Eli Reyes what they saw.",
+        "This one's yours. Ask Eli Reyes what they saw; you can reach anyone from anywhere. Then go to Elm Street to "
+        "search the scene and pull the records there.",
         "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Ask anyone where "
         "they were last night, or who'd have a reason. Pull records where a place has a camera or keeps logs, and "
         "search the crime scene once for anything left behind.",
@@ -915,12 +922,20 @@ async def test_publish_refuses_a_repeated_citation_without_spending_the_episode(
 
 
 @pytest.mark.asyncio
-async def test_with_no_witness_at_the_scene_the_first_line_points_to_the_records():
+async def test_a_witness_anywhere_is_named_in_the_first_line():
     player, file, engine = guided()
-    memory_of(file, player.ids, holder="v5")
+    player.town.move("v2", "gym")
+    memory_of(file, player.ids)
+    await player.start()
+    assert guides(player)[0].startswith("This one's yours. Ask Eli Reyes what they saw;")
+
+
+@pytest.mark.asyncio
+async def test_with_no_witness_the_first_line_points_to_the_scene():
+    player, file, engine = guided()
     await player.start()
     assert guides(player) == [
-        "This one's yours. Walk to Elm Street and pull the records there."]
+        "This one's yours. Go to Elm Street to search the scene and pull the records there."]
 
 
 def test_a_hedge_the_records_make_themselves_still_conveys_them():

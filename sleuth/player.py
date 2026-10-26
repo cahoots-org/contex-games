@@ -64,7 +64,7 @@ GUIDED_WRONG = "Your episode didn't hold up: the evidence doesn't back it."
 HELD = "It holds up. Case closed."
 RIVAL = "Another podcaster cracked the case first."
 GUIDE = (
-    "This one's yours. Walk to {place} and {then}.",
+    "This one's yours. {go} to {place} to search the scene and pull the records there.",
     "Your notebook keeps what people tell you. Witnesses describe what they saw, never a name. Ask anyone where they "
     "were {when}, or who'd have a reason. Pull records where a place has a camera or keeps logs, and search the "
     "crime scene once for anything left behind.",
@@ -138,11 +138,10 @@ class Player:
                 return
             if case := await self.engine.cases.open_guided(self.engine, self.id, self.game.day, self.game.phase):
                 crime = case.crime
-                witness = next((r.holder for r in case.records.values()
-                                if r.kind == "memory" and self.town.place_of(r.holder) == crime.place), None)
-                self._guide(0, place=place_name(crime.place) if crime.place in STREETS else f"the {crime.place}",
-                            then=f"ask {self.town.get(witness).name} what they saw" if witness
-                            else "pull the records there")
+                witness = next((r.holder for r in case.records.values() if r.kind == "memory"), None)
+                go = (f"Ask {self.town.get(witness).name} what they saw; you can reach anyone from anywhere. Then go"
+                      if witness else "Go")
+                self._guide(0, go=go, place=place_name(crime.place) if crime.place in STREETS else f"the {crime.place}")
         except Exception:
             log.exception("opening a guided case for %s failed", self.id)
         finally:
@@ -251,9 +250,6 @@ class Player:
         if file is None:
             return "There's no open case."
         villager = self.town.get(vid)
-        place = self.town.place_of(vid)
-        if place != self.place:
-            return f"{villager.name} is {at(place)}. Walk there to talk to them."
         if self.engine.reputation.get(vid, self.id) < self.config.guarded_at:
             return Refusal(f"{villager.name} won't talk to you.")
         part = (self.game.day, self.game.phase) if self.game else None

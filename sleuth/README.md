@@ -41,8 +41,9 @@ resting.
 
 Statements can be lies: the culprit gives a false alibi, and a housemate may cover for them.
 
-**Interview** a resident where you both stand by asking a question in your own words, like "Where were you last
-night?". Each resident keeps one conversation with you, which you can reopen from their card. Jev reads the question
+**Interview** any resident from wherever you are (it's a modern town: you call or message them) by asking a question
+in your own words, like "Where were you last night?". Each resident keeps one conversation with you, which you can
+reopen from their card. Jev reads the question
 with the conversation so far and routes it to where the resident was, where someone else was, what they saw, who
 they heard something from, who'd have a reason (a feud or grudge with the victim), or what they think of someone.
 The game answers from what that resident knows and adds anything new to your notebook; Haiku only phrases the
@@ -52,6 +53,8 @@ culprit, at most once a part of the day, that a podcaster is asking around, and 
 someone they're close to that the podcaster is stirring up trouble, at most once a part of the day per case: that
 resident thinks less of the podcaster who last asked around (`reputation_warned`), and the warning spreads like any
 other line. You only hear that someone in town seems colder toward you.
+
+Walking still matters for the scene and the records: you search a place and pull its records only while you're there.
 
 **Pull records** at a place to copy the case's footage and logs there into your notebook. A place's records are
 kept by the residents who work there, or for a street by those who live on it; they're shared unless every keeper

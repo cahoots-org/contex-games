@@ -310,7 +310,7 @@ h3 { font-size: .875rem; color: var(--muted); font-weight: 400; margin: .9rem 0 
   .feed { padding: .5rem 1rem 1rem; }
   .composer { padding: .6rem 1rem .8rem; }
   .say-status:empty { min-height: 0; margin: 0; }
-  .tile-act, .walk-there { min-height: 2.25rem; }
+  .tile-act { min-height: 2.25rem; }
   /* The village as one row per place: name and count, the faces, and Walk or Look around. */
   #town h2 { margin: .25rem 0 .4rem; }
   /* The villager card sticks to the panel's very foot, so the panel ends without padding. */
@@ -1285,21 +1285,11 @@ async function listenHere() {
   if (!ok) setStatus(error, true);
 }
 
-// The card's Interview button while the villager is where the player is, else where they are and a way there.
+// The card's question box; a resident can be reached from anywhere.
 function setAsk() {
   const slot = $("card").hidden ? null : $("card").querySelector(".ask-slot");
-  if (!slot) return;
-  const { id, name } = slot.dataset;
-  const place = villagers.find((v) => v.id === id)?.place || slot.dataset.place;
-  const key = place === here ? "" : place;
-  if (slot.dataset.key === key) return;
-  const inside = slot.contains(document.activeElement);
-  slot.dataset.key = key;
-  slot.replaceChildren(...(key ? [
-    el("p", { textContent: `${name} is ${atPlace(place)}.` }),
-    el("button", { type: "button", className: "linkish walk-there", textContent: "Walk there", onclick: () => walkTo(place) }),
-  ] : interviewForm(id, name)));
-  if (inside) slot.querySelector("button").focus();
+  if (!slot || slot.childElementCount) return;
+  slot.replaceChildren(...interviewForm(slot.dataset.id, slot.dataset.name));
 }
 
 // A box to ask the resident a question in your own words; the reply joins the conversation above it.

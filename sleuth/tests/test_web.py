@@ -202,8 +202,7 @@ def test_interview_reports_problems_and_answers_through_the_feed(game):
     thread = game.client.get("/api/villagers/v1").json()["thread"]
     assert thread == [{"question": ASK["text"], "line": "I wouldn't know about that.", "records": []}]
     assert post("/api/interview", json={"villager_id": "v1"}).json() == {"error": web.BAD_INTERVIEW}
-    away = post("/api/interview", json={**ASK, "villager_id": "v2"})
-    assert (away.status_code, away.json()) == (400, {"error": "Bert Cole is at the gym. Walk there to talk to them."})
+    assert post("/api/interview", json={**ASK, "villager_id": "v2"}).json() == {"ok": True}
     bad = post("/api/interview", json={})
     assert (bad.status_code, bad.json()) == (400, {"error": web.BAD_INTERVIEW})
     assert post("/api/ask", json={"villager_id": "v1", "topic": "x"}).status_code in (404, 405)
