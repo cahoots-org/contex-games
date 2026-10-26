@@ -18,7 +18,8 @@ KINDS = {
                      'or "What do you know about it?"',
     "what_did_you_see": "what this resident saw or found",
     "who_told_you": "who this resident heard something from, or what they heard",
-    "who_had_reason": "who would have a reason to do it, like a grudge or a feud with the victim",
+    "who_had_reason": 'who would have a reason to do it, like a grudge or a feud with the victim, as in "Any idea '
+                      'who may have taken it?"',
     "what_do_you_think_of": "what this resident thinks of someone",
     "none": "none of these",
 }

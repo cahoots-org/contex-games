@@ -353,6 +353,22 @@ async def test_who_had_reason_names_ties_who_feud_with_the_victim():
 
 
 @pytest.mark.asyncio
+async def test_the_victim_knows_who_is_cold_to_them_and_others_know_only_their_rivals():
+    player, file, engine, _ = interviewing()
+    town = player.town
+    town.get("v7").grudge = "Dana never gave back my ladder."
+    town.get("v1").relationships["v8"], town.get("v8").relationships["v1"] = "neighbor", "neighbor"
+    town.get("v1").warmth["v8"] = town.get("v8").warmth["v1"] = -0.2
+    await ask(player, "v1", "who_had_reason", "Do you have any idea who may have taken it?")
+    assert [(r.who, r.sound) for r in notebook(player)] == [("v5", True), ("v7", True), ("v8", True)]
+    assert "who may have taken it" in engine.jev.questions["kind"].criteria["who_had_reason"]
+    player.notebook.clear()
+    await ask(player, "v2", "who_had_reason")
+    [said] = notebook(player)
+    assert (said.text, said.who) == ("Eli Reyes says Hal Burke has never got on with Dana Reyes.", "v5")
+
+
+@pytest.mark.asyncio
 async def test_what_do_you_think_of_someone_is_phrased_from_the_tie_but_not_recorded():
     player, file, engine, writer = interviewing()
     player.place = "oak street"

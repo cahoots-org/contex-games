@@ -299,10 +299,12 @@ class Player:
             return await self._hearsay(file, villager)
         if kind == "who_had_reason":
             victim = self.town.get(crime.victim)
-            known = [*villager.relationships, *(v.id for v in self.town.villagers
-                                                if villager.household and v.household == villager.household)]
-            reasons = [self.town.get(o) for o in dict.fromkeys(known)
-                       if o in self.town and o not in (vid, victim.id) and motive_of(self.town.get(o), victim) != "opportunity"]
+            if vid == victim.id:
+                known = [v.id for v in self.town.villagers
+                         if victim.warmth.get(v.id, 0.0) < 0 or motive_of(v, victim) != "opportunity"]
+            else:
+                known = [o for o, tie in victim.relationships.items() if tie == "rival"]
+            reasons = [self.town.get(o) for o in known if o in self.town and o not in (vid, victim.id)]
             return [self._statement(file, vid, f"{name} says {o.name} has never got on with {victim.name}.", True,
                                     who=o.id) for o in reasons], []
         if kind == "what_do_you_think_of" and about:
