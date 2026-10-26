@@ -11,7 +11,7 @@ from sleuth.contex_client import Match
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
 from sleuth.actions import SPEAK
-from sleuth.player import ALREADY_LISTENING, Player, Refusal
+from sleuth.player import ALREADY_LISTENING, GUIDED_WRONG, WRONG, Player, Refusal
 from sleuth.players import Players
 from sleuth.config import Config
 from sleuth.alibi import claim
@@ -574,7 +574,9 @@ async def test_publishing_the_guided_case_onboards_the_owner_and_costs_no_regard
     [closed] = [e for e in player.feed.recent if e.kind == "case_closed"]
     assert closed.player == PID
     assert all(regard(engine, v.id) == 0 for v in player.town.villagers)
-    assert not [e for e in player.feed.recent if e.kind == "system"]
+    [episode] = [e for e in player.feed.recent if e.kind == "episode"]
+    said = [e.line for e in player.feed.recent if e.kind == "system"]
+    assert said == ([] if episode.data["held"] else [GUIDED_WRONG]) and WRONG not in said
 
 
 def guides(player):

@@ -32,6 +32,7 @@ ALREADY_LISTENING = "You just looked around."
 EVIDENCE_ROOTS = ("memory", "cover")
 PODCAST = "A true-crime podcast"
 WRONG = "Your episode didn't hold up. The town now believes it, and people are warier of you."
+GUIDED_WRONG = "Your episode didn't hold up: the evidence doesn't back it."
 RIVAL = "Another podcaster cracked the case first."
 GUIDE = (
     "A case just for you: {case}. Watch the neighborhood app, then walk to {place} and {then}.",
@@ -358,6 +359,8 @@ class Player:
                 reputation.nudge_all(self.id, self.config.reputation_wrong, everyone)
                 reputation.nudge(culprit_id, self.id, self.config.reputation_accused)
                 self.feed.say(WRONG, player=self.id)
+            else:
+                self.feed.say(GUIDED_WRONG, player=self.id)
             text = f"{named}."
         u = Utterance(self.ids.next("u"), "podcast", PODCAST, self.place, text, None, "reported")
         file.roots[u.id] = "episode"
