@@ -8,7 +8,7 @@ from collections.abc import Callable, Sequence
 from contextlib import aclosing, suppress
 from datetime import UTC, datetime, timedelta
 
-from sleuth.actions import ANSWER, MOVE, WARN
+from sleuth.actions import ALIBI, ANSWER, MOVE, WARN
 from sleuth.calibration import Baselines
 from sleuth.cases import Cases
 from sleuth.config import Config
@@ -558,6 +558,7 @@ class Engine:
         front = {self._about(m) for m in new} - {None}
         suspect = self.suspicion.most_suspected(v.id, front)
         holders = self._holders(v.id)
+        own_case = self.cases.culprit_case(v.id) if self.cases is not None else None
         view = TurnView(
             villager=v,
             place=place,
@@ -576,6 +577,7 @@ class Engine:
             ask_keen=self.scenes.of(v.id) is not None or any(self._exchange(m, v.id, place) for m in new),
             held=any(not p.annoyed(v.id) for p in holders),
             taken=self._taken(v.id, new),
+            case=own_case.crime.text if own_case else None,
         )
         action = answered = None
         # The turn answers to the player behind the first of its new items that a player started, if any.
@@ -634,6 +636,16 @@ class Engine:
         self.feed.on_storm_off(v.id, v.name, line, player=player.id)
         player.part(v.id)
         self.suspicion.bump(v.id, player.id, self.config.suspicion_whisper_bump / 2, "stormed off")
+
+    def cover_story(self, vid: str, action: str) -> str | None:
+        """The culprit's alibi or blame line, from the case."""
+        if self.cases is None:
+            return None
+        return self.cases.alibi(vid) if action == ALIBI else self.cases.blame(vid)
+
+    def mark_cover(self, vid: str, uid: str) -> None:
+        if self.cases is not None:
+            self.cases.mark_cover(vid, uid)
 
     def acted(self, decision: Decision, vid: str, target: str | None, creed: str | None = None) -> None:
         """Tell the judge of the villager's action and the player behind it."""

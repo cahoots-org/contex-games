@@ -1,7 +1,7 @@
 import pytest
 
 from sleuth.actions import (
-    ANSWER, FOUND_GROUP, JOIN_GROUP, MOVE, PREACH, RETELL, SPEAK, WARN,
+    ALIBI, ANSWER, BLAME, FOUND_GROUP, JOIN_GROUP, MOVE, PREACH, RETELL, SPEAK, WARN,
 )
 from sleuth.config import Config
 from sleuth.contex_client import Match
@@ -51,6 +51,14 @@ class RecordingHub:
         self.suspects = []
         self.replies = []
         self.acts = []
+        self.facts = {}
+        self.covers = []
+
+    def cover_story(self, vid, action):
+        return self.facts.get(action)
+
+    def mark_cover(self, vid, uid):
+        self.covers.append((vid, uid))
 
     def acted(self, decision, vid, target, creed=None):
         self.acts.append((decision.action, vid, target, creed))
@@ -363,3 +371,24 @@ async def test_answer_carries_the_mood_to_the_reply():
     whisper = Match("utt:w-1", {"id": "w-1", "text": "A newcomer whispered to you: psst"})
     await s.act("v1", Decision(ANSWER, whisper, None, None), mood="curious")
     assert s.writer.reply_moods == ["curious"]
+
+
+@pytest.mark.asyncio
+async def test_alibi_is_told_to_the_target_and_marked_as_cover():
+    s = Setup()
+    s.hub.facts[ALIBI] = "I was at the gym last night, all night."
+    await s.act("v1", Decision(ALIBI, source("u-0"), "v2", "faithful"))
+    [(utt, listeners)] = s.hub.delivered
+    assert listeners == ["v2"] and utt.parent is None and s.lineage.root(utt.id) == utt.id
+    assert s.writer.say_calls == [(ALIBI, "I was at the gym last night, all night.", "Ada")]
+    assert s.hub.covers == [("v1", utt.id)]
+
+
+@pytest.mark.asyncio
+async def test_cover_story_does_nothing_without_a_fact_or_a_present_target():
+    s = Setup()
+    await s.act("v1", Decision(BLAME, None, "v2", None))
+    s.hub.facts[BLAME] = "Cy has never liked Ada."
+    s.town.move("v2", "bar")
+    await s.act("v1", Decision(BLAME, None, "v2", None))
+    assert s.hub.delivered == [] and s.hub.covers == []

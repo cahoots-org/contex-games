@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from sleuth.actions import (
-    ANSWER, CONFRONT, DENY, FOUND_GROUP, IGNORE, JOIN_GROUP, LEAVE_GROUP, MOVE,
+    ALIBI, ANSWER, BLAME, CONFRONT, DENY, FOUND_GROUP, IGNORE, JOIN_GROUP, LEAVE_GROUP, MOVE,
     PREACH, RETELL, SPEAK, WARN,
 )
 from sleuth.config import Config
@@ -38,6 +38,10 @@ class Hub(Protocol):
     def acted(
         self, decision: Decision, vid: str, target: str | None, creed: str | None = None,
     ) -> None: ...
+
+    def cover_story(self, vid: str, action: str) -> str | None: ...
+
+    def mark_cover(self, vid: str, uid: str) -> None: ...
 
 
 async def act(
@@ -125,6 +129,10 @@ async def act(
                 )
             except Exception:
                 log.exception("suspicion bump for %s failed", decision.target)
+    elif action in (ALIBI, BLAME):
+        if decision.target in others() and (fact := hub.cover_story(vid, action)) is not None:
+            text = await writer.say(villager, decision, fact, town.get(decision.target).name, False)
+            hub.mark_cover(vid, await say(text, [decision.target], ONE, root=True))
     elif action == ANSWER:
         known = neighbours(town, villager, source_text or "")
         text = await writer.reply(villager, source_text, list(said), list(heard), known, mood)

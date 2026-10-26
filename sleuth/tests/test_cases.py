@@ -4,7 +4,8 @@ from random import Random
 import pytest
 
 from sleuth import cases as cases_mod
-from sleuth.cases import Cases
+from sleuth.case import Crime
+from sleuth.cases import CaseFile, Cases
 from sleuth.config import Config
 from sleuth.feed import Feed
 from sleuth.lineage import Ids, Lineage
@@ -168,3 +169,40 @@ async def test_cases_round_trip_through_state():
     fresh.restore(json.loads(json.dumps(cases.to_state())))
     assert fresh.files == cases.files and fresh.last_closed == cases.last_closed
     assert fresh.to_state() == cases.to_state()
+
+
+def culprit_file(cases, culprit="v3", victim="v1", phase="night"):
+    crime = Crime("case-1", "steal", "bike", culprit, victim, "elm street", 1, phase, 1400, "opportunity",
+                  "Someone stole Dana Reyes's bike on elm street last night.")
+    cases.files[crime.id] = CaseFile(crime, {}, "open")
+    return cases.files[crime.id]
+
+
+def test_alibi_claim_is_the_culprits_expected_place():
+    cases, _, town = make_cases()
+    cases.routine = make_routine(night={"v3": "gym"})
+    file = culprit_file(cases)
+    assert cases.alibi("v3") == "I was at the gym last night, all night."
+    assert file.alibi == ["gym"]
+    assert cases.alibi("v2") is None
+
+
+def test_blame_names_the_victims_rival_never_culprit_or_victim():
+    cases, _, town = make_cases()
+    culprit_file(cases)
+    assert cases.blame("v3") == "Hal Burke has never liked Dana. I'd ask where they were last night."
+
+
+def test_blame_falls_back_to_the_culprits_coldest_tie_other_than_the_victim():
+    cases, _, town = make_cases()
+    culprit_file(cases, culprit="v5")
+    assert cases.blame("v5") is None
+    town.get("v5").warmth.update({"v7": 0.3, "v8": 0.5})
+    assert cases.blame("v5") == "Jo Tran has never liked Dana. I'd ask where they were last night."
+
+
+def test_mark_cover_roots_the_line_in_the_culprits_case():
+    cases, _, _ = make_cases()
+    file = culprit_file(cases)
+    cases.mark_cover("v3", "u-9")
+    assert cases.root_kind("u-9") == (file, "cover")

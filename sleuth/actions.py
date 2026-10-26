@@ -12,6 +12,8 @@ LEAVE_GROUP = "leave_group"
 PREACH = "preach"
 WARN = "warn"
 ANSWER = "answer"
+ALIBI = "alibi"
+BLAME = "blame"
 
 ACTIONS = {
     IGNORE: "Do nothing; carry on with the day.",
@@ -26,6 +28,8 @@ ACTIONS = {
     PREACH: "Speak up for one of your groups' beliefs to the people nearby.",
     WARN: "Warn one specific person nearby that the newcomer is behind the rumors.",
     ANSWER: "Answer the newcomer, who just spoke to you about something you care about.",
+    ALIBI: "Tell one specific person nearby where you supposedly were when the crime happened.",
+    BLAME: "Hint to one specific person nearby that someone else had a reason to do the crime.",
 }
 
 # Option details where two actions are easy to confuse.
@@ -58,12 +62,14 @@ TARGET_KIND = {
     LEAVE_GROUP: "group",
     PREACH: "group",
     WARN: "villager",
+    ALIBI: "villager",
+    BLAME: "villager",
 }
 
 # Speech actions, which carry a style.
-STYLED = (RETELL, DENY, CONFRONT, SPEAK, PREACH, WARN)
+STYLED = (RETELL, DENY, CONFRONT, SPEAK, PREACH, WARN, ALIBI, BLAME)
 
-NEEDS_SOMEONE = (RETELL, DENY, CONFRONT, SPEAK, WARN)
+NEEDS_SOMEONE = (RETELL, DENY, CONFRONT, SPEAK, WARN, ALIBI, BLAME)
 
 
 def available_actions(view) -> list[str]:
@@ -79,6 +85,8 @@ def available_actions(view) -> list[str]:
         if a == WARN and view.suspicion < view.warn_threshold:
             continue
         if a == ANSWER and not view.answerable:
+            continue
+        if a in (ALIBI, BLAME) and not view.case:
             continue
         if a == MOVE and view.held:
             continue

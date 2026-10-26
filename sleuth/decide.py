@@ -71,6 +71,8 @@ class TurnView:
     held: bool = False
     # How taken the villager was with the newcomer's whisper behind the turn's new items, if any is.
     taken: str | None = None
+    # The news of the case the villager is the culprit of, while it is set up or open.
+    case: str | None = None
 
 
 @dataclass(frozen=True)

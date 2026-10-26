@@ -5,7 +5,7 @@ import math
 from dataclasses import asdict, dataclass, field
 from random import Random
 
-from sleuth.case import Crime, Record, camera_clip, logs, make_solvable, stage_crime, witness_memories
+from sleuth.case import Crime, Record, at, camera_clip, logs, make_solvable, stage_crime, when, witness_memories
 from sleuth.config import Config
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
@@ -75,6 +75,36 @@ class Cases:
 
     def culprit_case(self, vid: str) -> CaseFile | None:
         return next((f for f in self.files.values() if f.state != "closed" and f.crime.culprit == vid), None)
+
+    def alibi(self, vid: str) -> str | None:
+        """The culprit's claim to have been where the routine expects them during the crime."""
+        case = self.culprit_case(vid)
+        if case is None:
+            return None
+        phase = case.crime.phase
+        place = self.routine.place(vid, phase)
+        case.alibi = [place]
+        return f"I was {at(place)} {when(phase)}, all {phase}."
+
+    def blame(self, vid: str) -> str | None:
+        """The culprit's hint at someone who dislikes the victim, else at the culprit's own coldest tie."""
+        case = self.culprit_case(vid)
+        if case is None:
+            return None
+        crime = case.crime
+        victim = self.town.get(crime.victim)
+        rivals = [(v.warmth[victim.id], v.id) for v in self.town.villagers
+                  if v.id not in (crime.culprit, victim.id) and v.warmth.get(victim.id, 0.0) < 0]
+        ties = [(w, t) for t, w in self.town.get(vid).warmth.items() if t not in (victim.id, vid) and t in self.town]
+        pick = min(rivals or ties, default=None)
+        if pick is None:
+            return None
+        name = self.town.get(pick[1]).name
+        return f"{name} has never liked {victim.name.split()[0]}. I'd ask where they were {when(crime.phase)}."
+
+    def mark_cover(self, vid: str, uid: str) -> None:
+        if case := self.culprit_case(vid):
+            case.roots[uid] = "cover"
 
     def root_kind(self, uid: str) -> tuple[CaseFile, str] | None:
         """The case a lineage root belongs to, and what kind of root it is."""
