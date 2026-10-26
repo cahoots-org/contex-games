@@ -9,7 +9,8 @@ from sleuth.town import STREETS, Town
 from sleuth.traits import describe
 
 TEMPLATES = {"steal": ("stole", ("bike", "tote bag", "thermos")), "vandalize": ("vandalized", ("car", "bike")),
-             "sabotage": ("sabotaged", ("county fair pumpkin", "prize jam", "fair quilt"))}
+             "sabotage": ("sabotaged", ("county fair pumpkin", "prize jam", "fair quilt")),
+             "dog": ("let out", ("dog",)), "trailer": ("drove off with", ("marching band trailer",))}
 PHASE_MINUTES = {"morning": (420, 720), "afternoon": (720, 1020), "evening": (1020, 1320), "night": (1320, 1740)}
 MOTIVE_WEIGHT = 3
 CAMERA_PLACES = ("grocery", "bar", "town hall", "elm street")
@@ -18,7 +19,8 @@ MAX_WITNESSES = 2
 WITNESS_TRAITS = 2
 CLIP_TRAITS = ("height", "coat")
 WITNESS_ACTION = {"steal": "walked off with something", "vandalize": "was bent over something",
-                  "sabotage": "was fiddling with something"}
+                  "sabotage": "was fiddling with something", "dog": "was opening a gate",
+                  "trailer": "was hauling something off"}
 WITNESS_DRIFT = 20
 
 
