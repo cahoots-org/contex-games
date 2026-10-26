@@ -111,3 +111,14 @@ def test_only_the_apps_own_posts_are_marked_as_the_app():
     feed.on_post(utt("u-1"), "case-1")
     feed.on_post(Utterance("u-3", "app", "The neighborhood app", "bar", "Someone stole a bike.", None), "case-1")
     assert [e.data["app"] for e in feed.recent] == [False, True]
+
+
+def test_only_its_author_sees_an_episode_as_theirs_with_its_verdict():
+    feed, lines = make()
+    feed.on_episode("case-1", "Bert", False, by=PID, cited=2, verdict="It didn't hold up.")
+    assert lines == ["A podcaster's episode names Bert."]
+    event = feed.recent[-1]
+    mine, theirs = event.to_json(PID), event.to_json("p-2")
+    assert (mine["mine"], mine["cited"], mine["verdict"]) == (True, 2, "It didn't hold up.")
+    assert theirs["mine"] is False and "verdict" not in theirs
+    assert "by" not in mine and "by" not in theirs

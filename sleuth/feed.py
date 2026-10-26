@@ -31,8 +31,14 @@ class Event:
     # Who sees the event; None means everyone in the village.
     player: str | None = None
 
-    def to_json(self) -> dict:
-        return {"id": self.id, "at": self.at, "kind": self.kind, **self.data}
+    def to_json(self, viewer: str | None = None) -> dict:
+        """The event for viewer's page: only the author of an action sees it as theirs, with its verdict."""
+        data = dict(self.data)
+        if "by" in data:
+            data["mine"] = data.pop("by") == viewer
+            if not data["mine"]:
+                data.pop("verdict", None)
+        return {"id": self.id, "at": self.at, "kind": self.kind, **data}
 
 
 Sink = Callable[[Event], None]
@@ -126,10 +132,13 @@ class Feed:
         line = f"You pulled the records {at(place)}."
         self.emit("pulled", line, player=player, place=place, records=records, text=line, case_id=case_id)
 
-    def on_episode(self, case_id: str, name: str, held: bool, player: str | None = None) -> None:
-        """A podcaster's episode named a resident, and whether it held up."""
+    def on_episode(self, case_id: str, name: str, held: bool, *, by: str, cited: int, verdict: str,
+                   player: str | None = None) -> None:
+        """A podcaster's episode named a resident citing some records, and whether it held up, which its author sees
+        as verdict."""
         line = f"A podcaster's episode names {name}" + (", and it holds up. Case closed." if held else ".")
-        self.emit("episode", line, player=player, case_id=case_id, name=name, held=held, text=line)
+        self.emit("episode", line, player=player, case_id=case_id, name=name, held=held, text=line, by=by, cited=cited,
+                  verdict=verdict)
 
     def on_case_closed(self, case_id: str, line: str, player: str | None = None) -> None:
         self.emit("case_closed", line, player=player, case_id=case_id, text=line)

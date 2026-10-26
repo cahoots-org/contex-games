@@ -11,7 +11,7 @@ from sleuth.contex_client import Match
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
 from sleuth.actions import SPEAK
-from sleuth.player import ALREADY_LISTENING, GUIDED_WRONG, WRONG, Player, Refusal, conveys
+from sleuth.player import ALREADY_LISTENING, GUIDED_WRONG, Player, Refusal, conveys
 from sleuth.players import Players
 from sleuth.config import Config
 from sleuth.alibi import claim
@@ -496,6 +496,8 @@ def test_pull_adds_the_clip_and_logs_at_the_place():
     [event] = [e for e in player.feed.recent if e.kind == "pulled"]
     assert event.player == PID and [r["id"] for r in event.data["records"]] == [clip.id, log.id]
     assert all("sound" not in r for r in event.data["records"])
+    assert player.pull() is None
+    assert [e.data["records"] for e in player.feed.recent if e.kind == "pulled"][-1] == []
     file.state = "closed"
     assert player.pull() == "There's no open case."
 
@@ -547,6 +549,7 @@ async def test_publish_right_closes_the_case_and_raises_reputation():
     assert set(listeners) == {"v1", "v2", "v3", "v4"} and file.roots[u.id] == "episode"
     [episode] = [e for e in player.feed.recent if e.kind == "episode"]
     assert episode.player is None and episode.line == "A podcaster's episode names Fay Okafor, and it holds up. Case closed."
+    assert (episode.data["by"], episode.data["verdict"]) == (PID, "It holds up. Case closed.")
     assert [e.data["case_id"] for e in player.feed.recent if e.kind == "case_closed"] == [file.crime.id]
 
 
@@ -565,9 +568,9 @@ async def test_publish_wrong_spreads_the_accusation_and_lowers_reputation():
     assert file.roots[u.id] == "episode"
     [episode] = [e for e in player.feed.recent if e.kind == "episode"]
     assert episode.player is None and episode.line == "A podcaster's episode names Hal Burke."
-    [own] = [e for e in player.feed.recent if e.kind == "system"]
-    assert own.player == PID
-    assert own.line == "Your episode didn't hold up. The town now believes it, and people are warier of you."
+    assert (episode.data["by"], episode.data["cited"]) == (PID, len(ids))
+    assert episode.data["verdict"] == "Your episode didn't hold up. The town now believes it, and people are warier of you."
+    assert not [e for e in player.feed.recent if e.kind == "system"]
 
 
 @pytest.mark.asyncio
@@ -637,8 +640,8 @@ async def test_publishing_the_guided_case_onboards_the_owner_and_costs_no_regard
     assert closed.player == PID
     assert all(regard(engine, v.id) == 0 for v in player.town.villagers)
     [episode] = [e for e in player.feed.recent if e.kind == "episode"]
-    said = [e.line for e in player.feed.recent if e.kind == "system"]
-    assert said == ([] if episode.data["held"] else [GUIDED_WRONG]) and WRONG not in said
+    assert episode.data["verdict"] == ("It holds up. Case closed." if episode.data["held"] else GUIDED_WRONG)
+    assert not [e for e in player.feed.recent if e.kind == "system"]
 
 
 def guides(player):

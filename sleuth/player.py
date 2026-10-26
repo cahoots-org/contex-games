@@ -51,6 +51,7 @@ EVIDENCE_ROOTS = ("memory", "cover")
 PODCAST = "A true-crime podcast"
 WRONG = "Your episode didn't hold up. The town now believes it, and people are warier of you."
 GUIDED_WRONG = "Your episode didn't hold up: the evidence doesn't back it."
+HELD = "It holds up. Case closed."
 RIVAL = "Another podcaster cracked the case first."
 GUIDE = (
     "A case just for you: {case}. Watch the neighborhood app, then walk to {place} and {then}.",
@@ -330,9 +331,10 @@ class Player:
         found = [replace(r) for r in file.records.values() if r.kind in ("clip", "log") and r.place == self.place]
         if not found:
             return "There's no footage or log for the case here."
-        for r in found:
+        new = [r for r in found if r.id not in self.notebook]
+        for r in new:
             self.notebook[r.id] = r
-        self.feed.on_pulled(self.place, [record_json(r, self.town) for r in found], case_id=file.crime.id,
+        self.feed.on_pulled(self.place, [record_json(r, self.town) for r in new], case_id=file.crime.id,
                             player=self.id)
         self._guide(2)
         return None
@@ -377,7 +379,9 @@ class Player:
             for rival in self.engine.players:
                 if rival is not self and any(r.case == crime.id for r in rival.notebook.values()):
                     self.feed.say(RIVAL, player=rival.id)
-        self.feed.on_episode(crime.id, accused.name, held, player=crime.owner)
+        verdict = HELD if held else GUIDED_WRONG if crime.owner else WRONG
+        self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids), verdict=verdict,
+                             player=crime.owner)
         if held or crime.owner:
             self.engine.cases.close(file, self.id if held else None)
             self.feed.on_case_closed(crime.id, "", player=crime.owner)
@@ -391,9 +395,6 @@ class Player:
             if not crime.owner:
                 reputation.nudge_all(self.id, self.config.reputation_wrong, everyone)
                 reputation.nudge(culprit_id, self.id, self.config.reputation_accused)
-                self.feed.say(WRONG, player=self.id)
-            else:
-                self.feed.say(GUIDED_WRONG, player=self.id)
             text = f"{named}."
         u = Utterance(self.ids.next("u"), "podcast", PODCAST, self.place, text, None, "reported")
         file.roots[u.id] = "episode"

@@ -649,9 +649,11 @@ function render(e, fresh) {
       return e.text ? line("quiet", e.text) : null;
     case "pulled":
       note(e.records);
-      return line("quiet", e.text);
+      return line("plain", e.text, gained(e.records, "Nothing new there."));
     case "episode":
-      return line("loud", e.text);
+      return e.mine ? line("loud", `You named ${e.name}, citing ${plural(e.cited, "record")}.`,
+        el("p", { className: "got", textContent: e.verdict }))
+        : line("loud", e.text);
     case "post":
       return e.app ? line("plain", tag("App"), e.text)
         : line("heard", tag("Heard", "soft"), el("b", { textContent: e.speaker }), `: ${e.text}`);

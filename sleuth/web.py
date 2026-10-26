@@ -121,7 +121,7 @@ def create_app(
     def on_event(event: Event) -> None:
         for queue, pid in list(clients.items()):
             if feed.sees(pid, event):
-                offer(clients, queue, event.to_json())
+                offer(clients, queue, event.to_json(pid))
 
     async def watch(kind: str, snapshot, seconds: float) -> None:
         """Send the snapshot whenever it has changed, checking every few seconds."""
@@ -208,7 +208,7 @@ def create_app(
             "place": player.place,
             "time": game.clock(),
             "villagers": villagers(town),
-            "events": [e.to_json() for e in feed.replay(player.id)],
+            "events": [e.to_json(player.id) for e in feed.replay(player.id)],
             "usage": usage.to_json(player.id),
             "resting": usage.resting(),
             "case": case_json(case, town) if case else None,
