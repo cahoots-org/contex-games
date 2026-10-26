@@ -82,7 +82,7 @@ async def act(
     async def words(facts_text: str | None, audience: str, case: bool, plain: str | None = None) -> str | None:
         """The writer's line; on a case, plain or nothing when it adds what facts_text and the people at hand don't."""
         text = await writer.say(villager, decision, facts_text, audience, case, *(timing or ()))
-        allowed = " ".join([villager.name, audience, facts_text or ""])
+        allowed = " ".join([villager.name, audience, facts_text or "", *(timing or ())])
         if case and (invents(text, allowed, {v.name.split()[0] for v in town.villagers}) or misdated(text, allowed)):
             return plain
         return text

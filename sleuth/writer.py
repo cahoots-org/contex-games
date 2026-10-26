@@ -51,10 +51,21 @@ def strangers(line: str, allowed: str, firsts: set[str]) -> bool:
                for f in firsts)
 
 
+PRONOUNS = {"he", "him", "his", "himself", "she", "her", "hers", "herself"}
+# Someone the line can't name, whom a pronoun would give a gender.
+UNKNOWN = re.compile(r"\b(?:someone|somebody|whoever|anyone|anybody|thief|culprit|stranger|person|figure)\b",
+                     re.IGNORECASE)
+
+
 def invents(line: str, allowed: str, firsts: set[str]) -> bool:
-    """Whether the line adds to allowed a resident, a gender, an animal or a look."""
+    """Whether the line adds to allowed a resident, a gender, an animal or a look. A pronoun may refer back to a
+    resident the line names, when no unknown someone is in it."""
     known = set(re.findall(r"\w+", allowed.lower()))
-    return strangers(line, allowed, firsts) or any(w.lower() not in known for w in INVENTED.findall(line))
+    named = [m.start() for f in firsts if (m := re.search(rf"\b{re.escape(f)}\b", line))]
+    after = min(named) if named and not UNKNOWN.search(line) else len(line)
+    return strangers(line, allowed, firsts) or any(
+        m.group().lower() not in known and not (m.group().lower() in PRONOUNS and m.start() > after)
+        for m in INVENTED.finditer(line))
 
 
 def _timing(now: str, when: str) -> list[str]:

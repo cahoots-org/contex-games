@@ -161,6 +161,18 @@ def test_invents_catches_people_genders_animals_and_looks_the_facts_lack():
                        FIRSTS)
 
 
+@pytest.mark.parametrize("line, invented", [
+    ("Poor Lorraine, she loved that bike.", False),
+    ("Lorraine's bike went missing last night, and she's beside herself.", False),
+    ("She took Lorraine's bike.", True),
+    ("Someone took Lorraine's bike, and he got away with it.", True),
+    ("Lorraine says a man took it.", True),
+    ("He took it.", True),
+])
+def test_a_pronoun_may_refer_back_to_a_named_resident_but_never_give_someone_a_gender(line, invented):
+    assert invents(line, "Someone stole Lorraine's bike last night.", FIRSTS) is invented
+
+
 @pytest.mark.asyncio
 async def test_case_talk_is_told_to_add_nothing():
     client = StubClient("Someone took it.")

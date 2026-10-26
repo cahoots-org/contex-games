@@ -261,6 +261,16 @@ async def test_case_talk_that_invents_is_dropped():
 
 
 @pytest.mark.asyncio
+async def test_case_talk_may_say_when_the_case_happened_as_the_writer_is_told():
+    s = Setup()
+    s.hub.case_roots.add("u-0")
+    s.hub.timing = ("day 2, morning", "last night")
+    s.writer.line = "Ada, Bert stole bread last night, and Bert's bread was his own."
+    await s.act("v1", Decision(RETELL, source("u-0"), "v2", "faithful"))
+    assert [u.text for u, _ in s.hub.delivered] == [s.writer.line]
+
+
+@pytest.mark.asyncio
 async def test_a_cover_story_that_invents_is_told_plainly():
     s = Setup()
     s.hub.facts[ALIBI] = "I was at the gym last night, all night."
