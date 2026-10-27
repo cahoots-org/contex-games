@@ -30,7 +30,7 @@ def test_a_photo_shows_two_or_three_people_who_were_there_in_what_they_wore():
     assert p.caption.endswith(f"{town.get(list(p.people)[-1]).name} in a {town.outfit(list(p.people)[-1], 2)}.")
     first = list(p.people)[0]
     shown = photo_json(p, town)
-    assert set(shown) == {"id", "place", "day", "phase", "caption", "people"}
+    assert set(shown) == {"id", "caption", "people"}
     assert shown["people"][0] == {"id": first, "name": town.get(first).name, "looks": describe(p.people[first]),
                                   "face": face(p.people[first])}
 

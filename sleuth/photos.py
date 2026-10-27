@@ -27,8 +27,7 @@ def photo_json(photo: Photo, town: Town) -> dict:
     """What the page shows of a photo: its caption and each resident in it with their looks and face."""
     people = [{"id": vid, "name": town.name_of(vid), "looks": describe(looks), "face": face(looks)}
               for vid, looks in photo.people.items()]
-    return {"id": photo.id, "place": photo.place, "day": photo.day, "phase": photo.phase, "caption": photo.caption,
-            "people": people}
+    return {"id": photo.id, "caption": photo.caption, "people": people}
 
 
 class Album:

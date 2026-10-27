@@ -179,14 +179,12 @@ select, input[type="text"], input[type="search"] {
 .sheet-head button { min-height: 44px; }
 .photo-feed { list-style: none; margin: .5rem 0 0; padding: 0; }
 .photo-feed li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .25rem .75rem; padding: .6rem 0; border-top: 1px solid var(--rail); }
-.photo-feed .faces { display: flex; gap: .25rem; grid-row: span 3; align-self: start; }
+.photo-feed .faces { display: flex; gap: .25rem; grid-row: span 2; align-self: start; }
 .photo-feed .status { margin-top: .2rem; }
 .photo-feed p { margin: 0; font-size: .9rem; }
-.photo-feed .when { color: var(--muted); font-size: .8rem; }
 .photo-feed .plain-button { justify-self: start; padding: .2rem .7rem; font-size: .85rem; }
 .photo-feed .plain-button:disabled { color: var(--muted); border-color: var(--edge); cursor: default; }
 .face.big canvas { width: 44px; height: 44px; }
-.tag { margin-right: .4rem; padding: 0 .35rem; border-radius: 3px; border: 1px solid var(--edge); font-size: .75rem; color: var(--muted); }
 
 /* The right column: people, then the conversation with whoever is picked. */
 .side {
@@ -301,7 +299,7 @@ select, input[type="text"], input[type="search"] {
   .app { display: block; height: auto; }
   header { position: sticky; top: 0; z-index: 2; background: var(--bg); min-height: 52px; flex-wrap: wrap; gap: .25rem 1rem; }
   h1 { font-size: 1.25rem; }
-  #replay { min-height: 44px; }
+  #replay, #photos-open { min-height: 44px; }
   .conn { flex-basis: 100%; }
   .desk { padding: 1rem 1rem 1.5rem; }
   .case-title { font-size: 1.5rem; }
@@ -399,7 +397,7 @@ select, input[type="text"], input[type="search"] {
       <ol class="feed" id="feed" aria-label="Town talk, newest first"></ol>
     </details>
 
-    <button type="button" class="plain-button" id="photos-open" aria-haspopup="dialog" aria-controls="photos-panel" hidden>Photos</button>
+    <button type="button" class="linkish" id="photos-open" aria-haspopup="dialog" aria-controls="photos-panel" hidden>Photos</button>
   </main>
 
   <aside class="side" aria-label="People">
@@ -411,7 +409,7 @@ select, input[type="text"], input[type="search"] {
     </section>
     <section class="convo" id="convo" aria-labelledby="convo-title">
       <h2 id="convo-title">Pick someone to talk to</h2>
-      <p class="meta" id="convo-meta">You can reach anyone from anywhere: tap a name to call or message them.</p>
+      <p class="meta" id="convo-meta"></p>
       <details class="about" id="about" hidden><summary>About them</summary><dl id="about-list"></dl></details>
       <ol class="thread" id="thread" aria-live="polite"></ol>
       <form class="ask" id="ask" hidden>
@@ -1164,10 +1162,6 @@ $("talk").addEventListener("toggle", () => {
   $("feed").scrollTop = 0;
 });
 
-function tag(text) {
-  return el("span", { className: "tag", textContent: text });
-}
-
 function render(e, fresh) {
   switch (e.kind) {
     case "case":
@@ -1204,8 +1198,8 @@ function render(e, fresh) {
       }
       break;
     case "post":
-      if (e.app) talk("plain", fresh, tag("App"), e.text);
-      else talk("plain", fresh, tag("Heard"), el("b", { textContent: e.speaker }), `: ${e.text}`);
+      if (e.app) talk("plain", fresh, e.text);
+      else talk("plain", fresh, el("b", { textContent: e.speaker }), `: ${e.text}`);
       break;
     case "place":
       here = e.place;
@@ -1257,7 +1251,7 @@ function addEvents(events, fresh) {
   }
 }
 
-// A photo from the app, newest on top: the faces in it, its caption, when and where, and Save; a new one while the
+// A photo from the app, newest on top: the faces in it, its caption and Save; a new one while the
 // photos are closed counts as unseen.
 function photo(p, fresh = false) {
   if (fresh && !$("photos-panel").open) unseenPhotos++;
@@ -1272,11 +1266,9 @@ function photo(p, fresh = false) {
     status.classList.toggle("error", !ok);
     if (!ok) save.disabled = false;
   });
-  const where = atPlace(p.place);
   $("photos").prepend(el("li", {},
     el("span", { className: "faces" }, ...p.people.map((v) => faceWith({ id: v.id, face: v.face }, true))),
     el("p", { textContent: p.caption }),
-    el("p", { className: "when", textContent: `${where[0].toUpperCase()}${where.slice(1)}, day ${p.day}, ${p.phase}` }),
     el("div", {}, save, status)));
   showPhotos();
 }
@@ -1435,7 +1427,7 @@ function reset() {
   liveConvo = null;
   delete $("convo").dataset.id;
   $("convo-title").textContent = "Pick someone to talk to";
-  $("convo-meta").textContent = "You can reach anyone from anywhere: tap a name to call or message them.";
+  $("convo-meta").textContent = "";
   $("about").hidden = $("ask").hidden = true;
   $("thread").replaceChildren();
 }

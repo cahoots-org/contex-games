@@ -782,7 +782,8 @@ def test_page_is_built_around_the_case(game):
                    "@media (max-width: 600px)", 'id="coach"'):
         assert needle in html, needle
     for gone in ("/api/listen", "Look around", "tiles", "card-title", 'role="tablist"', "innerHTML", "by kind, newest first",
-                 "case-whose", "The town's case"):
+                 "case-whose", "The town's case", "You can reach anyone", 'tag("App")', 'tag("Heard")',
+                 'className: "when"'):
         assert gone not in html, gone
 
 
@@ -955,7 +956,7 @@ def test_state_has_the_apps_photos_and_which_this_player_saved(game):
 def test_photos_stay_closed_behind_a_control_with_an_unseen_count_and_open_as_a_panel(game):
     page = game.client.get("/").text
     desk = page[page.index('<main class="desk"'):page.index("</main>")]
-    assert 'id="photos-open" aria-haspopup="dialog" aria-controls="photos-panel" hidden>Photos</button>' in desk
+    assert '<button type="button" class="linkish" id="photos-open" aria-haspopup="dialog" aria-controls="photos-panel" hidden>Photos</button>' in desk
     assert 'id="photos"' not in desk
     panel = page[page.index('<dialog class="sheet" id="photos-panel"'):page.index('<div class="app" id="app">')]
     assert '<form method="dialog"><button class="linkish">Close</button></form>' in panel and 'id="photos"' in panel
