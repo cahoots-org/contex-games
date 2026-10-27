@@ -246,7 +246,7 @@ def test_the_tutorial_is_an_overlay_apart_from_the_game_and_the_page_starts_clea
     for gone in ('id="skip"', 'id="steps"', "Skip this case", "tut"):
         assert gone not in game_ui, gone
     lit = page[page.index("function light()"):page.index("function placeCoach()")]
-    assert '$("coach").hidden = !s || $("intro").open || $("handoff").open;' in lit
+    assert '$("coach").hidden = !(s || beat) || $("intro").open || $("handoff").open;' in lit
     assert '$("mask").hidden = $("coach").hidden;' in lit
 
 
@@ -286,6 +286,22 @@ def test_the_step_card_stays_clear_of_the_cutout_and_a_new_target_is_scrolled_in
     assert "case-status" not in closed and 'talk("quiet", fresh, e.text)' in closed
     fresh = page[page.index("function reset()"):page.index("async function retell()")]
     assert "selected = null;" in fresh
+
+
+def test_a_conversation_step_that_ticks_shows_the_reply_before_the_next_step(game):
+    page = game.client.get("/").text
+    coach = page[page.index('<section class="tut coach" id="coach"'):page.index("<script>")]
+    assert '<button type="button" class="tut-go" id="coach-next" hidden>Next</button>' in coach
+    beat = page[page.index("function beatFrom("):page.index("// The checklist's current step")]
+    assert "const s = list.find((n, i) => n.person && n.done && steps && !steps[i]?.done);" in beat
+    assert "told you what they found. Anything useful goes into your notebook." in beat
+    assert "That's your first clue: what ${name} saw. Match it against people's looks." in beat
+    assert '$("coach-next").addEventListener("click", () => {\n  beat = null;\n  light();\n});' in beat
+    lit = page[page.index("function light()"):page.index("function placeCoach()")]
+    assert '$("thread").lastElementChild' in lit and "beat ? [target]" in lit
+    steps = page[page.index('case "steps":'):page.index('case "rest":')]
+    assert "if (fresh) beatFrom(e.steps);" in steps
+    assert "if (!list) beat = null;" in page[page.index("function setSteps("):page.index("function beatFrom(")]
 
 
 def test_interview_reports_problems_and_answers_through_the_feed(game):

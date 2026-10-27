@@ -247,6 +247,7 @@ select, input[type="text"], input[type="search"] {
 .coach { position: fixed; top: 0; left: 0; z-index: 5; width: 19rem; padding: .7rem .9rem .75rem; }
 .coach b { display: block; margin-top: .3rem; font: 500 1.1rem/1.3 var(--serif); }
 .coach p#coach-why { margin: .25rem 0 .6rem; font-size: .85rem; opacity: .85; }
+.coach #coach-next { margin-right: .9rem; }
 .coach::before {
   content: ""; position: absolute; width: 12px; height: 12px; background: var(--tut-mark); transform: rotate(45deg);
 }
@@ -423,6 +424,7 @@ select, input[type="text"], input[type="search"] {
 <section class="tut coach" id="coach" aria-labelledby="coach-tag" hidden>
   <p class="tut-tag"><span id="coach-tag">Tutorial</span> · <span id="coach-count"></span></p>
   <div aria-live="polite"><b id="coach-step"></b><p id="coach-why"></p></div>
+  <button type="button" class="tut-go" id="coach-next" hidden>Next</button>
   <button type="button" class="tut-skip" id="coach-skip">Skip tutorial</button>
 </section>
 
@@ -457,6 +459,8 @@ let introShown = false;
 let searched = new Set();
 // The practice case's checklist from the server; null off it.
 let steps = null;
+// The step a conversation just ticked, with a line on the reply, until the player reads it and moves on.
+let beat = null;
 // The notebook by record id, in the order the player got each entry.
 const notebook = new Map();
 
@@ -637,10 +641,26 @@ function drawWhere() {
 $("here").addEventListener("change", () => walkTo($("here").value));
 
 function setSteps(list) {
+  if (!list) beat = null;
   steps = list;
   drawPeople();
   drawWhere();
 }
+
+// A conversation step this checklist ticks, as a beat on the reply that ticked it.
+function beatFrom(list) {
+  const s = list.find((n, i) => n.person && n.done && steps && !steps[i]?.done);
+  if (!s) return;
+  const name = residents.find((v) => v.id === s.person)?.name || "They";
+  beat = { step: s, person: s.person, text: s.person === caseNow?.victim
+    ? `${name} told you what they found. Anything useful goes into your notebook.`
+    : `That's your first clue: what ${name} saw. Match it against people's looks.` };
+}
+
+$("coach-next").addEventListener("click", () => {
+  beat = null;
+  light();
+});
 
 // The checklist's current step: the first not yet done.
 function step() {
@@ -655,30 +675,33 @@ function light() {
   for (const node of document.querySelectorAll(".lit")) node.classList.remove("lit");
   const s = step();
   const talking = s?.person && $("convo").dataset.id === s.person && !$("ask").hidden;
-  const target = !s ? null : talking ? $("ask")
+  const reply = beat && $("convo").dataset.id === beat.person ? $("thread").lastElementChild : null;
+  const target = beat ? reply : !s ? null : talking ? $("ask")
     : s.person ? $("people").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
     : s.place && s.place !== here ? $("here")
     : s.action === "publish" && !$("publish").hidden ? publishNext()
     : $(ACTION_BUTTON[s.action]);
-  hole = !target ? [] : talking ? [$("convo")] : target === $("culprit") ? [$("publish")]
+  hole = !target ? [] : beat ? [target] : talking ? [$("convo")] : target === $("culprit") ? [$("publish")]
     : target === $("publish-send") ? [$("publish"), $("send")] : [target];
   watch.disconnect();
   for (const node of [document.body, ...hole]) watch.observe(node);
-  $("coach").hidden = !s || $("intro").open || $("handoff").open;
+  $("coach").hidden = !(s || beat) || $("intro").open || $("handoff").open;
   $("mask").hidden = $("coach").hidden;
-  if (!$("coach").hidden) target?.classList.add("lit");
-  if (!s) {
+  if (!$("coach").hidden && !beat) target?.classList.add("lit");
+  if (!s && !beat) {
     document.body.style.paddingBottom = "";
     return;
   }
-  const count = `Step ${steps.indexOf(s) + 1} of ${steps.length}`;
-  if ($("coach-count").textContent !== count) {
-    $("coach-count").textContent = count;
-    $("coach-step").textContent = s.text;
-    $("coach-why").textContent = s.why;
+  const now = beat ? beat.step : s;
+  const text = beat ? beat.text : s.text;
+  $("coach-next").hidden = !beat;
+  if ($("coach-step").textContent !== text) {
+    $("coach-count").textContent = `Step ${steps.indexOf(now) + 1} of ${steps.length}`;
+    $("coach-step").textContent = text;
+    $("coach-why").textContent = beat ? "" : s.why;
   }
-  if (!$("coach").hidden && target && `${count} ${target.id || target.dataset.id}` !== shown) {
-    shown = `${count} ${target.id || target.dataset.id}`;
+  if (!$("coach").hidden && target && `${text} ${target.id || target.dataset.id}` !== shown) {
+    shown = `${text} ${target.id || target.dataset.id}`;
     bringIntoView(target);
   }
   placeSoon();
@@ -1005,7 +1028,9 @@ function render(e, fresh) {
       }
       break;
     case "steps":
+      if (fresh) beatFrom(e.steps);
       setSteps(e.steps);
+      if (beat && !$("coach").hidden) $("coach-next").focus({ preventScroll: true });
       break;
     case "rest":
       setResting(e.resting);
@@ -1153,6 +1178,7 @@ function reset() {
   lastId = 0;
   caseNow = null;
   steps = null;
+  beat = null;
   selected = null;
   delete $("convo").dataset.id;
   $("convo-title").textContent = "Pick someone to talk to";
