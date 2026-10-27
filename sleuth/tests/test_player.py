@@ -833,6 +833,8 @@ async def test_the_checklist_walks_the_practice_case_from_victim_to_witness_to_s
                                           "Publish an episode naming who did it"]
     assert steps[1]["why"] == ("Tess Moreno is usually at the library in the morning, when it happened. "
                                "People nearby may have seen something.")
+    assert steps[4]["why"] == ("Name who the evidence points to, and cite what backs it. Only cite what you can trust: "
+                               "a lie in your evidence sinks the episode.")
     await ask(player, "t1", "what_happened", when="morning")
     assert done(steps_sent(player)[-1]) == [True, False, False, False, False] and notebook(player, "discovery")
     await ask(player, "t3", "what_did_you_see", when="morning")

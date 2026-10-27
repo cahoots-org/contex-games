@@ -296,7 +296,9 @@ class Player:
             {"text": f"Search the scene {at(crime.place)}",
              "why": "The culprit may have left something behind. Search where it happened.",
              "done": crime.id in self.searched, "action": "search", "place": crime.place},
-            {"text": "Publish an episode naming who did it", "why": "Name who the evidence points to, and cite what backs it.",
+            {"text": "Publish an episode naming who did it",
+             "why": "Name who the evidence points to, and cite what backs it. Only cite what you can trust: a lie in "
+                    "your evidence sinks the episode.",
              "done": self.id in file.published, "action": "publish"},
         ]
 
