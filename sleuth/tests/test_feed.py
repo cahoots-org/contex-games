@@ -124,3 +124,12 @@ def test_a_search_says_where_it_was():
     feed, lines = make()
     feed.on_searched("bar", [], case_id="case-1", player=PID)
     assert feed.recent[-1].data["text"] == lines[-1] == "You searched the bar."
+
+
+def test_learned_looks_reach_only_the_podcaster():
+    feed, lines = make()
+    person = {"id": "v1", "name": "Bert", "occupation": "baker", "home": "", "looks": "tall", "how": "you talked, day 1",
+              "face": {"hair": None, "coat": None, "height": 2}}
+    feed.on_known(person, player=PID)
+    event = feed.recent[-1]
+    assert (event.kind, event.player, event.data) == ("known", PID, {"villager": person}) and lines == []

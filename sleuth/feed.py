@@ -123,6 +123,10 @@ class Feed:
         self.emit("interview", f'{name}: "{line}"', player=player, villager_id=villager_id, name=name,
                   question=question, line=line, records=records, case_id=case_id)
 
+    def on_known(self, person: dict, *, player: str) -> None:
+        """How the podcaster now knows a resident looks."""
+        self.emit("known", player=player, villager=person)
+
     def on_case(self, case: dict, player: str | None = None) -> None:
         """A case opened or changed in the neighborhood app."""
         self.emit("case", case["text"], player=player, case=case)

@@ -9,7 +9,7 @@ from dataclasses import replace
 from sleuth.contex_client import Match
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
-from sleuth.player import PRACTICE_WRONG, HELD, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, Player, Refusal, conveys, voiced
+from sleuth.player import KNOWN_KEPT, PRACTICE_WRONG, HELD, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, Player, Refusal, conveys, learned, voiced
 from sleuth.players import Players
 from sleuth.config import Config
 from sleuth.case import WHEN, Record
@@ -1104,3 +1104,55 @@ async def test_an_episode_is_judged_on_what_the_accused_wore_that_day():
     file.records[clip.id] = clip
     assert await player.publish("v3", cite(player, file, clip)) is None
     assert file.solved_by == PID
+
+
+@pytest.mark.asyncio
+async def test_talking_shows_how_they_look_today():
+    player, file, engine, _ = interviewing()
+    player.game = Game()
+    for _ in range(4):
+        player.game.tick()
+    player.town.worn[2] = {"v1": "plaid flannel"}
+    seen = []
+    player.feed.sinks.append(seen.append)
+    assert await ask(player, "v1", "none") is None
+    traits = player.town.get("v1").traits
+    assert player.known["v1"][-1] == {"looks": {"height": traits["height"], "hair": traits["hair"], "coat": "plaid flannel"},
+                                      "how": "talked", "by": None, "day": 2, "phase": player.game.phase}
+    [known] = [e for e in seen if e.kind == "known"]
+    assert known.player == PID and known.data["villager"] == player.person("v1")
+    assert player.person("v1")["how"] == "you talked, day 2"
+    await ask(player, "v1", "none")
+    assert len(player.known["v1"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_refused_question_teaches_nothing():
+    player, file, engine, _ = interviewing()
+    player.game = Game()
+    engine.reputation.nudge("v2", PID, player.config.guarded_at - 0.1)
+    assert isinstance(await ask(player, "v2", "none"), Refusal)
+    player._talked["v1"] = ((player.game.day, player.game.phase), MESSAGES_PER_PART)
+    assert isinstance(await ask(player, "v1", "none"), Refusal)
+    assert player.known == {}
+
+
+def test_known_round_trips_and_resets_on_leaving_the_first_case():
+    player, *_ = practising()
+    player.learn("t1", {"height": "tall"}, "talked")
+    back = Player(player.engine, player.town, Lineage(), player.ids, player.feed, player.config, None, Game(), player_id=PID)
+    back.restore(json.loads(json.dumps(player.to_state())))
+    assert back.known == player.known and back.known["t1"][0]["looks"] == {"height": "tall"}
+    player.skip()
+    assert player.known == {}
+
+
+def test_known_keeps_the_newest_few_and_says_how_each_was_learned():
+    player, *_ = interviewing()
+    for day in range(1, KNOWN_KEPT + 3):
+        player.learn("v1", {"height": "tall"}, "described", by="v2", day=day)
+    assert [e["day"] for e in player.known["v1"]] == list(range(3, KNOWN_KEPT + 3))
+    first = player.town.get("v2").name.split()[0]
+    assert player.person("v1")["how"] == f"{first} described, day {KNOWN_KEPT + 2}"
+    assert learned({"how": "photo", "by": None, "day": 2}, player.town) == "in a photo, day 2"
+    assert player.person("v2") == {**player.person("v2"), "looks": "", "how": "", "face": None}

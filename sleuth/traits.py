@@ -14,6 +14,9 @@ TRAITS: dict[str, tuple[str, ...]] = {
 # What never changes about a resident; the coat is the day's outfit, picked from a wardrobe of WARDROBE.
 FIXED = ("height", "hair", "car")
 WARDROBE = 3
+# What talking to someone shows of them, and what someone who knows them can put into words.
+IN_PERSON = ("height", "hair", "coat")
+BY_WORD = ("height", "hair", "car")
 PHRASES = {"height": "{}", "hair": "{}", "coat": "in a {}", "car": "with a {}"}
 COLOURS = {
     "grey-haired": "#9a9a9a", "blond": "#e0c77a", "dark-haired": "#2b2118", "red-haired": "#b0482a", "bald": None,

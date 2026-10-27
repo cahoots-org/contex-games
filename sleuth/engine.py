@@ -103,7 +103,7 @@ class Engine:
     async def add_villager(self, v: Villager, place: str = START_PLACE) -> None:
         mind = self.mind_factory(v)
         await mind.open()
-        self.town.add(v, place)
+        self.town.add(v, place, self.cases.rng if self.cases is not None else None)
         self.minds[v.id] = mind
         self._read_at[v.id] = time.monotonic()
         wake = self._wakes[v.id] = asyncio.Event()

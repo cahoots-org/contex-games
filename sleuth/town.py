@@ -82,11 +82,11 @@ class Town:
     def alive_count(self) -> int:
         return len(self._villagers)
 
-    def add(self, v: Villager, place: str = START_PLACE) -> None:
+    def add(self, v: Villager, place: str = START_PLACE, rng: Random | None = None) -> None:
         """Add the resident at place, dressed for the latest dressed day."""
         self._villagers[v.id] = v
         if self.worn and v.wardrobe:
-            self.worn[max(self.worn)][v.id] = Random().choice(v.wardrobe)
+            self.worn[max(self.worn)][v.id] = (rng or Random()).choice(v.wardrobe)
         self._places[v.id] = place
         self._phase_moves.setdefault(v.id, []).append(place)
 

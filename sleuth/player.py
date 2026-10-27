@@ -19,7 +19,7 @@ from sleuth.interview import Route, exchanges, route
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
 from sleuth.town import PLACES, START_PLACE, Town, at, neighbours
-from sleuth.traits import TRAITS
+from sleuth.traits import IN_PERSON, TRAITS, describe, face
 from sleuth.tutorial import Practice
 from sleuth.usage import charging
 from sleuth.writer import invents, strangers
@@ -113,6 +113,19 @@ WRONG = "Your episode didn't hold up. The town now believes it, and people are w
 PRACTICE_WRONG = "Your episode didn't hold up: the evidence doesn't back it."
 HELD = "It holds up. Case closed."
 RIVAL = "Another podcaster cracked the case first."
+# How many times a resident's looks are remembered.
+KNOWN_KEPT = 4
+
+
+def learned(entry: dict, town: Town) -> str:
+    """How and when looks were learned, like "you talked, day 3" or "Bev described, day 3"."""
+    if entry["how"] == "talked":
+        how = "you talked"
+    elif entry["how"] == "described":
+        how = f"{(town.name_of(entry['by']) or 'Someone').split()[0]} described"
+    else:
+        how = "in a photo"
+    return f"{how}, day {entry['day']}"
 
 
 class Refusal(str):
@@ -144,6 +157,8 @@ class Player:
         self.threads: dict[str, list[dict]] = {}
         # The cases whose crime place the player has searched.
         self.searched: list[str] = []
+        # How the player has learned each resident looks, oldest first.
+        self.known: dict[str, list[dict]] = {}
         self._talked: dict[str, tuple[tuple[int, str] | None, int]] = {}
         self.created_at = time.time()
         # Open tabs, and when the player last acted or closed one; None until they first do.
@@ -175,11 +190,13 @@ class Player:
     def _progress(self) -> dict:
         """Where the player is, their notebook, conversations and searched scenes, as plain JSON."""
         return {"place": self.place, "notebook": [asdict(r) for r in self.notebook.values()],
-                "threads": self.threads, "searched": self.searched}
+                "threads": self.threads, "searched": self.searched,
+                "known": self.known}
 
     def _resume(self, progress: dict) -> None:
         """Put back what _progress saved."""
         self.place, self.threads, self.searched = progress["place"], progress["threads"], progress["searched"]
+        self.known = progress["known"]
         self.notebook = {r["id"]: Record(**r) for r in progress["notebook"]}
 
     @property
@@ -201,7 +218,7 @@ class Player:
             return "That case is already open."
         self._town_run = {**self._progress(), "since": self.feed.recent[-1].id if self.feed.recent else 0}
         self._talked = {vid: said for vid, said in self._talked.items() if vid in self.town}
-        self.notebook, self.threads, self.searched, self.place = {}, {}, [], START_PLACE
+        self.notebook, self.threads, self.searched, self.place, self.known = {}, {}, [], START_PLACE, {}
         self.begin_tutorial()
         self._tick()
         return None
@@ -236,7 +253,7 @@ class Player:
             self._resume(run)
             return
         self.engine.players.onboarded.add(self.owner)
-        self.notebook, self.threads, self.searched, self._talked = {}, {}, [], {}
+        self.notebook, self.threads, self.searched, self._talked, self.known = {}, {}, [], {}, {}
         self.place = START_PLACE
         self.feed.forget(self.id)
         self.engine.cases.brief(self.feed, self.id, self._today())
@@ -358,6 +375,8 @@ class Player:
         line = await self._phrase(villager, file, question, thread, found, talk)
         thread.append({"question": question, "line": line, "records": [r.id for r in new]})
         del thread[:-THREAD_KEPT]
+        looks = self.town.looks(vid, self.game.day if self.game else 0)
+        self.learn(vid, {c: v for c, v in looks.items() if c in IN_PERSON}, "talked")
         self.feed.on_interview(vid, villager.name, question, line, [self._record_json(r) for r in new],
                                case_id=file.crime.id, player=self.id)
         self._tick()
@@ -366,6 +385,34 @@ class Player:
         except Exception:
             log.exception("pressing the culprit of %s failed", file.crime.id)
         return None
+
+    def learn(self, vid: str, looks: dict[str, str], how: str, by: str | None = None, day: int | None = None,
+              phase: str | None = None) -> None:
+        """Remember how the resident looks, learned by talking, a description or a photo, and tell the player."""
+        if day is None:
+            day = self.game.day if self.game else 0
+        if phase is None:
+            phase = self.game.phase if self.game else ""
+        entries = self.known.setdefault(vid, [])
+        entry = {"looks": looks, "how": how, "by": by, "day": day, "phase": phase}
+        if entries and all(entries[-1][k] == entry[k] for k in ("looks", "how", "by", "day")):
+            return
+        entries.append(entry)
+        del entries[:-KNOWN_KEPT]
+        self.feed.on_known(self.person(vid), player=self.id)
+
+    def person(self, vid: str) -> dict:
+        """What the player sees of a resident in the people list: looks only once learned."""
+        v, newest = self.town.get(vid), (self.known.get(vid) or [None])[-1]
+        return {"id": v.id, "name": v.name, "occupation": v.occupation, "home": v.home,
+                "looks": describe(newest["looks"]) if newest else "",
+                "how": learned(newest, self.town) if newest else "",
+                "face": face(newest["looks"]) if newest else None}
+
+    def known_json(self, vid: str) -> list[dict]:
+        """Each time the player learned how the resident looks, oldest first."""
+        return [{"looks": describe(e["looks"]), "how": learned(e, self.town), "face": face(e["looks"])}
+                for e in self.known.get(vid, [])]
 
     def thread_json(self, vid: str) -> list[dict]:
         """What the player sees of their conversation with the resident: each question, reply and what it added."""

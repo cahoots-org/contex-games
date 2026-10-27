@@ -21,7 +21,7 @@ from sleuth.models import Villager
 from sleuth.player import SHRUGS, Player
 from sleuth.players import Players, new_player_id
 from sleuth.town import PLACES, Town
-from sleuth.traits import COLOURS
+from sleuth.traits import COLOURS, TRAITS
 from sleuth.tests import helpers
 from sleuth.usage import Usage
 from sleuth import web
@@ -98,14 +98,30 @@ def test_state_counts_each_conversation_and_names_where_records_are_kept(game):
     assert set(state["records_at"]) == {"grocery", "bar", "town hall", "elm street", "gym", "library"}
 
 
-def test_state_lists_each_villagers_looks_and_face_in_today_s_outfit(game):
-    game.town.get("v1").traits = {"height": "tall", "hair": "bald", "car": "bicycle"}
-    game.town.worn = {game.game.day: {"v1": "denim jacket"}}
+def test_nothing_sent_shows_unlearned_looks(game):
+    for v, coat in ((game.town.get("v1"), "denim jacket"), (game.town.get("v2"), "plaid flannel")):
+        v.traits = {"height": "tall", "hair": "bald", "car": "bicycle"}
+        v.wardrobe = [coat, "grey hoodie", "green raincoat"]
+    game.town.worn = {game.game.day: {"v1": "denim jacket", "v2": "plaid flannel"}}
+    open_case(game)
+    state = game.client.get("/api/state").json()
+    rows = state["villagers"]
+    assert all(r["looks"] == "" and r["how"] == "" and r["face"] is None for r in rows)
+    assert set(rows[0]) == {"id", "name", "occupation", "home", "looks", "how", "face"}
+    card = game.client.get("/api/villagers/v2").json()
+    assert "traits" not in card and "traits_text" not in card and card["known"] == []
+    sent = json.dumps([state, game.client.get("/api/case").json(), card])
+    assert not any(c in sent for c in TRAITS["coat"])
+    assert not any(t in sent for t in ("tall", "bald", "bicycle"))
+
+
+def test_state_shows_learned_looks_and_how(game):
+    game.player.learn("v1", {"height": "tall", "hair": "bald", "coat": "denim jacket"}, "talked")
     marta = next(v for v in game.client.get("/api/state").json()["villagers"] if v["id"] == "v1")
-    assert marta["looks"] == "tall, bald, in a denim jacket, with a bicycle"
+    assert marta["looks"] == "tall, bald, in a denim jacket" and marta["how"] == "you talked, day 1"
     assert marta["face"] == {"hair": None, "coat": COLOURS["denim jacket"], "height": 2}
-
-
+    assert game.client.get("/api/villagers/v1").json()["known"] == [
+        {"looks": "tall, bald, in a denim jacket", "how": "you talked, day 1", "face": marta["face"]}]
 
 
 def test_inspect_card_never_includes_needs(game):
@@ -117,18 +133,15 @@ def test_inspect_card_never_includes_needs(game):
     assert game.client.get("/api/villagers/v9").status_code == 404
 
 
-def test_inspect_shows_traits_home_and_household_not_warmth(game):
+def test_inspect_shows_home_and_household_not_warmth(game):
     marta, bert = game.town.get("v1"), game.town.get("v2")
-    marta.traits = {"height": "tall", "hair": "bald", "car": "bicycle"}
-    game.town.worn = {game.game.day: {"v1": "grey hoodie"}}
     for v in (marta, bert):
         v.home, v.household = "elm street", "h01"
     marta.relationships["v2"], bert.relationships["v1"] = "sibling", "sibling"
     marta.warmth["v2"] = bert.warmth["v1"] = 0.73
     response = game.client.get("/api/villagers/v1")
     body = response.json()
-    assert body["traits"] == {**marta.traits, "coat": "grey hoodie"} and body["home"] == "elm street"
-    assert body["traits_text"] == "tall, bald, in a grey hoodie, with a bicycle"
+    assert body["home"] == "elm street"
     assert body["household"] == [{"id": "v2", "name": "Bert Cole", "kind": "sibling"}]
     assert "warmth" not in json.dumps(body) and "0.73" not in response.text
 
