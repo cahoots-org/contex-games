@@ -23,6 +23,7 @@ from sleuth.feed import Feed
 from sleuth.game import Game
 from sleuth.lineage import Ids, Lineage
 from sleuth.persist import components, resume_game, save_every, save_quietly, set_aside, state_path, stop
+from sleuth.photos import Album
 from sleuth.player import Player
 from sleuth.players import Players, new_player_id
 from sleuth.routine import Routine
@@ -60,6 +61,7 @@ async def play() -> None:
             config, town, contex, jev, writer, lineage, ids, feed, game=game,
             baselines=baselines,
             routine=routine, facts=facts, cases=Cases(config, town, routine, rng, ids),
+            album=Album(random.Random(rng.random())),
         )
         players = Players(usage)
         engine.players = players
