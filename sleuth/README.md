@@ -171,7 +171,7 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_SESSION` | random per run | prefix for this run's Contex projects and saves |
 | `SLEUTH_DATA_DIR` | working directory | where towns, saves and baselines are kept |
 | `SLEUTH_POPULATION` | `50` | town size |
-| `SLEUTH_DAY_SECONDS` | `180` | length of a game day |
+| `SLEUTH_DAY_SECONDS` | `900` | length of a game day, in seconds (15 minutes) |
 | `SLEUTH_CRIME_EVERY_DAYS` | `1` | game days from one shared case's close to the next crime |
 | `SLEUTH_CASE_DAYS` | `3` | game days before an open case goes cold |
 | `SLEUTH_REPUTATION_RIGHT` | `0.3` | regard every resident gains for a right episode |

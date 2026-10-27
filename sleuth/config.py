@@ -10,7 +10,7 @@ class Config:
     contex_url: str = "http://localhost:8001/mcp"
     # Names this run's Contex projects; a fresh one per run starts every mind empty.
     session: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
-    day_seconds: float = 180.0
+    day_seconds: float = 900.0
     # How long a subscription keeps talk for a villager to react to.
     memory_days: float = 2.0
     cooldown_seconds: float = 30.0
