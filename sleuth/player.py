@@ -229,6 +229,8 @@ class Player:
         self.feed.practising.discard(self.id)
         self.handoff = handoff
         if (run := self._town_run) is not None:
+            if handoff is not None:
+                self.handoff = {**handoff, "back": True}
             self._town_run = None
             self.feed.forget(self.id, since=run["since"])
             self._resume(run)

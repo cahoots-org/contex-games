@@ -1074,6 +1074,7 @@ async def test_replaying_the_first_case_starts_it_fresh_and_gives_the_town_back_
     after = json.loads(json.dumps(player.to_state()))
     assert not player.practising and player.engine is engine
     assert player.handoff["head"] == (None if close == "skip" else "Case closed.")
+    assert player.handoff["back"] is True
     assert {k: after[k] for k in ("place", "notebook", "threads", "searched")} == \
         {k: before[k] for k in ("place", "notebook", "threads", "searched")}
     assert [e.id for e in player.feed.replay(PID)][:len(events)] == events and file.state == "open"
