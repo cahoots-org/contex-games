@@ -296,6 +296,7 @@ def test_the_step_card_stays_clear_of_the_cutout_and_a_new_target_is_scrolled_in
     place = page[page.index("function placeCoach()"):page.index("function cutout(")]
     assert 'const best = (t && !phone.matches && ["right", "below", "left", "above"].map(at).find((o) => o.fits))' in place
     assert "|| docks.find((o) => t && !meets(t, o.box)) || docks.find((o) => ring && !meets(ring, o.box)) || docks[0];" in place
+    assert "const fits = left >= 8 && top >= 8 && box.right <= w - 8 && box.bottom <= h - 8 && !(apart && meets(box, column));" in place
     assert "CONTROLS" not in page
     lit = page[page.index("function light()"):page.index("function placeCoach()")]
     assert "bringIntoView(target);" in lit

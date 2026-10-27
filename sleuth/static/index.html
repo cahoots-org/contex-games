@@ -940,6 +940,9 @@ function placeCoach() {
   const w = innerWidth, h = innerHeight;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
   const meets = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+  // A cutout outside the people column keeps the card off it, so the list stays readable.
+  const column = document.querySelector(".side").getBoundingClientRect();
+  const apart = !hole.some((n) => n.closest(".side"));
   const at = (side) => {
     const across = side === "below" || side === "above";
     const left = across ? clamp(t.left + t.width / 2 - c.width / 2, 8, w - c.width - 8)
@@ -947,7 +950,7 @@ function placeCoach() {
     const top = !across ? clamp(t.top + t.height / 2 - c.height / 2, 8, h - c.height - 8)
       : side === "below" ? t.bottom + GAP : t.top - GAP - c.height;
     const box = { left, top, right: left + c.width, bottom: top + c.height };
-    const fits = left >= 8 && top >= 8 && box.right <= w - 8 && box.bottom <= h - 8;
+    const fits = left >= 8 && top >= 8 && box.right <= w - 8 && box.bottom <= h - 8 && !(apart && meets(box, column));
     const arrow = across ? t.left + t.width / 2 - left : t.top + t.height / 2 - top;
     return { side, left, top, fits, arrow: clamp(arrow, 16, (across ? c.width : c.height) - 16) };
   };
