@@ -781,7 +781,8 @@ def test_page_is_built_around_the_case(game):
                    "/api/search", "/api/handoff", 'id="handoff"', 'case "interview"', 'case "pulled"', 'case "searched"', 'case "steps"', "const NEARBY = \"nearby\";", 'id="intro"',
                    "@media (max-width: 600px)", 'id="coach"'):
         assert needle in html, needle
-    for gone in ("/api/listen", "Look around", "tiles", "card-title", 'role="tablist"', "innerHTML", "by kind, newest first"):
+    for gone in ("/api/listen", "Look around", "tiles", "card-title", 'role="tablist"', "innerHTML", "by kind, newest first",
+                 "case-whose", "The town's case"):
         assert gone not in html, gone
 
 

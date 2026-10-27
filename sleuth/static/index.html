@@ -81,7 +81,6 @@ h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
 
 .case-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .case-actions { display: flex; align-items: center; gap: .5rem; white-space: nowrap; }
-.whose { margin: 0; font-size: .875rem; color: var(--muted); }
 .case-title { font: 500 1.9rem/1.15 var(--serif); margin: .15rem 0 .3rem; }
 .case-text { margin: 0; font: 1.05rem/1.55 var(--serif); }
 .resting { margin: .75rem 0 0; padding: .45rem .75rem; border-radius: 4px; font-size: .9rem; border: 1px solid var(--edge); color: var(--muted); }
@@ -343,12 +342,11 @@ select, input[type="text"], input[type="search"] {
   <main class="desk" id="desk">
     <section class="case" id="case" aria-labelledby="case-title">
       <div class="case-top">
-        <p class="whose" id="case-whose">The town's case</p>
+        <h2 class="case-title" id="case-title">Quiet day in town</h2>
         <span class="case-actions">
           <button type="button" class="primary" id="publish-open" aria-expanded="false" aria-controls="publish" hidden>Publish</button>
         </span>
       </div>
-      <h2 class="case-title" id="case-title">Quiet day in town</h2>
       <p class="case-text" id="case-text">Something's bound to happen soon.</p>
       <div class="where-line">
         <div class="places" id="places">
@@ -497,7 +495,7 @@ async function post(path, body) {
   }
 }
 
-// The case header: whose case, its title and news, and Publish while it is open.
+// The case header: its title and news, and Publish while it is open.
 function setCase(c) {
   const open = c && c.state === "open" ? c : null;
   if ((open && open.id) !== (caseNow && caseNow.id)) {
@@ -508,7 +506,6 @@ function setCase(c) {
     say("where-status", "");
   }
   caseNow = open;
-  $("case-whose").textContent = open && open.private ? "Your case" : "The town's case";
   $("case-title").textContent = open ? open.title : "Quiet day in town";
   $("case-text").textContent = open ? open.text : "Something's bound to happen soon.";
   $("publish-open").hidden = !open;
