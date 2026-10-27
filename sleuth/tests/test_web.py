@@ -920,3 +920,9 @@ def test_photos_are_public_but_not_shown_in_the_practice_town(game):
     assert event.kind == "photo" and game.feed.sees(game.player.id, event)
     game.feed.practising.add(game.player.id)
     assert not game.feed.sees(game.player.id, event)
+
+
+def test_a_question_waits_for_the_picked_residents_conversation_to_open(game):
+    page = game.client.get("/").text
+    ask = page[page.index('$("ask").addEventListener("submit"'):page.index("function answered(")]
+    assert 'if (id !== selected) return say("ask-status", "Opening the conversation…");' in ask

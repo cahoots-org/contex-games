@@ -1144,6 +1144,8 @@ function exchange(t, name) {
 $("ask").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const { id, name } = $("convo").dataset;
+  // Until a newly picked resident's conversation opens, the one on screen is still the last one's.
+  if (id !== selected) return say("ask-status", "Opening the conversation…");
   const text = $("ask-text").value.trim();
   if (!text) return say("ask-status", "Type a question.", true);
   const button = $("ask").querySelector("button");
