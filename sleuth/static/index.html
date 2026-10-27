@@ -1527,6 +1527,7 @@ function handoff(h) {
   $("handoff-cards").replaceChildren(...[h.line, tip,
     h.back ? "" : "Other podcasters are chasing this one too, and you get one episode per case. Get it right first."]
     .filter(Boolean).map((text) => el("li", { textContent: text })));
+  $("handoff").querySelector(".tut-go").textContent = caseNow ? "Take the case" : "Explore the town";
   $("handoff").showModal();
 }
 

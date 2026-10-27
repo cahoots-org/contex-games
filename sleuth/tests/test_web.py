@@ -893,6 +893,12 @@ def test_the_described_beat_suggests_a_look_the_player_learned(game):
     assert '.looks.split(", ").filter((w) => !/^(with|in) /.test(w)).at(-1)' in beat
 
 
+def test_the_handoff_button_says_explore_when_the_town_has_no_case(game):
+    page = game.client.get("/").text
+    handoff = page[page.index("function handoff(h)"):page.index('$("handoff").addEventListener("close"')]
+    assert '.textContent = caseNow ? "Take the case" : "Explore the town";' in handoff
+
+
 def test_turning_back_to_a_reply_opens_its_conversation_and_arrows_work_page_wide(game):
     page = game.client.get("/").text
     turn = page[page.index("function turn("):page.index("// Before the first step")]
