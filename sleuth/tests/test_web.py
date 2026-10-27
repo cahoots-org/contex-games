@@ -285,7 +285,8 @@ def test_the_cutout_opens_on_the_conversation_and_the_composer_when_the_step_nee
     assert 'const talking = s?.person && $("convo").dataset.id === s.person && !$("ask").hidden;' in lit
     assert 'talking ? [$("convo")] : target === $("culprit") ? [$("publish")]' in lit
     assert 'target === $("publish-send") ? [$("publish"), $("send")]' in lit
-    assert 'target === $("here") ? [target, $("place-list")] : [target];' in lit
+    assert 'target === $("here") ? [target, $("place-list")]' in lit
+    assert 'target === $("find") ? [target, $("people"), $("convo")] : [target];' in lit
     convo = page[page.index("function drawConvo("):page.index("function exchange(")]
     assert '$("ask").hidden = false;\n  light();\n}' in convo
 
@@ -804,6 +805,13 @@ def test_page_is_built_around_the_case(game):
         assert needle in html, needle
     for gone in ("/api/listen", "Look around", "tiles", "card-title", 'role="tablist"', "innerHTML"):
         assert gone not in html, gone
+
+
+def test_page_draws_learned_looks_and_a_silhouette(game):
+    page = game.client.get("/").text
+    for s in ('case "known":', "function silhouette(", "JSON.stringify(v.face)", 'look: "find"'):
+        assert s in page
+    assert "traits_text" not in page
 
 
 def test_the_place_picker_is_a_listbox_with_the_scene_first_and_pinned(game):

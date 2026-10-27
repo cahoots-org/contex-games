@@ -439,7 +439,7 @@ select, input[type="text"], input[type="search"] {
   <aside class="side" aria-label="People">
     <section class="people" aria-labelledby="people-title">
       <h2 id="people-title">People</h2>
-      <input type="search" id="find" placeholder="Find by name, looks like red-haired, or nearby" aria-label="Find someone" autocomplete="off">
+      <input type="search" id="find" placeholder="Find by name, job, known looks, or nearby" aria-label="Find someone" autocomplete="off">
       <p class="status" id="find-status" role="status"></p>
       <ul class="list" id="people"></ul>
     </section>
@@ -836,9 +836,9 @@ function step() {
 }
 
 // Ring what the current step needs: its person, then the question box once they are picked, else its button here, else
-// the way to its place; the tutorial card points at it. The cutout is the ring's, with the open place list, or the whole
-// conversation or composer.
-const ACTION_BUTTON = { pull: "pull-here", search: "search-here", publish: "publish-open", look: "people" };
+// the way to its place; the tutorial card points at it. The cutout is the ring's, with the open place list, or the people
+// and conversation around the search, or the whole conversation or composer.
+const ACTION_BUTTON = { pull: "pull-here", search: "search-here", publish: "publish-open", look: "find" };
 let hole = [];
 function light() {
   for (const node of document.querySelectorAll(".lit")) node.classList.remove("lit");
@@ -856,7 +856,7 @@ function light() {
     : $(ACTION_BUTTON[s.action]);
   hole = !target ? [] : past === CASE_PAGE ? [target, $("case-text")] : past || beat ? [target] : talking ? [$("convo")] : target === $("culprit") ? [$("publish")]
     : target === $("publish-send") ? [$("publish"), $("send")]
-    : target === $("here") ? [target, $("place-list")] : [target];
+    : target === $("here") ? [target, $("place-list")] : target === $("find") ? [target, $("people"), $("convo")] : [target];
   watch.disconnect();
   for (const node of [document.body, ...hole]) watch.observe(node);
   $("coach").hidden = !(s || beat) || $("intro").open || $("handoff").open;
@@ -1007,7 +1007,7 @@ function drawPeople() {
   const nearby = new Set(caseNow?.nearby);
   const rank = (v) => v.id === wanted ? -1 : { victim: 0, witness: 1 }[role[v.id]]
     ?? (nearby.has(v.id) ? 2 : talked[v.id] ? 3 : 4);
-  const shown = residents.filter((v) => !q || v.name.toLowerCase().includes(q) || v.looks.includes(q)
+  const shown = residents.filter((v) => !q || v.name.toLowerCase().includes(q) || v.looks.toLowerCase().includes(q)
     || v.occupation.toLowerCase().includes(q) || (nearby.has(v.id) && NEARBY.includes(q)));
   shown.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
   const focused = document.activeElement?.closest?.(".person")?.dataset.id;
@@ -1027,7 +1027,8 @@ function person(v, role, nearby) {
   }, faceWith(v), el("span", { className: "who" }, el("b", { textContent: v.name }),
     role ? el("span", { className: `role ${role}`, textContent: role }) : null,
     nearby ? el("span", { className: "role nearby", textContent: NEARBY, title: "Usually at the scene at that time of day" }) : null,
-    el("small", { textContent: v.looks || v.occupation })),
+    el("small", { textContent: [v.occupation, v.home && atPlace(v.home)].filter(Boolean).join(", ") }),
+    v.looks ? el("small", { textContent: `${v.looks} (${v.how})` }) : null),
   n ? el("span", { className: "talked", textContent: `talked ×${n}` }) : null));
 }
 
@@ -1041,9 +1042,9 @@ $("find").addEventListener("keydown", (ev) => {
   }
 });
 
-// The residents' list changes only when someone arrives or leaves, not when they move.
+// The residents' list changes only when someone arrives or leaves or their looks are learned, not when they move.
 function setResidents(list) {
-  const key = list.map((v) => `${v.id}:${v.name}`).join("|");
+  const key = list.map((v) => `${v.id}:${v.name}:${v.how}`).join("|");
   if (key === residentsKey) return;
   residents = list;
   residentsKey = key;
@@ -1078,11 +1079,14 @@ function drawConvo(body) {
   $("convo").dataset.id = body.id;
   $("convo").dataset.name = body.name;
   $("convo-title").replaceChildren(faceWith(v), `Talking with ${body.name}`);
-  $("convo-meta").textContent = [capital(body.occupation), body.home ? `lives ${atPlace(body.home)}` : "", body.traits_text]
+  $("convo-meta").textContent = [capital(body.occupation), body.home ? `lives ${atPlace(body.home)}` : ""]
     .filter(Boolean).join(", ");
   const link = (r) => el("button", { type: "button", className: "linkish", textContent: r.name, onclick: () => choose(r.id) });
   const list = (rs) => rs.flatMap((r, i) => [i ? ", " : "", link(r), ` (${r.kind})`]);
   $("about-list").replaceChildren(
+    el("dt", { textContent: "Looks" }),
+    ...(body.known.length ? body.known.map((k) => el("dd", { textContent: `${k.looks} (${k.how})` }))
+      : [el("dd", { textContent: "Unknown. Talk to them, ask someone who knows them, or save a photo they're in." })]),
     el("dt", { textContent: "Personality" }), el("dd", { textContent: body.personality }),
     ...(body.grudge ? [el("dt", { textContent: "Grudge" }), el("dd", { textContent: body.grudge })] : []),
     ...(body.household.length ? [el("dt", { textContent: "Household" }), el("dd", {}, ...list(body.household))] : []),
@@ -1200,6 +1204,13 @@ function render(e, fresh) {
         retell();
       }
       break;
+    case "known":
+      if (fresh) {
+        residents = residents.map((v) => v.id === e.villager.id ? e.villager : v);
+        drawPeople();
+        if (selected === e.villager.id) choose(selected, true);
+      }
+      break;
     case "steps":
       if (fresh) beatFrom(e.steps);
       setSteps(e.steps);
@@ -1223,7 +1234,7 @@ function addEvents(events, fresh) {
   }
 }
 
-// Pixel faces: a 12x12 head and shoulders, with hair, coat and height from the resident's traits.
+// Pixel faces: a 12x12 head and shoulders, with hair, coat and height from the looks the player has learned.
 const SKIN = ["#f1d3b3", "#e2b48f", "#c98f63", "#9c6644", "#6e4630", "#f3dcc8"];
 const TINT = ["#dfe6d6", "#e6dfd2", "#d9e0e8", "#e8dcdc", "#dde4df"];
 const faces = new Map();
@@ -1239,13 +1250,17 @@ function drawFace(v) {
   const g = canvas.getContext("2d");
   const r = seeded(v.id);
   const pick = (list) => list[Math.floor(r() * list.length)];
+  g.fillStyle = pick(TINT);
+  g.fillRect(0, 0, 12, 12);
+  if (!v.face) {
+    silhouette(g);
+    return canvas;
+  }
   const { hair, coat, height = 1 } = v.face || {};
   const clothes = coat || "#6b5b4a";
   const dy = 2 * (1 - height);
   const px = (i, j, color) => { g.fillStyle = color; g.fillRect(i, j + dy, 1, 1); };
   const rect = (i0, i1, j0, j1, color) => { for (let i = i0; i < i1; i++) for (let j = j0; j < j1; j++) px(i, j, color); };
-  g.fillStyle = pick(TINT);
-  g.fillRect(0, 0, 12, 12);
   const skin = pick(SKIN);
   rect(2, 10, 9, 12 - dy, clothes);
   rect(1, 11, 11, 12 - dy, clothes);
@@ -1266,11 +1281,22 @@ function drawFace(v) {
   return canvas;
 }
 
-// A copy of the resident's face; each is drawn once and then copied.
+// Someone whose looks the player hasn't learned: a head and shoulders in one grey.
+function silhouette(g) {
+  g.fillStyle = "#9a9a96";
+  g.fillRect(2, 9, 8, 3);
+  g.fillRect(1, 11, 10, 1);
+  g.fillRect(4, 8, 4, 1);
+  g.fillRect(3, 3, 6, 5);
+  g.fillRect(4, 2, 4, 1);
+}
+
+// A copy of the resident's face as last learned; each is drawn once and then copied.
 function faceFor(v) {
-  if (!faces.has(v.id)) faces.set(v.id, drawFace(v));
+  const key = `${v.id}:${JSON.stringify(v.face)}`;
+  if (!faces.has(key)) faces.set(key, drawFace(v));
   const canvas = el("canvas", { width: 12, height: 12, ariaHidden: "true" });
-  canvas.getContext("2d").drawImage(faces.get(v.id), 0, 0);
+  canvas.getContext("2d").drawImage(faces.get(key), 0, 0);
   return canvas;
 }
 

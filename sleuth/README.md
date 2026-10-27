@@ -114,10 +114,10 @@ Everything is done on one page, built around the case. On the left: the case wit
 which opens the form in place (choose a resident, tick notebook entries); the notebook grouped by kind (Seen, Clip,
 Logs, Said, Found, Heard), newest first; where you are, with Search here and Pull records when they apply and the
 places you can go; and town talk, one strip that stays closed until you open it and counts what's new. On the right:
-everyone in town with their job and street, searchable by name or looks, marked victim or witness once you
+everyone in town with their job and street, searchable by name, job or known looks, marked victim or witness once you
 know and "usually nearby" when their routine puts them at the scene, and the conversation with
-whoever you pick. Someone's looks show only once you've learned them, each with how and when; talking to someone shows
-how they look today: height, hair and the outfit they have on. On a phone the two columns stack.
+whoever you pick. Someone's looks show only once you've learned them, each with how and when, and until then their face
+is a grey silhouette; talking to someone shows how they look today: height, hair and the outfit they have on. On a phone the two columns stack.
 
 ## How it uses Contex
 
