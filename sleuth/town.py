@@ -83,10 +83,10 @@ class Town:
         return len(self._villagers)
 
     def add(self, v: Villager, place: str = START_PLACE, rng: Random | None = None) -> None:
-        """Add the resident at place, dressed for the latest dressed day."""
+        """Add the resident at place, dressed for the latest dressed day unless they already are."""
         self._villagers[v.id] = v
-        if self.worn and v.wardrobe:
-            self.worn[max(self.worn)][v.id] = (rng or Random()).choice(v.wardrobe)
+        if self.worn and v.wardrobe and v.id not in (latest := self.worn[max(self.worn)]):
+            latest[v.id] = (rng or Random()).choice(v.wardrobe)
         self._places[v.id] = place
         self._phase_moves.setdefault(v.id, []).append(place)
 

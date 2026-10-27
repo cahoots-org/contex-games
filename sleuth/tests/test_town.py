@@ -129,3 +129,14 @@ def test_a_resident_added_after_the_day_is_dressed_wears_something_that_day():
     town.dress(4, Random(1))
     town.add(Villager("v2", "B", "x", "y", "", [], {}, {}, wardrobe=["denim jacket", "black puffer"]))
     assert town.outfit("v2", 4) in ("denim jacket", "black puffer")
+
+
+def test_adding_a_restored_resident_again_keeps_what_they_wore():
+    v = Villager("v1", "A", "x", "y", "", [], {}, {}, wardrobe=["grey hoodie", "denim jacket", "black puffer"])
+    town = Town()
+    town.add(v)
+    town.dress(4, Random(1))
+    worn = town.outfit("v1", 4)
+    for seed in range(20):
+        town.add(v, rng=Random(seed))
+        assert town.outfit("v1", 4) == worn
