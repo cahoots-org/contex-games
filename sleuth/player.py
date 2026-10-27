@@ -18,6 +18,7 @@ from sleuth.game import Game
 from sleuth.interview import Route, exchanges, route
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
+from sleuth.photos import KEPT as PHOTOS_KEPT
 from sleuth.town import PLACES, START_PLACE, Town, at, neighbours
 from sleuth.traits import BY_WORD, IN_PERSON, TRAITS, describe, face
 from sleuth.tutorial import Practice
@@ -186,12 +187,15 @@ class Player:
         self.handoff: dict | None = None
         # While the first case is played again: where the player was in town, and the last feed event before it.
         self._town_run: dict | None = None
+        # The app's photos the player saved, oldest first.
+        self.saved_photos: list[str] = []
 
     def to_state(self) -> dict:
         """The run's durable fields as plain JSON; tabs and tasks are left out."""
         return {
             "id": self.id, "owner": self.owner, "created_at": self.created_at, "active_at": self._active_at,
             **self._progress(), "handoff": self.handoff, "town_run": self._town_run,
+            "saved_photos": self.saved_photos,
             "tutorial": self.engine.cases.to_state() if self.practising else None,
         }
 
@@ -200,6 +204,7 @@ class Player:
         self.created_at = state["created_at"]
         self._resume(state)
         self.handoff, self._town_run = state["handoff"], state["town_run"]
+        self.saved_photos = state["saved_photos"]
         active_at = state["active_at"]
         self._active_at = None if active_at is None else min(active_at, time.time() - self.config.idle_after_seconds)
         if state["tutorial"] is not None:
@@ -438,6 +443,9 @@ class Player:
         for vid, looks in photo.people.items():
             if vid in self.town:
                 self.learn(vid, looks, "photo", day=photo.day, phase=photo.phase)
+        if photo.id not in self.saved_photos:
+            self.saved_photos.append(photo.id)
+            del self.saved_photos[:-PHOTOS_KEPT]
         file = self.engine.cases.for_player(self.id) if self.engine.cases else None
         records = []
         if file is not None:

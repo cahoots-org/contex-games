@@ -16,6 +16,7 @@ from starlette.websockets import WebSocketClose
 from sleuth.case import CAMERA_PLACES, LOG_PLACES, record_json
 from sleuth.cases import case_json
 from sleuth.feed import RESTING, Event, Feed
+from sleuth.photos import photo_json
 from sleuth.player import Player, Refusal
 from sleuth.players import Players, new_owner_id
 from sleuth.town import PLACES
@@ -193,6 +194,8 @@ def create_app(
             "resting": usage.resting(),
             "intro": player.owner not in players.onboarded and not player.threads and not player.notebook,
             "handoff": player.handoff,
+            "photos": [{**photo_json(p, player.town), "saved": p.id in player.saved_photos}
+                       for p in player.engine.album.photos],
             **case_of(player),
         }
 

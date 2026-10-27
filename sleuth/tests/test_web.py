@@ -914,6 +914,21 @@ def test_save_photo_endpoint(game):
     assert (response.status_code, response.json()["error"]) == (400, "That photo isn't on the app any more.")
 
 
+def test_state_has_the_apps_photos_and_which_this_player_saved(game):
+    photo = a_photo(game)
+    other = Photo("r-51", "cafe", 1, "afternoon", {"v2": {"height": "short"}}, "Afternoon at the cafe: Bert Cole.")
+    game.engine.album.photos.append(other)
+    game.client.post("/api/photos/save", json={"photo_id": photo.id})
+    photos = game.client.get("/api/state").json()["photos"]
+    assert [(p["id"], p["saved"]) for p in photos] == [("r-50", True), ("r-51", False)]
+    page = game.client.get("/").text
+    assert "if (p.saved) savedPhotos.add(p.id);" in page and "if (fresh) photo(e.photo);" in page
+    assert photos[1] == {**photo_json(other, game.town), "saved": False}
+    back = game.join("someone")
+    back.restore(json.loads(json.dumps(game.player.to_state())))
+    assert back.saved_photos == ["r-50"]
+
+
 def test_photos_are_public_but_not_shown_in_the_practice_town(game):
     game.feed.on_photo(photo_json(a_photo(game), game.town))
     event = game.feed.recent[-1]

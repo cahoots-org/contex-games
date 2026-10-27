@@ -1249,7 +1249,8 @@ function render(e, fresh) {
       }
       break;
     case "photo":
-      photo(e.photo);
+      // A load draws the app's photos from the state, so only new ones come from events.
+      if (fresh) photo(e.photo);
       break;
     case "photo_saved":
       note(e.records);
@@ -1498,6 +1499,12 @@ async function loadState() {
   setCase(state.case);
   notebook.clear();
   note(state.notebook);
+  $("photos").replaceChildren();
+  for (const p of state.photos) {
+    if (p.saved) savedPhotos.add(p.id);
+    photo(p);
+  }
+  showPhotos();
   setSteps(state.steps);
   if (state.intro && !introShown) {
     introShown = true;
