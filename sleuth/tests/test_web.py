@@ -813,3 +813,12 @@ def test_search_and_pull_show_only_while_they_can_be_used(game):
     page = game.client.get("/").text
     where = page[page.index("function drawWhere()"):page.index("function setSteps")]
     assert "!searched.has(caseNow.id)" in where and "caseNow && recordsAt.includes(here)" in where
+
+
+def test_a_search_that_ticks_its_step_shows_the_notebook_before_the_next_step(game):
+    page = game.client.get("/").text
+    beat = page[page.index("function beatFrom("):page.index("// The checklist's current step")]
+    assert 'n.action === "search" && n.done && steps && !steps[i]?.done' in beat
+    assert "beat = { step: found, book: true," in beat
+    lit = page[page.index("function light()"):page.index("function placeCoach()")]
+    assert 'const reply = beat?.book ? $("book")' in lit

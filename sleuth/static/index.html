@@ -739,8 +739,14 @@ function setSteps(list) {
   drawWhere();
 }
 
-// A conversation step this checklist ticks, as a beat on the reply that ticked it.
+// A step this checklist ticks, as a beat on what it turned up: the reply to a conversation, the notebook after a search.
 function beatFrom(list) {
+  const found = list.find((n, i) => n.action === "search" && n.done && steps && !steps[i]?.done);
+  if (found) {
+    beat = { step: found, book: true,
+      text: "The search turned up a clue. It's in your notebook now, with everything you've learned so far." };
+    return;
+  }
   const s = list.find((n, i) => n.person && n.done && steps && !steps[i]?.done);
   if (!s) return;
   const name = residents.find((v) => v.id === s.person)?.name || "They";
@@ -768,7 +774,8 @@ function light() {
   for (const node of document.querySelectorAll(".lit")) node.classList.remove("lit");
   const s = step();
   const talking = s?.person && $("convo").dataset.id === s.person && !$("ask").hidden;
-  const reply = beat && $("convo").dataset.id === beat.person ? $("thread").lastElementChild : null;
+  const reply = beat?.book ? $("book")
+    : beat && $("convo").dataset.id === beat.person ? $("thread").lastElementChild : null;
   const target = beat ? reply : !s ? null : talking ? $("ask")
     : s.person ? $("people").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
     : s.place && s.place !== here ? $("here")
