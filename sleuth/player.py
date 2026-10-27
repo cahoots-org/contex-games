@@ -583,12 +583,15 @@ class Player:
             self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids), verdict=verdict,
                                  player=self.id)
             line = "Your episode held up." if held else f"Your episode didn't hold up. It was {self.town.get(crime.culprit).name}."
+            culprit = self.town.get(crime.culprit).name
             if held:
                 payoff = f"Your episode is out. By morning, half the town has heard it, and {victim.name} has the {crime.item} back."
-                handoff = {"head": "Case closed.", "line": payoff}
+                handoff = {"head": f"You got it. It was {culprit}.", "line": payoff}
             else:
                 payoff = f"By morning, half the town is talking about it, and {victim.name} is still missing the {crime.item}."
-                handoff = {"head": line, "line": payoff}
+                head = (f"Right person, but your evidence didn't back it. It was {culprit}." if culprit_id == crime.culprit
+                        else f"Not quite. It was {culprit}, not {accused.name}.")
+                handoff = {"head": head, "line": payoff}
             self._graduate(file, self.id if held else None, line, handoff)
             return None
         everyone = [v.id for v in self.town.villagers]

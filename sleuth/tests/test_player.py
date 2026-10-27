@@ -1022,8 +1022,8 @@ async def test_what_happened_gives_anyone_else_what_they_heard():
 
 
 @pytest.mark.parametrize("named, head, line", [
-    ("t5", "Case closed.", "Your episode is out. By morning, half the town has heard it, and Ruth Okafor has the tote bag back."),
-    ("t4", "Your episode didn't hold up. It was Cal Hughes.",
+    ("t5", "You got it. It was Cal Hughes.", "Your episode is out. By morning, half the town has heard it, and Ruth Okafor has the tote bag back."),
+    ("t4", "Not quite. It was Cal Hughes, not Gus Moreno.",
      "By morning, half the town is talking about it, and Ruth Okafor is still missing the tote bag."),
 ])
 @pytest.mark.asyncio
@@ -1073,7 +1073,7 @@ async def test_replaying_the_first_case_starts_it_fresh_and_gives_the_town_back_
         await player.publish("t5", await solve(player))
     after = json.loads(json.dumps(player.to_state()))
     assert not player.practising and player.engine is engine
-    assert player.handoff["head"] == (None if close == "skip" else "Case closed.")
+    assert player.handoff["head"] == (None if close == "skip" else "You got it. It was Cal Hughes.")
     assert player.handoff["back"] is True
     assert {k: after[k] for k in ("place", "notebook", "threads", "searched")} == \
         {k: before[k] for k in ("place", "notebook", "threads", "searched")}
