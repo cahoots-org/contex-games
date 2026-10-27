@@ -88,6 +88,13 @@ regards you below `guarded_at`.
 A receipt names no one: pull the grocery's records to see who paid at that time. The solvability check counts the
 clues and that log, so a case may need a search and a pull to crack.
 
+**Photos.** While someone is playing, the neighborhood app posts a photo at the end of each morning, afternoon and
+evening, so up to three a day: two or three residents who were at the same public place then, captioned by the game
+with who they are and what they had on, like "Evening at the bar: Cal Hughes in a green raincoat, Ivy Hughes in a
+denim jacket." Every photo is true, and a culprit is never in one of their crime's own part of the day. Saving a
+photo shows how each person in it looked that day and, while a case is open, adds it to your notebook. A case never
+needs one. The app keeps the newest 60.
+
 **Publish** an episode: choose a resident and tick between 1 and 5 notebook entries. It holds up when it names the
 culprit, every cited entry is true evidence from this case, and at least one points at the culprit: a memory, clip
 or trace whose traits all fit them as they looked that day, or a log that puts them at the crime place or behind a receipt found there. Otherwise the evidence

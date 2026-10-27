@@ -416,6 +416,25 @@ class Player:
         del entries[:-KNOWN_KEPT]
         self.feed.on_known(self.person(vid), player=self.id)
 
+    def save_photo(self, photo_id: str) -> str | None:
+        """Keep a photo from the app: learn how each resident in it looked then and, with a case open, note it; returns
+        why it could not be done."""
+        self.touch()
+        photo = self.engine.album.get(photo_id)
+        if photo is None:
+            return "That photo isn't on the app any more."
+        for vid, looks in photo.people.items():
+            if vid in self.town:
+                self.learn(vid, looks, "photo", day=photo.day, phase=photo.phase)
+        file = self.engine.cases.for_player(self.id) if self.engine.cases else None
+        records = []
+        if file is not None:
+            r = self.notebook[photo.id] = Record(photo.id, file.crime.id, "photo", photo.place, "", photo.caption,
+                                                 day=photo.day)
+            records.append(self._record_json(r))
+        self.feed.on_photo_saved(photo.id, records, case_id=file.crime.id if file else None, player=self.id)
+        return None
+
     def person(self, vid: str) -> dict:
         """What the player sees of a resident in the people list: looks only once learned."""
         v, newest = self.town.get(vid), (self.known.get(vid) or [None])[-1]

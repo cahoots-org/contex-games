@@ -127,6 +127,14 @@ class Feed:
         """How the podcaster now knows a resident looks."""
         self.emit("known", player=player, villager=person)
 
+    def on_photo(self, photo: dict) -> None:
+        """A photo posted to the neighborhood app."""
+        self.emit("photo", f"New photo: {photo['caption']}", photo=photo)
+
+    def on_photo_saved(self, photo_id: str, records: list[dict], *, case_id: str | None, player: str) -> None:
+        """The podcaster kept a photo, and the notebook entry it added, if a case is open."""
+        self.emit("photo_saved", player=player, photo_id=photo_id, records=records, case_id=case_id)
+
     def on_case(self, case: dict, player: str | None = None) -> None:
         """A case opened or changed in the neighborhood app."""
         self.emit("case", case["text"], player=player, case=case)

@@ -146,6 +146,11 @@ class Cases:
         """The case a lineage root belongs to, and what kind of root it is."""
         return next(((f, f.roots[uid]) for f in self.files.values() if uid in f.roots), None)
 
+    def hidden(self, day: int, phase: str) -> set[str]:
+        """Culprits of cases not closed whose crime was that day and part of it, whom no photo of it shows."""
+        return {f.crime.culprit for f in self.files.values()
+                if f.state != "closed" and (f.crime.day, f.crime.phase) == (day, phase)}
+
     def cautious(self, day: int) -> dict[str, str]:
         """The crime-day outfit of each open or setup case's culprit, which they won't wear on later days."""
         worn = {f.crime.culprit: self.town.outfit(f.crime.culprit, f.crime.day) for f in self.files.values()

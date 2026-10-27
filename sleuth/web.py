@@ -30,6 +30,7 @@ USAGE_POLL_SECONDS = 3.0
 CLIENT_QUEUE = 256
 BAD_WALK = 'Send JSON like {"place": "bar"}.'
 BAD_INTERVIEW = 'Send JSON like {"villager_id": "v1", "text": "Where were you last night?"}.'
+BAD_PHOTO = 'Send JSON like {"photo_id": "r-1"}.'
 BAD_PUBLISH = 'Send JSON like {"culprit_id": "v1", "record_ids": ["r-1"]}.'
 COOKIE = "sleuth_player"
 COOKIE_SECONDS = 365 * 24 * 3600
@@ -314,6 +315,20 @@ def create_app(
         if (player := player_for(players, request.cookies.get(COOKIE))) is None:
             return _error(401, RELOAD)
         player.dismiss_handoff()
+        return {"ok": True}
+
+    @app.post("/api/photos/save")
+    async def save_photo(request: Request):
+        if (player := player_for(players, request.cookies.get(COOKIE))) is None:
+            return _error(401, RELOAD)
+        payload = await _payload(request, BAD_PHOTO, "That request is too long.")
+        if isinstance(payload, JSONResponse):
+            return payload
+        photo_id = payload.get("photo_id")
+        if not isinstance(photo_id, str):
+            return _error(400, BAD_PHOTO)
+        if problem := player.save_photo(photo_id):
+            return _error(400, problem)
         return {"ok": True}
 
     @app.post("/api/publish")

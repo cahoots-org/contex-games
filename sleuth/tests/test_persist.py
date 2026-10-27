@@ -234,6 +234,11 @@ def test_components_have_no_pressure():
     assert "pressure" not in build().parts
 
 
+def test_components_include_the_album():
+    g = build()
+    assert g.parts["album"] is g.engine.album
+
+
 def test_restore_resumes_record_and_case_ids(tmp_path):
     g = build()
     crime = Crime("case-3", "steal", "bike", "v1", "v2", "cafe", 1, "night", 1422, "rival", "Someone stole a bike.")

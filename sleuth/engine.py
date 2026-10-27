@@ -18,6 +18,7 @@ from sleuth.facts import Facts
 from sleuth.game import PHASES, Game
 from sleuth.lineage import Ids, Lineage
 from sleuth.mind import Mind, mind_project
+from sleuth.photos import Album, photo_json
 from sleuth.models import Utterance, Villager
 from sleuth.players import Players
 from sleuth.reputation import Reputation
@@ -54,6 +55,7 @@ class Engine:
         routine: Routine | None = None,
         facts: Facts | None = None,
         cases: Cases | None = None,
+        album: Album | None = None,
     ):
         self.config = config
         self.town = town
@@ -67,6 +69,7 @@ class Engine:
         self.baselines = baselines
         self.routine = routine
         self.cases = cases
+        self.album = album or Album()
         self.reputation = Reputation(config)
         self.players = Players()
         self.mind_factory = mind_factory or (lambda v: Mind(contex, v, config, baselines))
@@ -364,6 +367,7 @@ class Engine:
         phase_seconds = self.config.day_seconds / len(PHASES)
         while True:
             await asyncio.sleep(phase_seconds)
+            day, phase = self.game.day, self.game.phase
             self.game.tick()
             self.reputation.decay()
             self.feed.on_time(self.game.day, self.game.phase)
@@ -373,11 +377,21 @@ class Engine:
                     await self.cases.on_tick(self, self.game.day, self.game.phase, finished, self.players.any_playing())
                 except Exception:
                     log.exception("cases tick failed")
+            self._photograph(day, phase, finished)
             self._chose_move.clear()
             if self.routine is not None:
                 if self._walking is not None:
                     self._walking.cancel()
                 self._walking = asyncio.create_task(self._walk(self.game.phase, phase_seconds * ROUTINE_SPREAD))
+
+    def _photograph(self, day: int, phase: str, finished: dict[str, list[str]]) -> None:
+        """Post a photo of the part of the day just finished while someone plays, never showing a culprit at their
+        crime."""
+        if not self.players.any_playing():
+            return
+        hidden = self.cases.hidden(day, phase) if self.cases is not None else set()
+        if photo := self.album.take(self.town, day, phase, finished, self.ids, exclude=hidden):
+            self.feed.on_photo(photo_json(photo, self.town))
 
     async def _walk(self, phase: str, spread: float) -> None:
         """Send villagers who are not at their routine place there, a batch at a time across spread seconds."""

@@ -8,6 +8,7 @@ from sleuth.config import Config
 from sleuth.game import Game
 from sleuth.lineage import Ids
 from sleuth.models import Villager
+from sleuth.photos import Album
 from sleuth.reputation import Reputation
 from sleuth.routine import Routine
 from sleuth.town import Town
@@ -84,6 +85,7 @@ class Practice:
         self.game = Game(FROZEN_DAY_SECONDS)
         self.game.restore(NOW)
         self.reputation = Reputation(config)
+        self.album = Album()
         self.cases = Cases(config, self.town, self.routine, Random(), ids)
         if saved is None:
             self._open(player_id, ids)

@@ -5,6 +5,7 @@ import pytest
 
 import time
 from dataclasses import replace
+from random import Random
 
 from sleuth.contex_client import Match
 from sleuth.lineage import Ids
@@ -17,6 +18,7 @@ from sleuth.cases import CaseFile
 from sleuth.feed import Feed
 from sleuth.game import Game
 from sleuth.lineage import Lineage
+from sleuth.photos import Album
 from sleuth.tests.helpers import PID, FakeEngine, StubJev, StubRoutine, StubWriter
 from sleuth.tests.test_cases import culprit_file, make_cases
 from sleuth.tests.helpers import make_player as make
@@ -1211,3 +1213,31 @@ async def test_the_first_case_asks_to_learn_how_people_look():
     assert not player.steps()[2]["done"]
     await ask(player, "t2", "none")
     assert player.steps()[2]["done"]
+
+
+@pytest.mark.asyncio
+async def test_saving_a_photo_teaches_looks_and_adds_a_notebook_entry():
+    player, file, engine, _ = interviewing()
+    player.town.dress(2, Random(0))
+    whereabouts = {v.id: ["bar"] for v in player.town.villagers}
+    engine.album = Album(Random(1))
+    photo = engine.album.take(player.town, 2, "evening", whereabouts, player.ids)
+    assert player.save_photo(photo.id) is None
+    for vid in photo.people:
+        assert player.known[vid][-1] == {"looks": photo.people[vid], "how": "photo", "by": None, "day": photo.day,
+                                         "phase": photo.phase}
+        assert player.person(vid)["how"] == "in a photo, day 2"
+    saved = player.notebook[photo.id]
+    assert (saved.kind, saved.case, saved.text, saved.day) == ("photo", file.crime.id, photo.caption, 2)
+    event = player.feed.recent[-1]
+    assert (event.kind, event.player, event.data["photo_id"], event.data["case_id"]) == (
+        "photo_saved", PID, photo.id, file.crime.id)
+    assert player.save_photo("r-999") == "That photo isn't on the app any more."
+
+
+def test_a_photo_saved_with_no_case_open_only_teaches_looks():
+    player, *_ = make("Ann", "Bo")
+    player.engine.album = Album(Random(1))
+    photo = player.engine.album.take(player.town, 1, "evening", {"v1": ["bar"], "v2": ["bar"]}, player.ids)
+    assert player.save_photo(photo.id) is None
+    assert player.notebook == {} and set(player.known) == {"v1", "v2"}

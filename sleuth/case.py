@@ -70,7 +70,7 @@ class Crime:
 class Record:
     id: str
     case: str
-    kind: str  # "memory" | "discovery" | "clip" | "log" | "clue" | "statement"
+    kind: str  # "memory" | "discovery" | "clip" | "log" | "clue" | "statement" | "photo"
     place: str
     clock: str
     text: str

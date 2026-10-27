@@ -18,6 +18,7 @@ from sleuth.feed import Feed
 from sleuth.game import Game
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Villager
+from sleuth.photos import Photo, photo_json
 from sleuth.player import SHRUGS, Player
 from sleuth.players import Players, new_player_id
 from sleuth.town import PLACES, Town
@@ -879,3 +880,29 @@ def test_turning_back_to_a_reply_opens_its_conversation_and_arrows_work_page_wid
     assert 'document.addEventListener("keydown", (ev) => {' in turn
     assert 'ev.target.closest?.("input, textarea, select, [role=listbox]")' in turn
     assert 'async function choose(id, quiet = false) {' in page
+
+
+def a_photo(game):
+    photo = Photo("r-50", "library", 1, "morning", {"v1": {"height": "tall"}, "v2": {"height": "short"}},
+                  "Morning at the library: Marta Hale, Bert Cole.")
+    game.engine.album.photos.append(photo)
+    return photo
+
+
+def test_save_photo_endpoint(game):
+    photo = a_photo(game)
+    assert game.client.post("/api/photos/save", json={"photo_id": photo.id}).json() == {"ok": True}
+    assert game.player.known["v1"][-1]["how"] == "photo"
+    for body in ({"photo_id": 3}, [1]):
+        response = game.client.post("/api/photos/save", json=body)
+        assert (response.status_code, response.json()["error"]) == (400, web.BAD_PHOTO)
+    response = game.client.post("/api/photos/save", json={"photo_id": "r-999"})
+    assert (response.status_code, response.json()["error"]) == (400, "That photo isn't on the app any more.")
+
+
+def test_photos_are_public_but_not_shown_in_the_practice_town(game):
+    game.feed.on_photo(photo_json(a_photo(game), game.town))
+    event = game.feed.recent[-1]
+    assert event.kind == "photo" and game.feed.sees(game.player.id, event)
+    game.feed.practising.add(game.player.id)
+    assert not game.feed.sees(game.player.id, event)
