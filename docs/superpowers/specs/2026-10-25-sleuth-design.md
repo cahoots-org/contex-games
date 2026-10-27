@@ -221,3 +221,28 @@ From the owner's first play: interviews couldn't be steered, and there was no re
   - a trace that narrows a trait, like a boot print for height or a thread of the culprit's coat;
   - or an item that ties someone to a place and time, like a dropped receipt.
 - Clues are records like any other, so they can be cited, and the solvability check counts them.
+
+## Addendum, 2026-10-27: knowing people, outfits and photos
+
+From the owner: the puzzle was a lookup, because everyone's looks were on screen from the start, so the only unknown was the crime. Identifying people becomes something the player investigates.
+
+### Looks are learned, not given
+- **Public:** the people list starts with name, job, street and household.
+- **Learned:** a person's looks are known only once the player has:
+  - talked to them, which shows how they look now, including today's outfit;
+  - been told by someone who describes them (hearsay, which can be wrong);
+  - or seen them in a photo or camera clip.
+- **Recorded:** each learned look records how and when it was learned ("you talked, day 3", "Bev described, day 3", "in a photo, day 2"). The people list and cards show what's known and how.
+- **No knowledge by presence:** being at a place doesn't reveal anyone.
+
+### Outfits
+- **Wardrobe:** every resident owns three outfits, coat or top colour and style, assigned by code from the trait vocabulary. Height and hair stay fixed.
+- **Daily choice:** code picks the outfit each resident wears each day. It is recorded, so "what did Cal wear on day 2?" has one true answer.
+- **Culprit's caution:** a culprit may avoid the outfit they wore for the crime on later days.
+- **Trait checks:** witnesses and camera clips report the outfit worn at that moment, not a fixed coat. Trait matching, the judge's pointing rule and the solvability check work against what each resident wore at the time.
+
+### Photos on the neighborhood app
+- **Sparing posts:** a few posts per game day at public places, such as trivia night at the bar or the dog park in the morning. Each shows two or three residents, with the place, the day and part of day, and what each wore.
+- **Code-held records:** photos are true, and appear in the notebook when the player saves one.
+- **Photo feed:** the page gets a scrollable photo feed, newest first, so players can browse what was posted. A photo is drawn from the residents' portraits in that day's outfits, with a one-line caption.
+- **Solvability doesn't need photos:** a case is still made solvable by witnesses, clips, logs and clues, which now include what was worn. Photos are a second route, not the only one.
