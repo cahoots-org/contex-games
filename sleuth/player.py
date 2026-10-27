@@ -277,7 +277,10 @@ class Player:
             return None
         crime = file.crime
         witness = self.town.get(next(r.holder for r in file.records.values() if r.kind == "memory"))
-        victim = self.town.get(crime.victim).name
+        victim = self.town.get(crime.victim)
+        known = next(v for v in self.town.villagers
+                     if v.id not in (crime.victim, crime.culprit, witness.id) and acquainted(victim, v))
+        victim = victim.name
         when = "at night" if crime.phase == "night" else f"in the {crime.phase}"
         return [
             {"text": f"Ask {victim}, the victim, what happened", "why": f"{victim} reported it. Ask what happened.",
@@ -286,10 +289,10 @@ class Player:
              "why": f"{witness.name} is usually {at(crime.place)} {when}, when it happened. "
                     "People nearby may have seen something.",
              "done": any(r.kind == "memory" for r in self.notebook.values()), "person": witness.id},
-            {"text": "Find out how people look",
-             "why": "Witnesses see looks, not names. Talking to someone shows how they look today, and people can "
-                    "describe those they know.",
-             "done": any(v not in (crime.victim, witness.id) for v in self.known), "action": "look"},
+            {"text": f"Ask {victim} what {known.name} looks like",
+             "why": "Witnesses describe looks, not names. People can describe others they know.",
+             "done": any(e["how"] == "described" for e in self.known.get(known.id, [])),
+             "person": crime.victim, "about": known.id},
             {"text": f"Search the scene {at(crime.place)}",
              "why": "The culprit may have left something behind. Search where it happened.",
              "done": crime.id in self.searched, "action": "search", "place": crime.place},

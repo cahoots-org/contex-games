@@ -829,7 +829,7 @@ async def test_the_checklist_walks_the_practice_case_from_victim_to_witness_to_s
     player, *_ = practising()
     steps = player.steps()
     assert [s["text"] for s in steps] == ["Ask Ruth Okafor, the victim, what happened", "Ask Tess Moreno what they saw",
-                                          "Find out how people look", "Search the scene at the library",
+                                          "Ask Ruth Okafor what Dev Okafor looks like", "Search the scene at the library",
                                           "Publish an episode naming who did it"]
     assert steps[1]["why"] == ("Tess Moreno is usually at the library in the morning, when it happened. "
                                "People nearby may have seen something.")
@@ -837,7 +837,7 @@ async def test_the_checklist_walks_the_practice_case_from_victim_to_witness_to_s
     assert done(steps_sent(player)[-1]) == [True, False, False, False, False] and notebook(player, "discovery")
     await ask(player, "t3", "what_did_you_see", when="morning")
     assert done(steps_sent(player)[-1]) == [True, True, False, False, False]
-    await ask(player, "t1", "what_do_they_look_like", who="t5")
+    await ask(player, "t1", "what_do_they_look_like", who="t2")
     assert done(steps_sent(player)[-1]) == [True, True, True, False, False]
     assert player.search() == "There's nothing to search for here."
     player.walk("library")
@@ -1204,14 +1204,19 @@ async def test_a_description_that_adds_a_look_falls_back_to_the_plain_line():
 
 
 @pytest.mark.asyncio
-async def test_the_first_case_asks_to_learn_how_people_look():
+async def test_the_first_case_asks_the_victim_to_describe_someone_they_know_who_is_not_the_culprit():
     player, *_ = practising()
-    steps = player.steps()
-    assert [s["text"] for s in steps][2] == "Find out how people look" and not steps[2]["done"]
+    step = player.steps()[2]
+    assert step == {"text": "Ask Ruth Okafor what Dev Okafor looks like",
+                    "why": "Witnesses describe looks, not names. People can describe others they know.",
+                    "done": False, "person": "t1", "about": "t2"}
     await ask(player, "t1", "what_happened", when="morning")
     await ask(player, "t3", "what_did_you_see", when="morning")
-    assert not player.steps()[2]["done"]
     await ask(player, "t2", "none")
+    assert not player.steps()[2]["done"]
+    await ask(player, "t1", "what_do_they_look_like", who="t5")
+    assert not player.steps()[2]["done"]
+    await ask(player, "t1", "what_do_they_look_like", who="t2")
     assert player.steps()[2]["done"]
 
 

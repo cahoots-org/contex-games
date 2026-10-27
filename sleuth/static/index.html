@@ -765,7 +765,8 @@ function setSteps(list) {
   drawWhere();
 }
 
-// A step this checklist ticks, as a beat on what it turned up: the reply to a conversation, the notebook after a search.
+// A step this checklist ticks, as a beat on what it turned up: the reply to a conversation, the row of someone just
+// described, the notebook after a search.
 function beatFrom(list) {
   const found = list.findIndex((n, i) => n.action === "search" && n.done && steps && !steps[i]?.done);
   if (found >= 0) {
@@ -776,8 +777,10 @@ function beatFrom(list) {
   const i = list.findIndex((n, i) => n.person && n.done && steps && !steps[i]?.done);
   if (i < 0) return;
   const s = list[i];
-  const name = residents.find((v) => v.id === s.person)?.name || "They";
-  beat = { i, person: s.person, text: s.person === caseNow?.victim
+  const name = residents.find((v) => v.id === (s.about || s.person))?.name || "They";
+  beat = { i, person: s.person, about: s.about, text: s.about
+    ? `Now you know how ${name} looks. Search for a look, like "red-haired", to see who matches what you know.`
+    : s.person === caseNow?.victim
     ? `${name} told you what they found. Anything useful goes into your notebook.`
     : `That's your first clue: what ${name} saw. Match it against people's looks.` };
 }
@@ -854,6 +857,7 @@ function pastTarget(page) {
   const s = steps[page.i];
   const row = (id) => $("people").querySelector(`[data-id="${CSS.escape(id)}"]`);
   const t = page.beat?.book ? $("book")
+    : page.beat?.about ? row(page.beat.about)
     : page.beat && $("convo").dataset.id === page.beat.person ? $("thread").lastElementChild
     : s.person ? row(s.person) : $(ACTION_BUTTON[s.action]);
   return t && !t.hidden ? t : t?.parentElement || $("people");
@@ -865,9 +869,9 @@ function step() {
 }
 
 // Ring what the current step needs: its person, then the question box once they are picked, else its button here, else
-// the way to its place; the tutorial card points at it. The cutout is the ring's, with the open place list, or the people
-// and conversation around the search, or the whole conversation or composer.
-const ACTION_BUTTON = { pull: "pull-here", search: "search-here", publish: "publish-open", look: "find" };
+// the way to its place; the tutorial card points at it. The cutout is the ring's, with the open place list, or the whole
+// conversation or composer, or the search box above someone just described.
+const ACTION_BUTTON = { pull: "pull-here", search: "search-here", publish: "publish-open" };
 let hole = [];
 function light() {
   for (const node of document.querySelectorAll(".lit")) node.classList.remove("lit");
@@ -877,15 +881,17 @@ function light() {
   const past = back ? pages[pages.length - 1 - back] : null;
   const talking = s?.person && $("convo").dataset.id === s.person && !$("ask").hidden;
   const reply = beat?.book ? $("book")
+    : beat?.about ? $("people").querySelector(`[data-id="${CSS.escape(beat.about)}"]`) || $("people")
     : beat && $("convo").dataset.id === beat.person ? $("thread").lastElementChild : null;
   const target = past ? pastTarget(past) : beat ? reply : !s ? null : talking ? $("ask")
     : s.person ? $("people").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
     : s.place && s.place !== here ? $("here")
     : s.action === "publish" && !$("publish").hidden ? publishNext()
     : $(ACTION_BUTTON[s.action]);
-  hole = !target ? [] : past === CASE_PAGE ? [target, $("case-text")] : past || beat ? [target] : talking ? [$("convo")] : target === $("culprit") ? [$("publish")]
+  hole = !target ? [] : past === CASE_PAGE ? [target, $("case-text")] : beat?.about && !past ? [target, $("find")]
+    : past || beat ? [target] : talking ? [$("convo")] : target === $("culprit") ? [$("publish")]
     : target === $("publish-send") ? [$("publish"), $("send")]
-    : target === $("here") ? [target, $("place-list")] : target === $("find") ? [target, $("people"), $("convo")] : [target];
+    : target === $("here") ? [target, $("place-list")] : [target];
   watch.disconnect();
   for (const node of [document.body, ...hole]) watch.observe(node);
   $("coach").hidden = !(s || beat) || $("intro").open || $("handoff").open;
