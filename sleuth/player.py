@@ -742,6 +742,8 @@ class Player:
             await self.engine.deliver(u, list(dict.fromkeys(listeners)))
         except Exception:
             log.exception("delivering the episode on %s failed", crime.id)
+        if held:
+            await self.engine.cases.ensure(self.engine)
         return None
 
     def _case(self) -> CaseFile | None:

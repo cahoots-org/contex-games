@@ -182,7 +182,7 @@ def interviewing():
     engine = FakeEngine()
     engine.cases, engine.routine, engine.jev = cases, cases.routine, StubJev({"kind": "none"})
     lineage, writer = Lineage(), StubWriter()
-    feed = Feed(lineage, town, out=None)
+    feed = engine.feed = Feed(lineage, town, out=None)
     player = Player(engine, town, lineage, cases.ids, feed, Config(), writer, player_id=PID)
     player.place = "elm street"
     return player, file, engine, writer
@@ -723,7 +723,7 @@ async def test_publish_right_closes_the_case_and_raises_reputation():
     assert await player.publish("v3", ids) is None
     assert (file.state, file.solved_by, file.published) == ("closed", PID, [PID])
     assert all(regard(engine, v.id) == pytest.approx(player.config.reputation_right) for v in player.town.villagers)
-    [(u, listeners, _)] = engine.delivered
+    u, listeners, _ = engine.delivered[0]
     assert (u.speaker, u.speaker_name, u.verb) == ("podcast", "A true-crime podcast", "reported")
     assert u.text == "Fay Okafor stole Dana Reyes's bike, and the evidence holds up."
     assert set(listeners) == {"v1", "v2", "v3", "v4"} and file.roots[u.id] == "episode"
@@ -731,6 +731,17 @@ async def test_publish_right_closes_the_case_and_raises_reputation():
     assert episode.player is None and episode.line == "A podcaster's episode names Fay Okafor, and it holds up. Case closed."
     assert (episode.data["by"], episode.data["verdict"]) == (PID, "It holds up. Case closed.")
     assert [e.data["case_id"] for e in player.feed.recent if e.kind == "case_closed"] == [file.crime.id]
+
+
+@pytest.mark.asyncio
+async def test_solving_the_town_s_case_opens_the_next_at_once():
+    player, file, engine, _ = interviewing()
+    engine.cases.now = 2.0
+    ids = cite(player, file, memory_of(file, player.ids))
+    await player.publish("v3", ids)
+    following = engine.cases.shared()
+    assert following.state == "open" and following is not file and following.opened == 2.0
+    assert [e.data["case"]["id"] for e in player.feed.recent if e.kind == "case"] == [following.crime.id]
 
 
 @pytest.mark.asyncio
@@ -774,15 +785,14 @@ async def test_publish_rejects_ids_not_in_the_notebook():
 
 
 @pytest.mark.asyncio
-async def test_publish_after_case_closed_is_refused():
+async def test_publish_on_a_case_a_rival_solved_is_refused():
     player, file, engine, _ = interviewing()
     rival = Player(engine, player.town, player.lineage, player.ids, player.feed, player.config, player_id="p-2")
     memory = memory_of(file, player.ids)
     assert await rival.publish("v3", cite(rival, file, memory)) is None
-    assert await player.publish("v3", cite(player, file, memory)) == "That case is closed."
+    assert engine.cases.for_player(player.id) not in (None, file)
+    assert await player.publish("v3", cite(player, file, memory)) == "Cite only evidence from this case."
     assert all(regard(engine, v.id) == 0 for v in player.town.villagers) and file.published == ["p-2"]
-    player.notebook = {}
-    assert await player.publish("v3", ["r-1"]) == "There's no open case."
 
 
 @pytest.mark.asyncio

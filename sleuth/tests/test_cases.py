@@ -199,7 +199,7 @@ async def test_a_restore_with_no_open_case_opens_one():
 
 
 def culprit_file(cases, culprit="v3", victim="v1", phase="night"):
-    crime = Crime("case-1", "steal", "bike", culprit, victim, "elm street", 1, phase, 1400, "opportunity",
+    crime = Crime(cases.ids.next("case"), "steal", "bike", culprit, victim, "elm street", 1, phase, 1400, "opportunity",
                   "Someone stole Dana Reyes's bike on Elm Street last night.")
     cases.files[crime.id] = CaseFile(crime, {}, "open")
     return cases.files[crime.id]
