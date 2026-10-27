@@ -36,9 +36,9 @@ def _tokens(n: int) -> str:
     return str(n)
 
 
-def _money(cost: float, lead: str = "") -> str:
-    """Cost in dollars, with lead before a rounded amount, or "less than $0.01" when under a cent."""
-    return "less than $0.01" if 0 < cost < 0.005 else f"{lead}${cost:.2f}"
+def _money(cost: float) -> str:
+    """Cost in dollars, or "less than $0.01" when under a cent."""
+    return "less than $0.01" if 0 < cost < 0.005 else f"${cost:.2f}"
 
 
 class Usage:
@@ -95,20 +95,14 @@ class Usage:
             return self.players.get(player, 0.0)
         return sum(self._dollars(p, inp, out) for p, (inp, out) in self.tokens.items())
 
-    def summary(self, player: str | None = None) -> str:
-        """The cost so far as one line: the village total with its tokens, or player's share."""
-        if player is not None:
-            return f"Your investigation has cost {_money(self.cost(player), 'about ')} so far"
+    def summary(self) -> str:
+        """The cost so far as one line, with its tokens."""
         parts = []
         for name, (inp, out) in (("Haiku", self.tokens["haiku"]), ("Jev", self.tokens["jev"])):
             if inp or out:
                 parts.append(f"{name} {_tokens(inp)} in" + (f" / {_tokens(out)} out" if out else ""))
         detail = f" ({', '.join(parts)})" if parts else ""
         return f"Estimated cost so far: {_money(self.cost())}{detail}"
-
-    def to_json(self, player: str | None = None) -> dict:
-        """The summary and cost, in all or for player."""
-        return {"summary": self.summary(player), "cost": round(self.cost(player), 4)}
 
 
 class CountingJev:

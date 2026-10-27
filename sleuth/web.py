@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 PAGE = Path(__file__).parent / "static" / "index.html"
 MAX_BODY_BYTES = 8192
-USAGE_POLL_SECONDS = 3.0
+REST_POLL_SECONDS = 3.0
 # How many messages a tab may fall behind before its socket is closed.
 CLIENT_QUEUE = 256
 BAD_WALK = 'Send JSON like {"place": "bar"}.'
@@ -105,30 +105,17 @@ def create_app(
 ) -> FastAPI:
     clients: dict[asyncio.Queue, str] = {}
     boot = uuid.uuid4().hex
-    # What each player's tabs were last sent, by kind.
-    sent: dict[str, dict[str, object]] = {"usage": {}}
 
     def on_event(event: Event) -> None:
         for queue, pid in list(clients.items()):
             if feed.sees(pid, event):
                 offer(clients, queue, event.to_json(pid))
 
-    async def watch_each(kind: str, snapshot: Callable[[str], object], seconds: float) -> None:
-        """Send each player's tabs their own snapshot whenever it has changed, checking every few seconds."""
-        while True:
-            await asyncio.sleep(seconds)
-            for pid in set(clients.values()):
-                now = snapshot(pid)
-                if now != sent[kind].get(pid):
-                    sent[kind][pid] = now
-                    for queue in [q for q, p in clients.items() if p == pid]:
-                        offer(clients, queue, {"kind": kind, kind: now})
-
     async def watch_rest() -> None:
         """Tell everyone when the village starts resting for the day and when it wakes."""
         resting = usage.resting()
         while True:
-            await asyncio.sleep(USAGE_POLL_SECONDS)
+            await asyncio.sleep(REST_POLL_SECONDS)
             if usage.resting() != resting:
                 resting = not resting
                 feed.on_rest(resting)
@@ -136,22 +123,17 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         feed.sinks.append(on_event)
-        watchers = [
-            asyncio.create_task(watch_each("usage", usage.to_json, USAGE_POLL_SECONDS)),
-            asyncio.create_task(watch_rest()),
-        ]
+        watcher = asyncio.create_task(watch_rest())
         try:
             yield
         finally:
             feed.sinks.remove(on_event)
-            for w in watchers:
-                w.cancel()
-            await asyncio.gather(*watchers, return_exceptions=True)
+            watcher.cancel()
+            await asyncio.gather(watcher, return_exceptions=True)
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(Guard, port=port, host=host)
     app.state.clients = clients
-    app.state.sent = sent
 
     @app.get("/healthz")
     async def healthz():
@@ -164,11 +146,6 @@ def create_app(
         if fresh:
             owner = new_owner_id()
             join(owner)
-            # Joining may have pruned runs; forget what their tabs were shown.
-            kept = {p.id for p in players}
-            for shown in sent.values():
-                for pid in shown.keys() - kept:
-                    del shown[pid]
         response = FileResponse(PAGE)
         if fresh:
             response.set_cookie(
@@ -185,12 +162,11 @@ def create_app(
             "boot": f"{boot}:{player.id}" + (":practice" if player.practising else ""),
             "places": list(PLACES),
             "place": player.place,
-            "time": player.game.clock(),
+            "time": {"day": player.game.day, "phase": player.game.phase},
             "villagers": villagers(player),
             "talked": {vid: len(thread) for vid, thread in player.threads.items()},
             "records_at": sorted({*CAMERA_PLACES, *LOG_PLACES}),
             "events": [e.to_json(player.id) for e in feed.replay(player.id)],
-            "usage": usage.to_json(player.id),
             "resting": usage.resting(),
             "intro": player.owner not in players.onboarded and not player.threads and not player.notebook,
             "handoff": player.handoff,
@@ -359,7 +335,6 @@ def create_app(
             await socket.close(1008)
             return
         queue: asyncio.Queue = asyncio.Queue(CLIENT_QUEUE)
-        sent["usage"].setdefault(player.id, usage.to_json(player.id))
         clients[queue] = player.id
         player.connected()
 

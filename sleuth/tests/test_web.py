@@ -45,7 +45,7 @@ def receive(ws, timeout=5.0):
 
 @pytest.fixture
 def game(monkeypatch):
-    monkeypatch.setattr(web, "USAGE_POLL_SECONDS", 0.05)
+    monkeypatch.setattr(web, "REST_POLL_SECONDS", 0.05)
     town, lineage = Town(), Lineage()
     town.add(Villager("v1", "Marta Hale", "herbalist", "anxious", "the miller", ["SECRET NEED"], {"v2": "rival"}), "library")
     town.add(Villager("v2", "Bert Cole", "miller", "jolly", "none", ["OTHER NEED"], {}), "gym")
@@ -88,7 +88,7 @@ def test_state_lists_villagers_and_replay(game):
     assert state["events"][-1]["text"] == "hello"
     assert state["place"] == "cafe"
     assert (state["time"]["day"], state["time"]["phase"]) == (1, "morning")
-    assert 0 <= state["time"]["fraction"] < 0.25 and state["time"]["day_seconds"] > 0
+    assert set(state["time"]) == {"day", "phase"} and "usage" not in state
     assert "NEED" not in game.client.get("/api/state").text
 
 
@@ -154,6 +154,15 @@ def test_inspect_shows_no_household_for_a_villager_without_one(game):
 def test_page_is_served(game):
     response = game.client.get("/")
     assert response.status_code == 200 and "Sleuth" in response.text
+
+
+def test_the_header_shows_the_day_and_part_and_speaks_only_when_the_connection_is_lost(game):
+    page = game.client.get("/").text
+    header = page[page.index("<header>"):page.index("</header>")]
+    assert 'id="clock"' in header and 'id="replay"' in header
+    assert not any(gone in page for gone in ('id="usage"', 'id="sky"', "menu-toggle", "Live"))
+    assert "`Day ${t.day} · ${capital(t.phase)}`" in page
+    assert '.conn:not([data-state="down"]) { display: none; }' in page
 
 
 
@@ -499,31 +508,6 @@ def test_closed_tab_is_dropped(game):
     assert not game.app.state.clients
 
 
-def test_usage_is_in_state_and_reaches_the_websocket(game):
-    assert game.client.get("/api/state").json()["usage"]["summary"] == "Your investigation has cost about $0.00 so far"
-    with game.client.websocket_connect(WS) as ws:
-        game.usage.record("haiku", 100_000, 20_000, player=game.player.id)
-        event = receive(ws)
-    assert event["kind"] == "usage"
-    assert event["usage"]["summary"] == "Your investigation has cost about $0.02 so far"
-
-
-def test_each_session_sees_only_its_own_cost(game):
-    a = game.player
-    game.client.cookies.clear()
-    b = game.players.live(game.client.get("/").cookies[web.COOKIE])
-    game.usage.record("haiku", 10_000_000, 0, player=a.id)
-    game.usage.record("haiku", 1_000_000, 0)
-    with game.client.websocket_connect(WS) as ws:
-        assert game.client.get("/api/state").json()["usage"]["summary"] == "Your investigation has cost about $0.00 so far"
-        game.usage.record("haiku", 20_000_000, 0, player=a.id)
-        game.usage.record("haiku", 30_000_000, 0, player=b.id)
-        event = receive(ws)
-    assert event == {"kind": "usage", "usage": {"summary": "Your investigation has cost about $3.00 so far", "cost": 3.0}}
-    as_owner(game.client, a.owner)
-    assert game.client.get("/api/state").json()["usage"]["summary"] == "Your investigation has cost about $3.00 so far"
-
-
 def test_first_visit_sets_an_owner_cookie(game):
     game.client.cookies.clear()
     response = game.client.get("/")
@@ -747,28 +731,6 @@ def test_the_cookie_is_secure_over_https(game):
     secure = TestClient(game.app, base_url=f"https://127.0.0.1:{PORT}").get("/")
     assert "secure" not in plain.headers["set-cookie"].lower()
     assert "secure" in secure.headers["set-cookie"].lower()
-
-
-def test_a_pruned_run_leaves_no_sent_snapshots(game, monkeypatch):
-    now = [time.time()]
-    monkeypatch.setattr(time, "time", lambda: now[0])
-    visitor = TestClient(game.app, base_url=BASE)
-    visitor.get("/")
-    gone = game.players.live(visitor.cookies[web.COOKIE])
-    visitor.get("/api/state")
-    game.app.state.sent["usage"][gone.id] = {}
-    now[0] += game.config.idle_after_seconds
-    TestClient(game.app, base_url=BASE).get("/")
-    assert game.players.get(gone.id) is None
-    assert all(gone.id not in kind for kind in game.app.state.sent.values())
-
-
-
-
-
-
-
-
 
 
 def test_state_shows_the_case_without_its_culprit(game):

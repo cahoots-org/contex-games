@@ -27,10 +27,6 @@
   --mark: var(--weld);
   --on-accent: #ffffff;
   --face-edge: rgb(35 48 46 / .3);
-  --sun: #e2a52a;
-  --moon: #f3f1e4;
-  --day-sky: #bcd8ea;
-  --night-sky: #26324c;
   --on-mark: #fff;
   --serif: "Alegreya", Georgia, "Times New Roman", serif;
   --ui: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -49,10 +45,6 @@
     --danger: #f19a9a;
     --on-accent: #10202f;
     --face-edge: rgb(255 255 255 / .3);
-    --sun: #f0c45a;
-    --moon: #eef0ea;
-    --day-sky: #4f7896;
-    --night-sky: #141c30;
     --on-mark: #1a2226;
   }
 }
@@ -76,31 +68,11 @@ header {
   padding: .35rem 1.5rem; border-bottom: 1px solid var(--rail);
 }
 h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
-.hud { display: flex; align-items: center; gap: 1.25rem; margin-left: auto; font-size: .85rem; }
-.hud p { margin: 0; }
-.menu { display: contents; }
-.menu-toggle { display: none; }
-.clock { margin: 0; font-size: .85rem; font-variant-numeric: tabular-nums; }
-.sky { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; }
-.sky svg { width: 4.5rem; height: 2.4rem; flex: none; }
-.sky .horizon { stroke: var(--edge); stroke-width: 1.5; }
-.sky .wheel { transform-box: view-box; transform-origin: 32px 33px; }
-.sky .day { fill: var(--day-sky); }
-.sky .night { fill: var(--night-sky); }
-.sky .sun { fill: var(--sun); stroke: var(--sun); stroke-width: 1.6; stroke-linecap: round; }
-.sky .moon, .sky .star { fill: var(--moon); }
-
-.usage { font-size: .75rem; color: var(--muted); }
+.clock { margin: 0 0 0 auto; font-size: .9rem; white-space: nowrap; }
 #replay { font-size: .85rem; }
-.usage:empty { display: none; }
-.conn { font-size: .875rem; color: var(--muted); }
-.conn::before {
-  content: ""; display: inline-block; width: .5rem; height: .5rem; border-radius: 50%;
-  background: var(--muted); margin-right: .4rem; vertical-align: .05rem;
-}
-.conn[data-state="live"]::before { background: var(--accent); }
-.conn[data-state="down"] { color: var(--danger); }
-.conn[data-state="down"]::before { background: var(--danger); }
+/* The connection says something only when it is lost. */
+.conn { font-size: .875rem; color: var(--danger); }
+.conn:not([data-state="down"]) { display: none; }
 
 /* The left column: the case, the notebook, where you are, and the town's talk. */
 .desk { overflow-y: auto; min-height: 0; padding: 1.25rem 1.5rem 2rem; }
@@ -314,23 +286,10 @@ select, input[type="text"], input[type="search"] {
 /* A phone: one column, the case, then people, then the conversation. */
 @media (max-width: 600px) {
   .app { display: block; height: auto; }
-  header { position: sticky; top: 0; z-index: 2; background: var(--bg); min-height: 52px; padding: .2rem .5rem .2rem 1rem; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--bg); min-height: 52px; flex-wrap: wrap; gap: .25rem 1rem; }
   h1 { font-size: 1.25rem; }
-  .hud { display: contents; }
-  .sky { order: 1; margin-left: auto; }
-  .sky svg { width: 2.4rem; height: 1.3rem; }
-  .clock { font-size: .75rem; white-space: nowrap; }
-  .conn { order: 2; font-size: 0; }
-  .conn::before { width: .6rem; height: .6rem; margin: 0; }
-  .menu-toggle {
-    order: 3; display: grid; place-items: center; flex: none; width: 44px; height: 44px;
-    background: none; border: 0; border-radius: 6px; font-size: 1.25rem; cursor: pointer;
-  }
-  .menu {
-    display: none; position: absolute; top: 100%; right: .5rem; z-index: 6;
-    padding: .5rem .75rem; background: var(--bg); border: 1px solid var(--edge); border-radius: 8px;
-  }
-  .menu.open { display: block; }
+  #replay { min-height: 44px; }
+  .conn { flex-basis: 100%; }
   .desk { padding: 1rem 1rem 1.5rem; }
   .case-title { font-size: 1.5rem; }
   .side { display: block; border-left: 0; border-top: 1px solid var(--edge); }
@@ -368,34 +327,8 @@ select, input[type="text"], input[type="search"] {
 <div class="app" id="app">
   <header>
     <h1>Sleuth</h1>
-    <div class="hud">
-      <div class="sky" id="sky">
-        <svg viewBox="0 0 64 34" aria-hidden="true">
-          <defs>
-            <clipPath id="above"><rect width="64" height="33"/></clipPath>
-            <mask id="crescent"><rect x="20" y="40" width="24" height="24" fill="white"/><circle cx="35" cy="50" r="5.2" fill="black"/></mask>
-          </defs>
-          <g clip-path="url(#above)">
-            <g class="wheel" id="wheel">
-              <path class="day" d="M1 33 A31 31 0 0 1 63 33 Z"/>
-              <path class="night" d="M1 33 A31 31 0 0 0 63 33 Z"/>
-              <g class="sun"><circle cx="32" cy="14" r="5"/>
-                <path d="M32 5v2.5M32 21v2.5M23 14h2.5M38.5 14h2.5M25.6 7.6l1.8 1.8M36.6 18.6l1.8 1.8M25.6 20.4l1.8-1.8M36.6 9.4l1.8-1.8"/></g>
-              <circle class="moon" cx="32" cy="52" r="6" mask="url(#crescent)"/>
-              <circle class="star" cx="18" cy="45" r=".9"/><circle class="star" cx="46" cy="47" r=".9"/>
-              <circle class="star" cx="24" cy="58" r=".7"/><circle class="star" cx="42" cy="59" r=".7"/>
-            </g>
-          </g>
-          <line class="horizon" x1="0" y1="33" x2="64" y2="33"/>
-        </svg>
-        <p class="clock" id="clock"></p>
-      </div>
-      <button class="menu-toggle" id="menu-toggle" type="button" aria-label="More" aria-expanded="false" aria-controls="menu">⋯</button>
-      <div class="menu" id="menu">
-        <p class="usage" id="usage"></p>
-        <button type="button" class="linkish" id="replay">Tutorial</button>
-      </div>
-    </div>
+    <p class="clock" id="clock"></p>
+    <button type="button" class="linkish" id="replay">Tutorial</button>
     <span class="conn" id="conn" data-state="connecting" role="status">Connecting</span>
   </header>
 
@@ -610,7 +543,6 @@ $("culprit").addEventListener("change", () => {
 });
 $("coach-skip").addEventListener("click", () => act("coach-skip", "/api/skip"));
 $("replay").addEventListener("click", async () => {
-  setMenu(false);
   const { ok, error } = await post("/api/replay", {});
   if (ok) loadState().catch(() => {});
   else say("case-status", error, true);
@@ -1394,63 +1326,18 @@ function faceWith(v, big = false) {
   return el("span", { className: big ? "face big" : "face", ariaHidden: "true" }, faceFor(v));
 }
 
-function setMenu(open) {
-  $("menu").classList.toggle("open", open);
-  $("menu-toggle").ariaExpanded = String(open);
-}
-$("menu-toggle").addEventListener("click", () => setMenu(!$("menu").classList.contains("open")));
-document.addEventListener("click", (ev) => {
-  if (!ev.target.closest("#menu, #menu-toggle")) setMenu(false);
-});
 document.addEventListener("keydown", (ev) => {
   if (ev.key !== "Escape" || ev.defaultPrevented) return;
-  if ($("menu").classList.contains("open")) {
-    setMenu(false);
-    $("menu-toggle").focus();
-  } else if (!$("publish").hidden) {
+  if (!$("publish").hidden) {
     openPublish(false);
     $("publish-open").focus();
   }
 });
 
-const PHASES = ["morning", "afternoon", "evening", "night"];
-let clockAt = null;
-
-// The server says where the day is; the page runs the clock between its ticks, never past the current part of the day.
+// The day and its part, like "Day 3 · Evening".
 function setClock(t) {
-  const fraction = t.fraction ?? PHASES.indexOf(t.phase) / PHASES.length;
-  const daySeconds = t.day_seconds || (clockAt && clockAt.daySeconds) || 180;
-  clockAt = { day: t.day, fraction, daySeconds, at: performance.now() };
-  drawClock();
+  $("clock").textContent = `Day ${t.day} · ${capital(t.phase)}`;
 }
-
-function dayFraction() {
-  const partEnd = (Math.floor(clockAt.fraction * PHASES.length) + 1) / PHASES.length;
-  return Math.min(clockAt.fraction + (performance.now() - clockAt.at) / 1000 / clockAt.daySeconds, partEnd - 1e-6);
-}
-
-function drawClock() {
-  if (!clockAt) return;
-  // The game's day runs from 6am to 6am, as the town's "today" and "yesterday" do, so the day turns at 6am.
-  const minutes = Math.floor((360 + dayFraction() * 1440) / 10) * 10 % 1440;
-  const hour = Math.floor(minutes / 60);
-  $("clock").textContent = `Day ${clockAt.day}, ${hour % 12 || 12}:${String(minutes % 60).padStart(2, "0")} ${hour < 12 ? "am" : "pm"}`;
-  drawWheel();
-}
-
-// Clockwise: the sun rises on the left, tops the wheel at noon and sets on the right; the angle only grows.
-function drawWheel() {
-  if (!clockAt) return;
-  const turns = clockAt.day - 1 + (6 + dayFraction() * 24 - 12) / 24;
-  $("wheel").style.transform = `rotate(${(turns * 360).toFixed(3)}deg)`;
-}
-
-function turnWheel() {
-  if (!REDUCED_MOTION.matches) drawWheel();
-  requestAnimationFrame(turnWheel);
-}
-setInterval(drawClock, 1000);
-requestAnimationFrame(turnWheel);
 
 function setConn(state, text) {
   $("conn").dataset.state = state;
@@ -1506,7 +1393,6 @@ async function loadState() {
   recordsAt = state.records_at;
   talked = state.talked;
   here = state.place;
-  $("usage").textContent = state.usage.summary;
   setClock(state.time);
   setResidents(state.villagers);
   addEvents(state.events, false);
@@ -1545,11 +1431,6 @@ function handoff(h) {
 $("handoff").addEventListener("close", () => post("/api/handoff", {}));
 $("intro").addEventListener("close", light);
 
-function receive(e) {
-  if (e.kind === "usage") $("usage").textContent = e.usage.summary;
-  else addEvents([e], true);
-}
-
 // Open the socket first and hold its messages until the state has loaded, so nothing falls in between.
 let retry = 1000;
 // Set when the game no longer knows this browser, so only a reload brings it back.
@@ -1560,7 +1441,7 @@ function connect() {
   let held = [];
   socket.onmessage = (msg) => {
     const e = JSON.parse(msg.data);
-    if (held) held.push(e); else receive(e);
+    if (held) held.push(e); else addEvents([e], true);
   };
   socket.onopen = async () => {
     try {
@@ -1569,10 +1450,10 @@ function connect() {
       socket.close();
       return;
     }
-    held.forEach(receive);
+    addEvents(held, true);
     held = null;
     retry = 1000;
-    setConn("live", "Live");
+    setConn("live", "");
   };
   socket.onclose = (ev) => {
     if (ev.code === 1008 || unknown) {
