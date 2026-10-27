@@ -784,7 +784,12 @@ $("coach").addEventListener("keydown", (ev) => {
   turn(ev.key === "ArrowLeft" ? -1 : 1);
 });
 
-// Keep the pages up with the live one: rebuilt from the done steps after a load, and a new live page added and shown.
+// Before the first step, a page on the case itself.
+const CASE_PAGE = { i: -1, beat: {
+  text: "This is your case: what was taken, from whom, where and when. Everything you do is about solving it." } };
+
+// Keep the pages up with the live one: rebuilt from the done steps after a load, and a new live page added and shown;
+// a new case opens on its case page.
 function addPage(live) {
   if (!steps) {
     pages = [];
@@ -792,14 +797,17 @@ function addPage(live) {
     return;
   }
   if (!pages.length) pages = steps.flatMap((n, i) => n.done ? [{ i }] : []);
+  if (!pages.length) pages = [CASE_PAGE];
   const last = pages.at(-1);
   if (!live || (last && last.i === live.i && !last.beat === !live.beat)) return;
   pages.push(live);
-  back = 0;
+  back = pages.length === 2 && pages[0] === CASE_PAGE ? 1 : 0;
 }
 
-// A page already passed: its beat's reply or the notebook, else its step's person or button, else what holds them.
+// A page already passed: the case's title, its beat's reply or the notebook, else its step's person or button, else
+// what holds them.
 function pastTarget(page) {
+  if (page === CASE_PAGE) return $("case-title");
   const s = steps[page.i];
   const row = (id) => $("people").querySelector(`[data-id="${CSS.escape(id)}"]`);
   const t = page.beat?.book ? $("book")
@@ -832,7 +840,7 @@ function light() {
     : s.place && s.place !== here ? $("here")
     : s.action === "publish" && !$("publish").hidden ? publishNext()
     : $(ACTION_BUTTON[s.action]);
-  hole = !target ? [] : past || beat ? [target] : talking ? [$("convo")] : target === $("culprit") ? [$("publish")]
+  hole = !target ? [] : past === CASE_PAGE ? [target, $("case-text")] : past || beat ? [target] : talking ? [$("convo")] : target === $("culprit") ? [$("publish")]
     : target === $("publish-send") ? [$("publish"), $("send")]
     : target === $("here") ? [target, $("place-list")] : [target];
   watch.disconnect();
@@ -849,7 +857,7 @@ function light() {
   $("coach-next").hidden = !(past || beat);
   $("coach-back").hidden = back >= pages.length - 1;
   if ($("coach-step").textContent !== text) {
-    $("coach-count").textContent = `Step ${page.i + 1} of ${steps.length}`;
+    $("coach-count").textContent = page === CASE_PAGE ? "Your case" : `Step ${page.i + 1} of ${steps.length}`;
     $("coach-step").textContent = text;
     $("coach-why").textContent = page.beat ? "" : steps[page.i].why;
   }

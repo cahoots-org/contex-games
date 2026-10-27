@@ -316,12 +316,25 @@ def test_the_tutorial_card_turns_back_and_forward_through_the_pages_seen(game):
     assert 'turn(ev.key === "ArrowLeft" ? -1 : 1);' in turn
     add = page[page.index("function addPage("):page.index("function pastTarget(")]
     assert "if (!pages.length) pages = steps.flatMap((n, i) => n.done ? [{ i }] : []);" in add
-    assert "pages.push(live);\n  back = 0;" in add
+    assert "pages.push(live);" in add
     lit = page[page.index("function light()"):page.index("function placeCoach()")]
     assert "const target = past ? pastTarget(past)" in lit and "past || beat ? [target]" in lit
     assert '$("coach-next").hidden = !(past || beat);' in lit
     assert '$("coach-back").hidden = back >= pages.length - 1;' in lit
     assert "`Step ${page.i + 1} of ${steps.length}`" in lit
+
+
+def test_a_new_case_opens_the_tutorial_on_the_case_itself_before_step_one(game):
+    page = game.client.get("/").text
+    case = page[page.index("const CASE_PAGE"):page.index("function addPage(")]
+    assert "This is your case: what was taken, from whom, where and when." in case
+    add = page[page.index("function addPage("):page.index("function pastTarget(")]
+    assert "if (!pages.length) pages = [CASE_PAGE];" in add
+    assert "back = pages.length === 2 && pages[0] === CASE_PAGE ? 1 : 0;" in add
+    assert 'if (page === CASE_PAGE) return $("case-title");' in page
+    lit = page[page.index("function light()"):page.index("function placeCoach()")]
+    assert 'past === CASE_PAGE ? [target, $("case-text")]' in lit
+    assert 'page === CASE_PAGE ? "Your case" : `Step ${page.i + 1} of ${steps.length}`' in lit
 
 
 def test_interview_reports_problems_and_answers_through_the_feed(game):
