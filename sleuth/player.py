@@ -49,6 +49,12 @@ def conveys(line: str, records: list[Record]) -> bool:
     return not _denials(line) - hedged and all(_plain(v) in said for r in records for v in r.traits.values())
 
 
+def adds_looks(line: str, texts: list[str]) -> bool:
+    """Whether the line names a look none of texts do."""
+    said, allowed = _plain(line), _plain(" ".join(texts))
+    return any(re.search(rf"\b{re.escape(_plain(w))}\b", said) and _plain(w) not in allowed for w in LOOKS)
+
+
 # How a line opening with its teller's name reads in their own voice.
 VOICES = ((" says they were ", "I was "), (" says they're ", "I'm "), (" says they saw ", "I saw "), (" says ", ""),
           (" heard from (.+?): ", r"\1 told me: "), (": ", ""))
@@ -489,8 +495,7 @@ class Player:
             feeling = warmth_words(villager.warmth.get(about.id, 0.0))
             return [], [f"{about.name} is my {tie}, and we are on {feeling} terms."] if tie else []
         if kind == "what_do_they_look_like" and about and acquainted(villager, about):
-            day = self.game.day if self.game else 0
-            looks = {c: v for c, v in self.town.looks(about.id, day).items() if c in BY_WORD}
+            looks = {c: v for c, v in about.traits.items() if c in BY_WORD}
             said = self._statement(file, vid, f"{name} says {about.name} is {describe(looks)}.", True, who=about.id)
             said.traits = looks
             self.learn(about.id, looks, "described", by=vid)
@@ -545,6 +550,7 @@ class Player:
                 firsts = {v.name.split()[0] for v in self.town.villagers}
                 if (line and conveys(line, records) and first_hand(line, records, villager)
                         and not strangers(line, allowed, firsts)
+                        and not (any(r.traits for r in records) and adds_looks(line, texts))
                         and not misdated(line, " ".join([case, *texts]))):
                     return line
             except Exception:

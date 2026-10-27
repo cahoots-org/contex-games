@@ -1181,6 +1181,27 @@ async def test_a_stranger_cannot_describe_them():
 
 
 @pytest.mark.asyncio
+async def test_a_housemate_with_no_tie_can_describe_them():
+    player, *_ = interviewing()
+    await ask(player, "v4", "what_do_they_look_like", who="v1")
+    assert notebook(player) == [] and "v1" not in player.known
+    await ask(player, "v4", "what_do_they_look_like", who="v3")
+    [said] = notebook(player)
+    assert said.who == "v3" and player.known["v3"][-1]["by"] == "v4"
+
+
+@pytest.mark.asyncio
+async def test_a_description_that_adds_a_look_falls_back_to_the_plain_line():
+    player, _, _, writer = practising()
+    writer.line = "Cal? Tall, red-haired, drives a red pickup, always in a green raincoat."
+    await ask(player, "t1", "what_do_they_look_like", who="t5")
+    assert replies(player)[-1] == "Cal Hughes is tall, red-haired, with a red pickup."
+    writer.line = "Cal's tall, red-haired, and drives a red pickup."
+    await ask(player, "t1", "what_do_they_look_like", who="t5")
+    assert replies(player)[-1] == writer.line
+
+
+@pytest.mark.asyncio
 async def test_the_first_case_asks_to_learn_how_people_look():
     player, *_ = practising()
     steps = player.steps()
