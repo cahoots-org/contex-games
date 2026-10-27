@@ -36,8 +36,9 @@ def _denials(text: str) -> set[str]:
 
 
 def _plain(text: str) -> str:
-    """text with its looks spelled one way: "Gray-haired" reads as "grey hair"."""
-    return text.lower().replace("-", " ").replace("gray", "grey").replace("haired", "hair")
+    """text with its looks spelled one way: "Gray-haired" reads as "grey hair", "redhead" and "ginger" as "red hair"."""
+    text = re.sub(r"\b(?:redhead(?:s|ed)?|ginger)\b", "red hair", text.lower())
+    return text.replace("-", " ").replace("gray", "grey").replace("haired", "hair")
 
 
 def conveys(line: str, records: list[Record]) -> bool:

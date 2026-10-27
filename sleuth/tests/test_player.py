@@ -10,7 +10,7 @@ from random import Random
 from sleuth.contex_client import Match
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
-from sleuth.player import KNOWN_KEPT, PRACTICE_WRONG, HELD, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, Player, Refusal, conveys, learned, voiced
+from sleuth.player import KNOWN_KEPT, PRACTICE_WRONG, HELD, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, Player, Refusal, conveys, learned, looks_in, voiced
 from sleuth.players import Players
 from sleuth.config import Config
 from sleuth.case import WHEN, Record
@@ -1236,6 +1236,11 @@ async def test_a_resident_names_who_they_know_that_matches_a_look():
     assert [(r.holder, r.who) for r in notebook(player)] == [("t1", "t5"), ("t4", "t5")]
     await ask(player, "t3", "who_looks_like", "Anyone you know drive a white sedan?")
     assert [r.who for r in notebook(player)][-1] == "t4"
+
+
+@pytest.mark.parametrize("question", ["Do you know any redheads?", "Know a redhead?", "Anyone ginger?"])
+def test_a_redhead_or_ginger_asks_for_red_hair(question):
+    assert looks_in(question) == {"hair": {"red-haired"}}
 
 
 @pytest.mark.asyncio
