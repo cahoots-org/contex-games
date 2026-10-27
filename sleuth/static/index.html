@@ -255,6 +255,7 @@ select, input[type="text"], input[type="search"] {
 .coach[data-side="left"]::before { right: -7px; top: calc(var(--arrow) - 6px); }
 .coach[data-side="right"]::before { left: -7px; top: calc(var(--arrow) - 6px); }
 .coach[data-side="bottom"], .coach[data-side="top"] { top: auto; left: auto; right: 1rem; bottom: 1rem; }
+.coach[data-side="top"] { top: 1rem; bottom: auto; }
 .coach[data-side="bottom"]::before, .coach[data-side="top"]::before { display: none; }
 /* The page under a step card is dimmed and closed, apart from a cutout around what the step needs. */
 .mask { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
@@ -676,13 +677,24 @@ function light() {
     $("coach-step").textContent = s.text;
     $("coach-why").textContent = s.why;
   }
+  if (!$("coach").hidden && target && `${count} ${target.id || target.dataset.id}` !== shown) {
+    shown = `${count} ${target.id || target.dataset.id}`;
+    bringIntoView(target);
+  }
   placeSoon();
 }
 
-// The tutorial card beside the ringed target on the side with room that covers the fewest other controls; on a phone,
-// docked at the bottom or top, whichever leaves the target and the question box in view and covers fewer controls.
+// Scroll a new target into view; on a phone, clear of the header and the docked card.
+let shown = "";
+function bringIntoView(target) {
+  const r = target.getBoundingClientRect();
+  if (phone.matches && r.top >= 60 && r.bottom <= innerHeight - $("coach").offsetHeight - 16) return;
+  target.scrollIntoView({ block: phone.matches ? "center" : "nearest", behavior: REDUCED_MOTION.matches ? "auto" : "smooth" });
+}
+
+// The tutorial card beside the cutout on the first side with room, else docked at the bottom or top clear of the
+// cutout, else clear of the ring; on a phone, always docked.
 const GAP = 14;
-const CONTROLS = "button, select, input, summary, .group li, #thread li";
 function placeCoach() {
   const card = $("coach");
   const target = document.querySelector(".lit");
@@ -692,8 +704,6 @@ function placeCoach() {
   const w = innerWidth, h = innerHeight;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
   const meets = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
-  const others = [...document.querySelectorAll(CONTROLS)].filter((n) => n !== target && !card.contains(n))
-    .map((n) => n.getBoundingClientRect()).filter((r) => r.width);
   const at = (side) => {
     const across = side === "below" || side === "above";
     const left = across ? clamp(t.left + t.width / 2 - c.width / 2, 8, w - c.width - 8)
@@ -703,18 +713,17 @@ function placeCoach() {
     const box = { left, top, right: left + c.width, bottom: top + c.height };
     const fits = left >= 8 && top >= 8 && box.right <= w - 8 && box.bottom <= h - 8;
     const arrow = across ? t.left + t.width / 2 - left : t.top + t.height / 2 - top;
-    return { side, left, top, fits, covers: others.filter((r) => meets(r, box)).length,
-             arrow: clamp(arrow, 16, (across ? c.width : c.height) - 16) };
+    return { side, left, top, fits, arrow: clamp(arrow, 16, (across ? c.width : c.height) - 16) };
   };
-  const ask = $("ask").getBoundingClientRect();
   const dock = (side) => {
-    const top = side === "bottom" ? h - 8 - c.height : 60;
-    const box = { left: 8, top, right: w - 8, bottom: top + c.height };
-    return { side, fits: !meets(t, box) && !meets(ask, box), covers: others.filter((r) => meets(r, box)).length };
+    const top = side === "bottom" ? h - 8 - c.height : phone.matches ? 60 : 16;
+    const left = phone.matches ? 8 : w - 16 - c.width;
+    return { side, box: { left, top, right: phone.matches ? w - 8 : w - 16, bottom: top + c.height } };
   };
-  const spots = !t?.width ? [] : phone.matches ? ["bottom", "top"].map(dock).filter((o) => o.fits)
-    : ["right", "below", "left", "above"].map(at).filter((o) => o.fits);
-  const best = spots.reduce((a, o) => (!a || o.covers < a.covers ? o : a), null) || { side: "bottom" };
+  const ring = target?.getBoundingClientRect();
+  const docks = ["bottom", "top"].map(dock);
+  const best = (t && !phone.matches && ["right", "below", "left", "above"].map(at).find((o) => o.fits))
+    || docks.find((o) => t && !meets(t, o.box)) || docks.find((o) => ring && !meets(ring, o.box)) || docks[0];
   document.body.style.paddingBottom = phone.matches ? `${c.height + 16}px` : "";
   if (best.left === undefined) {
     card.dataset.side = best.side;

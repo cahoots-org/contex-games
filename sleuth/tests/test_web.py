@@ -271,6 +271,17 @@ def test_the_cutout_opens_on_the_conversation_and_the_composer_when_the_step_nee
     assert 'target === $("publish-send") ? [$("publish"), $("send")] : [target];' in lit
     convo = page[page.index("function drawConvo("):page.index("function exchange(")]
     assert '$("ask").hidden = false;\n  light();\n}' in convo
+
+
+def test_the_step_card_stays_clear_of_the_cutout_and_a_new_target_is_scrolled_into_view(game):
+    page = game.client.get("/").text
+    place = page[page.index("function placeCoach()"):page.index("function cutout(")]
+    assert 'const best = (t && !phone.matches && ["right", "below", "left", "above"].map(at).find((o) => o.fits))' in place
+    assert "|| docks.find((o) => t && !meets(t, o.box)) || docks.find((o) => ring && !meets(ring, o.box)) || docks[0];" in place
+    assert "CONTROLS" not in page
+    lit = page[page.index("function light()"):page.index("function placeCoach()")]
+    assert "bringIntoView(target);" in lit
+    assert 'behavior: REDUCED_MOTION.matches ? "auto" : "smooth"' in lit
     closed = page[page.index('case "case_closed":'):page.index('case "pulled":')]
     assert "case-status" not in closed and 'talk("quiet", fresh, e.text)' in closed
     fresh = page[page.index("function reset()"):page.index("async function retell()")]
