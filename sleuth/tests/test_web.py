@@ -945,11 +945,26 @@ def test_state_has_the_apps_photos_and_which_this_player_saved(game):
     photos = game.client.get("/api/state").json()["photos"]
     assert [(p["id"], p["saved"]) for p in photos] == [("r-50", True), ("r-51", False)]
     page = game.client.get("/").text
-    assert "if (p.saved) savedPhotos.add(p.id);" in page and "if (fresh) photo(e.photo);" in page
+    assert "if (p.saved) savedPhotos.add(p.id);" in page and "if (fresh) photo(e.photo, true);" in page
     assert photos[1] == {**photo_json(other, game.town), "saved": False}
     back = game.join("someone")
     back.restore(json.loads(json.dumps(game.player.to_state())))
     assert back.saved_photos == ["r-50"]
+
+
+def test_photos_stay_closed_behind_a_control_with_an_unseen_count_and_open_as_a_panel(game):
+    page = game.client.get("/").text
+    desk = page[page.index('<main class="desk"'):page.index("</main>")]
+    assert 'id="photos-open" aria-haspopup="dialog" aria-controls="photos-panel" hidden>Photos</button>' in desk
+    assert 'id="photos"' not in desk
+    panel = page[page.index('<dialog class="sheet" id="photos-panel"'):page.index('<div class="app" id="app">')]
+    assert '<form method="dialog"><button class="linkish">Close</button></form>' in panel and 'id="photos"' in panel
+    assert "if (fresh && !$(\"photos-panel\").open) unseenPhotos++;" in page
+    assert "`Photos · ${unseenPhotos} new`" in page
+    opening = page[page.index("function openPhotos()"):page.index('$("photos-open").addEventListener')]
+    assert "unseenPhotos = 0;" in opening and "rememberPhotos(true);" in opening
+    assert '$("photos-panel").addEventListener("close", () => rememberPhotos(false));' in page
+    assert "Boolean(caseNow && caseNow.private)" in page[page.index("function showPhotos()"):page.index("const PHOTOS_OPEN")]
 
 
 def test_photos_are_public_but_not_shown_in_the_practice_town(game):

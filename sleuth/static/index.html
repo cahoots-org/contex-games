@@ -100,7 +100,7 @@ h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
 .send { border-top: 1px solid var(--rail); padding-top: .75rem; }
 .send p { flex-basis: 100%; margin: 0; font-size: .9rem; color: var(--muted); }
 .send p.error { color: var(--danger); }
-.citing .case-actions, .citing .where-line, .citing #where-status, .citing #talk, .citing #photos-box { display: none; }
+.citing .case-actions, .citing .where-line, .citing #where-status, .citing #talk, .citing #photos-open { display: none; }
 select, input[type="text"], input[type="search"] {
   background: var(--bg); border: 1px solid var(--edge); border-radius: 6px; padding: .4rem .6rem; min-width: 0;
 }
@@ -109,8 +109,6 @@ select, input[type="text"], input[type="search"] {
 .status:empty { min-height: 0; margin: 0; }
 
 /* The notebook: kinds in the margin, left of a ruled line, newest entry first. */
-.book-head { display: flex; align-items: baseline; gap: .75rem; }
-.book-head small { color: var(--muted); font-size: .8rem; }
 .group {
   display: grid; grid-template-columns: 4.5rem minmax(0, 1fr);
   border-top: 1px solid var(--rail);
@@ -171,7 +169,15 @@ select, input[type="text"], input[type="search"] {
 .feed .quiet { color: var(--muted); }
 .feed .loud { font-weight: 700; }
 /* The app's photos: newest first, scrolling, each with the faces in it, its caption and Save. */
-.photo-feed { list-style: none; margin: .5rem 0 0; padding: 0; max-height: 22rem; overflow-y: auto; }
+/* The photos: closed behind one control, opened as a panel on the right, or a sheet from the bottom on a phone. */
+.sheet {
+  margin: 0 0 0 auto; width: min(28rem, 100%); height: 100%; max-width: none; max-height: none; padding: 1rem 1.25rem;
+  background: var(--bg); color: var(--ink); border: solid var(--edge); border-width: 0 0 0 1px;
+}
+.sheet::backdrop { background: rgb(20 28 30 / .4); }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; }
+.sheet-head button { min-height: 44px; }
+.photo-feed { list-style: none; margin: .5rem 0 0; padding: 0; }
 .photo-feed li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .25rem .75rem; padding: .6rem 0; border-top: 1px solid var(--rail); }
 .photo-feed .faces { display: flex; gap: .25rem; grid-row: span 3; align-self: start; }
 .photo-feed .status { margin-top: .2rem; }
@@ -311,6 +317,10 @@ select, input[type="text"], input[type="search"] {
   .thread { max-height: 60dvh; }
   .convo { padding-bottom: 2rem; }
   .coach { z-index: 8; width: calc(100% - 32px); }
+  .sheet {
+    margin: auto 0 0; width: 100%; height: auto; max-height: 80dvh;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom)); border-width: 1px 0 0; border-radius: 14px 14px 0 0;
+  }
 }
 </style>
 </head>
@@ -330,6 +340,13 @@ select, input[type="text"], input[type="search"] {
   <h2 id="handoff-head"></h2>
   <ol id="handoff-cards"></ol>
   <form method="dialog"><button class="tut-go" autofocus>Take the case</button></form>
+</dialog>
+<dialog class="sheet" id="photos-panel" aria-labelledby="photos-title">
+  <div class="sheet-head">
+    <h2 id="photos-title">Photos</h2>
+    <form method="dialog"><button class="linkish">Close</button></form>
+  </div>
+  <ol class="photo-feed" id="photos" aria-label="Photos, newest first"></ol>
 </dialog>
 <div class="app" id="app">
   <header>
@@ -382,7 +399,7 @@ select, input[type="text"], input[type="search"] {
       <ol class="feed" id="feed" aria-label="Town talk, newest first"></ol>
     </details>
 
-    <section class="photos" id="photos-box" hidden><div class="book-head"><h2>Photos</h2><small>newest first</small></div><ol class="photo-feed" id="photos" aria-label="Photos, newest first"></ol></section>
+    <button type="button" class="plain-button" id="photos-open" aria-haspopup="dialog" aria-controls="photos-panel" hidden>Photos</button>
   </main>
 
   <aside class="side" aria-label="People">
@@ -1210,7 +1227,7 @@ function render(e, fresh) {
       break;
     case "photo":
       // A load draws the app's photos from the state, so only new ones come from events.
-      if (fresh) photo(e.photo);
+      if (fresh) photo(e.photo, true);
       break;
     case "photo_saved":
       note(e.records);
@@ -1240,8 +1257,10 @@ function addEvents(events, fresh) {
   }
 }
 
-// A photo from the app, newest on top: the faces in it, its caption, when and where, and Save.
-function photo(p) {
+// A photo from the app, newest on top: the faces in it, its caption, when and where, and Save; a new one while the
+// photos are closed counts as unseen.
+function photo(p, fresh = false) {
+  if (fresh && !$("photos-panel").open) unseenPhotos++;
   const kept = savedPhotos.has(p.id) || notebook.has(p.id);
   const status = el("p", { className: "status", role: "status" });
   const save = el("button", { type: "button", className: "plain-button", dataset: { photo: p.id },
@@ -1262,9 +1281,40 @@ function photo(p) {
   showPhotos();
 }
 
+// The photos control, with how many came in unseen; never on the first case.
+let unseenPhotos = 0;
 function showPhotos() {
-  $("photos-box").hidden = !$("photos").children.length || Boolean(caseNow && caseNow.private);
+  $("photos-open").hidden = !$("photos").children.length || Boolean(caseNow && caseNow.private);
+  $("photos-open").textContent = unseenPhotos ? `Photos · ${unseenPhotos} new` : "Photos";
 }
+
+// Whether this browser left the photos open, so a reload opens them again.
+const PHOTOS_OPEN = "sleuth-photos-open";
+function rememberPhotos(open) {
+  try {
+    if (open) localStorage.setItem(PHOTOS_OPEN, "1");
+    else localStorage.removeItem(PHOTOS_OPEN);
+  } catch {}
+}
+
+function photosWereOpen() {
+  try {
+    return localStorage.getItem(PHOTOS_OPEN) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function openPhotos() {
+  if ($("photos-open").hidden || $("photos-panel").open) return;
+  unseenPhotos = 0;
+  showPhotos();
+  $("photos-panel").showModal();
+  rememberPhotos(true);
+}
+
+$("photos-open").addEventListener("click", openPhotos);
+$("photos-panel").addEventListener("close", () => rememberPhotos(false));
 
 function markSaved(id) {
   const button = $("photos").querySelector(`[data-photo="${CSS.escape(id)}"]`);
@@ -1368,7 +1418,8 @@ function reset() {
   $("feed").replaceChildren();
   $("talk").hidden = true;
   $("photos").replaceChildren();
-  $("photos-box").hidden = true;
+  unseenPhotos = 0;
+  $("photos-open").hidden = true;
   savedPhotos.clear();
   faces.clear();
   notebook.clear();
@@ -1432,6 +1483,7 @@ async function loadState() {
     light();
   }
   if (state.handoff && !$("handoff").open) handoff(state.handoff);
+  else if (!state.intro && photosWereOpen()) openPhotos();
   if (selected) choose(selected);
 }
 
