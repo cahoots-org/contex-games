@@ -274,7 +274,11 @@ def test_a_step_card_dims_the_page_and_closes_it_but_for_a_cutout_around_the_tar
     assert "z-index: 4" in style and "pointer-events: none" in style
     assert "fill-rule: evenodd; pointer-events: auto;" in style
     cut = page[page.index("function cutout("):page.index("let placing")]
-    assert "$(\"mask-path\").setAttribute(\"d\", `M0 0H${innerWidth}V${innerHeight}H0Z${t ? rounded(t) : \"\"}`);" in cut
+    assert '$("mask-path").setAttribute("d", `${COVER}${t ? rounded(t) : ""}`);' in cut
+    assert 'const COVER = "M-1 -1H99999V99999H-1Z";' in page
+    assert "height: 100lvh;" in style
+    assert 'visualViewport?.addEventListener("resize", placeSoon);' in page
+    assert 'visualViewport?.addEventListener("scroll", placeSoon);' in page
     assert '$("mask").hidden = !t;' in cut
     assert "const watch = new ResizeObserver(" in page
 

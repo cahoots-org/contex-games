@@ -297,7 +297,7 @@ select, input[type="text"], input[type="search"] {
 .coach[data-side="top"] { top: 1rem; bottom: auto; }
 .coach[data-side="bottom"]::before, .coach[data-side="top"]::before { display: none; }
 /* The page under a step card is dimmed and closed, apart from a cutout around what the step needs. */
-.mask { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+.mask { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100lvh; z-index: 4; pointer-events: none; }
 .mask svg { display: block; width: 100%; height: 100%; }
 .mask path { fill: rgb(20 28 30 / .78); fill-rule: evenodd; pointer-events: auto; }
 .lit { outline: 3px solid #f0c45a; outline-offset: 2px; box-shadow: 0 0 0 6px rgb(240 196 90 / .3); }
@@ -963,6 +963,8 @@ function placeCoach() {
 // The box around the step's nodes, padded, as a hole in the mask; the mask blocks clicks everywhere else.
 const PAD = 6;
 const ROUND = 10;
+// Wider than any screen, so the dim fills the layer however the browser's toolbars resize it.
+const COVER = "M-1 -1H99999V99999H-1Z";
 function cutout(nodes) {
   const rs = nodes.map((n) => n.getBoundingClientRect()).filter((r) => r.width);
   const edge = (side, pick, out) => pick(...rs.map((r) => r[side])) + out;
@@ -970,7 +972,7 @@ function cutout(nodes) {
     right: edge("right", Math.max, PAD), bottom: edge("bottom", Math.max, PAD) } : null;
   if (t) Object.assign(t, { width: t.right - t.left, height: t.bottom - t.top });
   $("mask").hidden = !t;
-  $("mask-path").setAttribute("d", `M0 0H${innerWidth}V${innerHeight}H0Z${t ? rounded(t) : ""}`);
+  $("mask-path").setAttribute("d", `${COVER}${t ? rounded(t) : ""}`);
   return t;
 }
 
@@ -989,6 +991,8 @@ function placeSoon() {
 }
 addEventListener("scroll", placeSoon, true);
 addEventListener("resize", placeSoon);
+visualViewport?.addEventListener("resize", placeSoon);
+visualViewport?.addEventListener("scroll", placeSoon);
 
 // With the publish form open: the culprit choice until one is picked, then the publish button.
 function publishNext() {
