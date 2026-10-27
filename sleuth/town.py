@@ -2,6 +2,7 @@
 
 import re
 from dataclasses import asdict
+from random import Random
 
 from sleuth.models import Villager
 
@@ -36,12 +37,15 @@ class Town:
         self.departed: list[Villager] = []
         self._phase_starts: dict[str, str] = {}
         self._phase_moves: dict[str, list[str]] = {}
+        # Each day's outfit, by resident.
+        self.worn: dict[int, dict[str, str]] = {}
 
     def to_state(self) -> dict:
-        """Villagers, places, departed villagers and this phase's whereabouts as plain JSON."""
+        """Villagers, places, departed villagers, this phase's whereabouts and recent outfits as plain JSON."""
         return {"villagers": [asdict(v) for v in self._villagers.values()], "places": dict(self._places),
                 "departed": [asdict(v) for v in self.departed],
-                "phase_starts": dict(self._phase_starts), "phase_moves": {k: list(m) for k, m in self._phase_moves.items()}}
+                "phase_starts": dict(self._phase_starts), "phase_moves": {k: list(m) for k, m in self._phase_moves.items()},
+                "worn": {str(day): dict(w) for day, w in self.worn.items()}}
 
     def restore(self, state: dict) -> None:
         """Replace the town with a saved state."""
@@ -50,6 +54,25 @@ class Town:
         self.departed = [Villager(**v) for v in state["departed"]]
         self._phase_starts = dict(state["phase_starts"])
         self._phase_moves = {k: list(m) for k, m in state["phase_moves"].items()}
+        self.worn = {int(day): dict(w) for day, w in state["worn"].items()}
+
+    def dress(self, day: int, rng: Random, avoid: dict[str, str] | None = None, keep_days: int = 5) -> None:
+        """Pick the day's outfit from each wardrobe, never the one avoid gives when another fits, once a day; forget
+        days older than keep_days."""
+        if day in self.worn:
+            return
+        avoid = avoid or {}
+        self.worn[day] = {v.id: rng.choice([c for c in v.wardrobe if c != avoid.get(v.id)] or v.wardrobe)
+                          for v in self._villagers.values() if v.wardrobe}
+        self.worn = {d: w for d, w in self.worn.items() if d >= day - keep_days}
+
+    def outfit(self, vid: str, day: int) -> str | None:
+        return self.worn.get(day, {}).get(vid)
+
+    def looks(self, vid: str, day: int) -> dict[str, str]:
+        """The resident's traits, wearing what they wore that day."""
+        coat = self.outfit(vid, day)
+        return {**self.get(vid).traits, **({"coat": coat} if coat else {})}
 
     def __contains__(self, vid: str) -> bool:
         return vid in self._villagers

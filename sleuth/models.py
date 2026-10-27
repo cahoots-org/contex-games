@@ -17,6 +17,7 @@ class Villager:
     household: str = ""
     # How warmly they feel toward each tie, keyed like relationships, in [-1, 1].
     warmth: dict[str, float] = field(default_factory=dict)
+    wardrobe: list[str] = field(default_factory=list)
 
 
 @dataclass

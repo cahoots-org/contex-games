@@ -393,3 +393,31 @@ def test_clues_point_and_narrow_like_sightings_and_logs():
                                                if v.traits["coat"] == culprit["coat"]} - {crime.victim}
     full = Record("r-4", "case-1", "clue", "elm street", "", "", traits=dict(culprit))
     assert make_solvable(crime, [full], town, make_routine(), Random(1), Ids()) == []
+
+
+def test_witness_and_clip_report_the_outfit_worn_on_the_crime_day():
+    town, routine, crime = make_case("bar")
+    town.get("v5").wardrobe = ["green raincoat", "plaid flannel"]
+    town.worn = {1: {"v5": "green raincoat"}, 2: {"v5": "plaid flannel"}}
+    assert camera_clip(crime, town, Ids()).traits["coat"] == "green raincoat"
+    crime = replace(crime, place="elm street")
+    for seed in range(20):
+        for m in witness_memories(crime, town, routine, Random(seed), Ids()):
+            assert m.traits.get("coat", "green raincoat") == "green raincoat"
+
+
+def test_suspects_match_what_each_wore_on_the_crime_day():
+    town, _, crime = make_case()
+    town.get("v3").traits = dict(town.get("v5").traits)
+    town.worn = {1: {"v5": "green raincoat", "v3": "grey hoodie"}, 2: {"v3": "green raincoat"}}
+    clip = Record("r-1", "case-1", "clip", "elm street", "11:42pm", "", traits={"coat": "green raincoat"})
+    left = suspects(crime, [clip], town)
+    assert "v5" in left and "v3" not in left
+
+
+def test_make_solvable_narrows_on_the_crime_day_outfit():
+    town, routine, crime = make_town(), make_routine(), make_case()[2]
+    town.worn = {1: {v.id: "grey hoodie" for v in town.villagers}, 2: {}}
+    town.worn[1]["v5"] = "green raincoat"
+    added = make_solvable(crime, [], town, routine, Random(1), Ids())
+    assert added and added[0].traits.get("coat") == "green raincoat"

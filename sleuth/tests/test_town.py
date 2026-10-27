@@ -1,4 +1,6 @@
 import json
+from random import Random
+
 import pytest
 
 from sleuth.models import Utterance, Villager
@@ -89,3 +91,33 @@ def test_whereabouts_round_trip_through_state():
     fresh.restore(json.loads(json.dumps(town.to_state())))
     assert fresh.whereabouts("a") == ["bar"] and fresh.whereabouts("b") == ["gym"]
     assert fresh.new_phase() == town.new_phase()
+
+
+def test_dress_picks_one_outfit_from_each_wardrobe_once_a_day():
+    town = Town()
+    v = Villager("v1", "A", "x", "y", "", [], {}, {"height": "tall"}, wardrobe=["grey hoodie", "denim jacket", "black puffer"])
+    town.add(v)
+    town.dress(3, Random(1))
+    first = town.outfit("v1", 3)
+    town.dress(3, Random(2))
+    assert first in v.wardrobe and town.outfit("v1", 3) == first
+    assert town.looks("v1", 3) == {"height": "tall", "coat": first} and town.outfit("v1", 4) is None
+
+
+def test_dress_avoids_the_given_outfit():
+    town = Town()
+    town.add(Villager("v1", "A", "x", "y", "", [], {}, {}, wardrobe=["grey hoodie", "denim jacket"]))
+    for day in range(1, 31):
+        town.dress(day, Random(day), {"v1": "grey hoodie"})
+        assert town.outfit("v1", day) == "denim jacket"
+
+
+def test_worn_round_trips_and_old_days_are_dropped():
+    town = Town()
+    town.add(Villager("v1", "A", "x", "y", "", [], {}, {}, wardrobe=["grey hoodie", "denim jacket"]))
+    for day in range(1, 11):
+        town.dress(day, Random(day), keep_days=5)
+    assert sorted(town.worn) == [5, 6, 7, 8, 9, 10]
+    restored = Town()
+    restored.restore(json.loads(json.dumps(town.to_state())))
+    assert restored.worn == town.worn

@@ -146,8 +146,19 @@ class Cases:
         """The case a lineage root belongs to, and what kind of root it is."""
         return next(((f, f.roots[uid]) for f in self.files.values() if uid in f.roots), None)
 
+    def cautious(self, day: int) -> dict[str, str]:
+        """What each culprit of a case not closed wore at their crime before day, which they won't wear again."""
+        worn = {f.crime.culprit: self.town.outfit(f.crime.culprit, f.crime.day) for f in self.files.values()
+                if f.state != "closed" and f.crime.day < day}
+        return {vid: coat for vid, coat in worn.items() if coat}
+
+    def dress(self, day: int) -> None:
+        """Dress the town for day, culprits avoiding their crime's outfit."""
+        self.town.dress(day, self.rng, self.cautious(day), math.ceil(self.config.case_days) + 2)
+
     async def on_tick(self, engine, day: int, phase: str, finished: dict[str, list[str]], playing: bool) -> None:
-        """Finish setup cases, let old ones go cold, and stage a crime when it is time."""
+        """Dress the town, finish setup cases, let old ones go cold, and stage a crime when it is time."""
+        self.dress(day)
         now = self.now = day + PHASES.index(phase) / len(PHASES)
         for case in [f for f in self.files.values() if f.state == "setup"]:
             try:

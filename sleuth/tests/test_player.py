@@ -1091,3 +1091,14 @@ async def test_a_replay_survives_a_restart_and_still_gives_the_town_back():
     assert back.practising
     back.skip()
     assert (back.place, back.notebook) == (place, notebook)
+
+
+@pytest.mark.asyncio
+async def test_an_episode_is_judged_on_what_the_accused_wore_that_day():
+    player, file, engine, _ = interviewing()
+    player.town.worn = {1: {"v3": "green raincoat"}, 2: {"v3": "plaid flannel"}}
+    clip = Record(player.ids.next("r"), file.crime.id, "clip", "elm street", "11:40pm", "", traits={"coat": "green raincoat"},
+                  day=1)
+    file.records[clip.id] = clip
+    assert await player.publish("v3", cite(player, file, clip)) is None
+    assert file.solved_by == PID

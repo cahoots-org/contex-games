@@ -191,7 +191,7 @@ def _bystanders(crime: Crime, town: Town, routine) -> list[str]:
 def witness_memories(crime: Crime, town: Town, routine, rng: Random, ids: Ids) -> list[Record]:
     """Up to MAX_WITNESSES residents expected at the scene, each recalling two of the culprit's traits."""
     bystanders = _bystanders(crime, town, routine)
-    culprit = town.get(crime.culprit).traits
+    culprit = town.looks(crime.culprit, crime.day)
     memories = []
     for w in rng.sample(bystanders, min(MAX_WITNESSES, len(bystanders))):
         seen = {c: culprit[c] for c in rng.sample(list(culprit), WITNESS_TRAITS)}
@@ -215,7 +215,7 @@ def camera_clip(crime: Crime, town: Town, ids: Ids) -> Record | None:
     """The scene's camera footage at the crime minute, if the place has a camera."""
     if crime.place not in CAMERA_PLACES:
         return None
-    culprit = town.get(crime.culprit).traits
+    culprit = town.looks(crime.culprit, crime.day)
     seen = {c: culprit[c] for c in CLIP_TRAITS}
     clock = clock_at(crime.minute)
     text = f"{clock}, {place_name(crime.place)} camera: {figure(seen)} {WITNESS_ACTION[crime.template]}."
@@ -226,7 +226,7 @@ def scene_clues(crime: Crime, town: Town, routine, rng: Random, ids: Ids) -> lis
     """One or two things left at the scene: a trace of one of the culprit's traits, or a receipt dropped by the
     culprit or someone expected there. A receipt names no one; the grocery's log for its time, returned with it,
     names who paid."""
-    culprit = town.get(crime.culprit).traits
+    culprit = town.looks(crime.culprit, crime.day)
     clues: list[Record] = []
     for kind in rng.sample([*TRACES, "receipt"], rng.randint(1, 2)):
         if kind == "receipt":
@@ -272,7 +272,7 @@ def suspects(crime: Crime, records: list[Record], town: Town) -> set[str]:
     at_scene = {r.who for r in logged if r.place == crime.place}
     alibied = {r.who for r in logged if r.place != crime.place} - at_scene
     return {v.id for v in town.villagers if v.id != crime.victim and v.id not in alibied
-            and all(seen.items() <= v.traits.items() for seen in sightings)}
+            and all(seen.items() <= town.looks(v.id, crime.day).items() for seen in sightings)}
 
 
 def make_solvable(crime: Crime, records: list[Record], town: Town, routine, rng: Random, ids: Ids) -> list[Record] | None:
@@ -281,15 +281,15 @@ def make_solvable(crime: Crime, records: list[Record], town: Town, routine, rng:
     left = suspects(crime, records, town)
     if crime.culprit not in left:
         return None
-    culprit = town.get(crime.culprit).traits
+    culprit = town.looks(crime.culprit, crime.day)
     seen: dict[str, str] = {}
     pointing = any(r.sound and points_at(crime, crime.culprit, culprit, r) for r in records)
     while len(left) > 1 or not (seen or pointing):
         unseen = [c for c in culprit if c not in seen]
         if not unseen:
             return None
-        best = max(unseen, key=lambda c: sum(town.get(s).traits.get(c) != culprit[c] for s in left))
-        narrowed = {s for s in left if town.get(s).traits.get(best) == culprit[best]}
+        best = max(unseen, key=lambda c: sum(town.looks(s, crime.day).get(c) != culprit[c] for s in left))
+        narrowed = {s for s in left if town.looks(s, crime.day).get(best) == culprit[best]}
         if narrowed == left and len(left) > 1:
             return None
         seen[best], left = culprit[best], narrowed

@@ -102,6 +102,7 @@ async def play() -> None:
             loop, main_task = asyncio.get_running_loop(), asyncio.current_task()
             for sig in SIGNALS:
                 loop.add_signal_handler(sig, stop, save, main_task)
+            engine.cases.dress(game.day)
             await engine.run()
             host, port = config.address()
             app = create_app(

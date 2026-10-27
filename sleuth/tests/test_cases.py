@@ -329,3 +329,17 @@ async def test_cases_with_a_regular_culprit_still_open_solvable():
         assert any(r.sound and points_at(crime, crime.culprit, traits, r) for r in records)
         assert claim(case, crime.culprit, cases.routine) == ([crime.place], True)
     assert regulars
+
+
+def test_cases_dress_today_with_the_culprits_caution():
+    cases, _, town = make_cases(case_days=20)
+    for v in town.villagers:
+        v.wardrobe = ["green raincoat", "plaid flannel", "grey hoodie"]
+    file = culprit_file(cases)
+    town.worn = {1: {"v3": "green raincoat"}}
+    assert cases.cautious(2) == {"v3": "green raincoat"} and cases.cautious(1) == {}
+    for day in range(2, 21):
+        cases.dress(day)
+        assert town.outfit("v3", day) != "green raincoat"
+    cases.close(file, None)
+    assert cases.cautious(21) == {}

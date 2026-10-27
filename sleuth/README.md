@@ -9,7 +9,9 @@ The design is in [docs/superpowers/specs/2026-10-25-sleuth-design.md](../docs/su
 The public places are the cafe, gym, school, bar, dog park, hardware store, grocery, town hall and library.
 Households live on elm, oak or maple street, and each street is one place. Jev picks each resident's work place and
 evening place once; the day runs work, work, leisure, then home on their street at night. Each resident has a few
-visible traits (height, hair, coat and so on) drawn by code from a fixed list.
+visible traits (height, hair, coat and so on) drawn by code from a fixed list. A resident with a wardrobe picks a coat
+from it each morning, and the town remembers who wore what for a few days; a culprit won't wear their crime's coat
+again while the case is open.
 
 Residents still talk among themselves: what they hear is published into their minds in Contex, and a line that
 matches one of their needs wakes them to react. What a witness saw or a victim found passes only from mind to mind:
@@ -87,7 +89,7 @@ clues and that log, so a case may need a search and a pull to crack.
 
 **Publish** an episode: choose a resident and tick between 1 and 5 notebook entries. It holds up when it names the
 culprit, every cited entry is true evidence from this case, and at least one points at the culprit: a memory, clip
-or trace whose traits all fit them, or a log that puts them at the crime place or behind a receipt found there. Otherwise the evidence
+or trace whose traits all fit them as they looked that day, or a log that puts them at the crime place or behind a receipt found there. Otherwise the evidence
 doesn't back it. One episode per podcaster per case.
 
 - A right episode closes the case for everyone, and every resident thinks better of you (`reputation_right`). Any
