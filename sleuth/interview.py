@@ -22,6 +22,8 @@ KINDS = {
                       'who may have taken it?"',
     "what_do_you_think_of": "what this resident thinks of someone",
     "what_do_they_look_like": 'what someone else looks like, as in "What does Cal look like?"',
+    "who_looks_like": 'who this resident knows that matches a look, as in "Who do you know that\'s tall with red '
+                      'hair?"',
     "none": "none of these",
 }
 # How many earlier exchanges Jev and Haiku see.

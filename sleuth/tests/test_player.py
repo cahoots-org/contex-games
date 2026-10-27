@@ -1178,6 +1178,29 @@ async def test_a_resident_describes_someone_they_know():
 
 
 @pytest.mark.asyncio
+async def test_a_resident_names_who_they_know_that_matches_a_look():
+    player, *_ = practising()
+    question = "Who do you know that's tall with red hair?"
+    await ask(player, "t1", "who_looks_like", question)
+    assert "tall with red hair" in player.engine.jev.questions["kind"].criteria["who_looks_like"]
+    [said] = notebook(player)
+    assert said.text == "Ruth Okafor says Cal Hughes is tall, red-haired, with a red pickup."
+    assert (said.who, said.traits["hair"]) == ("t5", "red-haired") and player.known["t5"][-1]["by"] == "t1"
+    await ask(player, "t4", "who_looks_like", question)
+    assert [(r.holder, r.who) for r in notebook(player)] == [("t1", "t5"), ("t4", "t5")]
+    await ask(player, "t3", "who_looks_like", "Anyone you know drive a white sedan?")
+    assert [r.who for r in notebook(player)][-1] == "t4"
+
+
+@pytest.mark.asyncio
+async def test_a_look_question_with_no_look_or_no_match_names_no_one():
+    player, *_ = practising()
+    await ask(player, "t1", "who_looks_like", "Who do you know that looks odd?")
+    await ask(player, "t6", "who_looks_like", "Anyone you know that's bald?")
+    assert notebook(player) == [] and set(player.known) == {"t1", "t6"}
+
+
+@pytest.mark.asyncio
 async def test_a_stranger_cannot_describe_them():
     player, *_ = practising()
     await ask(player, "t3", "what_do_they_look_like", who="t6")

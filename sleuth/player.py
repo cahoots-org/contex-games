@@ -55,6 +55,13 @@ def adds_looks(line: str, texts: list[str]) -> bool:
     return any(re.search(rf"\b{re.escape(_plain(w))}\b", said) and _plain(w) not in allowed for w in LOOKS)
 
 
+def looks_in(question: str) -> dict[str, set[str]]:
+    """The heights, hair and cars a question names, by category, like {"hair": {"red-haired"}}."""
+    asked = _plain(question)
+    named = {c: {v for v in TRAITS[c] if re.search(rf"\b{re.escape(_plain(v))}", asked)} for c in BY_WORD}
+    return {c: vs for c, vs in named.items() if vs}
+
+
 # How a line opening with its teller's name reads in their own voice.
 VOICES = ((" says they were ", "I was "), (" says they're ", "I'm "), (" says they saw ", "I saw "), (" says ", ""),
           (" heard from (.+?): ", r"\1 told me: "), (": ", ""))
@@ -383,7 +390,7 @@ class Player:
         except Exception:
             log.exception("routing a question to %s failed", vid)
             routed = None
-        found, talk = await self._known(file, villager, routed) if routed else ([], [])
+        found, talk = await self._known(file, villager, routed, question) if routed else ([], [])
         seen = {(r.kind, r.holder, r.text) for r in self.notebook.values() if r.case == file.crime.id}
         new = []
         for r in found:
@@ -475,7 +482,8 @@ class Player:
         return Record("", file.crime.id, "statement", self.place, self._clock(), text, vid, who=who, sound=sound,
                       utterance=source, day=self.game.day if self.game else 0)
 
-    async def _known(self, file: CaseFile, villager: Villager, routed: Route) -> tuple[list[Record], list[str]]:
+    async def _known(self, file: CaseFile, villager: Villager, routed: Route,
+                     question: str) -> tuple[list[Record], list[str]]:
         """What the resident knows for the routed question: records for evidence, and talk that is only phrased."""
         crime, vid, name, routine = file.crime, villager.id, villager.name, self.engine.routine
         kind, about = routed.kind, self.town.get(routed.who) if routed.who else None
@@ -519,12 +527,20 @@ class Player:
             feeling = warmth_words(villager.warmth.get(about.id, 0.0))
             return [], [f"{about.name} is my {tie}, and we are on {feeling} terms."] if tie else []
         if kind == "what_do_they_look_like" and about and acquainted(villager, about):
-            looks = {c: v for c, v in about.traits.items() if c in BY_WORD}
-            said = self._statement(file, vid, f"{name} says {about.name} is {describe(looks)}.", True, who=about.id)
-            said.traits = looks
-            self.learn(about.id, looks, "described", by=vid)
-            return [said], []
+            return [self._describe(file, villager, about)], []
+        if kind == "who_looks_like" and (asked := looks_in(question)):
+            return [self._describe(file, villager, v) for v in self.town.villagers
+                    if v.id != vid and acquainted(villager, v) and all(v.traits.get(c) in vs for c, vs in asked.items())], []
         return [], []
+
+    def _describe(self, file: CaseFile, villager: Villager, about: Villager) -> Record:
+        """The resident's description of someone they know, by height, hair and car; the player learns it."""
+        looks = {c: v for c, v in about.traits.items() if c in BY_WORD}
+        said = self._statement(file, villager.id, f"{villager.name} says {about.name} is {describe(looks)}.", True,
+                               who=about.id)
+        said.traits = looks
+        self.learn(about.id, looks, "described", by=villager.id)
+        return said
 
     def _seen(self, file: CaseFile, vid: str) -> list[Record]:
         """What the resident saw or found of the case; a trusting witness recalls more."""
