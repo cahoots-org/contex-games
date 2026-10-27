@@ -304,6 +304,7 @@ def test_the_step_card_stays_clear_of_the_cutout_and_a_new_target_is_scrolled_in
     assert "case-status" not in closed and 'talk("quiet", fresh, e.text)' in closed
     fresh = page[page.index("function reset()"):page.index("async function retell()")]
     assert "selected = null;" in fresh
+    assert "liveConvo = null;" in fresh and "pages = [];" in fresh
     assert 'say("case-status", "");' in fresh and 'say("where-status", "");' in fresh
 
 

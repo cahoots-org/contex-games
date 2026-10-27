@@ -1465,7 +1465,10 @@ function reset() {
   caseNow = null;
   steps = null;
   beat = null;
+  pages = [];
+  back = 0;
   selected = null;
+  liveConvo = null;
   delete $("convo").dataset.id;
   $("convo-title").textContent = "Pick someone to talk to";
   $("convo-meta").textContent = "You can reach anyone from anywhere: tap a name to call or message them.";
