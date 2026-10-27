@@ -107,8 +107,8 @@ def test_nothing_sent_shows_unlearned_looks(game):
     open_case(game)
     state = game.client.get("/api/state").json()
     rows = state["villagers"]
-    assert all(r["looks"] == "" and r["how"] == "" and r["face"] is None for r in rows)
-    assert set(rows[0]) == {"id", "name", "occupation", "home", "looks", "how", "face"}
+    assert all(r["looks"] == "" and r["face"] is None for r in rows)
+    assert set(rows[0]) == {"id", "name", "occupation", "looks", "face"}
     card = game.client.get("/api/villagers/v2").json()
     assert "traits" not in card and "traits_text" not in card and card["known"] == []
     sent = json.dumps([state, game.client.get("/api/case").json(), card])
@@ -119,7 +119,7 @@ def test_nothing_sent_shows_unlearned_looks(game):
 def test_state_shows_learned_looks_and_how(game):
     game.player.learn("v1", {"height": "tall", "hair": "bald", "coat": "denim jacket"}, "talked")
     marta = next(v for v in game.client.get("/api/state").json()["villagers"] if v["id"] == "v1")
-    assert marta["looks"] == "tall, bald, in a denim jacket" and marta["how"] == "you talked, day 1"
+    assert marta["looks"] == "tall, bald, in a denim jacket"
     assert marta["face"] == {"hair": None, "coat": COLOURS["denim jacket"], "height": 2}
     assert game.client.get("/api/villagers/v1").json()["known"] == [
         {"looks": "tall, bald, in a denim jacket", "how": "you talked, day 1", "face": marta["face"]}]
@@ -160,7 +160,7 @@ def test_the_header_shows_the_day_and_part_and_speaks_only_when_the_connection_i
     page = game.client.get("/").text
     header = page[page.index("<header>"):page.index("</header>")]
     assert 'id="clock"' in header and 'id="replay"' in header
-    assert not any(gone in page for gone in ('id="usage"', 'id="sky"', "menu-toggle", "Live"))
+    assert not any(gone in page for gone in ('id="usage"', 'id="sky"', "menu-toggle", '"Live"'))
     assert "`Day ${t.day} · ${capital(t.phase)}`" in page
     assert '.conn:not([data-state="down"]) { display: none; }' in page
 
@@ -778,11 +778,22 @@ def test_page_is_built_around_the_case(game):
     order = ['id="case"', 'id="here"', 'id="notebook"', 'id="talk"', 'id="people"', 'id="convo"']
     assert [html.index(n) for n in order] == sorted(html.index(n) for n in order)
     for needle in ('id="publish-open"', 'id="culprit"', "/api/publish", "/api/interview", "/api/walk", "/api/pull",
-                   "/api/search", "/api/handoff", 'id="handoff"', 'case "interview"', 'case "pulled"', 'case "searched"', 'case "steps"', "usually nearby", 'id="intro"',
+                   "/api/search", "/api/handoff", 'id="handoff"', 'case "interview"', 'case "pulled"', 'case "searched"', 'case "steps"', "const NEARBY = \"nearby\";", 'id="intro"',
                    "@media (max-width: 600px)", 'id="coach"'):
         assert needle in html, needle
     for gone in ("/api/listen", "Look around", "tiles", "card-title", 'role="tablist"', "innerHTML"):
         assert gone not in html, gone
+
+
+def test_a_person_row_is_a_name_with_one_tag_over_their_looks_or_job_and_the_rest_is_on_their_card(game):
+    page = game.client.get("/").text
+    row = page[page.index("function person("):page.index('$("find").addEventListener')]
+    assert "const tag = role || (nearby ? NEARBY : null);" in row
+    assert 'el("small", { textContent: v.looks || v.occupation })' in row
+    assert "talked" not in row and "home" not in row and "how" not in row
+    card = page[page.index("function drawConvo("):page.index("function exchange(")]
+    for field in ('"Job"', '"Lives on"', '"Talked"', '"Looks"'):
+        assert field in card, field
 
 
 def test_page_draws_learned_looks_and_a_silhouette(game):

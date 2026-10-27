@@ -1183,7 +1183,7 @@ async def test_talking_shows_how_they_look_today():
                                       "how": "talked", "by": None, "day": 2, "phase": player.game.phase}
     [known] = [e for e in seen if e.kind == "known"]
     assert known.player == PID and known.data["villager"] == player.person("v1")
-    assert player.person("v1")["how"] == "you talked, day 2"
+    assert player.known_json("v1")[-1]["how"] == "you talked, day 2"
     await ask(player, "v1", "none")
     assert len(player.known["v1"]) == 1
 
@@ -1215,9 +1215,9 @@ def test_known_keeps_the_newest_few_and_says_how_each_was_learned():
         player.learn("v1", {"height": "tall"}, "described", by="v2", day=day)
     assert [e["day"] for e in player.known["v1"]] == list(range(3, KNOWN_KEPT + 3))
     first = player.town.get("v2").name.split()[0]
-    assert player.person("v1")["how"] == f"{first} described, day {KNOWN_KEPT + 2}"
+    assert player.known_json("v1")[-1]["how"] == f"{first} described, day {KNOWN_KEPT + 2}"
     assert learned({"how": "photo", "by": None, "day": 2}, player.town) == "in a photo, day 2"
-    assert player.person("v2") == {**player.person("v2"), "looks": "", "how": "", "face": None}
+    assert player.person("v2") == {**player.person("v2"), "looks": "", "face": None}
 
 
 @pytest.mark.asyncio
@@ -1229,7 +1229,7 @@ async def test_a_resident_describes_someone_they_know():
     assert said.traits == {"height": "tall", "hair": "red-haired", "car": "red pickup"}
     assert (said.who, said.holder, said.sound) == ("t5", "t1", True)
     assert (player.known["t5"][-1]["how"], player.known["t5"][-1]["by"]) == ("described", "t1")
-    assert player.person("t5")["how"] == "Ruth described, day 1"
+    assert player.known_json("t5")[-1]["how"] == "Ruth described, day 1"
 
 
 @pytest.mark.asyncio
@@ -1299,7 +1299,7 @@ async def test_saving_a_photo_teaches_looks_and_adds_a_notebook_entry():
     for vid in photo.people:
         assert player.known[vid][-1] == {"looks": photo.people[vid], "how": "photo", "by": None, "day": photo.day,
                                          "phase": photo.phase}
-        assert player.person(vid)["how"] == "in a photo, day 2"
+        assert player.known_json(vid)[-1]["how"] == "in a photo, day 2"
     saved = player.notebook[photo.id]
     assert (saved.kind, saved.case, saved.text, saved.day) == ("photo", file.crime.id, photo.caption, 2)
     event = player.feed.recent[-1]

@@ -464,9 +464,8 @@ class Player:
     def person(self, vid: str) -> dict:
         """What the player sees of a resident in the people list: looks only once learned."""
         v, newest = self.town.get(vid), (self.known.get(vid) or [None])[-1]
-        return {"id": v.id, "name": v.name, "occupation": v.occupation, "home": v.home,
+        return {"id": v.id, "name": v.name, "occupation": v.occupation,
                 "looks": describe(newest["looks"]) if newest else "",
-                "how": learned(newest, self.town) if newest else "",
                 "face": face(newest["looks"]) if newest else None}
 
     def known_json(self, vid: str) -> list[dict]:
