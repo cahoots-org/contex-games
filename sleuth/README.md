@@ -18,12 +18,13 @@ the feed doesn't show it, so you learn it only by interviewing someone.
 
 ## Playing
 
-**A case.** While someone is playing and no shared case is open, a crime is staged, `crime_every_days` after the last
-shared case closed. The culprit comes from another household than the victim's, and one or two clues are left at
-the crime place. At the next part of the day the game checks that the evidence narrows to the culprit alone, adding a
-witness if that helps and dropping the case quietly if nothing can. A solvable case opens: its witnesses are told what they saw, and the neighborhood app posts the news. The
-case shows at the top of the Hear panel and goes cold after `case_days`, when the town learns who did it. Your
-notebook for a closed case stays on the page until the next case opens.
+**A case.** The town always has a case open. At startup, on each part of the day, and the moment a case is solved or
+goes cold, if none is open a crime is staged in the part of the day just finished and opened in the same step. The
+culprit comes from another household than the victim's, and one or two clues are left at the crime place. The game
+checks that the evidence, with that part of the day's check-ins and receipts, narrows to the culprit alone, adding a
+witness if that helps and drawing another crime if nothing can. A solvable case opens: its witnesses are told what
+they saw, and the neighborhood app posts the news. The case shows at the top of the Hear panel and goes cold after
+`case_days`, when the town learns who did it.
 
 **Your first case.** Before the page, a new podcaster sees three short cards on what the game is and a button to
 start; they come back on a reload only until the podcaster has asked anyone anything. The first case happens in a
@@ -184,7 +185,6 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_DATA_DIR` | working directory | where towns, saves and baselines are kept |
 | `SLEUTH_POPULATION` | `50` | town size |
 | `SLEUTH_DAY_SECONDS` | `900` | length of a game day, in seconds (15 minutes) |
-| `SLEUTH_CRIME_EVERY_DAYS` | `1` | game days from one shared case's close to the next crime |
 | `SLEUTH_CASE_DAYS` | `3` | game days before an open case goes cold |
 | `SLEUTH_REPUTATION_RIGHT` | `0.3` | regard every resident gains for a right episode |
 | `SLEUTH_REPUTATION_WRONG` | `-0.4` | regard every resident loses for a wrong episode |

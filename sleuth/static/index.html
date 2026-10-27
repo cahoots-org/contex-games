@@ -404,13 +404,13 @@ select, input[type="text"], input[type="search"] {
   <main class="desk" id="desk">
     <section class="case" id="case" aria-labelledby="case-title">
       <div class="case-top">
-        <p class="whose" id="case-whose">No open case</p>
+        <p class="whose" id="case-whose">The town's case</p>
         <span class="case-actions">
           <button type="button" class="primary" id="publish-open" aria-expanded="false" aria-controls="publish" hidden>Publish</button>
         </span>
       </div>
-      <h2 class="case-title" id="case-title">Waiting for the next crime</h2>
-      <p class="case-text" id="case-text">The neighborhood app posts the news when something happens.</p>
+      <h2 class="case-title" id="case-title"></h2>
+      <p class="case-text" id="case-text"></p>
       <div class="where-line">
         <div class="places" id="places">
           <button type="button" class="place-pick" id="here" aria-haspopup="listbox" aria-expanded="false" aria-controls="place-list"></button>
@@ -569,9 +569,9 @@ function setCase(c) {
     say("where-status", "");
   }
   caseNow = open;
-  $("case-whose").textContent = open ? (open.private ? "Your case" : "The town's case") : "No open case";
-  $("case-title").textContent = open ? open.title : "Waiting for the next crime";
-  $("case-text").textContent = open ? open.text : "The neighborhood app posts the news when something happens.";
+  $("case-whose").textContent = open && open.private ? "Your case" : "The town's case";
+  $("case-title").textContent = open ? open.title : "";
+  $("case-text").textContent = open ? open.text : "";
   $("publish-open").hidden = !open;
   $("replay").hidden = Boolean(open && open.private);
   // The first case keeps the page small: no town talk or photos.
@@ -1515,12 +1515,10 @@ async function loadState() {
 function handoff(h) {
   $("handoff-head").textContent = h.head || "";
   $("handoff-head").hidden = !h.head;
-  const tip = !caseNow ? "Things are quiet. The next tip could come any time."
-    : h.back ? `Back to the case of ${caseNow.title}.` : `A new tip comes in: ${caseNow.text}`;
+  const tip = !caseNow ? "" : h.back ? `Back to the case of ${caseNow.title}.` : `A new tip comes in: ${caseNow.text}`;
   $("handoff-cards").replaceChildren(...[h.line, tip,
     h.back ? "" : "Other podcasters are chasing this one too, and you get one episode per case. Get it right first."]
     .filter(Boolean).map((text) => el("li", { textContent: text })));
-  $("handoff").querySelector(".tut-go").textContent = caseNow ? "Take the case" : "Explore the town";
   $("handoff").showModal();
 }
 

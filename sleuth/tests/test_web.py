@@ -893,10 +893,10 @@ def test_the_described_beat_rings_the_row_of_who_was_named(game):
     assert "$(\"find\")]" not in lit
 
 
-def test_the_handoff_button_says_explore_when_the_town_has_no_case(game):
+def test_the_page_never_waits_for_a_next_crime(game):
     page = game.client.get("/").text
-    handoff = page[page.index("function handoff(h)"):page.index('$("handoff").addEventListener("close"')]
-    assert '.textContent = caseNow ? "Take the case" : "Explore the town";' in handoff
+    for gone in ("Waiting for the next crime", "No open case", "Things are quiet", "Explore the town"):
+        assert gone not in page
 
 
 def test_turning_back_to_a_reply_opens_its_conversation_and_arrows_work_page_wide(game):
