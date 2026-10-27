@@ -830,7 +830,7 @@ async def test_the_checklist_walks_the_practice_case_from_victim_to_witness_to_a
     steps = player.steps()
     assert [s["text"] for s in steps] == [
         "Ask Ruth Okafor, the victim, what happened", "Ask Tess Moreno what they saw",
-        "Ask Ruth Okafor who they know that's tall and red-haired", "Talk to Cal Hughes",
+        "Ask Ruth Okafor who they know that's tall and red-haired", "Talk to the person Ruth Okafor named",
         "Search the scene at the library", "Publish an episode naming who did it"]
     assert steps[1]["why"] == ("Tess Moreno is usually at the library in the morning, when it happened. "
                                "People nearby may have seen something.")

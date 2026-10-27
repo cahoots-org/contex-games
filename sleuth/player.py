@@ -307,7 +307,7 @@ class Player:
              "done": any(e["how"] == "described" for e in self.known.get(crime.culprit, [])),
              "person": crime.victim, "about": crime.culprit,
              "beat": f"{victim} named {culprit}. Their row now shows how they look."},
-            {"text": f"Talk to {culprit}", "why": "Meet them yourself to see what they're wearing.",
+            {"text": f"Talk to the person {victim} named", "why": "Meet them yourself to see what they're wearing.",
              "done": crime.culprit in self.threads, "person": crime.culprit,
              "beat": f"Now you've seen what {culprit} is wearing today."},
             {"text": f"Search the scene {at(crime.place)}",
