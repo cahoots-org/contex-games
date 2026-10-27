@@ -13,6 +13,7 @@ from sleuth.feed import Feed
 from sleuth.game import PHASES
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance
+from sleuth.photos import Album, Photo
 from sleuth.players import Players
 from sleuth.tests.helpers import StubRoutine
 from sleuth.tests.test_case import RESIDENTS, make_routine, make_town
@@ -25,6 +26,7 @@ class FakeEngine:
         self.feed = Feed(Lineage(), town, out=self.lines.append)
         self.delivered = []
         self.players = Players()
+        self.album = Album()
 
     async def deliver(self, utterance, listener_ids, addressed=False):
         self.delivered.append((utterance, listener_ids, addressed))
@@ -72,6 +74,26 @@ async def test_the_crime_is_set_in_the_part_of_the_day_just_finished(now, part, 
 
 
 @pytest.mark.asyncio
+async def test_no_one_in_a_photo_of_the_crime_s_part_of_the_day_is_its_culprit_victim_or_witness():
+    pictured = {"v1", "v3", "v5", "v7"}
+    seen = set()
+    for seed in range(30):
+        cases, engine, _ = make_cases()
+        cases.rng = Random(seed)
+        cases.routine = StubRoutine({vid: {p: street for p in PHASES} for vid, _, _, street in RESIDENTS})
+        engine.album.photos += [Photo("r-90", "gym", 2, "morning", {vid: {} for vid in pictured}, ""),
+                                Photo("r-91", "gym", 2, "afternoon", {"v2": {}, "v4": {}}, "")]
+        await cases.ensure(engine, 2.25)
+        case = cases.shared()
+        if case is None:
+            continue
+        witnesses = {r.holder for r in case.records.values() if r.kind == "memory"}
+        assert not {case.crime.culprit, case.crime.victim} & pictured and not witnesses & pictured
+        seen |= {case.crime.culprit, case.crime.victim}
+    assert {"v2", "v4"} <= seen
+
+
+@pytest.mark.asyncio
 async def test_witness_memory_is_delivered_to_the_witness_alone_and_rooted():
     cases, engine, _ = make_cases()
     await tick(cases, engine)
@@ -112,9 +134,9 @@ async def test_the_news_breaks_as_the_case_opens():
 async def test_unsolvable_draws_are_retried_at_once(monkeypatch):
     real, calls = cases_mod.make_solvable, []
 
-    def twice_none(*a):
+    def twice_none(*a, **k):
         calls.append(a[0].id)
-        return None if len(calls) <= 2 else real(*a)
+        return None if len(calls) <= 2 else real(*a, **k)
 
     monkeypatch.setattr(cases_mod, "make_solvable", twice_none)
     cases, engine, _ = make_cases()
@@ -127,7 +149,7 @@ async def test_unsolvable_draws_are_retried_at_once(monkeypatch):
 @pytest.mark.asyncio
 async def test_no_case_opens_when_every_draw_is_unsolvable_and_the_next_tick_tries_again(monkeypatch):
     calls = []
-    monkeypatch.setattr(cases_mod, "make_solvable", lambda *a: calls.append(1))
+    monkeypatch.setattr(cases_mod, "make_solvable", lambda *a, **k: calls.append(1))
     cases, engine, _ = make_cases()
     await tick(cases, engine)
     assert len(calls) == cases_mod.DRAWS and not cases.files and not kinds(engine, "case") and not engine.delivered
@@ -141,11 +163,11 @@ async def test_a_draw_that_fails_is_dropped_and_the_next_opens(monkeypatch, capl
     real = cases_mod.make_solvable
     calls = []
 
-    def broken_once(*a):
+    def broken_once(*a, **k):
         calls.append(a[0].id)
         if len(calls) == 1:
             raise KeyError("v1")
-        return real(*a)
+        return real(*a, **k)
 
     monkeypatch.setattr(cases_mod, "make_solvable", broken_once)
     cases, engine, _ = make_cases()

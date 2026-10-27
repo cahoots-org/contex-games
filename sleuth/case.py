@@ -183,14 +183,14 @@ def recall_more(crime: Crime, memory: Record, culprit: dict[str, str]) -> Record
     return replace(memory, id="", traits=seen, text=_memory_text(crime, memory.clock, seen))
 
 
-def _bystanders(crime: Crime, town: Town, routine) -> list[str]:
-    return [v.id for v in town.villagers if v.id not in (crime.culprit, crime.victim)
+def _bystanders(crime: Crime, town: Town, routine, away=frozenset()) -> list[str]:
+    return [v.id for v in town.villagers if v.id not in (crime.culprit, crime.victim, *away)
             and routine.place(v.id, crime.phase) == crime.place]
 
 
-def witness_memories(crime: Crime, town: Town, routine, rng: Random, ids: Ids) -> list[Record]:
-    """Up to MAX_WITNESSES residents expected at the scene, each recalling two of the culprit's traits."""
-    bystanders = _bystanders(crime, town, routine)
+def witness_memories(crime: Crime, town: Town, routine, rng: Random, ids: Ids, away=frozenset()) -> list[Record]:
+    """Up to MAX_WITNESSES residents expected at the scene and not away, each recalling two of the culprit's traits."""
+    bystanders = _bystanders(crime, town, routine, away)
     culprit = town.looks(crime.culprit, crime.day)
     memories = []
     for w in rng.sample(bystanders, min(MAX_WITNESSES, len(bystanders))):
@@ -275,9 +275,10 @@ def suspects(crime: Crime, records: list[Record], town: Town) -> set[str]:
             and all(seen.items() <= town.looks(v.id, crime.day).items() for seen in sightings)}
 
 
-def make_solvable(crime: Crime, records: list[Record], town: Town, routine, rng: Random, ids: Ids) -> list[Record] | None:
-    """The extra memory that narrows the case to the culprit and points at them: [] if none is needed, None if none
-    can."""
+def make_solvable(crime: Crime, records: list[Record], town: Town, routine, rng: Random, ids: Ids,
+                  away=frozenset()) -> list[Record] | None:
+    """The extra memory, from someone not away, that narrows the case to the culprit and points at them: [] if none is
+    needed, None if none can."""
     left = suspects(crime, records, town)
     if crime.culprit not in left:
         return None
@@ -296,6 +297,6 @@ def make_solvable(crime: Crime, records: list[Record], town: Town, routine, rng:
     if not seen:
         return []
     seen_by = {r.holder for r in records if r.kind == "memory"}
-    others = [v.id for v in town.villagers if v.id not in (crime.culprit, crime.victim)]
-    witness = next((w for w in _bystanders(crime, town, routine) + others if w not in seen_by), None)
+    others = [v.id for v in town.villagers if v.id not in (crime.culprit, crime.victim, *away)]
+    witness = next((w for w in _bystanders(crime, town, routine, away) + others if w not in seen_by), None)
     return None if witness is None else [_memory(crime, witness, seen, rng, ids)]

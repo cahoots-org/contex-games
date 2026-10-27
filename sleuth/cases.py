@@ -181,13 +181,14 @@ class Cases:
             return
         before = self.now - 1 / len(PHASES)
         day, phase = math.floor(before), PHASES[int(before % 1 * len(PHASES))]
+        pictured = {vid for p in engine.album.photos if (p.day, p.phase) == (day, phase) for vid in p.people}
         for _ in range(DRAWS):
             crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"),
-                                exclude=self._involved())
+                                exclude=self._involved() | pictured)
             if crime is None:
                 return
             try:
-                if await self._open(engine, crime):
+                if await self._open(engine, crime, pictured):
                     return
             except Exception:
                 log.exception("opening %s failed", crime.id)
@@ -197,18 +198,19 @@ class Cases:
         """The culprits and victims of every case not yet closed."""
         return {vid for f in self.files.values() if f.state != "closed" for vid in (f.crime.culprit, f.crime.victim)}
 
-    async def _open(self, engine, crime: Crime) -> bool:
-        """Leave the crime's evidence and, if it narrows to the culprit, open the case: tell its witnesses and victim
-        what they saw and found, and post the news. False if it cannot be made solvable."""
+    async def _open(self, engine, crime: Crime, pictured: set[str]) -> bool:
+        """Leave the crime's evidence, witnessed by no one pictured elsewhere then, and, if it narrows to the culprit,
+        open the case: tell its witnesses and victim what they saw and found, and post the news. False if it cannot be
+        made solvable."""
         self.dress(crime.day)
         whereabouts = dict(self.finished or {v.id: [p] for v in self.town.villagers
                                              if (p := self.routine.place(v.id, crime.phase))})
         whereabouts[crime.culprit] = [crime.place]
         clip = camera_clip(crime, self.town, self.ids)
-        records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids),
+        records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids, pictured),
                    *scene_clues(crime, self.town, self.routine, self.rng, self.ids), *([clip] if clip else []),
                    *logs(crime, whereabouts, self.town, self.rng, self.ids)]
-        added = make_solvable(crime, records, self.town, self.routine, self.rng, self.ids)
+        added = make_solvable(crime, records, self.town, self.routine, self.rng, self.ids, pictured)
         if added is None:
             return False
         records += [*added, discovery(crime, self.town, self.rng, self.ids)]
