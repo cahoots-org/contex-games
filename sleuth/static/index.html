@@ -162,7 +162,30 @@ select, input[type="text"], input[type="search"] {
 
 /* Where you are, and what you can do there. */
 .where-line { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .75rem 0 0; }
-.where-line select { max-width: 100%; }
+.places { position: relative; max-width: 100%; }
+.place-pick {
+  display: inline-flex; align-items: center; gap: .4rem; max-width: 100%;
+  background: var(--bg); border: 1px solid var(--edge); border-radius: 6px; padding: .4rem .6rem; cursor: pointer;
+}
+.place-pick::after {
+  content: ""; flex: none; width: .4rem; height: .4rem; margin: 0 .15rem 0 .3rem;
+  border: solid var(--muted); border-width: 0 2px 2px 0; transform: translateY(-.15rem) rotate(45deg);
+}
+.place-pick[aria-expanded="true"]::after { transform: translateY(.1rem) rotate(225deg); }
+.place-list {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 5; min-width: 100%; max-height: min(32rem, 70vh);
+  overflow-y: auto; margin: 0; padding: .3rem 0; list-style: none;
+  background: var(--bg); border: 1px solid var(--edge); border-radius: 8px; box-shadow: 0 8px 24px rgb(20 28 30 / .2);
+}
+.place-list:focus { outline: none; }
+.place-list li { display: flex; align-items: center; gap: .4rem; padding: .4rem 1rem .4rem 2rem; white-space: nowrap; cursor: pointer; }
+.place-list li:hover, .place-list li.active { background: var(--panel); }
+.place-list li.active { box-shadow: inset 3px 0 var(--accent); }
+.place-list [aria-selected="true"] { font-weight: 700; }
+.place-list .scene { margin-bottom: .3rem; border-bottom: 1px solid var(--rail); }
+.place-list .pin { margin-left: -1.4rem; }
+.pin { width: 1rem; height: 1rem; flex: none; fill: var(--danger); }
+.role.scene { margin-left: .1rem; background: var(--danger); color: var(--bg); }
 
 /* The town's talk: one strip, closed until opened. */
 .talk { border: 1px solid var(--rail); border-radius: 6px; background: var(--panel); }
@@ -298,6 +321,12 @@ select, input[type="text"], input[type="search"] {
   .side { display: block; border-left: 0; border-top: 1px solid var(--edge); }
   .list { max-height: 55dvh; }
   .person { min-height: 48px; }
+  .place-list {
+    position: fixed; top: auto; left: 0; right: 0; bottom: 0; z-index: 7; max-height: 70dvh;
+    padding: .5rem 0 max(.5rem, env(safe-area-inset-bottom)); border-radius: 14px 14px 0 0; border-width: 1px 0 0;
+    box-shadow: 0 0 0 100vmax rgb(20 28 30 / .5);
+  }
+  .place-list li { min-height: 48px; padding-left: 2.5rem; }
   .thread { max-height: 60dvh; }
   .convo { padding-bottom: 2rem; }
   .coach { width: auto; }
@@ -368,7 +397,10 @@ select, input[type="text"], input[type="search"] {
       <h2 class="case-title" id="case-title">Waiting for the next crime</h2>
       <p class="case-text" id="case-text">The neighborhood app posts the news when something happens.</p>
       <div class="where-line">
-        <select id="here" aria-label="Where you are"></select>
+        <div class="places" id="places">
+          <button type="button" class="place-pick" id="here" aria-haspopup="listbox" aria-expanded="false" aria-controls="place-list"></button>
+          <ul class="place-list" id="place-list" role="listbox" aria-label="Where to go" tabindex="-1" hidden></ul>
+        </div>
         <button type="button" class="plain-button" id="pull-here" hidden>Pull records</button>
         <button type="button" class="plain-button" id="search-here" hidden>Search here</button>
       </div>
@@ -420,6 +452,7 @@ select, input[type="text"], input[type="search"] {
   </aside>
 </div>
 
+<template id="pin"><svg class="pin" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.6a2.6 2.6 0 1 1 0-5.2 2.6 2.6 0 0 1 0 5.2z"/></svg></template>
 <div class="mask" id="mask" hidden><svg aria-hidden="true"><path id="mask-path"/></svg></div>
 <section class="tut coach" id="coach" aria-labelledby="coach-tag" hidden>
   <p class="tut-tag"><span id="coach-tag">Tutorial</span> · <span id="coach-count"></span></p>
@@ -621,27 +654,83 @@ function entry(r, ticked) {
     el("span", {}, r.text, by)));
 }
 
-// Where the player is, as a choice of every place with the scene marked, and what they can do there.
+// Where the player is, as a list of every place with the scene first and pinned, and what they can do there.
 let whereKey = "";
+let active = 0;
 function drawWhere() {
   if (!here) return;
   $("search-here").hidden = !(caseNow && caseNow.place === here && !searched.has(caseNow.id));
   $("pull-here").hidden = !(caseNow && recordsAt.includes(here));
-  const scene = caseNow && caseNow.place;
+  const scene = caseNow && places.includes(caseNow.place) ? caseNow.place : null;
   const key = [here, scene, ...places].join("|");
   if (key !== whereKey) {
     whereKey = key;
-    const option = (p) => el("option", { value: p, textContent: atPlace(p).replace(/^./, (c) => c.toUpperCase()) });
-    const town = places.filter((p) => p !== scene).map(option);
-    $("here").replaceChildren(...(scene && places.includes(scene)
-      ? [el("optgroup", { label: "Where it happened" }, option(scene)), el("optgroup", { label: "Around town" }, ...town)]
-      : town));
-    $("here").value = here;
+    const order = scene ? [scene, ...places.filter((p) => p !== scene)] : places;
+    $("here").replaceChildren(...placeLabel(here, scene));
+    $("place-list").replaceChildren(...order.map((p, i) => el("li", { id: `place-${i}`, role: "option",
+      ariaSelected: String(p === here), className: p === scene ? "scene" : "", dataset: { place: p } },
+      ...placeLabel(p, scene))));
   }
   light();
 }
 
-$("here").addEventListener("change", () => walkTo($("here").value));
+// A place's name, with a pin and a scene tag when it is the scene.
+function placeLabel(place, scene) {
+  const name = el("span", { textContent: atPlace(place).replace(/^./, (c) => c.toUpperCase()) });
+  if (place !== scene) return [name];
+  return [$("pin").content.firstElementChild.cloneNode(true), name, el("span", { className: "role scene", textContent: "scene" })];
+}
+
+function openPlaces(open, refocus = false) {
+  $("place-list").hidden = !open;
+  $("here").ariaExpanded = String(open);
+  if (open) {
+    activate(Math.max(0, [...$("place-list").children].findIndex((o) => o.dataset.place === here)));
+    $("place-list").focus();
+  } else if (refocus) {
+    $("here").focus();
+  }
+}
+
+function activate(i) {
+  const options = [...$("place-list").children];
+  active = Math.max(0, Math.min(i, options.length - 1));
+  options.forEach((o, j) => o.classList.toggle("active", j === active));
+  $("place-list").setAttribute("aria-activedescendant", options[active].id);
+  options[active].scrollIntoView({ block: "nearest" });
+}
+
+function pickPlace(option) {
+  openPlaces(false, true);
+  if (option.dataset.place !== here) walkTo(option.dataset.place);
+}
+
+$("here").addEventListener("click", () => openPlaces($("place-list").hidden));
+$("here").addEventListener("keydown", (ev) => {
+  if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp") return;
+  ev.preventDefault();
+  openPlaces(true);
+});
+$("place-list").addEventListener("keydown", (ev) => {
+  const to = { ArrowDown: active + 1, ArrowUp: active - 1, Home: 0, End: Infinity }[ev.key];
+  if (ev.key === "Tab") return openPlaces(false);
+  if (to !== undefined) activate(to);
+  else if (ev.key === "Enter") pickPlace($("place-list").children[active]);
+  else if (ev.key === "Escape") openPlaces(false, true);
+  else return;
+  ev.preventDefault();
+});
+$("place-list").addEventListener("click", (ev) => {
+  const option = ev.target.closest("li");
+  if (option) pickPlace(option);
+});
+// A click outside closes the list and goes no further.
+document.addEventListener("click", (ev) => {
+  if ($("place-list").hidden || ev.target.closest("#places")) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  openPlaces(false);
+}, true);
 
 function setSteps(list) {
   if (!list) beat = null;
@@ -671,7 +760,8 @@ function step() {
 }
 
 // Ring what the current step needs: its person, then the question box once they are picked, else its button here, else
-// the way to its place; the tutorial card points at it. The cutout is the ring's, or the whole conversation or composer.
+// the way to its place; the tutorial card points at it. The cutout is the ring's, with the open place list, or the whole
+// conversation or composer.
 const ACTION_BUTTON = { pull: "pull-here", search: "search-here", publish: "publish-open" };
 let hole = [];
 function light() {
@@ -685,7 +775,8 @@ function light() {
     : s.action === "publish" && !$("publish").hidden ? publishNext()
     : $(ACTION_BUTTON[s.action]);
   hole = !target ? [] : beat ? [target] : talking ? [$("convo")] : target === $("culprit") ? [$("publish")]
-    : target === $("publish-send") ? [$("publish"), $("send")] : [target];
+    : target === $("publish-send") ? [$("publish"), $("send")]
+    : target === $("here") ? [target, $("place-list")] : [target];
   watch.disconnect();
   for (const node of [document.body, ...hole]) watch.observe(node);
   $("coach").hidden = !(s || beat) || $("intro").open || $("handoff").open;
@@ -800,10 +891,7 @@ function publishNext() {
 async function walkTo(place) {
   say("where-status", "");
   const { ok, error } = await post("/api/walk", { place });
-  if (!ok) {
-    $("here").value = here;
-    say("where-status", error, true);
-  }
+  if (!ok) say("where-status", error, true);
 }
 
 // Search or pull here, the button off until the game answers.

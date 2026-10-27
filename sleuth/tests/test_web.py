@@ -268,7 +268,8 @@ def test_the_cutout_opens_on_the_conversation_and_the_composer_when_the_step_nee
     lit = page[page.index("function light()"):page.index("function placeCoach()")]
     assert 'const talking = s?.person && $("convo").dataset.id === s.person && !$("ask").hidden;' in lit
     assert 'talking ? [$("convo")] : target === $("culprit") ? [$("publish")]' in lit
-    assert 'target === $("publish-send") ? [$("publish"), $("send")] : [target];' in lit
+    assert 'target === $("publish-send") ? [$("publish"), $("send")]' in lit
+    assert 'target === $("here") ? [target, $("place-list")] : [target];' in lit
     convo = page[page.index("function drawConvo("):page.index("function exchange(")]
     assert '$("ask").hidden = false;\n  light();\n}' in convo
 
@@ -755,6 +756,23 @@ def test_page_is_built_around_the_case(game):
         assert needle in html, needle
     for gone in ("/api/listen", "Look around", "tiles", "card-title", 'role="tablist"', "innerHTML"):
         assert gone not in html, gone
+
+
+def test_the_place_picker_is_a_listbox_with_the_scene_first_and_pinned(game):
+    page = game.client.get("/").text
+    line = page[page.index('<div class="where-line">'):page.index('id="where-status"')]
+    assert 'id="here" aria-haspopup="listbox" aria-expanded="false" aria-controls="place-list"' in line
+    assert 'id="place-list" role="listbox"' in line and "<select" not in line
+    assert '<template id="pin"><svg class="pin"' in page
+    where = page[page.index("function drawWhere()"):page.index("function setSteps")]
+    assert "const order = scene ? [scene, ...places.filter((p) => p !== scene)] : places;" in where
+    assert 'el("span", { className: "role scene", textContent: "scene" })' in where
+    for gone in ("optgroup", "(the scene)", '$("here").value'):
+        assert gone not in page, gone
+    for key in ("ArrowDown", "ArrowUp", "Home", "End", '"Enter"', '"Escape"', '"Tab"'):
+        assert key in where, key
+    assert 'openPlaces(false, true);\n  if (option.dataset.place !== here) walkTo(option.dataset.place);' in where
+    assert "position: fixed; top: auto; left: 0; right: 0; bottom: 0;" in page[page.index("@media (max-width: 600px)"):]
 
 
 def test_the_notebook_groups_entries_by_kind(game):
