@@ -646,16 +646,23 @@ function step() {
   return steps && steps.find((s) => !s.done);
 }
 
-// Ring what the current step needs: its person, else its button here, else the way to its place; the tutorial card
-// points at it.
+// Ring what the current step needs: its person, then the question box once they are picked, else its button here, else
+// the way to its place; the tutorial card points at it. The cutout is the ring's, or the whole conversation or composer.
 const ACTION_BUTTON = { pull: "pull-here", search: "search-here", publish: "publish-open" };
+let hole = [];
 function light() {
   for (const node of document.querySelectorAll(".lit")) node.classList.remove("lit");
   const s = step();
-  const target = !s ? null : s.person ? $("people").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
+  const talking = s?.person && $("convo").dataset.id === s.person && !$("ask").hidden;
+  const target = !s ? null : talking ? $("ask")
+    : s.person ? $("people").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
     : s.place && s.place !== here ? $("here")
     : s.action === "publish" && !$("publish").hidden ? publishNext()
     : $(ACTION_BUTTON[s.action]);
+  hole = !target ? [] : talking ? [$("convo")] : target === $("culprit") ? [$("publish")]
+    : target === $("publish-send") ? [$("publish"), $("send")] : [target];
+  watch.disconnect();
+  for (const node of [document.body, ...hole]) watch.observe(node);
   $("coach").hidden = !s || $("intro").open || $("handoff").open;
   $("mask").hidden = $("coach").hidden;
   if (!$("coach").hidden) target?.classList.add("lit");
@@ -680,7 +687,7 @@ function placeCoach() {
   const card = $("coach");
   const target = document.querySelector(".lit");
   if (card.hidden) return;
-  const t = cutout(target);
+  const t = cutout(hole);
   const c = card.getBoundingClientRect();
   const w = innerWidth, h = innerHeight;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
@@ -720,19 +727,21 @@ function placeCoach() {
   card.style.setProperty("--arrow", `${best.arrow}px`);
 }
 
-// The step's target, padded, as a hole in the mask; the mask blocks clicks everywhere else.
+// The box around the step's nodes, padded, as a hole in the mask; the mask blocks clicks everywhere else.
 const PAD = 6;
 const ROUND = 10;
-function cutout(target) {
-  const r = target?.getBoundingClientRect();
-  const t = r?.width ? { left: r.left - PAD, top: r.top - PAD, right: r.right + PAD, bottom: r.bottom + PAD } : null;
+function cutout(nodes) {
+  const rs = nodes.map((n) => n.getBoundingClientRect()).filter((r) => r.width);
+  const edge = (side, pick, out) => pick(...rs.map((r) => r[side])) + out;
+  const t = rs.length ? { left: edge("left", Math.min, -PAD), top: edge("top", Math.min, -PAD),
+    right: edge("right", Math.max, PAD), bottom: edge("bottom", Math.max, PAD) } : null;
   if (t) Object.assign(t, { width: t.right - t.left, height: t.bottom - t.top });
   $("mask").hidden = !t;
-  $("mask-path").setAttribute("d", `M0 0H${innerWidth}V${innerHeight}H0Z${t ? hole(t) : ""}`);
+  $("mask-path").setAttribute("d", `M0 0H${innerWidth}V${innerHeight}H0Z${t ? rounded(t) : ""}`);
   return t;
 }
 
-function hole({ left, top, right, bottom, width, height }) {
+function rounded({ left, top, right, bottom, width, height }) {
   const r = Math.min(ROUND, width / 2, height / 2);
   const arc = (x, y) => `A${r} ${r} 0 0 1 ${x} ${y}`;
   return `M${left + r} ${top}H${right - r}${arc(right, top + r)}V${bottom - r}${arc(right - r, bottom)}`
@@ -740,13 +749,13 @@ function hole({ left, top, right, bottom, width, height }) {
 }
 
 let placing = 0;
+const watch = new ResizeObserver(() => placeSoon());
 function placeSoon() {
   cancelAnimationFrame(placing);
   placing = requestAnimationFrame(placeCoach);
 }
 addEventListener("scroll", placeSoon, true);
 addEventListener("resize", placeSoon);
-new ResizeObserver(placeSoon).observe(document.body);
 
 // With the publish form open: the culprit choice until one is picked, then the publish button.
 function publishNext() {
@@ -878,6 +887,7 @@ function drawConvo(body) {
     : [el("li", { className: "you", dataset: { none: "true" }, textContent: "Ask anything in your own words." })]));
   $("thread").scrollTop = $("thread").scrollHeight;
   $("ask").hidden = false;
+  light();
 }
 
 // One question and reply, with what the reply added to the notebook.

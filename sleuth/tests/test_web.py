@@ -258,9 +258,19 @@ def test_a_step_card_dims_the_page_and_closes_it_but_for_a_cutout_around_the_tar
     assert "z-index: 4" in style and "pointer-events: none" in style
     assert "fill-rule: evenodd; pointer-events: auto;" in style
     cut = page[page.index("function cutout("):page.index("let placing")]
-    assert "$(\"mask-path\").setAttribute(\"d\", `M0 0H${innerWidth}V${innerHeight}H0Z${t ? hole(t) : \"\"}`);" in cut
+    assert "$(\"mask-path\").setAttribute(\"d\", `M0 0H${innerWidth}V${innerHeight}H0Z${t ? rounded(t) : \"\"}`);" in cut
     assert '$("mask").hidden = !t;' in cut
-    assert "new ResizeObserver(placeSoon)" in page
+    assert "const watch = new ResizeObserver(" in page
+
+
+def test_the_cutout_opens_on_the_conversation_and_the_composer_when_the_step_needs_them(game):
+    page = game.client.get("/").text
+    lit = page[page.index("function light()"):page.index("function placeCoach()")]
+    assert 'const talking = s?.person && $("convo").dataset.id === s.person && !$("ask").hidden;' in lit
+    assert 'talking ? [$("convo")] : target === $("culprit") ? [$("publish")]' in lit
+    assert 'target === $("publish-send") ? [$("publish"), $("send")] : [target];' in lit
+    convo = page[page.index("function drawConvo("):page.index("function exchange(")]
+    assert '$("ask").hidden = false;\n  light();\n}' in convo
     closed = page[page.index('case "case_closed":'):page.index('case "pulled":')]
     assert "case-status" not in closed and 'talk("quiet", fresh, e.text)' in closed
     fresh = page[page.index("function reset()"):page.index("async function retell()")]
