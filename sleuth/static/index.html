@@ -256,6 +256,10 @@ select, input[type="text"], input[type="search"] {
 .coach[data-side="right"]::before { left: -7px; top: calc(var(--arrow) - 6px); }
 .coach[data-side="bottom"], .coach[data-side="top"] { top: auto; left: auto; right: 1rem; bottom: 1rem; }
 .coach[data-side="bottom"]::before, .coach[data-side="top"]::before { display: none; }
+/* The page under a step card is dimmed and closed, apart from a cutout around what the step needs. */
+.mask { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+.mask svg { display: block; width: 100%; height: 100%; }
+.mask path { fill: rgb(20 28 30 / .55); fill-rule: evenodd; pointer-events: auto; }
 .lit { outline: 3px solid #f0c45a; outline-offset: 2px; box-shadow: 0 0 0 6px rgb(240 196 90 / .3); }
 .person.lit { outline-offset: -3px; box-shadow: inset 0 0 0 6px rgb(240 196 90 / .3); }
 @media (prefers-reduced-motion: no-preference) {
@@ -414,6 +418,7 @@ select, input[type="text"], input[type="search"] {
   </aside>
 </div>
 
+<div class="mask" id="mask" hidden><svg aria-hidden="true"><path id="mask-path"/></svg></div>
 <section class="tut coach" id="coach" aria-labelledby="coach-tag" hidden>
   <p class="tut-tag"><span id="coach-tag">Tutorial</span> · <span id="coach-count"></span></p>
   <div aria-live="polite"><b id="coach-step"></b><p id="coach-why"></p></div>
@@ -652,6 +657,7 @@ function light() {
     : s.action === "publish" && !$("publish").hidden ? publishNext()
     : $(ACTION_BUTTON[s.action]);
   $("coach").hidden = !s || $("intro").open || $("handoff").open;
+  $("mask").hidden = $("coach").hidden;
   if (!$("coach").hidden) target?.classList.add("lit");
   if (!s) {
     document.body.style.paddingBottom = "";
@@ -674,7 +680,7 @@ function placeCoach() {
   const card = $("coach");
   const target = document.querySelector(".lit");
   if (card.hidden) return;
-  const t = target?.getBoundingClientRect();
+  const t = cutout(target);
   const c = card.getBoundingClientRect();
   const w = innerWidth, h = innerHeight;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
@@ -714,6 +720,25 @@ function placeCoach() {
   card.style.setProperty("--arrow", `${best.arrow}px`);
 }
 
+// The step's target, padded, as a hole in the mask; the mask blocks clicks everywhere else.
+const PAD = 6;
+const ROUND = 10;
+function cutout(target) {
+  const r = target?.getBoundingClientRect();
+  const t = r?.width ? { left: r.left - PAD, top: r.top - PAD, right: r.right + PAD, bottom: r.bottom + PAD } : null;
+  if (t) Object.assign(t, { width: t.right - t.left, height: t.bottom - t.top });
+  $("mask").hidden = !t;
+  $("mask-path").setAttribute("d", `M0 0H${innerWidth}V${innerHeight}H0Z${t ? hole(t) : ""}`);
+  return t;
+}
+
+function hole({ left, top, right, bottom, width, height }) {
+  const r = Math.min(ROUND, width / 2, height / 2);
+  const arc = (x, y) => `A${r} ${r} 0 0 1 ${x} ${y}`;
+  return `M${left + r} ${top}H${right - r}${arc(right, top + r)}V${bottom - r}${arc(right - r, bottom)}`
+    + `H${left + r}${arc(left, bottom - r)}V${top + r}${arc(left + r, top)}Z`;
+}
+
 let placing = 0;
 function placeSoon() {
   cancelAnimationFrame(placing);
@@ -721,6 +746,7 @@ function placeSoon() {
 }
 addEventListener("scroll", placeSoon, true);
 addEventListener("resize", placeSoon);
+new ResizeObserver(placeSoon).observe(document.body);
 
 // With the publish form open: the culprit choice until one is picked, then the publish button.
 function publishNext() {

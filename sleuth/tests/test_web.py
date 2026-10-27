@@ -247,6 +247,20 @@ def test_the_tutorial_is_an_overlay_apart_from_the_game_and_the_page_starts_clea
         assert gone not in game_ui, gone
     lit = page[page.index("function light()"):page.index("function placeCoach()")]
     assert '$("coach").hidden = !s || $("intro").open || $("handoff").open;' in lit
+    assert '$("mask").hidden = $("coach").hidden;' in lit
+
+
+def test_a_step_card_dims_the_page_and_closes_it_but_for_a_cutout_around_the_target(game):
+    page = game.client.get("/").text
+    layer = page[page.index('<div class="mask" id="mask"'):page.index('<section class="tut coach"')]
+    assert 'hidden><svg aria-hidden="true"><path id="mask-path"/></svg></div>' in layer
+    style = page[page.index(".mask {"):page.index(".lit {")]
+    assert "z-index: 4" in style and "pointer-events: none" in style
+    assert "fill-rule: evenodd; pointer-events: auto;" in style
+    cut = page[page.index("function cutout("):page.index("let placing")]
+    assert "$(\"mask-path\").setAttribute(\"d\", `M0 0H${innerWidth}V${innerHeight}H0Z${t ? hole(t) : \"\"}`);" in cut
+    assert '$("mask").hidden = !t;' in cut
+    assert "new ResizeObserver(placeSoon)" in page
     closed = page[page.index('case "case_closed":'):page.index('case "pulled":')]
     assert "case-status" not in closed and 'talk("quiet", fresh, e.text)' in closed
     fresh = page[page.index("function reset()"):page.index("async function retell()")]
