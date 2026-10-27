@@ -765,27 +765,13 @@ function setSteps(list) {
   drawWhere();
 }
 
-// A step this checklist ticks, as a beat on what it turned up: the reply to a conversation, the row of someone just
-// described, the notebook after a search.
+// A step this checklist ticks, as its beat on what it turned up: the reply to a conversation, the row of someone just
+// named, the notebook after a search.
 function beatFrom(list) {
-  const found = list.findIndex((n, i) => n.action === "search" && n.done && steps && !steps[i]?.done);
-  if (found >= 0) {
-    beat = { i: found, book: true,
-      text: "The search turned up a clue. It's in your notebook now, with everything you've learned so far." };
-    return;
-  }
-  const i = list.findIndex((n, i) => n.person && n.done && steps && !steps[i]?.done);
+  const i = list.findIndex((n, i) => n.beat && n.done && steps && !steps[i]?.done);
   if (i < 0) return;
   const s = list[i];
-  const who = residents.find((v) => v.id === (s.about || s.person));
-  const name = who?.name || "They";
-  // A look the player just learned, so searching it finds someone.
-  const look = who?.looks.split(", ").filter((w) => !/^(with|in) /.test(w)).at(-1);
-  beat = { i, person: s.person, about: s.about, text: s.about
-    ? `Now you know how ${name} looks. Search for a look${look ? `, like "${look}",` : ""} to see who matches what you know.`
-    : s.person === caseNow?.victim
-    ? `${name} told you what they found. Anything useful goes into your notebook.`
-    : `That's your first clue: what ${name} saw. Match it against people's looks.` };
+  beat = { i, person: s.person, about: s.about, book: s.action === "search", text: s.beat };
 }
 
 // Back and Next turn through the pages seen, never undoing anything; Next on a live beat moves on to the next step.
@@ -873,7 +859,7 @@ function step() {
 
 // Ring what the current step needs: its person, then the question box once they are picked, else its button here, else
 // the way to its place; the tutorial card points at it. The cutout is the ring's, with the open place list, or the whole
-// conversation or composer, or the search box above someone just described.
+// conversation or composer.
 const ACTION_BUTTON = { pull: "pull-here", search: "search-here", publish: "publish-open" };
 let hole = [];
 function light() {
@@ -891,8 +877,7 @@ function light() {
     : s.place && s.place !== here ? $("here")
     : s.action === "publish" && !$("publish").hidden ? publishNext()
     : $(ACTION_BUTTON[s.action]);
-  hole = !target ? [] : past === CASE_PAGE ? [target, $("case-text")] : beat?.about && !past ? [target, $("find")]
-    : past || beat ? [target] : talking ? [$("convo")] : target === $("culprit") ? [$("publish")]
+  hole = !target ? [] : past === CASE_PAGE ? [target, $("case-text")] : past || beat ? [target] : talking ? [$("convo")] : target === $("culprit") ? [$("publish")]
     : target === $("publish-send") ? [$("publish"), $("send")]
     : target === $("here") ? [target, $("place-list")] : [target];
   watch.disconnect();

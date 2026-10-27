@@ -286,7 +286,6 @@ def test_the_cutout_opens_on_the_conversation_and_the_composer_when_the_step_nee
     assert 'talking ? [$("convo")] : target === $("culprit") ? [$("publish")]' in lit
     assert 'target === $("publish-send") ? [$("publish"), $("send")]' in lit
     assert 'target === $("here") ? [target, $("place-list")]' in lit
-    assert 'beat?.about && !past ? [target, $("find")]' in lit
     convo = page[page.index("function drawConvo("):page.index("function exchange(")]
     assert '$("ask").hidden = false;\n  light();\n}' in convo
 
@@ -314,9 +313,8 @@ def test_a_conversation_step_that_ticks_shows_the_reply_before_the_next_step(gam
     coach = page[page.index('<section class="tut coach" id="coach"'):page.index("<script>")]
     assert '<button type="button" class="tut-go" id="coach-next" hidden>Next</button>' in coach
     beat = page[page.index("function beatFrom("):page.index("// The checklist's current step")]
-    assert "const i = list.findIndex((n, i) => n.person && n.done && steps && !steps[i]?.done);" in beat
-    assert "told you what they found. Anything useful goes into your notebook." in beat
-    assert "That's your first clue: what ${name} saw. Match it against people's looks." in beat
+    assert "const i = list.findIndex((n, i) => n.beat && n.done && steps && !steps[i]?.done);" in beat
+    assert "text: s.beat" in beat
     assert "else if (by > 0 && beat) beat = null;" in beat
     lit = page[page.index("function light()"):page.index("function placeCoach()")]
     assert '$("thread").lastElementChild' in lit and "beat ? [target]" in lit
@@ -812,7 +810,7 @@ def test_page_is_built_around_the_case(game):
 
 def test_page_draws_learned_looks_and_a_silhouette(game):
     page = game.client.get("/").text
-    for s in ('case "known":', "function silhouette(", "JSON.stringify(v.face)", "Now you know how ${name} looks."):
+    for s in ('case "known":', "function silhouette(", "JSON.stringify(v.face)"):
         assert s in page
     assert "traits_text" not in page
 
@@ -883,17 +881,16 @@ def test_search_and_pull_show_only_while_they_can_be_used(game):
 def test_a_search_that_ticks_its_step_shows_the_notebook_before_the_next_step(game):
     page = game.client.get("/").text
     beat = page[page.index("function beatFrom("):page.index("// The checklist's current step")]
-    assert 'n.action === "search" && n.done && steps && !steps[i]?.done' in beat
-    assert "beat = { i: found, book: true," in beat
+    assert 'book: s.action === "search"' in beat
     lit = page[page.index("function light()"):page.index("function placeCoach()")]
     assert 'const reply = beat?.book ? $("book")' in lit
 
 
-def test_the_described_beat_suggests_a_look_the_player_learned(game):
+def test_the_described_beat_rings_the_row_of_who_was_named(game):
     page = game.client.get("/").text
-    beat = page[page.index("function beatFrom("):page.index("// Back and Next turn")]
-    assert '"red-haired"' not in beat
-    assert '.looks.split(", ").filter((w) => !/^(with|in) /.test(w)).at(-1)' in beat
+    lit = page[page.index("function light()"):page.index("function placeCoach()")]
+    assert ': beat?.about ? $("people").querySelector(`[data-id="${CSS.escape(beat.about)}"]`) || $("people")' in lit
+    assert "$(\"find\")]" not in lit
 
 
 def test_the_handoff_button_says_explore_when_the_town_has_no_case(game):
