@@ -6,6 +6,7 @@ from sleuth.case import ITEM_PLACES, TEMPLATES, suspects
 from sleuth.config import Config
 from sleuth.episode import holds
 from sleuth.lineage import Ids
+from sleuth.player import acquainted
 from sleuth.players import Players
 from sleuth.town import PUBLIC_PLACES, STREETS
 from sleuth.traits import TRAITS
@@ -43,6 +44,16 @@ def test_only_the_witness_and_the_clue_together_narrow_it_to_the_culprit():
     assert suspects(crime, list(file.records.values()), p.town) == {crime.culprit}
     assert holds(crime, crime.culprit, p.town.looks(crime.culprit, 1), [memory, clue])
     assert not holds(crime, "t4", p.town.looks("t4", 1), [memory])
+
+
+def test_cal_is_the_only_one_the_victim_knows_who_matches_the_sighting():
+    p = practice()
+    file = case(p)
+    [memory] = kinds(file, "memory")
+    victim = p.town.get(file.crime.victim)
+    known = [v.id for v in p.town.villagers if acquainted(victim, v)
+             and memory.traits.items() <= p.town.looks(v.id, 1).items()]
+    assert known == [file.crime.culprit] == ["t5"]
 
 
 def test_the_practice_town_keeps_the_town_s_rules():

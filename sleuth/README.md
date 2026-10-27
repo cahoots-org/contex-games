@@ -35,8 +35,8 @@ name Cal. The practice town's clock stands still, nobody there talks, hears or w
 apart from the real town's. Each question still costs at most one Jev call and one Haiku call.
 
 A checklist in the case header walks the podcaster through it: ask the victim what happened, ask the witness what they
-saw, find out how people look (talk to anyone else, or ask someone to describe a person they know), search the
-scene, and publish. Each step says why under it. The game ticks each step from what they have actually
+saw, ask the victim who they know that matches the sighting (only Cal), talk to Cal to see what he's wearing, search
+the scene, and publish. Each step says why under it. The game ticks each step from what they have actually
 done and lights the person or button the current step needs. Town talk and photos stay hidden and the notebook appears with its
 first entry. Publishing, right or wrong (a wrong episode is told who it was), or Skip this case closes the
 practice case and moves the podcaster into the real town: new people, a clean notebook and feed, and the town's open

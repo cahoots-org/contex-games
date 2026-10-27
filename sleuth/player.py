@@ -282,32 +282,37 @@ class Player:
         self.engine.cases.brief(self.feed, self.id, self._today())
 
     def steps(self) -> list[dict] | None:
-        """The practice case's checklist, each step with why it matters, done or not, and the person or action it
-        needs; None off it."""
+        """The practice case's checklist, each step with why it matters, done or not, the person or action it needs
+        and the beat on what it turned up; None off it."""
         file = self.engine.cases.private(self.id) if self.practising else None
         if file is None:
             return None
         crime = file.crime
-        witness = self.town.get(next(r.holder for r in file.records.values() if r.kind == "memory"))
-        victim = self.town.get(crime.victim)
-        known = next(v for v in self.town.villagers
-                     if v.id not in (crime.victim, crime.culprit, witness.id) and acquainted(victim, v))
-        victim = victim.name
+        memory = next(r for r in file.records.values() if r.kind == "memory")
+        witness, culprit = self.town.get(memory.holder).name, self.town.get(crime.culprit).name
+        victim = self.town.get(crime.victim).name
         when = "at night" if crime.phase == "night" else f"in the {crime.phase}"
         return [
             {"text": f"Ask {victim}, the victim, what happened", "why": f"{victim} reported it. Ask what happened.",
-             "done": crime.victim in self.threads, "person": crime.victim},
-            {"text": f"Ask {witness.name} what they saw",
-             "why": f"{witness.name} is usually {at(crime.place)} {when}, when it happened. "
+             "done": crime.victim in self.threads, "person": crime.victim,
+             "beat": f"{victim} told you what they found. Anything useful goes into your notebook."},
+            {"text": f"Ask {witness} what they saw",
+             "why": f"{witness} is usually {at(crime.place)} {when}, when it happened. "
                     "People nearby may have seen something.",
-             "done": any(r.kind == "memory" for r in self.notebook.values()), "person": witness.id},
-            {"text": f"Ask {victim} what {known.name} looks like",
-             "why": "Witnesses describe looks, not names. People can describe others they know.",
-             "done": any(e["how"] == "described" for e in self.known.get(known.id, [])),
-             "person": crime.victim, "about": known.id},
+             "done": any(r.kind == "memory" for r in self.notebook.values()), "person": memory.holder,
+             "beat": f"That's your first clue: what {witness} saw. Now find who matches it."},
+            {"text": f"Ask {victim} who they know that's {' and '.join(memory.traits.values())}",
+             "why": f"{witness} saw looks, not a name. People can tell you who they know that matches.",
+             "done": any(e["how"] == "described" for e in self.known.get(crime.culprit, [])),
+             "person": crime.victim, "about": crime.culprit,
+             "beat": f"{victim} named {culprit}. Their row now shows how they look."},
+            {"text": f"Talk to {culprit}", "why": "Meet them yourself to see what they're wearing.",
+             "done": crime.culprit in self.threads, "person": crime.culprit,
+             "beat": f"Now you've seen what {culprit} is wearing today."},
             {"text": f"Search the scene {at(crime.place)}",
              "why": "The culprit may have left something behind. Search where it happened.",
-             "done": crime.id in self.searched, "action": "search", "place": crime.place},
+             "done": crime.id in self.searched, "action": "search", "place": crime.place,
+             "beat": "The search turned up a clue. It's in your notebook now, with everything you've learned so far."},
             {"text": "Publish an episode naming who did it",
              "why": "Name who the evidence points to, and cite what backs it. Only cite what you can trust: a lie in "
                     "your evidence sinks the episode.",
