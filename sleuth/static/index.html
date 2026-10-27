@@ -631,8 +631,11 @@ function drawWhere() {
   const key = [here, scene, ...places].join("|");
   if (key !== whereKey) {
     whereKey = key;
-    $("here").replaceChildren(...places.map((p) => el("option", { value: p,
-      textContent: atPlace(p).replace(/^./, (c) => c.toUpperCase()) + (p === scene ? " (the scene)" : "") })));
+    const option = (p) => el("option", { value: p, textContent: atPlace(p).replace(/^./, (c) => c.toUpperCase()) });
+    const town = places.filter((p) => p !== scene).map(option);
+    $("here").replaceChildren(...(scene && places.includes(scene)
+      ? [el("optgroup", { label: "Where it happened" }, option(scene)), el("optgroup", { label: "Around town" }, ...town)]
+      : town));
     $("here").value = here;
   }
   light();
