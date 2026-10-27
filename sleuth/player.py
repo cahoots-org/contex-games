@@ -220,20 +220,20 @@ class Player:
         self.handoff = None
 
     def _graduate(self, file: CaseFile, solved_by: str | None, line: str = "", handoff: dict | None = None) -> None:
-        """Close the practice case with its closing line and move into the real town: back where they were after a
-        replay, else with a clean notebook and feed, told its open case and handed off."""
+        """Close the practice case with its closing line and move into the real town, handed off: back where they were
+        after a replay, else with a clean notebook and feed, told its open case."""
         self.engine.cases.close(file, solved_by)
         self.feed.on_case_closed(file.crime.id, line, player=self.id)
         self.engine, self.town, self.game = self._real
         self._real = None
         self.feed.practising.discard(self.id)
+        self.handoff = handoff
         if (run := self._town_run) is not None:
             self._town_run = None
             self.feed.forget(self.id, since=run["since"])
             self._resume(run)
             return
         self.engine.players.onboarded.add(self.owner)
-        self.handoff = handoff
         self.notebook, self.threads, self.searched, self._talked = {}, {}, [], {}
         self.place = START_PLACE
         self.feed.forget(self.id)

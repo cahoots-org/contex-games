@@ -1060,7 +1060,7 @@ async def in_town_with_progress():
 
 @pytest.mark.parametrize("close", ["skip", "publish"])
 @pytest.mark.asyncio
-async def test_replaying_the_first_case_starts_it_fresh_and_gives_the_town_back(close):
+async def test_replaying_the_first_case_starts_it_fresh_and_gives_the_town_back_with_a_handoff(close):
     player, file, engine = await in_town_with_progress()
     before = json.loads(json.dumps(player.to_state()))
     events = [e.id for e in player.feed.replay(PID)]
@@ -1072,7 +1072,8 @@ async def test_replaying_the_first_case_starts_it_fresh_and_gives_the_town_back(
     else:
         await player.publish("t5", await solve(player))
     after = json.loads(json.dumps(player.to_state()))
-    assert not player.practising and player.engine is engine and player.handoff is None
+    assert not player.practising and player.engine is engine
+    assert player.handoff["head"] == (None if close == "skip" else "Case closed.")
     assert {k: after[k] for k in ("place", "notebook", "threads", "searched")} == \
         {k: before[k] for k in ("place", "notebook", "threads", "searched")}
     assert [e.id for e in player.feed.replay(PID)][:len(events)] == events and file.state == "open"
