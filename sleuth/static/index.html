@@ -796,6 +796,19 @@ function turn(by) {
 }
 $("coach-back").addEventListener("click", () => turn(-1));
 $("coach-next").addEventListener("click", () => turn(1));
+// A click on the dimmed page while the card shows a page to read, like the case or a reply, moves on to the live step
+// and goes through to what that step rings if it landed there.
+$("mask-path").addEventListener("click", async (ev) => {
+  if ($("coach-next").hidden) return;
+  const turned = back;
+  back = 0;
+  beat = null;
+  light();
+  if (turned) await showConvo(null);
+  await new Promise(requestAnimationFrame);
+  const under = document.elementFromPoint(ev.clientX, ev.clientY);
+  if (under && under !== $("mask-path")) under.click();
+});
 
 // The conversation open on the live page, put back when Next returns to it; a past reply page opens its own.
 let liveConvo = null;
