@@ -838,7 +838,7 @@ function step() {
 // Ring what the current step needs: its person, then the question box once they are picked, else its button here, else
 // the way to its place; the tutorial card points at it. The cutout is the ring's, with the open place list, or the whole
 // conversation or composer.
-const ACTION_BUTTON = { pull: "pull-here", search: "search-here", publish: "publish-open" };
+const ACTION_BUTTON = { pull: "pull-here", search: "search-here", publish: "publish-open", look: "people" };
 let hole = [];
 function light() {
   for (const node of document.querySelectorAll(".lit")) node.classList.remove("lit");

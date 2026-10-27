@@ -827,17 +827,20 @@ async def test_the_checklist_walks_the_practice_case_from_victim_to_witness_to_s
     player, *_ = practising()
     steps = player.steps()
     assert [s["text"] for s in steps] == ["Ask Ruth Okafor, the victim, what happened", "Ask Tess Moreno what they saw",
-                                          "Search the scene at the library", "Publish an episode naming who did it"]
+                                          "Find out how people look", "Search the scene at the library",
+                                          "Publish an episode naming who did it"]
     assert steps[1]["why"] == ("Tess Moreno is usually at the library in the morning, when it happened. "
                                "People nearby may have seen something.")
     await ask(player, "t1", "what_happened", when="morning")
-    assert done(steps_sent(player)[-1]) == [True, False, False, False] and notebook(player, "discovery")
+    assert done(steps_sent(player)[-1]) == [True, False, False, False, False] and notebook(player, "discovery")
     await ask(player, "t3", "what_did_you_see", when="morning")
-    assert done(steps_sent(player)[-1]) == [True, True, False, False]
+    assert done(steps_sent(player)[-1]) == [True, True, False, False, False]
+    await ask(player, "t1", "what_do_they_look_like", who="t5")
+    assert done(steps_sent(player)[-1]) == [True, True, True, False, False]
     assert player.search() == "There's nothing to search for here."
     player.walk("library")
     assert player.search() is None
-    assert done(steps_sent(player)[-1]) == [True, True, True, False]
+    assert done(steps_sent(player)[-1]) == [True, True, True, True, False]
     assert all(e.player == PID for e in player.feed.recent)
 
 
@@ -1156,3 +1159,34 @@ def test_known_keeps_the_newest_few_and_says_how_each_was_learned():
     assert player.person("v1")["how"] == f"{first} described, day {KNOWN_KEPT + 2}"
     assert learned({"how": "photo", "by": None, "day": 2}, player.town) == "in a photo, day 2"
     assert player.person("v2") == {**player.person("v2"), "looks": "", "how": "", "face": None}
+
+
+@pytest.mark.asyncio
+async def test_a_resident_describes_someone_they_know():
+    player, *_ = practising()
+    await ask(player, "t1", "what_do_they_look_like", who="t5")
+    [said] = notebook(player)
+    assert said.text == "Ruth Okafor says Cal Hughes is tall, red-haired, with a red pickup."
+    assert said.traits == {"height": "tall", "hair": "red-haired", "car": "red pickup"}
+    assert (said.who, said.holder, said.sound) == ("t5", "t1", True)
+    assert (player.known["t5"][-1]["how"], player.known["t5"][-1]["by"]) == ("described", "t1")
+    assert player.person("t5")["how"] == "Ruth described, day 1"
+
+
+@pytest.mark.asyncio
+async def test_a_stranger_cannot_describe_them():
+    player, *_ = practising()
+    await ask(player, "t3", "what_do_they_look_like", who="t6")
+    assert notebook(player) == [] and "t6" not in player.known
+
+
+@pytest.mark.asyncio
+async def test_the_first_case_asks_to_learn_how_people_look():
+    player, *_ = practising()
+    steps = player.steps()
+    assert [s["text"] for s in steps][2] == "Find out how people look" and not steps[2]["done"]
+    await ask(player, "t1", "what_happened", when="morning")
+    await ask(player, "t3", "what_did_you_see", when="morning")
+    assert not player.steps()[2]["done"]
+    await ask(player, "t2", "none")
+    assert player.steps()[2]["done"]

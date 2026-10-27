@@ -35,7 +35,8 @@ name Cal. The practice town's clock stands still, nobody there talks, hears or w
 apart from the real town's. Each question still costs at most one Jev call and one Haiku call.
 
 A checklist in the case header walks the podcaster through it: ask the victim what happened, ask the witness what they
-saw, search the scene, and publish. Each step says why under it. The game ticks each step from what they have actually
+saw, find out how people look (talk to anyone else, or ask someone to describe a person they know), search the
+scene, and publish. Each step says why under it. The game ticks each step from what they have actually
 done and lights the person or button the current step needs. Town talk stays hidden and the notebook appears with its
 first entry. Publishing, right or wrong (a wrong episode is told who it was), or Skip this case closes the
 practice case and moves the podcaster into the real town: new people, a clean notebook and feed, and the town's open
@@ -51,7 +52,7 @@ saved with the game and picks up where they left off.
 | clip | a camera at the grocery, bar, town hall or elm street catches the culprit's height and what they wore then, at the exact minute |
 | log | a gym check-in, bar tab, grocery receipt or library checkout puts a named resident somewhere; a dropped receipt's time is matched by the grocery's log, which names who paid |
 | clue | left at the crime place: a boot print, coat thread or tracks showing one of the culprit's traits, or a grocery receipt dropped by the culprit or someone who was there, showing only the store and the time |
-| statement | what a resident tells you in an interview: where they or someone else were, what they heard, who'd have a reason |
+| statement | what a resident tells you in an interview: where they or someone else were, what they heard, who'd have a reason, how someone they know looks |
 
 Statements can be lies: a culprit expected elsewhere gives a false alibi, and a housemate may cover for them. About
 a third of the time the culprit is a regular at the scene, whose word on where they were is true; traits, clues and
@@ -61,7 +62,8 @@ records catch them instead.
 in your own words, like "Where were you last night?". Each resident keeps one conversation with you, which you can
 reopen from their card. Jev reads the question
 with the conversation so far and routes it to where the resident was, where someone else was, what they saw, who
-they heard something from, who'd have a reason (a feud or grudge with the victim), or what they think of someone.
+they heard something from, who'd have a reason (a feud or grudge with the victim), what they think of someone,
+or what someone looks like (only from someone who knows them).
 The game answers from what that resident knows and adds anything new to your notebook; Haiku only phrases the
 reply. A question the game can't answer, or one the resident knows nothing about, gets "I wouldn't know about that."
 You can ask each resident 4 questions a part of the day, then they'd rather talk later. Every question tells the

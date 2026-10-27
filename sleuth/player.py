@@ -19,7 +19,7 @@ from sleuth.interview import Route, exchanges, route
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
 from sleuth.town import PLACES, START_PLACE, Town, at, neighbours
-from sleuth.traits import IN_PERSON, TRAITS, describe, face
+from sleuth.traits import BY_WORD, IN_PERSON, TRAITS, describe, face
 from sleuth.tutorial import Practice
 from sleuth.usage import charging
 from sleuth.writer import invents, strangers
@@ -126,6 +126,11 @@ def learned(entry: dict, town: Town) -> str:
     else:
         how = "in a photo"
     return f"{how}, day {entry['day']}"
+
+
+def acquainted(speaker: Villager, about: Villager) -> bool:
+    """Whether speaker knows about well enough to describe them: a tie, or a shared household."""
+    return about.id in speaker.relationships or bool(speaker.household and speaker.household == about.household)
 
 
 class Refusal(str):
@@ -275,6 +280,10 @@ class Player:
              "why": f"{witness.name} is usually {at(crime.place)} {when}, when it happened. "
                     "People nearby may have seen something.",
              "done": any(r.kind == "memory" for r in self.notebook.values()), "person": witness.id},
+            {"text": "Find out how people look",
+             "why": "Witnesses see looks, not names. Talking to someone shows how they look today, and people can "
+                    "describe those they know.",
+             "done": any(v not in (crime.victim, witness.id) for v in self.known), "action": "look"},
             {"text": f"Search the scene {at(crime.place)}",
              "why": "The culprit may have left something behind. Search where it happened.",
              "done": crime.id in self.searched, "action": "search", "place": crime.place},
@@ -479,6 +488,13 @@ class Player:
             tie = villager.relationships.get(about.id) or ("housemate" if mates else None)
             feeling = warmth_words(villager.warmth.get(about.id, 0.0))
             return [], [f"{about.name} is my {tie}, and we are on {feeling} terms."] if tie else []
+        if kind == "what_do_they_look_like" and about and acquainted(villager, about):
+            day = self.game.day if self.game else 0
+            looks = {c: v for c, v in self.town.looks(about.id, day).items() if c in BY_WORD}
+            said = self._statement(file, vid, f"{name} says {about.name} is {describe(looks)}.", True, who=about.id)
+            said.traits = looks
+            self.learn(about.id, looks, "described", by=vid)
+            return [said], []
         return [], []
 
     def _seen(self, file: CaseFile, vid: str) -> list[Record]:

@@ -21,6 +21,7 @@ KINDS = {
     "who_had_reason": 'who would have a reason to do it, like a grudge or a feud with the victim, as in "Any idea '
                       'who may have taken it?"',
     "what_do_you_think_of": "what this resident thinks of someone",
+    "what_do_they_look_like": 'what someone else looks like, as in "What does Cal look like?"',
     "none": "none of these",
 }
 # How many earlier exchanges Jev and Haiku see.
