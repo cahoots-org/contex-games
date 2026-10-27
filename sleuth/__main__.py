@@ -105,6 +105,7 @@ async def play() -> None:
             for sig in SIGNALS:
                 loop.add_signal_handler(sig, stop, save, main_task)
             engine.cases.dress(game.day)
+            await engine.cases.ensure(engine, game.time())
             await engine.run()
             host, port = config.address()
             app = create_app(

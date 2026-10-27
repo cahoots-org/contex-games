@@ -19,13 +19,15 @@ log = logging.getLogger(__name__)
 
 APP = "The neighborhood app"
 COLD = "The case went cold. It was {name}."
+# How many crimes are drawn in one go for a solvable one.
+DRAWS = 10
 
 
 @dataclass
 class CaseFile:
     crime: Crime
     records: dict[str, Record]
-    state: str  # "setup" | "open" | "closed"
+    state: str  # "open" | "closed"
     opened: float = 0.0  # game time (day + phase index / 4) the news broke
     roots: dict[str, str] = field(default_factory=dict)  # utterance id → "news" | "memory" | "cover" | "episode"
     alibi: list[str] | None = None
@@ -57,21 +59,23 @@ class Cases:
         self.rng = rng
         self.ids = ids
         self.files: dict[str, CaseFile] = {}
-        self.last_closed = -math.inf
         # Game time (day + phase index / 4) of the last tick.
         self.now = 0.0
+        # Everyone's whereabouts through the part of the day the last tick finished.
+        self.finished: dict[str, list[str]] | None = None
 
     def to_state(self) -> dict:
-        """Every case file and when the last shared case closed, as plain JSON."""
-        return {"files": [asdict(f) for f in self.files.values()], "last_closed": self.last_closed}
+        """Every case file as plain JSON."""
+        return {"files": [asdict(f) for f in self.files.values()]}
 
     def restore(self, state: dict) -> None:
-        """Replace the case files with a saved state."""
+        """Replace the case files with a saved state, leaving out cases saved before they opened."""
         self.files = {}
         for f in state["files"]:
+            if f["state"] == "setup":
+                continue
             records = {k: Record(**r) for k, r in f["records"].items()}
             self.files[f["crime"]["id"]] = CaseFile(**{**f, "crime": Crime(**f["crime"]), "records": records})
-        self.last_closed = state["last_closed"]
 
     def shared(self) -> CaseFile | None:
         return next((f for f in self.files.values() if f.state != "closed" and f.crime.owner is None), None)
@@ -84,10 +88,6 @@ class Cases:
         """The player's private open case, otherwise the shared open case."""
         return self.private(player_id) or next(
             (f for f in self.files.values() if f.state == "open" and f.crime.owner is None), None)
-
-    def busy(self) -> set[str]:
-        """Culprits of cases still being set up, who stay at the crime place."""
-        return {f.crime.culprit for f in self.files.values() if f.state == "setup"}
 
     def culprit_case(self, vid: str) -> CaseFile | None:
         return next((f for f in self.files.values() if f.state != "closed" and f.crime.culprit == vid), None)
@@ -121,9 +121,8 @@ class Cases:
         return f"{name} has never liked {victim.name.split()[0]}. I'd ask where they were {WHEN}."
 
     def close(self, file: CaseFile, solved_by: str | None) -> None:
-        """Close a case, solved or not; the next crime waits crime_every_days from now."""
+        """Close a case, solved or not."""
         file.state, file.solved_by = "closed", solved_by
-        self.last_closed = self.now
 
     def brief(self, feed, player_id: str, today: float | None) -> None:
         """Tell a player just off the practice case the town's open case and, unless the feed still replays it, its
@@ -152,7 +151,7 @@ class Cases:
                 if f.state != "closed" and (f.crime.day, f.crime.phase) == (day, phase)}
 
     def cautious(self, day: int) -> dict[str, str]:
-        """The crime-day outfit of each open or setup case's culprit, which they won't wear on later days."""
+        """The crime-day outfit of each open case's culprit, which they won't wear on later days."""
         worn = {f.crime.culprit: self.town.outfit(f.crime.culprit, f.crime.day) for f in self.files.values()
                 if f.state != "closed" and f.crime.day < day}
         return {vid: coat for vid, coat in worn.items() if coat}
@@ -161,69 +160,72 @@ class Cases:
         """Dress the town for day, culprits avoiding their crime's outfit."""
         self.town.dress(day, self.rng, self.cautious(day), math.ceil(self.config.case_days) + 2)
 
-    async def on_tick(self, engine, day: int, phase: str, finished: dict[str, list[str]], playing: bool) -> None:
-        """Dress the town, finish setup cases, let old ones go cold, and stage a crime when it is time."""
+    async def on_tick(self, engine, day: int, phase: str, finished: dict[str, list[str]]) -> None:
+        """Dress the town, let old cases go cold, and open a new shared case when none is open."""
         self.dress(day)
         now = self.now = day + PHASES.index(phase) / len(PHASES)
-        for case in [f for f in self.files.values() if f.state == "setup"]:
-            try:
-                await self._finish(engine, case, finished, now)
-            except Exception:
-                log.exception("finishing %s failed", case.crime.id)
-                self._drop(case, now)
+        self.finished = finished
         for case in [f for f in self.files.values() if f.state == "open"]:
             if now - case.opened >= self.config.case_days:
                 self.close(case, None)
                 cold = COLD.format(name=self.town.name_of(case.crime.culprit))
                 engine.feed.on_case_closed(case.crime.id, cold)
-        if playing and self.shared() is None and now - self.last_closed >= self.config.crime_every_days:
-            self._stage(day, phase)
+        await self.ensure(engine)
+
+    async def ensure(self, engine, now: float | None = None) -> None:
+        """Open a shared case set in the part of the day just finished, unless one is open; now is the game time, else
+        the last tick's. Up to DRAWS crimes are drawn for one that is solvable."""
+        if now is not None:
+            self.now = now
+        if self.shared() is not None:
+            return
+        before = self.now - 1 / len(PHASES)
+        day, phase = math.floor(before), PHASES[int(before % 1 * len(PHASES))]
+        for _ in range(DRAWS):
+            crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"),
+                                exclude=self._involved())
+            if crime is None:
+                return
+            try:
+                if await self._open(engine, crime):
+                    return
+            except Exception:
+                log.exception("opening %s failed", crime.id)
+                self.files.pop(crime.id, None)
 
     def _involved(self) -> set[str]:
         """The culprits and victims of every case not yet closed."""
         return {vid for f in self.files.values() if f.state != "closed" for vid in (f.crime.culprit, f.crime.victim)}
 
-    async def _finish(self, engine, case: CaseFile, finished: dict[str, list[str]], now: float) -> None:
-        """Add the phase's logs, then open the case and tell its witnesses and victim what they saw and found if it is
-        solvable, and drop it if not."""
-        crime = case.crime
-        case.whereabouts = dict(finished)
-        for r in logs(crime, finished, self.town, self.rng, self.ids):
-            case.records[r.id] = r
-        added = make_solvable(crime, list(case.records.values()), self.town, self.routine, self.rng, self.ids)
+    async def _open(self, engine, crime: Crime) -> bool:
+        """Leave the crime's evidence and, if it narrows to the culprit, open the case: tell its witnesses and victim
+        what they saw and found, and post the news. False if it cannot be made solvable."""
+        self.dress(crime.day)
+        whereabouts = dict(self.finished or {v.id: [p] for v in self.town.villagers
+                                             if (p := self.routine.place(v.id, crime.phase))})
+        whereabouts[crime.culprit] = [crime.place]
+        clip = camera_clip(crime, self.town, self.ids)
+        records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids),
+                   *scene_clues(crime, self.town, self.routine, self.rng, self.ids), *([clip] if clip else []),
+                   *logs(crime, whereabouts, self.town, self.rng, self.ids)]
+        added = make_solvable(crime, records, self.town, self.routine, self.rng, self.ids)
         if added is None:
-            self._drop(case, now)
-            return
-        for m in [*added, discovery(crime, self.town, self.rng, self.ids)]:
-            case.records[m.id] = m
-        for m in case.records.values():
+            return False
+        records += [*added, discovery(crime, self.town, self.rng, self.ids)]
+        case = self.files[crime.id] = CaseFile(crime, {r.id: r for r in records}, "open", opened=self.now,
+                                               whereabouts=whereabouts)
+        for m in records:
             if m.kind in ("memory", "discovery"):
                 await self._remember(engine, case, m)
-        case.state, case.opened = "open", now
-        news = Utterance(self.ids.next("u"), "app", APP, crime.place, told(crime.text, crime, now), None, "posted")
+        news = Utterance(self.ids.next("u"), "app", APP, crime.place, told(crime.text, crime, self.now), None, "posted")
         victim = self.town.get(crime.victim)
         hearers = [victim.id, *(v.id for v in self.town.villagers if v.household == victim.household),
                    *(v.id for v in self.town.present(crime.place))]
         case.roots[news.id] = "news"
         await engine.deliver(news, list(dict.fromkeys(hearers)))
-        engine.feed.on_case(case_json(case, self.town, self.routine, now))
+        engine.feed.on_case(case_json(case, self.town, self.routine, self.now))
         engine.feed.on_post(news, crime.id)
-
-    def _drop(self, case: CaseFile, now: float) -> None:
-        """Forget a case that never opened; the next waits crime_every_days as after a close."""
-        self.files.pop(case.crime.id, None)
-        self.last_closed = now
-
-    def _stage(self, day: int, phase: str) -> None:
-        crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"),
-                            exclude=self._involved())
-        if crime is None:
-            return
-        self.town.move(crime.culprit, crime.place)
-        records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids),
-                   *scene_clues(crime, self.town, self.routine, self.rng, self.ids)]
-        clip = camera_clip(crime, self.town, self.ids)
-        self.files[crime.id] = CaseFile(crime, {r.id: r for r in [*records, *([clip] if clip else [])]}, "setup")
+        return True
 
     async def _remember(self, engine, case: CaseFile, m: Record) -> None:
         """Tell the witness what they saw, or the victim in their own words what they found, rooted in the case."""

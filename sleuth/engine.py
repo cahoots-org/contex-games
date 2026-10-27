@@ -374,7 +374,7 @@ class Engine:
             finished = self.town.new_phase()
             if self.cases is not None:
                 try:
-                    await self.cases.on_tick(self, self.game.day, self.game.phase, finished, self.players.any_playing())
+                    await self.cases.on_tick(self, self.game.day, self.game.phase, finished)
                 except Exception:
                     log.exception("cases tick failed")
             self._photograph(day, phase, finished)
@@ -418,11 +418,10 @@ class Engine:
             await self._stroll(vid, place)
 
     def _free_to_walk(self, vid: str) -> bool:
-        """Whether someone is playing and the villager is in town, free of a turn, a move of their own, or a crime
-        being set up."""
+        """Whether someone is playing and the villager is in town, free of a turn or a move of their own."""
         return self.players.any_playing() and vid in self.town and vid not in self._turning and (
             vid not in self._chose_move
-        ) and (self.cases is None or vid not in self.cases.busy())
+        )
 
     async def _stroll(self, vid: str, place: str) -> None:
         """Move the villager to place, perhaps sharing their latest news with someone there once, while it is fresh."""

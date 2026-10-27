@@ -562,17 +562,6 @@ async def test_talk_rooted_in_testimony_reaches_minds_but_not_the_feed(turns):
 
 
 @pytest.mark.asyncio
-async def test_culprit_is_not_walked_during_setup(turns):
-    engine, _, _ = await setup("v1", "v2")
-    engine.cases = Cases(Config(), engine.town, None, random.Random(1), engine.ids)
-    engine.cases.files["case-1"] = case_file("setup")
-    assert not engine._free_to_walk("v1") and engine._free_to_walk("v2")
-    engine.cases.files["case-1"].state = "open"
-    assert engine._free_to_walk("v1")
-    await engine.stop()
-
-
-@pytest.mark.asyncio
 async def test_a_resident_mid_turn_at_the_night_round_goes_home_after_it(turns, monkeypatch):
     game = Game()
     game.phase = "night"

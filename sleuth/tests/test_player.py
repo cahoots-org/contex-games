@@ -722,7 +722,6 @@ async def test_publish_right_closes_the_case_and_raises_reputation():
     ids = cite(player, file, memory_of(file, player.ids))
     assert await player.publish("v3", ids) is None
     assert (file.state, file.solved_by, file.published) == ("closed", PID, [PID])
-    assert engine.cases.last_closed == engine.cases.now
     assert all(regard(engine, v.id) == pytest.approx(player.config.reputation_right) for v in player.town.villagers)
     [(u, listeners, _)] = engine.delivered
     assert (u.speaker, u.speaker_name, u.verb) == ("podcast", "A true-crime podcast", "reported")
