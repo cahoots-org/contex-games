@@ -897,6 +897,9 @@ def test_the_page_never_waits_for_a_next_crime(game):
     page = game.client.get("/").text
     for gone in ("Waiting for the next crime", "No open case", "Things are quiet", "Explore the town"):
         assert gone not in page
+    set_case = page[page.index("function setCase(c)"):page.index("function setResting(on)")]
+    assert '$("case-title").textContent = open ? open.title : "Quiet day in town";' in set_case
+    assert '$("case-text").textContent = open ? open.text : "Something\'s bound to happen soon.";' in set_case
 
 
 def test_turning_back_to_a_reply_opens_its_conversation_and_arrows_work_page_wide(game):
