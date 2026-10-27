@@ -344,9 +344,7 @@ select, input[type="text"], input[type="search"] {
   .place-list li { min-height: 48px; padding-left: 2.5rem; }
   .thread { max-height: 60dvh; }
   .convo { padding-bottom: 2rem; }
-  .coach { width: auto; }
-  .coach[data-side="bottom"] { left: .5rem; right: .5rem; bottom: max(.5rem, env(safe-area-inset-bottom)); }
-  .coach[data-side="top"] { left: .5rem; right: .5rem; top: 60px; bottom: auto; }
+  .coach { z-index: 8; width: calc(100% - 32px); }
 }
 </style>
 </head>
@@ -905,7 +903,7 @@ function light() {
   placeSoon();
 }
 
-// Scroll a new target into view; on a phone, clear of the header and the docked card.
+// Scroll a new target into view; on a phone, clear of the header with room for the card below it.
 let shown = "";
 function bringIntoView(target) {
   const r = target.getBoundingClientRect();
@@ -914,7 +912,7 @@ function bringIntoView(target) {
 }
 
 // The tutorial card beside the cutout on the first side with room, else docked at the bottom or top clear of the
-// cutout, else clear of the ring; on a phone, always docked.
+// cutout, else clear of the ring; on a phone, below or above the cutout, held on screen pointing at it.
 const GAP = 14;
 function placeCoach() {
   const card = $("coach");
@@ -925,6 +923,10 @@ function placeCoach() {
   const w = innerWidth, h = innerHeight;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
   const meets = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+  document.body.style.paddingBottom = phone.matches ? `${c.height + 16}px` : "";
+  // On a phone the open place list is a sheet over the page, so the card points at the sheet alone.
+  const sheet = hole.includes($("place-list")) && !$("place-list").hidden && $("place-list").getBoundingClientRect();
+  if (phone.matches && t) return anchor(card, c, sheet || t);
   // A cutout outside the people column keeps the card off it, so the list stays readable.
   const column = document.querySelector(".side").getBoundingClientRect();
   const apart = !hole.some((n) => n.closest(".side"));
@@ -940,24 +942,38 @@ function placeCoach() {
     return { side, left, top, fits, arrow: clamp(arrow, 16, (across ? c.width : c.height) - 16) };
   };
   const dock = (side) => {
-    const top = side === "bottom" ? h - 8 - c.height : phone.matches ? 60 : 16;
-    const left = phone.matches ? 8 : w - 16 - c.width;
-    return { side, box: { left, top, right: phone.matches ? w - 8 : w - 16, bottom: top + c.height } };
+    const top = side === "bottom" ? h - 8 - c.height : 16;
+    const left = w - 16 - c.width;
+    return { side, box: { left, top, right: w - 16, bottom: top + c.height } };
   };
   const ring = target?.getBoundingClientRect();
   const docks = ["bottom", "top"].map(dock);
-  const best = (t && !phone.matches && ["right", "below", "left", "above"].map(at).find((o) => o.fits))
+  const best = (t && ["right", "below", "left", "above"].map(at).find((o) => o.fits))
     || docks.find((o) => t && !meets(t, o.box)) || docks.find((o) => ring && !meets(ring, o.box)) || docks[0];
-  document.body.style.paddingBottom = phone.matches ? `${c.height + 16}px` : "";
+  card.dataset.side = best.side;
   if (best.left === undefined) {
-    card.dataset.side = best.side;
     card.style.left = card.style.top = "";
     return;
   }
-  card.dataset.side = best.side;
   card.style.left = `${best.left}px`;
   card.style.top = `${best.top}px`;
   card.style.setProperty("--arrow", `${best.arrow}px`);
+}
+
+// On a phone: the card below the cutout, else above it, held on screen at the edge nearest a cutout scrolled away; a
+// cutout too tall for either gets the card on its roomier side. The arrow points at the cutout.
+const GUTTER = 16;
+function anchor(card, c, t) {
+  const view = visualViewport || { offsetLeft: 0, offsetTop: 0, width: innerWidth, height: innerHeight };
+  const lo = view.offsetTop + GUTTER, hi = view.offsetTop + view.height - GUTTER - c.height;
+  const below = t.bottom + GAP, above = t.top - GAP - c.height;
+  const top = below <= hi ? Math.max(below, lo) : above >= lo ? Math.min(above, hi)
+    : t.top - lo > hi + c.height - t.bottom ? lo : hi;
+  const left = view.offsetLeft + GUTTER;
+  card.dataset.side = top + c.height / 2 > t.top + t.height / 2 ? "below" : "above";
+  card.style.left = `${left}px`;
+  card.style.top = `${top}px`;
+  card.style.setProperty("--arrow", `${Math.max(16, Math.min(t.left + t.width / 2 - left, c.width - 16))}px`);
 }
 
 // The box around the step's nodes, padded, as a hole in the mask; the mask blocks clicks everywhere else.

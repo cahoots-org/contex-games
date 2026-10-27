@@ -297,7 +297,8 @@ def test_the_cutout_opens_on_the_conversation_and_the_composer_when_the_step_nee
 def test_the_step_card_stays_clear_of_the_cutout_and_a_new_target_is_scrolled_into_view(game):
     page = game.client.get("/").text
     place = page[page.index("function placeCoach()"):page.index("function cutout(")]
-    assert 'const best = (t && !phone.matches && ["right", "below", "left", "above"].map(at).find((o) => o.fits))' in place
+    assert 'const best = (t && ["right", "below", "left", "above"].map(at).find((o) => o.fits))' in place
+    assert "if (phone.matches && t) return anchor(card, c, sheet || t);" in place
     assert "|| docks.find((o) => t && !meets(t, o.box)) || docks.find((o) => ring && !meets(ring, o.box)) || docks[0];" in place
     assert "const fits = left >= 8 && top >= 8 && box.right <= w - 8 && box.bottom <= h - 8 && !(apart && meets(box, column));" in place
     assert "CONTROLS" not in page
@@ -794,6 +795,16 @@ def test_publish_reports_problems_and_bad_bodies(game):
     assert (none.status_code, none.json()) == (400, {"error": "There's no open case."})
     assert post("/api/pull").json() == {"error": "There's no open case."}
     assert post("/api/search").json() == {"error": "There's no open case."}
+
+
+def test_on_a_phone_the_step_card_rides_below_or_above_its_cutout_and_stays_on_screen(game):
+    page = game.client.get("/").text
+    anchor = page[page.index("function anchor("):page.index("function cutout(")]
+    assert "const top = below <= hi ? Math.max(below, lo) : above >= lo ? Math.min(above, hi)" in anchor
+    assert 'card.dataset.side = top + c.height / 2 > t.top + t.height / 2 ? "below" : "above";' in anchor
+    phone = page[page.index("@media (max-width: 600px)"):page.index("</style>")]
+    assert ".coach { z-index: 8; width: calc(100% - 32px); }" in phone
+    assert 'data-side="bottom"' not in phone and 'data-side="top"' not in phone
 
 
 def test_whisper_endpoint_is_gone(game):
