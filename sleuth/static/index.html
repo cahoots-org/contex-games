@@ -768,6 +768,7 @@ function beatFrom(list) {
 
 // Back and Next turn through the pages seen, never undoing anything; Next on a live beat moves on to the next step.
 function turn(by) {
+  if (!back) liveConvo = $("convo").dataset.id || null;
   if (by < 0 && back < pages.length - 1) back++;
   else if (by > 0 && back) back--;
   else if (by > 0 && beat) beat = null;
@@ -775,11 +776,24 @@ function turn(by) {
   const went = document.activeElement;
   light();
   if (went?.hidden) $("coach").focus({ preventScroll: true });
+  showConvo(back ? pages[pages.length - 1 - back] : null);
 }
 $("coach-back").addEventListener("click", () => turn(-1));
 $("coach-next").addEventListener("click", () => turn(1));
-$("coach").addEventListener("keydown", (ev) => {
+
+// The conversation open on the live page, put back when Next returns to it; a past reply page opens its own.
+let liveConvo = null;
+async function showConvo(page) {
+  const want = page ? page.beat?.person : liveConvo;
+  if (!want || $("convo").dataset.id === want) return;
+  await choose(want, true);
+  light();
+}
+
+// Arrows turn the card's pages whenever it shows, unless the player is typing.
+document.addEventListener("keydown", (ev) => {
   if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+  if ($("coach").hidden || ev.target.closest?.("input, textarea, select, [role=listbox]")) return;
   ev.preventDefault();
   turn(ev.key === "ArrowLeft" ? -1 : 1);
 });
@@ -1038,7 +1052,7 @@ function setResidents(list) {
 
 // The conversation with a resident: who they are, what was said, and a box to ask more.
 let convoRequest = 0;
-async function choose(id) {
+async function choose(id, quiet = false) {
   selected = id;
   drawPeople();
   const request = ++convoRequest;
@@ -1054,6 +1068,7 @@ async function choose(id) {
     return;
   }
   drawConvo(body);
+  if (quiet) return;
   if (phone.matches) $("convo").scrollIntoView({ block: "start", behavior: REDUCED_MOTION.matches ? "auto" : "smooth" });
   else $("ask-text").focus({ preventScroll: true });
 }

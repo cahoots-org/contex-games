@@ -854,3 +854,13 @@ def test_a_search_that_ticks_its_step_shows_the_notebook_before_the_next_step(ga
     assert "beat = { i: found, book: true," in beat
     lit = page[page.index("function light()"):page.index("function placeCoach()")]
     assert 'const reply = beat?.book ? $("book")' in lit
+
+
+def test_turning_back_to_a_reply_opens_its_conversation_and_arrows_work_page_wide(game):
+    page = game.client.get("/").text
+    turn = page[page.index("function turn("):page.index("// Before the first step")]
+    assert "showConvo(back ? pages[pages.length - 1 - back] : null);" in turn
+    assert "const want = page ? page.beat?.person : liveConvo;" in turn
+    assert 'document.addEventListener("keydown", (ev) => {' in turn
+    assert 'ev.target.closest?.("input, textarea, select, [role=listbox]")' in turn
+    assert 'async function choose(id, quiet = false) {' in page
