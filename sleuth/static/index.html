@@ -1451,6 +1451,8 @@ function setConn(state, text) {
 
 // A new boot means the game restarted and numbers its events from 1 again.
 function reset() {
+  say("case-status", "");
+  say("where-status", "");
   $("feed").replaceChildren();
   $("photos").replaceChildren();
   $("photos-box").hidden = true;
