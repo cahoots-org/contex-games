@@ -796,6 +796,15 @@ def test_a_person_row_is_a_name_with_one_tag_over_their_looks_or_job_and_the_res
         assert field in card, field
 
 
+def test_a_reply_that_added_to_the_notebook_is_marked_noted_with_the_entry_on_hover_or_focus(game):
+    page = game.client.get("/").text
+    reply = page[page.index("function exchange("):page.index('$("ask").addEventListener')]
+    assert 'el("span", { tabIndex: 0, textContent: "Noted" })' in reply and "added to notebook" not in page
+    assert ".noted:not(:hover) span:not(:focus) + span {" in page
+    convo = page[page.index("function drawConvo("):page.index("function exchange(")]
+    assert '$("convo-meta").textContent = "";' in convo and 'id="about" hidden><summary>About them</summary>' in page
+
+
 def test_page_draws_learned_looks_and_a_silhouette(game):
     page = game.client.get("/").text
     for s in ('case "known":', "function silhouette(", "JSON.stringify(v.face)"):

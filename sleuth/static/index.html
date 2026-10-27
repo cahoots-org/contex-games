@@ -215,6 +215,7 @@ select, input[type="text"], input[type="search"] {
 .convo { display: flex; flex-direction: column; min-height: 0; padding: 1rem; scroll-margin-top: 56px; }
 .convo h2 { display: flex; align-items: center; gap: .6rem; }
 .convo .meta { margin: .35rem 0 0; font-size: .85rem; color: var(--muted); }
+.convo .meta:empty { display: none; }
 .about { font-size: .85rem; }
 .about summary { color: var(--accent); cursor: pointer; margin-top: .2rem; }
 .about dl { margin: .25rem 0 0; }
@@ -225,7 +226,15 @@ select, input[type="text"], input[type="search"] {
 .thread p { margin: 0; }
 .you { color: var(--muted); font-size: .875rem; }
 .said { margin-top: .15rem; font: 1.02rem/1.5 var(--serif); }
-.added { margin-top: .25rem; padding-left: .6rem; border-left: 2px solid var(--accent); font-size: .8rem; color: var(--muted); }
+/* "Noted" on a reply that added to the notebook; what it added shows while the marker is hovered or focused. */
+.noted { margin-top: .2rem; font-size: .75rem; color: var(--muted); }
+.noted span { cursor: help; color: var(--accent); font-weight: 700; }
+.noted span + span {
+  display: block; margin-top: .15rem; padding-left: .6rem; border-left: 2px solid var(--accent);
+  color: var(--muted); font-weight: 400; white-space: pre-line; cursor: auto;
+}
+/* Hidden from sight, not from screen readers, until shown. */
+.noted:not(:hover) span:not(:focus) + span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .ask { display: flex; gap: .4rem; margin-top: .6rem; }
 .ask input { flex: 1; }
 
@@ -1055,8 +1064,7 @@ function drawConvo(body) {
   $("convo").dataset.id = body.id;
   $("convo").dataset.name = body.name;
   $("convo-title").replaceChildren(faceWith(v), `Talking with ${body.name}`);
-  $("convo-meta").textContent = [capital(body.occupation), body.home ? `lives ${atPlace(body.home)}` : ""]
-    .filter(Boolean).join(", ");
+  $("convo-meta").textContent = "";
   const link = (r) => el("button", { type: "button", className: "linkish", textContent: r.name, onclick: () => choose(r.id) });
   const list = (rs) => rs.flatMap((r, i) => [i ? ", " : "", link(r), ` (${r.kind})`]);
   $("about-list").replaceChildren(
@@ -1082,11 +1090,13 @@ function timesTalked(id) {
   return talked[id] ? plural(talked[id], "time") : "Not yet";
 }
 
-// One question and reply, with what the reply added to the notebook.
+// One question and reply, marked Noted when it added to the notebook.
 function exchange(t, name) {
+  const added = t.records.map((r) => r.text).join("\n");
   return el("li", {}, el("p", { className: "you", textContent: `You: ${t.question}` }),
     el("p", { className: "said" }, el("b", { textContent: name }), `: “${t.line}”`),
-    ...t.records.map((r) => el("p", { className: "added", textContent: `+ added to notebook: ${r.text}` })));
+    added ? el("p", { className: "noted" }, el("span", { tabIndex: 0, textContent: "Noted" }),
+      el("span", { textContent: added })) : null);
 }
 
 $("ask").addEventListener("submit", async (ev) => {
