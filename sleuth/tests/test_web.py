@@ -805,6 +805,15 @@ def test_a_reply_that_added_to_the_notebook_is_marked_noted_with_the_entry_on_ho
     assert '$("convo-meta").textContent = "";' in convo and 'id="about" hidden><summary>About them</summary>' in page
 
 
+def test_town_talk_shows_only_once_something_is_said_and_leaves_out_the_time_of_day(game):
+    page = game.client.get("/").text
+    assert '<details class="talk" id="talk" hidden>' in page
+    assert "function showTalk() {\n  $(\"talk\").hidden = !$(\"feed\").children.length" in page
+    tick = page[page.index('case "time":'):page.index('case "known":')]
+    assert "talk(" not in tick and "setClock(e);" in tick
+    assert '<span class="unread" id="unread"></span>' in page
+
+
 def test_page_draws_learned_looks_and_a_silhouette(game):
     page = game.client.get("/").text
     for s in ('case "known":', "function silhouette(", "JSON.stringify(v.face)"):

@@ -379,7 +379,7 @@ select, input[type="text"], input[type="search"] {
       <button type="button" class="plain-button" id="publish-cancel">Cancel</button>
     </div>
 
-    <details class="talk" id="talk">
+    <details class="talk" id="talk" hidden>
       <summary><b>Town talk</b><span class="latest" id="talk-latest"></span><span class="unread" id="unread"></span></summary>
       <ol class="feed" id="feed" aria-label="Town talk, newest first"></ol>
     </details>
@@ -513,8 +513,7 @@ function setCase(c) {
   $("case-text").textContent = open ? open.text : "Something's bound to happen soon.";
   $("publish-open").hidden = !open;
   $("replay").hidden = Boolean(open && open.private);
-  // The first case keeps the page small: no town talk or photos.
-  $("talk").hidden = Boolean(open && open.private);
+  showTalk();
   showPhotos();
   drawNotebook();
   drawWhere();
@@ -1127,6 +1126,11 @@ function answered(e) {
   $("thread").scrollTop = $("thread").scrollHeight;
 }
 
+// Town talk shows once someone has said something, and never on the first case, which keeps the page small.
+function showTalk() {
+  $("talk").hidden = !$("feed").children.length || Boolean(caseNow && caseNow.private);
+}
+
 // Town talk: newest first, with the latest line and how many are new on the closed strip.
 function talk(tone, fresh, ...children) {
   const feed = $("feed");
@@ -1136,6 +1140,7 @@ function talk(tone, fresh, ...children) {
   $("talk-latest").textContent = children.map((c) => c.textContent ?? c).join(" ");
   if (fresh && !$("talk").open) unread++;
   $("unread").textContent = unread ? `${unread} new` : "";
+  showTalk();
 }
 
 $("talk").addEventListener("toggle", () => {
@@ -1193,7 +1198,6 @@ function render(e, fresh) {
       drawWhere();
       break;
     case "time":
-      talk("quiet", fresh, e.text);
       // A replayed tick would wind the clock back to the start of its part of the day.
       if (fresh) {
         setClock(e);
@@ -1365,6 +1369,7 @@ function reset() {
   say("case-status", "");
   say("where-status", "");
   $("feed").replaceChildren();
+  $("talk").hidden = true;
   $("photos").replaceChildren();
   $("photos-box").hidden = true;
   savedPhotos.clear();
