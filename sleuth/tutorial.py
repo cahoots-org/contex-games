@@ -15,20 +15,27 @@ from sleuth.town import Town
 # A day so long that the practice clock never moves on from early afternoon.
 FROZEN_DAY_SECONDS = 10**9
 NOW = {"day": 1, "phase": "afternoon", "elapsed": 0.3}
-# id: name, occupation, personality, grudge, household, street, height, hair, coat, car, work place, evening place
+# id: name, occupation, personality, grudge, household, street, height, hair, wardrobe (worn first on day 1), car,
+# work place, evening place
 RESIDENTS = {
     "t1": ("Ruth Okafor", "librarian", "precise and warm", "Cal Hughes sneers at her overdue notices", "h1",
-           "elm street", "short", "dark-haired", "denim jacket", "blue hatchback", "library", "cafe"),
+           "elm street", "short", "dark-haired", ("denim jacket", "black puffer", "plaid flannel"),
+           "blue hatchback", "library", "cafe"),
     "t2": ("Dev Okafor", "hardware clerk", "easygoing and chatty", "none", "h1",
-           "elm street", "average height", "bald", "grey hoodie", "silver minivan", "hardware store", "bar"),
+           "elm street", "average height", "bald", ("grey hoodie", "denim jacket", "green raincoat"),
+           "silver minivan", "hardware store", "bar"),
     "t3": ("Tess Moreno", "retired teacher", "observant and fussy", "none", "h2",
-           "oak street", "short", "grey-haired", "plaid flannel", "bicycle", "library", "dog park"),
+           "oak street", "short", "grey-haired", ("plaid flannel", "grey hoodie", "black puffer"),
+           "bicycle", "library", "dog park"),
     "t4": ("Gus Moreno", "barista", "loud and generous", "none", "h2",
-           "oak street", "tall", "red-haired", "black puffer", "white sedan", "cafe", "gym"),
+           "oak street", "tall", "red-haired", ("black puffer", "plaid flannel", "denim jacket"),
+           "white sedan", "cafe", "gym"),
     "t5": ("Cal Hughes", "grocery stocker", "sullen and proud", "Ruth Okafor fined him and posted about it", "h3",
-           "maple street", "tall", "red-haired", "green raincoat", "red pickup", "grocery", "bar"),
+           "maple street", "tall", "red-haired", ("green raincoat", "plaid flannel", "grey hoodie"),
+           "red pickup", "grocery", "bar"),
     "t6": ("Ivy Hughes", "teacher", "cheerful and busy", "none", "h3",
-           "maple street", "average height", "blond", "green raincoat", "bicycle", "school", "gym"),
+           "maple street", "average height", "blond", ("green raincoat", "denim jacket", "black puffer"),
+           "bicycle", "school", "gym"),
 }
 # Both ways: a's tie to b, b's back to a, and the warmth they share.
 TIES = (("t1", "t2", "spouse", "spouse", 0.8), ("t3", "t4", "spouse", "spouse", 0.7),
@@ -52,9 +59,9 @@ RECORDS = (
 def residents() -> list[Villager]:
     """The practice town's residents, new each time."""
     town = {}
-    for vid, (name, job, personality, grudge, household, street, *looks, work, leisure) in RESIDENTS.items():
-        town[vid] = Villager(vid, name, job, personality, grudge, [], {}, dict(zip(("height", "hair", "coat", "car"), looks)),
-                             street, household)
+    for vid, (name, job, personality, grudge, household, street, height, hair, wardrobe, car, *_) in RESIDENTS.items():
+        town[vid] = Villager(vid, name, job, personality, grudge, [], {}, {"height": height, "hair": hair, "car": car},
+                             street, household, wardrobe=list(wardrobe))
     for a, b, kind, back, warmth in TIES:
         town[a].relationships[b], town[b].relationships[a] = kind, back
         town[a].warmth[b] = town[b].warmth[a] = warmth
@@ -73,6 +80,7 @@ class Practice:
             *_, work, leisure = RESIDENTS[v.id]
             self.routine.entries[v.id] = {"name": v.name, "home": v.home, "work": work, "leisure": leisure}
             self.town.add(v, work)
+        self.town.worn[1] = {v.id: v.wardrobe[0] for v in self.town.villagers}
         self.game = Game(FROZEN_DAY_SECONDS)
         self.game.restore(NOW)
         self.reputation = Reputation(config)

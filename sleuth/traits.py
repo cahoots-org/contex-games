@@ -1,4 +1,4 @@
-"""The fixed look of each resident: what a witness can see, never a name."""
+"""How each resident looks: what a witness can see, never a name."""
 
 import random
 from collections import Counter
@@ -11,6 +11,9 @@ TRAITS: dict[str, tuple[str, ...]] = {
     "coat": ("grey hoodie", "denim jacket", "green raincoat", "black puffer", "plaid flannel"),
     "car": ("red pickup", "white sedan", "blue hatchback", "silver minivan", "bicycle"),
 }
+# What never changes about a resident; the coat is the day's outfit, picked from a wardrobe of WARDROBE.
+FIXED = ("height", "hair", "car")
+WARDROBE = 3
 PHRASES = {"height": "{}", "hair": "{}", "coat": "in a {}", "car": "with a {}"}
 COLOURS = {
     "grey-haired": "#9a9a9a", "blond": "#e0c77a", "dark-haired": "#2b2118", "red-haired": "#b0482a", "bald": None,
@@ -20,15 +23,17 @@ COLOURS = {
 
 
 def _look(v: Villager) -> tuple[str, ...]:
-    return tuple(v.traits[c] for c in TRAITS)
+    return tuple(v.traits[c] for c in FIXED)
 
 
 def assign_traits(villagers: list[Villager], rng: random.Random) -> None:
-    """Deal each category evenly, then swap values until every look is unique or the swaps run out."""
+    """Deal each fixed category evenly, swap values until every fixed look is unique or the swaps run out, and give
+    each resident a wardrobe."""
     for v in villagers:
         v.traits = {}
-    for cat, values in TRAITS.items():
-        order = rng.sample(values, len(values))
+        v.wardrobe = rng.sample(TRAITS["coat"], WARDROBE)
+    for cat in FIXED:
+        order = rng.sample(TRAITS[cat], len(TRAITS[cat]))
         column = [order[i % len(order)] for i in range(len(villagers))]
         rng.shuffle(column)
         for v, value in zip(villagers, column):
@@ -42,7 +47,7 @@ def assign_traits(villagers: list[Villager], rng: random.Random) -> None:
         for a in clashing[:swaps]:
             if counts[_look(a)] < 2:
                 continue
-            b, cat = rng.choice(villagers), rng.choice(list(TRAITS))
+            b, cat = rng.choice(villagers), rng.choice(FIXED)
             counts.subtract((_look(a), _look(b)))
             a.traits[cat], b.traits[cat] = b.traits[cat], a.traits[cat]
             counts.update((_look(a), _look(b)))

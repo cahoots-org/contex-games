@@ -31,6 +31,7 @@ class FakeEngine:
 def make_cases(**config):
     town = make_town()
     assign_traits(town.villagers, Random(0))
+    town.dress(1, Random(0))
     cases = Cases(Config(**config), town, make_routine(), Random(1), Ids())
     return cases, FakeEngine(town), town
 
@@ -324,7 +325,7 @@ async def test_cases_with_a_regular_culprit_still_open_solvable():
         crime = case.crime
         regulars += 1
         records = list(case.records.values())
-        traits = town.get(crime.culprit).traits
+        traits = town.looks(crime.culprit, crime.day)
         assert case.state == "open" and suspects(crime, records, town) == {crime.culprit}
         assert any(r.sound and points_at(crime, crime.culprit, traits, r) for r in records)
         assert claim(case, crime.culprit, cases.routine) == ([crime.place], True)

@@ -202,6 +202,7 @@ def make_case(place="elm street"):
     """A town with unique looks and a night crime on Elm Street against v1 by v5."""
     town, routine = make_town(), make_routine()
     assign_traits(town.villagers, Random(0))
+    town.dress(1, Random(0))
     crime = Crime("case-1", "steal", "bike", "v5", "v1", place, 1, "night", 1422, "rival", "Someone stole a bike.")
     return town, routine, crime
 
@@ -220,7 +221,7 @@ def test_witness_sees_two_culprit_traits_and_never_a_name():
     town, routine, crime = make_case()
     culprit = town.get(crime.culprit)
     m = witness_memories(crime, town, routine, Random(3), Ids())[0]
-    assert len(m.traits) == 2 and m.traits.items() <= culprit.traits.items() and culprit.name not in m.text
+    assert len(m.traits) == 2 and m.traits.items() <= town.looks(culprit.id, 1).items() and culprit.name not in m.text
     assert m.id == "r-1" and m.text.startswith(f"Around {m.clock}, on Elm Street, someone ")
     assert m.text.endswith(" walked off with something.")
     assert any(clock_at(minute) == m.clock for minute in range(1402, 1443)) and m.day == crime.day
@@ -232,7 +233,7 @@ def test_clip_only_at_camera_places():
     town, _, crime = make_case("bar")
     clip = camera_clip(crime, town, Ids())
     assert clip.kind == "clip" and clip.traits.keys() == set(CLIP_TRAITS) and clip.holder == ""
-    assert clip.traits.items() <= town.get("v5").traits.items()
+    assert clip.traits.items() <= town.looks("v5", 1).items()
     assert clip.text.startswith("11:42pm, bar camera: a") and " figure in a " in clip.text and clip.clock == "11:42pm"
     assert clip.day == crime.day
 
@@ -262,7 +263,7 @@ def test_suspects_narrow_by_traits_and_log_alibis():
 
 def test_make_solvable_returns_empty_when_already_singled_out():
     town, _, crime = make_case()
-    full = Record("r-1", "case-1", "clip", "elm street", "11:42pm", "", traits=dict(town.get("v5").traits))
+    full = Record("r-1", "case-1", "clip", "elm street", "11:42pm", "", traits=town.looks("v5", 1))
     assert make_solvable(crime, [full], town, make_routine(), Random(1), Ids()) == []
 
 
@@ -290,7 +291,7 @@ def test_make_solvable_adds_a_pointing_record_when_only_logs_elsewhere_narrow_th
                  for i, v in enumerate(town.villagers) if v.id not in (crime.culprit, crime.victim)]
     assert suspects(crime, elsewhere, town) == {crime.culprit}
     added = make_solvable(crime, elsewhere, town, routine, Random(1), Ids())
-    culprit = town.get(crime.culprit).traits
+    culprit = town.looks(crime.culprit, 1)
     assert added and any(points_at(crime, crime.culprit, culprit, r) for r in added)
 
 
@@ -307,7 +308,7 @@ def test_record_json_hides_soundness_and_traits():
 
 def test_make_solvable_skips_residents_who_are_already_witnesses():
     town, routine, crime = make_case()
-    culprit = town.get(crime.culprit).traits
+    culprit = town.looks(crime.culprit, 1)
     first = Record("r-1", "case-1", "memory", "elm street", "11:40pm", "", "v2", {"height": culprit["height"]})
     added = make_solvable(crime, [first], town, routine, Random(1), Ids())
     assert len(added) == 1 and added[0].holder not in ("v2", crime.culprit, crime.victim)
@@ -323,14 +324,14 @@ def test_the_victim_finds_the_crime_after_it_and_names_no_one():
     assert (found.kind, found.holder, found.case, found.place, found.day) == ("discovery", "v1", "case-1", "elm street", 1)
     assert found.text == f"Around {found.clock}, Dana Reyes found the bike missing on Elm Street."
     assert found_it(crime, found.clock) == f"Around {found.clock}, I found my bike missing on Elm Street."
-    assert found.traits == {} and found.sound and not points_at(crime, crime.culprit, town.get(crime.culprit).traits, found)
+    assert found.traits == {} and found.sound and not points_at(crime, crime.culprit, town.looks(crime.culprit, 1), found)
     assert crime.minute < [m for m in range(1320, 1740) if clock_at(m) == found.clock][0] < 1740
     assert not any(v.name in found.text for v in town.villagers if v.id != "v1")
 
 
 def test_scene_clues_are_one_or_two_traces_or_a_dropped_receipt_with_a_store_log():
     town, routine, crime = make_case()
-    culprit = town.get(crime.culprit).traits
+    culprit = town.looks(crime.culprit, 1)
     there = {crime.culprit, *(v.id for v in town.villagers if routine.place(v.id, "night") == crime.place)} - {crime.victim}
     shapes = set()
     for seed in range(60):
@@ -370,7 +371,7 @@ def test_a_receipt_is_stamped_shortly_before_the_crime_in_its_part_of_the_day(ph
 
 def test_a_culprits_receipt_log_alone_solves_the_case():
     town, routine, crime = make_case()
-    culprit = town.get(crime.culprit).traits
+    culprit = town.looks(crime.culprit, 1)
     seeds = (Random(s) for s in range(200))
     records = next(r for r in (scene_clues(crime, town, routine, g, Ids()) for g in seeds)
                    if len(r) == 2 and r[1].who == crime.culprit and not r[0].traits)
@@ -382,7 +383,7 @@ def test_a_culprits_receipt_log_alone_solves_the_case():
 
 def test_clues_point_and_narrow_like_sightings_and_logs():
     town, _, crime = make_case()
-    culprit = town.get(crime.culprit).traits
+    culprit = town.looks(crime.culprit, 1)
     thread = Record("r-1", "case-1", "clue", "elm street", "", "", traits={"coat": culprit["coat"]})
     mine = Record("r-2", "case-1", "log", "grocery", "10:02pm", "", who=crime.culprit, trail=True)
     theirs = Record("r-3", "case-1", "log", "grocery", "10:02pm", "", who="v2", trail=True)
@@ -390,7 +391,7 @@ def test_clues_point_and_narrow_like_sightings_and_logs():
     assert not points_at(crime, crime.culprit, culprit, theirs)
     assert crime.culprit in suspects(crime, [mine], town)
     assert suspects(crime, [thread], town) == {v.id for v in town.villagers
-                                               if v.traits["coat"] == culprit["coat"]} - {crime.victim}
+                                               if town.looks(v.id, 1)["coat"] == culprit["coat"]} - {crime.victim}
     full = Record("r-4", "case-1", "clue", "elm street", "", "", traits=dict(culprit))
     assert make_solvable(crime, [full], town, make_routine(), Random(1), Ids()) == []
 

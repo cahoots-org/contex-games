@@ -98,8 +98,9 @@ def test_state_counts_each_conversation_and_names_where_records_are_kept(game):
     assert set(state["records_at"]) == {"grocery", "bar", "town hall", "elm street", "gym", "library"}
 
 
-def test_state_lists_each_villagers_looks_and_face(game):
-    game.town.get("v1").traits = {"height": "tall", "hair": "bald", "coat": "denim jacket", "car": "bicycle"}
+def test_state_lists_each_villagers_looks_and_face_in_today_s_outfit(game):
+    game.town.get("v1").traits = {"height": "tall", "hair": "bald", "car": "bicycle"}
+    game.town.worn = {game.game.day: {"v1": "denim jacket"}}
     marta = next(v for v in game.client.get("/api/state").json()["villagers"] if v["id"] == "v1")
     assert marta["looks"] == "tall, bald, in a denim jacket, with a bicycle"
     assert marta["face"] == {"hair": None, "coat": COLOURS["denim jacket"], "height": 2}
@@ -118,14 +119,15 @@ def test_inspect_card_never_includes_needs(game):
 
 def test_inspect_shows_traits_home_and_household_not_warmth(game):
     marta, bert = game.town.get("v1"), game.town.get("v2")
-    marta.traits = {"height": "tall", "hair": "bald", "coat": "grey hoodie", "car": "bicycle"}
+    marta.traits = {"height": "tall", "hair": "bald", "car": "bicycle"}
+    game.town.worn = {game.game.day: {"v1": "grey hoodie"}}
     for v in (marta, bert):
         v.home, v.household = "elm street", "h01"
     marta.relationships["v2"], bert.relationships["v1"] = "sibling", "sibling"
     marta.warmth["v2"] = bert.warmth["v1"] = 0.73
     response = game.client.get("/api/villagers/v1")
     body = response.json()
-    assert body["traits"] == marta.traits and body["home"] == "elm street"
+    assert body["traits"] == {**marta.traits, "coat": "grey hoodie"} and body["home"] == "elm street"
     assert body["traits_text"] == "tall, bald, in a grey hoodie, with a bicycle"
     assert body["household"] == [{"id": "v2", "name": "Bert Cole", "kind": "sibling"}]
     assert "warmth" not in json.dumps(body) and "0.73" not in response.text

@@ -172,8 +172,10 @@ SEEN = "I saw someone tall in a grey hoodie take it."
 
 
 def interviewing():
-    """A podcaster on Elm Street, where everyone is, with the shared case open: Fay (v3) stole Dana's (v1) bike."""
+    """A podcaster on Elm Street, where everyone is, with the shared case open: Fay (v3), tall and in a grey hoodie
+    that day, stole Dana's (v1) bike."""
     cases, _, town = make_cases()
+    town.worn[1]["v3"] = "grey hoodie"
     file = culprit_file(cases)
     engine = FakeEngine()
     engine.cases, engine.routine, engine.jev = cases, cases.routine, StubJev({"kind": "none"})

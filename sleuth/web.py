@@ -61,10 +61,11 @@ class Guard:
         await self.app(scope, receive, send)
 
 
-def villagers(town: Town) -> list[dict]:
+def villagers(town: Town, day: int) -> list[dict]:
+    looks = {v.id: town.looks(v.id, day) for v in town.villagers}
     return sorted(
         ({"id": v.id, "name": v.name, "occupation": v.occupation,
-          "looks": describe(v.traits), "face": face(v.traits)} for v in town.villagers),
+          "looks": describe(looks[v.id]), "face": face(looks[v.id])} for v in town.villagers),
         key=lambda v: v["name"],
     )
 
@@ -189,7 +190,7 @@ def create_app(
             "places": list(PLACES),
             "place": player.place,
             "time": player.game.clock(),
-            "villagers": villagers(player.town),
+            "villagers": villagers(player.town, player.game.day),
             "talked": {vid: len(thread) for vid, thread in player.threads.items()},
             "records_at": sorted({*CAMERA_PLACES, *LOG_PLACES}),
             "events": [e.to_json(player.id) for e in feed.replay(player.id)],
@@ -228,7 +229,7 @@ def create_app(
         if vid not in town:
             name = town.name_of(vid)
             return _error(404, f"{name} has left town." if name else "No resident with that id.")
-        v = town.get(vid)
+        v, looks = town.get(vid), town.looks(vid, player.game.day)
         return {
             "id": v.id,
             "name": v.name,
@@ -239,8 +240,8 @@ def create_app(
                 {"id": rid, "name": town.name_of(rid) or "someone who left", "kind": kind}
                 for rid, kind in v.relationships.items()
             ],
-            "traits": v.traits,
-            "traits_text": describe(v.traits),
+            "traits": looks,
+            "traits_text": describe(looks),
             "home": v.home,
             "household": [
                 {"id": o.id, "name": o.name, "kind": v.relationships.get(o.id, "")}

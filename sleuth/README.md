@@ -8,10 +8,9 @@ The design is in [docs/superpowers/specs/2026-10-25-sleuth-design.md](../docs/su
 
 The public places are the cafe, gym, school, bar, dog park, hardware store, grocery, town hall and library.
 Households live on elm, oak or maple street, and each street is one place. Jev picks each resident's work place and
-evening place once; the day runs work, work, leisure, then home on their street at night. Each resident has a few
-visible traits (height, hair, coat and so on) drawn by code from a fixed list. A resident with a wardrobe picks a coat
-from it each morning, and the town remembers who wore what for a few days; a culprit won't wear their crime's coat
-again while the case is open.
+evening place once; the day runs work, work, leisure, then home on their street at night. Each resident has a fixed
+height, hair and car, drawn by code from a fixed list, plus three outfits. The game picks one outfit for each resident
+each day and records it for a few days; a culprit with an open case stays out of their crime outfit.
 
 Residents still talk among themselves: what they hear is published into their minds in Contex, and a line that
 matches one of their needs wakes them to react. What a witness saw or a victim found passes only from mind to mind:
@@ -49,7 +48,7 @@ saved with the game and picks up where they left off.
 | Kind | What it is |
 |---|---|
 | memory | a witness recalls a few of the culprit's traits, never a name |
-| clip | a camera at the grocery, bar, town hall or elm street catches the culprit's height and coat at the exact minute |
+| clip | a camera at the grocery, bar, town hall or elm street catches the culprit's height and what they wore then, at the exact minute |
 | log | a gym check-in, bar tab, grocery receipt or library checkout puts a named resident somewhere; a dropped receipt's time is matched by the grocery's log, which names who paid |
 | clue | left at the crime place: a boot print, coat thread or tracks showing one of the culprit's traits, or a grocery receipt dropped by the culprit or someone who was there, showing only the store and the time |
 | statement | what a resident tells you in an interview: where they or someone else were, what they heard, who'd have a reason |
