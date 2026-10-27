@@ -232,7 +232,7 @@ def test_replay_plays_the_first_case_again_then_hands_back_the_town(game):
     assert game.client.post("/api/replay").json() == {"error": "That case is already open."}
     game.client.post("/api/skip")
     back = game.client.get("/api/state").json()
-    assert back["boot"] == real["boot"] and back["handoff"] == {"head": None, "line": None} and back["place"] == real["place"]
+    assert back["boot"] == real["boot"] and back["handoff"] == {"head": None, "line": None, "back": True} and back["place"] == real["place"]
     page = game.client.get("/").text
     assert 'id="replay">Tutorial</button>' in page and '"/api/replay"' in page
 

@@ -1326,7 +1326,7 @@ function handoff(h) {
   const tip = !caseNow ? "Things are quiet. The next tip could come any time."
     : h.back ? `Back to the case of ${caseNow.title}.` : `A new tip comes in: ${caseNow.text}`;
   $("handoff-cards").replaceChildren(...[h.line, tip,
-    h.back ? null : "Other podcasters are chasing this one too, and you get one episode per case. Get it right first."]
+    h.back ? "" : "Other podcasters are chasing this one too, and you get one episode per case. Get it right first."]
     .filter(Boolean).map((text) => el("li", { textContent: text })));
   $("handoff").showModal();
 }
