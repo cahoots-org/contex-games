@@ -129,7 +129,7 @@ h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
 .send { border-top: 1px solid var(--rail); padding-top: .75rem; }
 .send p { flex-basis: 100%; margin: 0; font-size: .9rem; color: var(--muted); }
 .send p.error { color: var(--danger); }
-.citing .case-actions, .citing .where-line, .citing #where-status, .citing #talk { display: none; }
+.citing .case-actions, .citing .where-line, .citing #where-status, .citing #talk, .citing #photos-box { display: none; }
 select, input[type="text"], input[type="search"] {
   background: var(--bg); border: 1px solid var(--edge); border-radius: 6px; padding: .4rem .6rem; min-width: 0;
 }
@@ -199,6 +199,16 @@ select, input[type="text"], input[type="search"] {
 .feed li { padding: .3rem 0; border-top: 1px solid var(--rail); overflow-wrap: anywhere; }
 .feed .quiet { color: var(--muted); }
 .feed .loud { font-weight: 700; }
+/* The app's photos: newest first, scrolling, each with the faces in it, its caption and Save. */
+.photo-feed { list-style: none; margin: .5rem 0 0; padding: 0; max-height: 22rem; overflow-y: auto; }
+.photo-feed li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .25rem .75rem; padding: .6rem 0; border-top: 1px solid var(--rail); }
+.photo-feed .faces { display: flex; gap: .25rem; grid-row: span 3; align-self: start; }
+.photo-feed .status { margin-top: .2rem; }
+.photo-feed p { margin: 0; font-size: .9rem; }
+.photo-feed .when { color: var(--muted); font-size: .8rem; }
+.photo-feed .plain-button { justify-self: start; padding: .2rem .7rem; font-size: .85rem; }
+.photo-feed .plain-button:disabled { color: var(--muted); border-color: var(--edge); cursor: default; }
+.face.big canvas { width: 44px; height: 44px; }
 .tag { margin-right: .4rem; padding: 0 .35rem; border-radius: 3px; border: 1px solid var(--edge); font-size: .75rem; color: var(--muted); }
 
 /* The right column: people, then the conversation with whoever is picked. */
@@ -434,6 +444,8 @@ select, input[type="text"], input[type="search"] {
       <summary><b>Town talk</b><span class="latest" id="talk-latest"></span><span class="unread" id="unread"></span></summary>
       <ol class="feed" id="feed" aria-label="Town talk, newest first"></ol>
     </details>
+
+    <section class="photos" id="photos-box" hidden><div class="book-head"><h2>Photos</h2><small>newest first</small></div><ol class="photo-feed" id="photos" aria-label="Photos, newest first"></ol></section>
   </main>
 
   <aside class="side" aria-label="People">
@@ -475,8 +487,9 @@ const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)");
 const phone = matchMedia("(max-width: 600px)");
 const MAX_TALK = 300;
 // The notebook's groups, in order, and the group of each kind of record.
-const GROUPS = ["Seen", "Clip", "Logs", "Said", "Found", "Heard"];
-const GROUP_OF = { memory: "Seen", clip: "Clip", log: "Logs", statement: "Said", clue: "Found", discovery: "Found" };
+const GROUPS = ["Seen", "Clip", "Logs", "Said", "Found", "Heard", "Photos"];
+const GROUP_OF = { memory: "Seen", clip: "Clip", log: "Logs", statement: "Said", clue: "Found", discovery: "Found",
+  photo: "Photos" };
 // A hearsay statement reads "<name> heard from <speaker>: ...".
 const HEARSAY = / heard from [^:]+: /;
 
@@ -506,6 +519,8 @@ let pages = [];
 let back = 0;
 // The notebook by record id, in the order the player got each entry.
 const notebook = new Map();
+// The photos this player has saved.
+const savedPhotos = new Set();
 
 function el(tag, { dataset, ...props } = {}, ...children) {
   const node = Object.assign(document.createElement(tag), props);
@@ -559,8 +574,9 @@ function setCase(c) {
   $("case-text").textContent = open ? open.text : "The neighborhood app posts the news when something happens.";
   $("publish-open").hidden = !open;
   $("replay").hidden = Boolean(open && open.private);
-  // The first case keeps the page small: no town talk.
+  // The first case keeps the page small: no town talk or photos.
   $("talk").hidden = Boolean(open && open.private);
+  showPhotos();
   drawNotebook();
   drawWhere();
 }
@@ -1028,7 +1044,7 @@ function person(v, role, nearby) {
     role ? el("span", { className: `role ${role}`, textContent: role }) : null,
     nearby ? el("span", { className: "role nearby", textContent: NEARBY, title: "Usually at the scene at that time of day" }) : null,
     el("small", { textContent: [v.occupation, v.home && atPlace(v.home)].filter(Boolean).join(", ") }),
-    v.looks ? el("small", { textContent: `${v.looks} (${v.how})` }) : null),
+    v.looks ? el("small", { textContent: `${v.how} · ${v.looks}` }) : null),
   n ? el("span", { className: "talked", textContent: `talked ×${n}` }) : null));
 }
 
@@ -1211,6 +1227,14 @@ function render(e, fresh) {
         if (selected === e.villager.id) choose(selected, true);
       }
       break;
+    case "photo":
+      photo(e.photo);
+      break;
+    case "photo_saved":
+      note(e.records);
+      savedPhotos.add(e.photo_id);
+      markSaved(e.photo_id);
+      break;
     case "steps":
       if (fresh) beatFrom(e.steps);
       setSteps(e.steps);
@@ -1232,6 +1256,39 @@ function addEvents(events, fresh) {
     lastId = e.id;
     render(e, fresh);
   }
+}
+
+// A photo from the app, newest on top: the faces in it, its caption, when and where, and Save.
+function photo(p) {
+  const kept = savedPhotos.has(p.id) || notebook.has(p.id);
+  const status = el("p", { className: "status", role: "status" });
+  const save = el("button", { type: "button", className: "plain-button", dataset: { photo: p.id },
+    textContent: kept ? "Saved" : "Save", disabled: kept });
+  save.addEventListener("click", async () => {
+    save.disabled = true;
+    const { ok, error } = await post("/api/photos/save", { photo_id: p.id });
+    status.textContent = error || "";
+    status.classList.toggle("error", !ok);
+    if (!ok) save.disabled = false;
+  });
+  const where = atPlace(p.place);
+  $("photos").prepend(el("li", {},
+    el("span", { className: "faces" }, ...p.people.map((v) => faceWith({ id: v.id, face: v.face }, true))),
+    el("p", { textContent: p.caption }),
+    el("p", { className: "when", textContent: `${where[0].toUpperCase()}${where.slice(1)}, day ${p.day}, ${p.phase}` }),
+    el("div", {}, save, status)));
+  showPhotos();
+}
+
+function showPhotos() {
+  $("photos-box").hidden = !$("photos").children.length || Boolean(caseNow && caseNow.private);
+}
+
+function markSaved(id) {
+  const button = $("photos").querySelector(`[data-photo="${CSS.escape(id)}"]`);
+  if (!button) return;
+  button.textContent = "Saved";
+  button.disabled = true;
 }
 
 // Pixel faces: a 12x12 head and shoulders, with hair, coat and height from the looks the player has learned.
@@ -1370,6 +1427,9 @@ function setConn(state, text) {
 // A new boot means the game restarted and numbers its events from 1 again.
 function reset() {
   $("feed").replaceChildren();
+  $("photos").replaceChildren();
+  $("photos-box").hidden = true;
+  savedPhotos.clear();
   faces.clear();
   notebook.clear();
   talked = {};

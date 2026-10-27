@@ -37,7 +37,7 @@ apart from the real town's. Each question still costs at most one Jev call and o
 A checklist in the case header walks the podcaster through it: ask the victim what happened, ask the witness what they
 saw, find out how people look (talk to anyone else, or ask someone to describe a person they know), search the
 scene, and publish. Each step says why under it. The game ticks each step from what they have actually
-done and lights the person or button the current step needs. Town talk stays hidden and the notebook appears with its
+done and lights the person or button the current step needs. Town talk and photos stay hidden and the notebook appears with its
 first entry. Publishing, right or wrong (a wrong episode is told who it was), or Skip this case closes the
 practice case and moves the podcaster into the real town: new people, a clean notebook and feed, and the town's open
 case, which arrives as news under the verdict ("Meanwhile, on the neighborhood app: ..."). Nothing player-facing calls
@@ -112,11 +112,12 @@ a new entry.
 
 Everything is done on one page, built around the case. On the left: the case with Publish (and, on a first case, its checklist),
 which opens the form in place (choose a resident, tick notebook entries); the notebook grouped by kind (Seen, Clip,
-Logs, Said, Found, Heard), newest first; where you are, with Search here and Pull records when they apply and the
-places you can go; and town talk, one strip that stays closed until you open it and counts what's new. On the right:
+Logs, Said, Found, Heard, Photos), newest first; where you are, with Search here and Pull records when they apply and the
+places you can go; town talk, one strip that stays closed until you open it and counts what's new; and the app's
+photos, newest first in a short scrolling list, each with the faces in it, its caption and Save. On the right:
 everyone in town with their job and street, searchable by name, job or known looks, marked victim or witness once you
 know and "usually nearby" when their routine puts them at the scene, and the conversation with
-whoever you pick. Someone's looks show only once you've learned them, each with how and when, and until then their face
+whoever you pick. Someone's looks show only once you've learned them, how and when first, and until then their face
 is a grey silhouette; talking to someone shows how they look today: height, hair and the outfit they have on. On a phone the two columns stack.
 
 ## How it uses Contex

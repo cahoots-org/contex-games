@@ -814,6 +814,12 @@ def test_page_draws_learned_looks_and_a_silhouette(game):
     assert "traits_text" not in page
 
 
+def test_page_has_a_photo_feed(game):
+    page = game.client.get("/").text
+    for s in ('id="photos"', 'case "photo":', 'case "photo_saved":', "/api/photos/save", 'photo: "Photos"'):
+        assert s in page
+
+
 def test_the_place_picker_is_a_listbox_with_the_scene_first_and_pinned(game):
     page = game.client.get("/").text
     line = page[page.index('<div class="where-line">'):page.index('id="where-status"')]
@@ -833,8 +839,8 @@ def test_the_place_picker_is_a_listbox_with_the_scene_first_and_pinned(game):
 
 def test_the_notebook_groups_entries_by_kind(game):
     html = game.client.get("/").text
-    assert 'const GROUPS = ["Seen", "Clip", "Logs", "Said", "Found", "Heard"];' in html
-    for kind in ("memory", "clip", "log", "statement", "clue", "discovery"):
+    assert 'const GROUPS = ["Seen", "Clip", "Logs", "Said", "Found", "Heard", "Photos"];' in html
+    for kind in ("memory", "clip", "log", "statement", "clue", "discovery", "photo"):
         assert f"{kind}: " in html[html.index("const GROUP_OF"):], kind
 
 
