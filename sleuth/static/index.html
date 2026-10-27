@@ -777,9 +777,12 @@ function beatFrom(list) {
   const i = list.findIndex((n, i) => n.person && n.done && steps && !steps[i]?.done);
   if (i < 0) return;
   const s = list[i];
-  const name = residents.find((v) => v.id === (s.about || s.person))?.name || "They";
+  const who = residents.find((v) => v.id === (s.about || s.person));
+  const name = who?.name || "They";
+  // A look the player just learned, so searching it finds someone.
+  const look = who?.looks.split(", ").filter((w) => !/^(with|in) /.test(w)).at(-1);
   beat = { i, person: s.person, about: s.about, text: s.about
-    ? `Now you know how ${name} looks. Search for a look, like "red-haired", to see who matches what you know.`
+    ? `Now you know how ${name} looks. Search for a look${look ? `, like "${look}",` : ""} to see who matches what you know.`
     : s.person === caseNow?.victim
     ? `${name} told you what they found. Anything useful goes into your notebook.`
     : `That's your first clue: what ${name} saw. Match it against people's looks.` };

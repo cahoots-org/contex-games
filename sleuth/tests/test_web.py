@@ -886,6 +886,13 @@ def test_a_search_that_ticks_its_step_shows_the_notebook_before_the_next_step(ga
     assert 'const reply = beat?.book ? $("book")' in lit
 
 
+def test_the_described_beat_suggests_a_look_the_player_learned(game):
+    page = game.client.get("/").text
+    beat = page[page.index("function beatFrom("):page.index("// Back and Next turn")]
+    assert '"red-haired"' not in beat
+    assert '.looks.split(", ").filter((w) => !/^(with|in) /.test(w)).at(-1)' in beat
+
+
 def test_turning_back_to_a_reply_opens_its_conversation_and_arrows_work_page_wide(game):
     page = game.client.get("/").text
     turn = page[page.index("function turn("):page.index("// Before the first step")]
