@@ -147,7 +147,7 @@ class Cases:
         return next(((f, f.roots[uid]) for f in self.files.values() if uid in f.roots), None)
 
     def cautious(self, day: int) -> dict[str, str]:
-        """What each culprit of a case not closed wore at their crime before day, which they won't wear again."""
+        """The crime-day outfit of each open or setup case's culprit, which they won't wear on later days."""
         worn = {f.crime.culprit: self.town.outfit(f.crime.culprit, f.crime.day) for f in self.files.values()
                 if f.state != "closed" and f.crime.day < day}
         return {vid: coat for vid, coat in worn.items() if coat}

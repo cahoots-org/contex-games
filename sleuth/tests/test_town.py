@@ -121,3 +121,11 @@ def test_worn_round_trips_and_old_days_are_dropped():
     restored = Town()
     restored.restore(json.loads(json.dumps(town.to_state())))
     assert restored.worn == town.worn
+
+
+def test_a_resident_added_after_the_day_is_dressed_wears_something_that_day():
+    town = Town()
+    town.add(Villager("v1", "A", "x", "y", "", [], {}, {}, wardrobe=["grey hoodie"]))
+    town.dress(4, Random(1))
+    town.add(Villager("v2", "B", "x", "y", "", [], {}, {}, wardrobe=["denim jacket", "black puffer"]))
+    assert town.outfit("v2", 4) in ("denim jacket", "black puffer")

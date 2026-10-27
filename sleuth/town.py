@@ -67,6 +67,7 @@ class Town:
         self.worn = {d: w for d, w in self.worn.items() if d >= day - keep_days}
 
     def outfit(self, vid: str, day: int) -> str | None:
+        """What the resident wore that day, if it is recorded."""
         return self.worn.get(day, {}).get(vid)
 
     def looks(self, vid: str, day: int) -> dict[str, str]:
@@ -82,7 +83,10 @@ class Town:
         return len(self._villagers)
 
     def add(self, v: Villager, place: str = START_PLACE) -> None:
+        """Add the resident at place, dressed for the latest dressed day."""
         self._villagers[v.id] = v
+        if self.worn and v.wardrobe:
+            self.worn[max(self.worn)][v.id] = Random().choice(v.wardrobe)
         self._places[v.id] = place
         self._phase_moves.setdefault(v.id, []).append(place)
 
