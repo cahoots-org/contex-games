@@ -294,15 +294,34 @@ def test_a_conversation_step_that_ticks_shows_the_reply_before_the_next_step(gam
     coach = page[page.index('<section class="tut coach" id="coach"'):page.index("<script>")]
     assert '<button type="button" class="tut-go" id="coach-next" hidden>Next</button>' in coach
     beat = page[page.index("function beatFrom("):page.index("// The checklist's current step")]
-    assert "const s = list.find((n, i) => n.person && n.done && steps && !steps[i]?.done);" in beat
+    assert "const i = list.findIndex((n, i) => n.person && n.done && steps && !steps[i]?.done);" in beat
     assert "told you what they found. Anything useful goes into your notebook." in beat
     assert "That's your first clue: what ${name} saw. Match it against people's looks." in beat
-    assert '$("coach-next").addEventListener("click", () => {\n  beat = null;\n  light();\n});' in beat
+    assert "else if (by > 0 && beat) beat = null;" in beat
     lit = page[page.index("function light()"):page.index("function placeCoach()")]
     assert '$("thread").lastElementChild' in lit and "beat ? [target]" in lit
     steps = page[page.index('case "steps":'):page.index('case "rest":')]
     assert "if (fresh) beatFrom(e.steps);" in steps
     assert "if (!list) beat = null;" in page[page.index("function setSteps("):page.index("function beatFrom(")]
+
+
+def test_the_tutorial_card_turns_back_and_forward_through_the_pages_seen(game):
+    page = game.client.get("/").text
+    coach = page[page.index('<section class="tut coach" id="coach"'):page.index("<script>")]
+    assert 'tabindex="-1" hidden>' in coach
+    assert coach.index('id="coach-back" hidden>Back</button>') < coach.index('id="coach-next" hidden>Next</button>')
+    turn = page[page.index("function turn("):page.index("function addPage(")]
+    assert "if (by < 0 && back < pages.length - 1) back++;\n  else if (by > 0 && back) back--;" in turn
+    assert '$("coach-back").addEventListener("click", () => turn(-1));' in turn
+    assert 'turn(ev.key === "ArrowLeft" ? -1 : 1);' in turn
+    add = page[page.index("function addPage("):page.index("function pastTarget(")]
+    assert "if (!pages.length) pages = steps.flatMap((n, i) => n.done ? [{ i }] : []);" in add
+    assert "pages.push(live);\n  back = 0;" in add
+    lit = page[page.index("function light()"):page.index("function placeCoach()")]
+    assert "const target = past ? pastTarget(past)" in lit and "past || beat ? [target]" in lit
+    assert '$("coach-next").hidden = !(past || beat);' in lit
+    assert '$("coach-back").hidden = back >= pages.length - 1;' in lit
+    assert "`Step ${page.i + 1} of ${steps.length}`" in lit
 
 
 def test_interview_reports_problems_and_answers_through_the_feed(game):
@@ -819,6 +838,6 @@ def test_a_search_that_ticks_its_step_shows_the_notebook_before_the_next_step(ga
     page = game.client.get("/").text
     beat = page[page.index("function beatFrom("):page.index("// The checklist's current step")]
     assert 'n.action === "search" && n.done && steps && !steps[i]?.done' in beat
-    assert "beat = { step: found, book: true," in beat
+    assert "beat = { i: found, book: true," in beat
     lit = page[page.index("function light()"):page.index("function placeCoach()")]
     assert 'const reply = beat?.book ? $("book")' in lit

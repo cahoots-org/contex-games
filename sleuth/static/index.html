@@ -271,6 +271,11 @@ select, input[type="text"], input[type="search"] {
 .coach b { display: block; margin-top: .3rem; font: 500 1.1rem/1.3 var(--serif); }
 .coach p#coach-why { margin: .25rem 0 .6rem; font-size: .85rem; opacity: .85; }
 .coach #coach-next { margin-right: .9rem; }
+.coach .tut-back {
+  margin-right: .5rem; background: none; color: var(--tut-ink); border: 1px solid var(--tut-mark); border-radius: 6px;
+  padding: calc(.55rem - 1px) 1rem; font-weight: 700; cursor: pointer;
+}
+.coach:focus { outline: none; }
 .coach::before {
   content: ""; position: absolute; width: 12px; height: 12px; background: var(--tut-mark); transform: rotate(45deg);
 }
@@ -454,9 +459,10 @@ select, input[type="text"], input[type="search"] {
 
 <template id="pin"><svg class="pin" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.6a2.6 2.6 0 1 1 0-5.2 2.6 2.6 0 0 1 0 5.2z"/></svg></template>
 <div class="mask" id="mask" hidden><svg aria-hidden="true"><path id="mask-path"/></svg></div>
-<section class="tut coach" id="coach" aria-labelledby="coach-tag" hidden>
+<section class="tut coach" id="coach" aria-labelledby="coach-tag" tabindex="-1" hidden>
   <p class="tut-tag"><span id="coach-tag">Tutorial</span> · <span id="coach-count"></span></p>
   <div aria-live="polite"><b id="coach-step"></b><p id="coach-why"></p></div>
+  <button type="button" class="tut-back" id="coach-back" hidden>Back</button>
   <button type="button" class="tut-go" id="coach-next" hidden>Next</button>
   <button type="button" class="tut-skip" id="coach-skip">Skip tutorial</button>
 </section>
@@ -494,6 +500,10 @@ let searched = new Set();
 let steps = null;
 // The step a conversation just ticked, with a line on the reply, until the player reads it and moves on.
 let beat = null;
+// The tutorial's pages so far, each a step's index and the beat after it if any, and how far back from the live page
+// the card is.
+let pages = [];
+let back = 0;
 // The notebook by record id, in the order the player got each entry.
 const notebook = new Map();
 
@@ -741,24 +751,62 @@ function setSteps(list) {
 
 // A step this checklist ticks, as a beat on what it turned up: the reply to a conversation, the notebook after a search.
 function beatFrom(list) {
-  const found = list.find((n, i) => n.action === "search" && n.done && steps && !steps[i]?.done);
-  if (found) {
-    beat = { step: found, book: true,
+  const found = list.findIndex((n, i) => n.action === "search" && n.done && steps && !steps[i]?.done);
+  if (found >= 0) {
+    beat = { i: found, book: true,
       text: "The search turned up a clue. It's in your notebook now, with everything you've learned so far." };
     return;
   }
-  const s = list.find((n, i) => n.person && n.done && steps && !steps[i]?.done);
-  if (!s) return;
+  const i = list.findIndex((n, i) => n.person && n.done && steps && !steps[i]?.done);
+  if (i < 0) return;
+  const s = list[i];
   const name = residents.find((v) => v.id === s.person)?.name || "They";
-  beat = { step: s, person: s.person, text: s.person === caseNow?.victim
+  beat = { i, person: s.person, text: s.person === caseNow?.victim
     ? `${name} told you what they found. Anything useful goes into your notebook.`
     : `That's your first clue: what ${name} saw. Match it against people's looks.` };
 }
 
-$("coach-next").addEventListener("click", () => {
-  beat = null;
+// Back and Next turn through the pages seen, never undoing anything; Next on a live beat moves on to the next step.
+function turn(by) {
+  if (by < 0 && back < pages.length - 1) back++;
+  else if (by > 0 && back) back--;
+  else if (by > 0 && beat) beat = null;
+  else return;
+  const went = document.activeElement;
   light();
+  if (went?.hidden) $("coach").focus({ preventScroll: true });
+}
+$("coach-back").addEventListener("click", () => turn(-1));
+$("coach-next").addEventListener("click", () => turn(1));
+$("coach").addEventListener("keydown", (ev) => {
+  if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+  ev.preventDefault();
+  turn(ev.key === "ArrowLeft" ? -1 : 1);
 });
+
+// Keep the pages up with the live one: rebuilt from the done steps after a load, and a new live page added and shown.
+function addPage(live) {
+  if (!steps) {
+    pages = [];
+    back = 0;
+    return;
+  }
+  if (!pages.length) pages = steps.flatMap((n, i) => n.done ? [{ i }] : []);
+  const last = pages.at(-1);
+  if (!live || (last && last.i === live.i && !last.beat === !live.beat)) return;
+  pages.push(live);
+  back = 0;
+}
+
+// A page already passed: its beat's reply or the notebook, else its step's person or button, else what holds them.
+function pastTarget(page) {
+  const s = steps[page.i];
+  const row = (id) => $("people").querySelector(`[data-id="${CSS.escape(id)}"]`);
+  const t = page.beat?.book ? $("book")
+    : page.beat && $("convo").dataset.id === page.beat.person ? $("thread").lastElementChild
+    : s.person ? row(s.person) : $(ACTION_BUTTON[s.action]);
+  return t && !t.hidden ? t : t?.parentElement || $("people");
+}
 
 // The checklist's current step: the first not yet done.
 function step() {
@@ -773,33 +821,37 @@ let hole = [];
 function light() {
   for (const node of document.querySelectorAll(".lit")) node.classList.remove("lit");
   const s = step();
+  const live = beat ? { i: beat.i, beat } : s ? { i: steps.indexOf(s) } : null;
+  addPage(live);
+  const past = back ? pages[pages.length - 1 - back] : null;
   const talking = s?.person && $("convo").dataset.id === s.person && !$("ask").hidden;
   const reply = beat?.book ? $("book")
     : beat && $("convo").dataset.id === beat.person ? $("thread").lastElementChild : null;
-  const target = beat ? reply : !s ? null : talking ? $("ask")
+  const target = past ? pastTarget(past) : beat ? reply : !s ? null : talking ? $("ask")
     : s.person ? $("people").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
     : s.place && s.place !== here ? $("here")
     : s.action === "publish" && !$("publish").hidden ? publishNext()
     : $(ACTION_BUTTON[s.action]);
-  hole = !target ? [] : beat ? [target] : talking ? [$("convo")] : target === $("culprit") ? [$("publish")]
+  hole = !target ? [] : past || beat ? [target] : talking ? [$("convo")] : target === $("culprit") ? [$("publish")]
     : target === $("publish-send") ? [$("publish"), $("send")]
     : target === $("here") ? [target, $("place-list")] : [target];
   watch.disconnect();
   for (const node of [document.body, ...hole]) watch.observe(node);
   $("coach").hidden = !(s || beat) || $("intro").open || $("handoff").open;
   $("mask").hidden = $("coach").hidden;
-  if (!$("coach").hidden && !beat) target?.classList.add("lit");
+  if (!$("coach").hidden && !beat && !past) target?.classList.add("lit");
   if (!s && !beat) {
     document.body.style.paddingBottom = "";
     return;
   }
-  const now = beat ? beat.step : s;
-  const text = beat ? beat.text : s.text;
-  $("coach-next").hidden = !beat;
+  const page = past || live;
+  const text = page.beat ? page.beat.text : steps[page.i].text;
+  $("coach-next").hidden = !(past || beat);
+  $("coach-back").hidden = back >= pages.length - 1;
   if ($("coach-step").textContent !== text) {
-    $("coach-count").textContent = `Step ${steps.indexOf(now) + 1} of ${steps.length}`;
+    $("coach-count").textContent = `Step ${page.i + 1} of ${steps.length}`;
     $("coach-step").textContent = text;
-    $("coach-why").textContent = beat ? "" : s.why;
+    $("coach-why").textContent = page.beat ? "" : steps[page.i].why;
   }
   if (!$("coach").hidden && target && `${text} ${target.id || target.dataset.id}` !== shown) {
     shown = `${text} ${target.id || target.dataset.id}`;
