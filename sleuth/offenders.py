@@ -30,14 +30,23 @@ class Offenders:
         self.active = {vid: Offender(**o) for vid, o in state["active"].items()}
         self.exposed = dict(state["exposed"])
 
-    def top_up(self, town: Town, rng: Random, candidates: list[str] | None = None) -> list[str]:
-        """Fill active up to config.offenders from candidates (default: every resident) not active and never exposed;
-        returns who joined."""
+    def top_up(self, town: Town, rng: Random, candidates: list[str] | None = None, size: int | None = None) -> list[str]:
+        """Fill active up to size (default config.offenders) from candidates (default: every resident) not active:
+        those never exposed while there is room, then exposed ones who gave it up; returns who joined."""
+        size = self.config.offenders if size is None else size
         pool = [vid for vid in (candidates if candidates is not None else [v.id for v in town.villagers])
-                if vid not in self.active and vid not in self.exposed]
-        joined = rng.sample(pool, max(0, min(self.config.offenders - len(self.active), len(pool))))
+                if vid not in self.active]
+        fresh = [vid for vid in pool if vid not in self.exposed]
+        joined = rng.sample(fresh, max(0, min(size - len(self.active), len(fresh), self.room(town))))
+        relapsed = [vid for vid in pool if vid in self.exposed]
+        joined += rng.sample(relapsed, max(0, min(size - len(self.active) - len(joined), len(relapsed))))
         self.active.update({vid: Offender() for vid in joined})
         return joined
+
+    def room(self, town: Town) -> int:
+        """How many more residents may take up crime before offender_share of the town are or were offenders."""
+        offended = sum(v.id in self.active or v.id in self.exposed for v in town.villagers)
+        return int(len(town.villagers) * self.config.offender_share) - offended
 
     def turn(self, street_residents: list[str], rng: Random) -> str | None:
         """Make one resident not active and never exposed a petty offender, unless active is at max_offenders."""

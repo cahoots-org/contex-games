@@ -350,19 +350,26 @@ class Cases:
         await self.ensure(engine)
 
     def _breed(self) -> None:
-        """Let each neglected district turn a resident into an offender with turn_chance."""
+        """Let each neglected district turn a resident into an offender with turn_chance, while there is room."""
         for street in self.districts.neglected() if self.districts is not None else []:
-            if self.rng.random() < self.config.turn_chance:
+            if self.offenders.room(self.town) > 0 and self.rng.random() < self.config.turn_chance:
                 self.offenders.turn([v.id for v in self.town.villagers if v.home == street], self.rng)
 
     def _refill(self, day: int) -> None:
-        """Refill a set below min_offenders, or with no petty offender free to offend on day, up to offenders from
-        districts without a watch."""
-        if len(self.offenders.active) >= self.config.min_offenders and self.offenders.ready(day, TIERS[0]):
+        """Fill the set up to offenders before any crime; after, refill it only up to min_offenders, adding one, up to
+        offenders, when no petty offender is free to offend on day. They come from districts without a watch, never a
+        watch's founder."""
+        config = self.config
+        size = config.min_offenders if self.files or self.offenders.exposed else config.offenders
+        if not self.offenders.ready(day, TIERS[0]):
+            size = max(size, min(len(self.offenders.active) + 1, config.offenders))
+        if len(self.offenders.active) >= size:
             return
         # With a watch on every street there is nowhere calmer to draw from, so draw from anywhere.
         calm = [s for s in STREETS if self.districts is None or not self.districts.organized(s)] or list(STREETS)
-        self.offenders.top_up(self.town, self.rng, [v.id for v in self.town.villagers if v.home in calm])
+        founders = self.districts.founders() if self.districts is not None else set()
+        self.offenders.top_up(self.town, self.rng, [v.id for v in self.town.villagers
+                                                    if v.home in calm and v.id not in founders], size)
 
     async def ensure(self, engine, now: float | None = None) -> None:
         """Open a shared case, set in the part of the day just finished, for each wanted tier with none open; now is

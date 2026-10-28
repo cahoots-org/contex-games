@@ -48,7 +48,8 @@ def make_cases(**config):
     town = make_town()
     assign_traits(town.villagers, Random(0))
     town.dress(1, Random(0))
-    cases = Cases(Config(**config), town, make_routine(), Random(1), Ids())
+    # Eight residents are too few for a share of them to cap who offends.
+    cases = Cases(Config(**{"offender_share": 1.0, **config}), town, make_routine(), Random(1), Ids())
     return cases, FakeEngine(town), town
 
 
@@ -634,8 +635,8 @@ async def test_serious_crimes_are_committed_by_serious_offenders_only():
         engine.players.add(podcaster("serious"))
         tiered(cases, "petty", opened=2.0)
         await tick(cases, engine)
-        for f in cases.open_shared():
-            opened += f.crime.tier == "serious"
+        for f in cases.open_shared("serious"):
+            opened += 1
             assert CRIMES[f.crime.template].tier == f.crime.tier == cases.offenders.active[f.crime.culprit].tier
     assert opened > 10
 
@@ -961,6 +962,25 @@ async def test_a_petty_case_opens_when_every_petty_offender_is_lying_low():
     await tick(cases, engine)
     [case] = cases.open_shared("petty")
     assert case.crime.culprit not in {"v3", "v5", "v6"} and cases.offenders.active[case.crime.culprit].tier == "petty"
+
+
+@pytest.mark.asyncio
+async def test_a_fresh_town_starts_with_offenders_and_later_refills_only_to_min_offenders():
+    cases, engine, _ = make_cases(offenders=5, min_offenders=3)
+    await tick(cases, engine)
+    assert len(cases.offenders.active) == 5
+    cases.offenders.active = {"v3": Offender()}
+    cases._refill(2)
+    assert len(cases.offenders.active) == 3
+
+
+@pytest.mark.asyncio
+async def test_with_no_petty_offender_free_just_one_joins():
+    cases, engine, _ = make_cases(offenders=8, min_offenders=3)
+    tiered(cases, "petty", opened=2.0)
+    cases.offenders.active = {"v3": Offender(quiet_until=9), "v5": Offender("serious"), "v6": Offender("serious")}
+    cases._refill(2)
+    assert len(cases.offenders.active) == 4 and len(cases.offenders.ready(2, "petty")) == 1
 
 
 @pytest.mark.asyncio

@@ -98,6 +98,8 @@ class Config:
     neglect_at: float = 0.4
     turn_chance: float = 0.5
     min_offenders: int = 3
+    # The most of the town, as a share of its residents, who are or were offenders; past it no one else takes up crime.
+    offender_share: float = 0.25
     # Estimated list prices in dollars per million tokens.
     haiku_input_per_mtok: float = 0.1
     haiku_output_per_mtok: float = 0.5

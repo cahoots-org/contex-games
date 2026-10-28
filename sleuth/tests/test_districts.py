@@ -1,4 +1,5 @@
 import json
+from random import Random
 
 import pytest
 
@@ -229,6 +230,18 @@ async def test_the_floor_refills_from_unorganized_districts_only():
     cases.offenders.exposed["v8"] = "stole Dana Reyes's bike"
     await cases.on_tick(engine, 2, "morning", {})
     assert set(cases.offenders.active) == {"v5", "v6", "v7"}
+
+
+@pytest.mark.asyncio
+async def test_a_watch_founder_never_becomes_an_offender():
+    cases, engine, _, _ = neglected(offenders=6, min_offenders=6, turn_chance=0.0)
+    for street, d in cases.districts.by_street.items():
+        d.crime = d.fear = 0.9
+        d.watch = Watch(f"{street} Group Chat", {"elm street": "v1", "oak street": "v5"}.get(street, "v1"), [], 1.0)
+    for seed in range(20):
+        cases.rng, cases.offenders.active = Random(seed), {}
+        cases._refill(2)
+        assert len(cases.offenders.active) == 6 and not {"v1", "v5"} & set(cases.offenders.active)
 
 
 def test_the_engine_gives_each_resident_their_own_street_s_mood():

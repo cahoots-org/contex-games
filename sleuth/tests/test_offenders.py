@@ -8,7 +8,7 @@ from sleuth.tests.test_case import make_town
 
 def test_the_set_is_topped_up_to_the_configured_size_from_non_offenders():
     town = make_town()
-    offenders = Offenders(Config(offenders=3))
+    offenders = Offenders(Config(offenders=3, offender_share=1.0))
     offenders.exposed["v2"] = "stole Dana Reyes's bike"
     joined = offenders.top_up(town, Random(0))
     assert len(offenders.active) == 3 and set(joined) == set(offenders.active) and "v2" not in offenders.active
@@ -87,3 +87,20 @@ def test_turning_stops_at_max_offenders():
     assert offenders.turn(["v1", "v2"], Random(0)) is None
     offenders.active["v3"] = Offender()
     assert offenders.turn(["v4"], Random(0)) is None and "v4" not in offenders.active
+
+
+def test_past_offender_share_of_the_town_only_someone_exposed_takes_up_crime_again():
+    town = make_town()
+    offenders = Offenders(Config(offenders=4, offender_share=0.5))
+    offenders.exposed["v2"] = "stole Dana Reyes's bike"
+    offenders.top_up(town, Random(0), size=3)
+    assert len(offenders.active) == 3 and "v2" not in offenders.active and offenders.room(town) == 0
+    offenders.top_up(town, Random(0))
+    assert len(offenders.active) == 4 and "v2" in offenders.active
+    arrested = next(vid for vid in offenders.active if vid != "v2")
+    offenders.drop(arrested)
+    town.remove(arrested)
+    assert offenders.room(town) == 0
+    town.remove("v2")
+    offenders.drop("v2")
+    assert offenders.room(town) == 1

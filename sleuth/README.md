@@ -56,8 +56,11 @@ they saw, and the neighborhood app posts the news. A case shows at the top of th
 `case_days`, or `major_case_days` for a major one, when the town learns who did it: a petty culprit is exposed just as a right episode would expose them,
 and any other is arrested, and any accomplice is exposed for covering for them.
 
-**Offenders.** Only a few residents commit crimes: `offenders` of them, picked at random and topped back up whenever
-the set falls below `min_offenders` or no petty offender is free to offend (all lying low). Nobody can see who they are, not the page, not the people list, not the other residents. They
+**Offenders.** Only a few residents commit crimes: `offenders` of them at first, picked at random. Once crime has begun
+the set is topped back up only to `min_offenders`, plus one more (up to `offenders`) when no petty offender is free to
+offend (all lying low). No more than `offender_share` of the town's residents are or ever were offenders: past it,
+nobody new moves in as one or is turned, and the set is topped up from exposed residents who had given it up. A watch's
+founder never becomes one. Nobody can see who they are, not the page, not the people list, not the other residents. They
 don't make a case any easier or harder: the evidence still has to narrow to the culprit among everyone in town. An
 offender who gets away with it `escalate_after` times moves up to a bigger kind of crime, once the catalog has one, unless they are the last offender at their tier.
 
@@ -318,6 +321,7 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_NEGLECT_AT` | `0.4` | crime and fear at which a district without a watch is neglected |
 | `SLEUTH_TURN_CHANCE` | `0.5` | chance each morning that a neglected district turns a resident into an offender |
 | `SLEUTH_MIN_OFFENDERS` | `3` | fewest offenders before the set is refilled from districts without a watch |
+| `SLEUTH_OFFENDER_SHARE` | `0.25` | most of the town's residents who are or ever were offenders |
 
 ## Tests
 

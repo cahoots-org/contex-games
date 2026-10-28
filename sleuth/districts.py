@@ -71,6 +71,10 @@ class Districts:
         self.by_street = {street: District(**{**d, "watch": d["watch"] and Watch(**d["watch"])})
                           for street, d in state.items()}
 
+    def founders(self) -> set[str]:
+        """Who founded each standing watch."""
+        return {d.watch.founder for d in self.by_street.values() if d.watch}
+
     def organized(self, place: str) -> bool:
         return self.by_street[district_of(place)].watch is not None
 

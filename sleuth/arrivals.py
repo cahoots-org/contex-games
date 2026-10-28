@@ -18,8 +18,8 @@ def moved_in(name: str, occupation: str, street: str) -> str:
 
 
 async def move_in(engine, home: str) -> Villager | None:
-    """A new resident moves in on home's street, perhaps an offender, and the app says so: one Haiku call and one Jev
-    call. None while the town is full, or when it fails, touching no one else then."""
+    """A new resident moves in on home's street, perhaps an offender while there is room, and the app says so: one
+    Haiku call and one Jev call. None while the town is full, or when it fails, touching no one else then."""
     town, config, offenders = engine.town, engine.config, engine.cases.offenders
     if town.alive_count >= config.population:
         return None
@@ -34,7 +34,8 @@ async def move_in(engine, home: str) -> Villager | None:
         await engine.routine.add(v)
         await engine.add_villager(v, engine.routine.place(v.id, engine.game.phase) or home)
         settle(v, town.villagers, home, rng)
-        if len(offenders.active) < config.max_offenders and rng.random() < config.newcomer_offender_chance:
+        if (len(offenders.active) < config.max_offenders and offenders.room(town) > 0
+                and rng.random() < config.newcomer_offender_chance):
             offenders.active[v.id] = Offender()
         text = moved_in(v.name, v.occupation, place_name(home))
         engine.feed.on_post(Utterance("", "app", APP, home, text, None, "posted"), None)
