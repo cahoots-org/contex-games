@@ -915,3 +915,15 @@ async def test_a_case_opens_after_someone_logged_that_part_of_the_day_has_left_t
     await cases.ensure(engine, 3.0)
     [case] = cases.open_shared("petty")
     assert "v8" not in case.whereabouts and all(r.who != "v8" for r in case.records.values())
+
+
+@pytest.mark.asyncio
+async def test_no_one_is_the_victim_again_the_day_after_their_case():
+    cases, engine, _ = make_cases(offenders=4)
+    first = culprit_file(cases, culprit="v5", victim="v1")
+    first.crime.day, first.state = 2, "closed"
+    for seed in range(20):
+        cases.rng = Random(seed)
+        cases.files = {first.crime.id: first}
+        await cases.ensure(engine, 4.0)
+        assert all(f.crime.victim != "v1" for f in cases.open_shared())

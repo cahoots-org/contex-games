@@ -385,9 +385,11 @@ class Cases:
         if not self.offenders.ready(day, tier):
             self.offenders.promote(tier, self._involved() | pictured, day)
         culprits = self.offenders.ready(day, tier)
+        # Nobody is a victim again the day after their own case, so one resident isn't robbed twice in a row.
+        recent = {f.crime.victim for f in self.files.values() if f.crime.day >= day - 1}
         for _ in range(DRAWS):
             crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"),
-                                exclude=self._involved() | pictured, culprits=culprits, tier=tier,
+                                exclude=self._involved() | pictured | recent, culprits=culprits, tier=tier,
                                 weight=self._weight if self.districts is not None else None)
             if crime is None:
                 return
