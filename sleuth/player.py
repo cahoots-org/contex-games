@@ -438,9 +438,11 @@ class Player:
             return Refusal(f"{villager.name}: Let's talk later.")
         self._talked[vid] = (part, said + 1)
         thread = self.threads.setdefault(vid, [])
+        # Only this case's exchanges are shown to the models, so a reply never "corrects" what was said of another.
+        on_case = [t for t in thread if t.get("case") == file.crime.id]
         try:
             case = self._told(file.crime.text, file.crime)
-            routed = await route(self.engine.jev, file, villager, self.town, question, thread, case)
+            routed = await route(self.engine.jev, file, villager, self.town, question, on_case, case)
         except Exception:
             log.exception("routing a question to %s failed", vid)
             routed = None
@@ -453,8 +455,8 @@ class Player:
                 r.id = r.id or self.ids.next("r")
                 self.notebook[r.id] = r
                 new.append(r)
-        line = await self._phrase(villager, file, question, thread, found, talk)
-        thread.append({"question": question, "line": line, "records": [r.id for r in new]})
+        line = await self._phrase(villager, file, question, on_case, found, talk)
+        thread.append({"question": question, "line": line, "records": [r.id for r in new], "case": file.crime.id})
         del thread[:-THREAD_KEPT]
         looks = self.town.looks(vid, self.game.day if self.game else 0)
         self.learn(vid, {c: v for c, v in looks.items() if c in IN_PERSON}, "talked")

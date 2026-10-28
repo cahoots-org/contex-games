@@ -1641,3 +1641,16 @@ async def test_a_death_s_routing_never_sees_the_true_part_and_a_timeless_questio
     assert engine.jev.state["case_window"] == ["afternoon", "evening"]
     assert true not in [v for k, v in engine.jev.state.items() if k.startswith("case_part")]
     assert [r.text for r in notebook(player)] == [f"Eli Reyes says they were at the bar {WHEN}."]
+
+
+@pytest.mark.asyncio
+async def test_a_resident_is_not_shown_what_they_said_about_another_case():
+    player, file, engine, writer = interviewing()
+    await ask(player, "v2", "none", "What did you see?")
+    file.state = "closed"
+    culprit_file(player.engine.cases, culprit="v5", victim="v6")
+    await ask(player, "v2", "none", "And this one?")
+    assert writer.calls[-1][3] == [] and engine.jev.state["conversation"] == []
+    await ask(player, "v2", "none", "Anything else?")
+    assert [t["podcaster"] for t in writer.calls[-1][3]] == ["And this one?"]
+    assert [t["question"] for t in player.thread_json("v2")] == ["What did you see?", "And this one?", "Anything else?"]
