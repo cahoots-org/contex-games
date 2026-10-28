@@ -290,9 +290,11 @@ class Cases:
                 self.files.pop(crime.id, None)
 
     def _involved(self) -> set[str]:
-        """The culprits, victims, witnesses and logged residents of every case not yet closed."""
+        """Whom every case not yet closed rests on: its culprit, victim, witnesses, and whoever paid for a receipt
+        dropped at its scene."""
         return {vid for f in self.files.values() if f.state != "closed"
-                for vid in (f.crime.culprit, f.crime.victim, *(x for r in f.records.values() for x in (r.holder, r.who)))
+                for vid in (f.crime.culprit, f.crime.victim,
+                            *(x for r in f.records.values() for x in (r.holder, r.who if r.trail else None)))
                 if vid}
 
     async def _open(self, engine, crime: Crime, pictured: set[str]) -> bool:

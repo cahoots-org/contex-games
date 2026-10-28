@@ -528,7 +528,22 @@ async def test_no_one_an_open_case_needs_is_drawn_into_another():
         other = culprit_file(cases, culprit="v7", victim="v2")
         other.crime.owner = "p-1"
         other.records = {"r-1": Record("r-1", other.crime.id, "memory", "elm street", "", "", "v4"),
-                         "r-2": Record("r-2", other.crime.id, "log", "gym", "", "", who="v6")}
+                         "r-2": Record("r-2", other.crime.id, "log", "grocery", "", "", who="v6", trail=True)}
         await tick(cases, engine)
         if case := cases.shared():
             assert not {case.crime.culprit, case.crime.victim} & {"v4", "v6"}
+
+
+@pytest.mark.asyncio
+async def test_someone_only_logged_in_an_open_case_can_still_be_drawn_into_another():
+    drawn = set()
+    for seed in range(30):
+        cases, engine, _ = make_cases(offenders=8)
+        cases.rng = Random(seed)
+        other = culprit_file(cases, culprit="v7", victim="v2")
+        other.crime.owner = "p-1"
+        other.records = {"r-1": Record("r-1", other.crime.id, "log", "gym", "", "", who="v6")}
+        await tick(cases, engine)
+        if case := cases.shared():
+            drawn |= {case.crime.culprit, case.crime.victim}
+    assert "v6" in drawn
