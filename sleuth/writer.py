@@ -13,9 +13,10 @@ from sleuth.usage import charged_to
 
 SAY_MAX_TOKENS = 80
 ANSWER_MAX_TOKENS = 120
+NO_CASE_FACTS = ("Never add a fact about the case: no one seen or placed anywhere, no time, no look or clothing, "
+                 "no sighting. ")
 CASE_TALK = ("This is about a case. Say what you think, feel and suspect, in character: opinions, theories, grudges "
-             "and your quirks are welcome. Never add a fact about the case: no one seen or placed anywhere, no time, no "
-             "look or clothing, no sighting. ")
+             "and your quirks are welcome. " + NO_CASE_FACTS)
 TIMES = "Say when the case happened only as you are told it, never as another time. "
 # ponytail: word lists, not a judge; they only ever stop a case line that adds one of these to its facts.
 LOOK_WORDS = re.compile(r"\b(?:" + "|".join(re.escape(t) for ts in TRAITS.values() for t in ts)
@@ -176,3 +177,16 @@ class Writer:
         if facts:
             lines.append("Facts: " + " / ".join(facts))
         return first_line(await self.complete(system, "\n".join(lines), max_tokens=ANSWER_MAX_TOKENS))
+
+    async def post(self, villager: Villager, kind: str, case_text: str | None) -> str:
+        """The villager's post of kind on the neighborhood app, in their voice, adding no fact about the open case."""
+        system = (
+            f"You are {villager.name}, a {villager.occupation} in a small town. "
+            f"Your personality: {villager.personality}. "
+            f"You are posting on your town's neighborhood app. Write {kind} in one or two short sentences, in your own "
+            f"voice. {_quirks(villager)}"
+            + (NO_CASE_FACTS if case_text else "")
+            + "No stage directions, no quotation marks, no preamble."
+        )
+        user = f"The open case: {case_text}" if case_text else "Write your post."
+        return first_line(await self.complete(system, user, max_tokens=SAY_MAX_TOKENS))

@@ -10,6 +10,7 @@ from sleuth.actions import ALIBI, MOVE
 from sleuth.calibration import Baselines
 from sleuth.case import told, when
 from sleuth.cases import APP, CaseFile, Cases
+from sleuth.chatter import chatter
 from sleuth.config import Config
 from sleuth.contex_client import ContexClient, Match
 from sleuth.decide import Decision, TurnView, decide, warmth_words
@@ -378,6 +379,10 @@ class Engine:
                 except Exception:
                     log.exception("cases tick failed")
             self._photograph(day, phase, finished)
+            try:
+                await self._chatter()
+            except Exception:
+                log.exception("chatter failed")
             self._chose_move.clear()
             if self.routine is not None:
                 if self._walking is not None:
@@ -392,6 +397,16 @@ class Engine:
         hidden = self.cases.hidden(day, phase) if self.cases is not None else set()
         if photo := self.album.take(self.town, day, phase, finished, self.ids, exclude=hidden):
             self.feed.on_photo(photo_json(photo, self.town))
+
+    async def _chatter(self) -> None:
+        """With chatter_chance while someone plays, a resident posts on the neighborhood app, perhaps about the open
+        shared case."""
+        if self.cases is None or not self.players.any_playing() or self.cases.rng.random() >= self.config.chatter_chance:
+            return
+        shared = self.cases.shared()
+        case_text = told(shared.crime.text, shared.crime, self._today()) if shared and shared.state == "open" else None
+        if post := await chatter(self.writer, self.town, self.cases.rng, self.ids, case_text):
+            self.feed.on_post(post, None)
 
     async def _walk(self, phase: str, spread: float) -> None:
         """Send villagers who are not at their routine place there, a batch at a time across spread seconds."""

@@ -670,3 +670,29 @@ async def test_a_pressed_culprit_may_warn_someone_close_once_a_phase(turns):
     assert engine.warn("v1", "v2") is not None
     assert engine.reputation.get("v2", "p-1") == 2 * engine.config.reputation_warned
     await engine.stop()
+
+
+class Posting:
+    def __init__(self):
+        self.calls = 0
+
+    async def post(self, villager, kind, case_text):
+        self.calls += 1
+        return "Has anyone seen my good spatula?"
+
+
+@pytest.mark.asyncio
+async def test_the_clock_posts_chatter_only_while_someone_plays(turns):
+    engine, _, feed = await setup("v1", config=Config(chatter_chance=1.0))
+    engine.town.get("v1").quirks = ["counts every duck"]
+    engine.cases = Cases(engine.config, engine.town, None, random.Random(1), engine.ids)
+    engine.writer = Posting()
+    engine.players = Players()
+    await engine._chatter()
+    assert engine.writer.calls == 0 and not [e for e in feed.recent if e.kind == "post"]
+    engine.players.add(stub_player())
+    await engine._chatter()
+    [post] = [e.data for e in feed.recent if e.kind == "post"]
+    assert engine.writer.calls == 1
+    assert post == {"case_id": None, "speaker": "V1", "text": "Has anyone seen my good spatula?", "app": False}
+    await engine.stop()

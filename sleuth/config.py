@@ -61,6 +61,8 @@ class Config:
     idle_after_seconds: float = 600.0
     # How many runs that never played are kept; past it the oldest go, however new.
     max_idle_runs: int = 200
+    # The chance, each part of the day while someone plays, that a resident posts on the neighborhood app.
+    chatter_chance: float = 0.5
     # Estimated list prices in dollars per million tokens.
     haiku_input_per_mtok: float = 0.1
     haiku_output_per_mtok: float = 0.5

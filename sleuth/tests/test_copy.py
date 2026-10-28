@@ -6,8 +6,8 @@ from pathlib import Path
 from sleuth.faith import FAITH as WORDS
 
 ROOT = Path(__file__).resolve().parent.parent
-# The word list itself, and the tests that feed it religious residents.
-LISTS = ("test_copy.py", "faith.py", "test_town_gen.py")
+# The word list itself, and the tests that feed it religious residents and posts.
+LISTS = ("test_copy.py", "faith.py", "test_town_gen.py", "test_chatter.py")
 
 
 def test_no_religion_in_code_or_copy():

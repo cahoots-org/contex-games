@@ -140,6 +140,10 @@ A line matches a need when it scores at least `match_margin` above that need's b
 ordinary sentences that concern no one. Baselines are cached in `sleuth_baselines.json`; delete it after changing
 Contex's embedding model. Run Contex with authentication and `SYSTEM_ONE_ENABLED` off (the defaults).
 
+Residents' own app posts (a lost pet, a note to the neighbours, a gripe, a theory about the open case) skip Contex:
+they show on the page and never reach a mind. Each part of the day, while someone plays, one is posted with
+`chatter_chance`, at most one Haiku call.
+
 ## Setup
 
 Install the dependencies (Python 3.12) and set the two API keys, exported or in a `.env` file:
@@ -157,7 +161,8 @@ a new town and saves it as `sleuth_worlds/<session>.json`; set `SLEUTH_SEED_PATH
 ## What it costs
 
 The game counts the tokens it sends to Haiku and Jev and multiplies them by list prices you can change; the page shows
-your share in the menu. Haiku writes each new town, phrases what residents say and each interview reply. Jev decides
+your share in the menu. Haiku writes each new town, phrases what residents say and each interview reply, and writes at most one app post per
+part of the day. Jev decides
 what a woken resident does, plans routines, and routes each interview question. A question costs at most one call to
 each.
 
@@ -210,6 +215,7 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_IDLE_AFTER_SECONDS` | `600` | how long a player counts as playing after their last action |
 | `SLEUTH_MAX_IDLE_RUNS` | `200` | most runs kept that never played |
 | `SLEUTH_DAILY_SPEND_CAP` | `5.0` | estimated dollars per UTC day before the town rests; `0` for no cap |
+| `SLEUTH_CHATTER_CHANCE` | `0.5` | chance each part of the day, while someone plays, that a resident posts on the app |
 
 ## Tests
 

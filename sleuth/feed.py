@@ -139,8 +139,8 @@ class Feed:
         """A case opened or changed in the neighborhood app."""
         self.emit("case", case["text"], player=player, case=case)
 
-    def on_post(self, utterance: Utterance, case_id: str, player: str | None = None) -> None:
-        """The neighborhood app's news of a case, or room talk rooted in it."""
+    def on_post(self, utterance: Utterance, case_id: str | None, player: str | None = None) -> None:
+        """The neighborhood app's news of a case, room talk rooted in it, or a resident's post with no case."""
         u = utterance
         self.emit("post", f'{u.speaker_name} posted: "{u.text}"', player=player, case_id=case_id, speaker=u.speaker_name,
                   text=u.text, app=u.speaker == "app")
