@@ -922,7 +922,7 @@ def test_turning_back_to_a_reply_opens_its_conversation_and_arrows_work_page_wid
 
 def a_photo(game):
     photo = Photo("r-50", "library", 1, "morning", {"v1": {"height": "tall"}, "v2": {"height": "short"}},
-                  "Morning at the library: Marta Hale, Bert Cole.")
+                  "Morning at the library with Bert Cole!", "v1")
     game.engine.album.photos.append(photo)
     return photo
 
@@ -940,7 +940,8 @@ def test_save_photo_endpoint(game):
 
 def test_state_has_the_apps_photos_and_which_this_player_saved(game):
     photo = a_photo(game)
-    other = Photo("r-51", "cafe", 1, "afternoon", {"v2": {"height": "short"}}, "Afternoon at the cafe: Bert Cole.")
+    other = Photo("r-51", "cafe", 1, "afternoon", {"v2": {"height": "short"}, "v1": {"height": "tall"}},
+                  "Afternoon at the cafe with Marta Hale!", "v2")
     game.engine.album.photos.append(other)
     game.client.post("/api/photos/save", json={"photo_id": photo.id})
     photos = game.client.get("/api/state").json()["photos"]

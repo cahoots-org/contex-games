@@ -18,7 +18,7 @@ from sleuth.game import Game
 from sleuth.interview import Route, exchanges, route
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
-from sleuth.photos import KEPT as PHOTOS_KEPT
+from sleuth.photos import KEPT as PHOTOS_KEPT, posted
 from sleuth.town import PLACES, START_PLACE, Town, at, neighbours
 from sleuth.traits import BY_WORD, IN_PERSON, TRAITS, describe, face
 from sleuth.tutorial import Practice
@@ -455,7 +455,7 @@ class Player:
         file = self.engine.cases.for_player(self.id) if self.engine.cases else None
         records = []
         if file is not None:
-            r = self.notebook[photo.id] = Record(photo.id, file.crime.id, "photo", photo.place, "", photo.caption,
+            r = self.notebook[photo.id] = Record(photo.id, file.crime.id, "photo", photo.place, "", posted(photo, self.town),
                                                  day=photo.day)
             records.append(self._record_json(r))
         self.feed.on_photo_saved(photo.id, records, case_id=file.crime.id if file else None, player=self.id)

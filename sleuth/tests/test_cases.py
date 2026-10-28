@@ -81,8 +81,8 @@ async def test_no_one_in_a_photo_of_the_crime_s_part_of_the_day_is_its_culprit_v
         cases, engine, _ = make_cases()
         cases.rng = Random(seed)
         cases.routine = StubRoutine({vid: {p: street for p in PHASES} for vid, _, _, street in RESIDENTS})
-        engine.album.photos += [Photo("r-90", "gym", 2, "morning", {vid: {} for vid in pictured}, ""),
-                                Photo("r-91", "gym", 2, "afternoon", {"v2": {}, "v4": {}}, "")]
+        engine.album.photos += [Photo("r-90", "gym", 2, "morning", {vid: {} for vid in pictured}, "", "v1"),
+                                Photo("r-91", "gym", 2, "afternoon", {"v2": {}, "v4": {}}, "", "v2")]
         await cases.ensure(engine, 2.25)
         case = cases.shared()
         if case is None:

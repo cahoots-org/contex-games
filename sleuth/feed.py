@@ -129,7 +129,7 @@ class Feed:
 
     def on_photo(self, photo: dict) -> None:
         """A photo posted to the neighborhood app."""
-        self.emit("photo", f"New photo: {photo['caption']}", photo=photo)
+        self.emit("photo", f"{photo['poster']} posted: {photo['caption']}", photo=photo)
 
     def on_photo_saved(self, photo_id: str, records: list[dict], *, case_id: str | None, player: str) -> None:
         """The podcaster kept a photo, and the notebook entry it added, if a case is open."""

@@ -3,7 +3,7 @@ from random import Random
 from sleuth.case import Crime
 from sleuth.cases import CaseFile
 from sleuth.lineage import Ids
-from sleuth.photos import KEPT, Album, photo_json
+from sleuth.photos import KEPT, Album, photo_json, posted
 from sleuth.tests.test_cases import make_cases
 from sleuth.tests.test_persist import VILLAGERS, build
 from sleuth.traits import IN_PERSON, describe, face
@@ -26,13 +26,23 @@ def test_a_photo_shows_two_or_three_people_who_were_there_in_what_they_wore():
     p = Album(Random(1)).take(town, 2, "evening", whereabouts, Ids())
     assert p.place == "bar" and 2 <= len(p.people) <= 3 and set(p.people) <= set(AT_BAR)
     assert all(p.people[v] == {c: town.looks(v, 2)[c] for c in IN_PERSON} for v in p.people)
-    assert p.caption.startswith("Evening at the bar: ") and all(town.get(v).name in p.caption for v in p.people)
-    assert p.caption.endswith(f"{town.get(list(p.people)[-1]).name} in a {town.outfit(list(p.people)[-1], 2)}.")
+    others = [v for v in p.people if v != p.poster]
+    assert p.caption == "Evening at the bar with " + " and ".join(
+        f"{town.get(v).name} in a {town.outfit(v, 2)}" for v in others) + "!"
     first = list(p.people)[0]
     shown = photo_json(p, town)
-    assert set(shown) == {"id", "caption", "people"}
+    assert set(shown) == {"id", "poster", "caption", "people"} and shown["poster"] == town.get(p.poster).name
     assert shown["people"][0] == {"id": first, "name": town.get(first).name, "looks": describe(p.people[first]),
                                   "face": face(p.people[first])}
+
+
+def test_one_of_the_people_in_a_photo_posts_it():
+    _, town, whereabouts = evening_at_the_bar()
+    album = Album(Random(2))
+    posters = {album.take(town, 2, "evening", whereabouts, Ids()).poster for _ in range(40)}
+    assert all(p.poster in p.people for p in album.photos) and len(posters) > 1
+    p = album.photos[-1]
+    assert posted(p, town) == f"{town.get(p.poster).name} posted: {p.caption}"
 
 
 def test_no_photo_at_night_or_with_fewer_than_two_people():
@@ -78,5 +88,5 @@ def test_photos_are_taken_only_while_someone_plays():
     player.touch()
     g.engine._photograph(1, "morning", at_cafe)
     [event] = [e for e in g.feed.recent if e.kind == "photo"]
-    assert event.player is None and event.line == f"New photo: {event.data['photo']['caption']}"
+    assert event.player is None and event.line == f"{event.data['photo']['poster']} posted: {event.data['photo']['caption']}"
     assert g.engine.album.get(event.data["photo"]["id"])

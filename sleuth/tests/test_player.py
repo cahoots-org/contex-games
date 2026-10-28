@@ -18,7 +18,7 @@ from sleuth.cases import CaseFile
 from sleuth.feed import Feed
 from sleuth.game import Game
 from sleuth.lineage import Lineage
-from sleuth.photos import Album
+from sleuth.photos import Album, posted
 from sleuth.tests.helpers import PID, FakeEngine, StubJev, StubRoutine, StubWriter
 from sleuth.tests.test_cases import culprit_file, make_cases
 from sleuth.tests.helpers import make_player as make
@@ -1301,7 +1301,7 @@ async def test_saving_a_photo_teaches_looks_and_adds_a_notebook_entry():
                                          "phase": photo.phase}
         assert player.known_json(vid)[-1]["how"] == "in a photo, day 2"
     saved = player.notebook[photo.id]
-    assert (saved.kind, saved.case, saved.text, saved.day) == ("photo", file.crime.id, photo.caption, 2)
+    assert (saved.kind, saved.case, saved.text, saved.day) == ("photo", file.crime.id, posted(photo, player.town), 2)
     event = player.feed.recent[-1]
     assert (event.kind, event.player, event.data["photo_id"], event.data["case_id"]) == (
         "photo_saved", PID, photo.id, file.crime.id)

@@ -1,4 +1,5 @@
-"""Photos on the neighborhood app: a few residents at a public place in some part of a day, in what they wore."""
+"""Photos on the neighborhood app: a resident posts a few residents, themself among them, at a public place in some part
+of a day, in what they wore."""
 
 from dataclasses import asdict, dataclass
 from random import Random
@@ -21,13 +22,19 @@ class Photo:
     phase: str
     people: dict[str, dict[str, str]]  # vid → how they looked in person that day
     caption: str
+    poster: str  # vid of who posted it, one of the people in it
+
+
+def posted(photo: Photo, town: Town) -> str:
+    """The post as one line, like "Bev Kowalczyk posted: Evening at the bar with …!"."""
+    return f"{town.name_of(photo.poster)} posted: {photo.caption}"
 
 
 def photo_json(photo: Photo, town: Town) -> dict:
-    """What the page shows of a photo: its caption and each resident in it with their looks and face."""
+    """What the page shows of a photo: who posted it, its caption, and each resident in it with their looks and face."""
     people = [{"id": vid, "name": town.name_of(vid), "looks": describe(looks), "face": face(looks)}
               for vid, looks in photo.people.items()]
-    return {"id": photo.id, "caption": photo.caption, "people": people}
+    return {"id": photo.id, "poster": town.name_of(photo.poster), "caption": photo.caption, "people": people}
 
 
 class Album:
@@ -48,8 +55,8 @@ class Album:
 
     def take(self, town: Town, day: int, phase: str, whereabouts: dict[str, list[str]], ids: Ids,
              exclude: set[str] = frozenset()) -> Photo | None:
-        """A photo of 2 or 3 residents logged together at a public place that part of the day, none of exclude; None
-        at night or when no place had 2."""
+        """A photo of 2 or 3 residents logged together at a public place that part of the day, none of exclude, posted
+        by one of them; None at night or when no place had 2."""
         if phase not in PHOTO_PHASES:
             return None
         crowds: dict[str, list[str]] = {}
@@ -64,9 +71,11 @@ class Album:
         place = self.rng.choice(places)
         vids = self.rng.sample(crowds[place], min(self.rng.randint(*PEOPLE), len(crowds[place])))
         people = {vid: {c: v for c, v in town.looks(vid, day).items() if c in IN_PERSON} for vid in vids}
+        poster = self.rng.choice(vids)
         named = [town.get(vid).name + (f" in a {looks['coat']}" if "coat" in looks else "")
-                 for vid, looks in people.items()]
-        photo = Photo(ids.next("r"), place, day, phase, people, f"{phase.capitalize()} {at(place)}: {', '.join(named)}.")
+                 for vid, looks in people.items() if vid != poster]
+        photo = Photo(ids.next("r"), place, day, phase, people,
+                      f"{phase.capitalize()} {at(place)} with {' and '.join(named)}!", poster)
         self.photos.append(photo)
         del self.photos[:-KEPT]
         return photo
