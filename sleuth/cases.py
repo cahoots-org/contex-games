@@ -10,7 +10,7 @@ from random import Random
 from sleuth.arrivals import move_in
 from sleuth.case import (
     CRIMES, TIERS, WHEN, Crime, Record, camera_clip, catalog_tiers, crime_title, discovery, found_it, logs, make_solvable,
-    scene_clues, stage_crime, told, victim_memory, witness_memories,
+    motives, scene_clues, stage_crime, told, victim_memory, witness_memories,
 )
 from sleuth.config import Config
 from sleuth.decide import warmth_words
@@ -51,6 +51,7 @@ class CaseFile:
     words: dict[str, list] = field(default_factory=dict)  # "speaker:about" → [household word, sound]
     named: dict[str, str] = field(default_factory=dict)  # player → the resident their episode named
     accomplice: str | None = None  # who covers for the culprit
+    motives: list[str] = field(default_factory=list)  # a death's: who was on cold terms with the victim
 
 
 def case_json(case: CaseFile, town: Town, routine, today: float | None = None) -> dict:
@@ -80,21 +81,23 @@ class Cases:
         # Residents moving in, kept until they have, one at a time.
         self._moving: set[asyncio.Task] = set()
         self._moving_in = asyncio.Lock()
-        # Game time (day + phase index / 4) of the last tick.
+        # Game time (day + phase index / 4) of the last tick, and of the last major case opening.
         self.now = 0.0
+        self.last_major = -config.major_every_days
         # Everyone's whereabouts through the part of the day the last tick finished.
         self.finished: dict[str, list[str]] | None = None
 
     def to_state(self) -> dict:
-        """Every case file, the offenders and the empty homes as plain JSON."""
+        """Every case file, the offenders, the empty homes and when the last major case opened as plain JSON."""
         return {"files": [asdict(f) for f in self.files.values()], "offenders": self.offenders.to_state(),
-                "vacant": list(self.vacant)}
+                "vacant": list(self.vacant), "last_major": self.last_major}
 
     def restore(self, state: dict) -> None:
-        """Replace the case files, offenders and empty homes with a saved state, leaving out cases saved before they
-        opened."""
+        """Replace the case files, offenders, empty homes and last major opening with a saved state, leaving out cases
+        saved before they opened."""
         self.offenders.restore(state["offenders"])
         self.vacant = list(state["vacant"])
+        self.last_major = state["last_major"]
         self.files = {}
         for f in state["files"]:
             if f["state"] == "setup":
@@ -126,9 +129,10 @@ class Cases:
 
     def wanted(self, engine) -> list[str]:
         """The tiers that should have a case open: every catalog tier up to the highest an active podcaster has
-        reached, petty always."""
+        reached, petty always; major only with none open and major_every_days since the last opened."""
         top = max((TIERS.index(p.tier) for p in engine.players if p.active()), default=0)
-        return [t for t in catalog_tiers() if TIERS.index(t) <= top]
+        rested = not self.open_shared("major") and self.now - self.last_major >= self.config.major_every_days
+        return [t for t in catalog_tiers() if TIERS.index(t) <= top and (t != "major" or rested)]
 
     def culprit_case(self, vid: str) -> CaseFile | None:
         return next((f for f in self.files.values() if f.state != "closed" and f.crime.culprit == vid), None)
@@ -151,7 +155,7 @@ class Cases:
         if case is None:
             return None
         crime = case.crime
-        victim = self.town.get(crime.victim)
+        victim = self.town.anyone(crime.victim)
         rivals = [(v.warmth[victim.id], v.id) for v in self.town.villagers
                   if v.id not in (crime.culprit, victim.id) and v.warmth.get(victim.id, 0.0) < 0]
         ties = [(w, t) for t, w in self.town.get(vid).warmth.items() if t not in (victim.id, vid) and t in self.town]
@@ -198,11 +202,16 @@ class Cases:
     async def arrest(self, engine, vid: str) -> asyncio.Task:
         """The resident is arrested and leaves town at once; returns the task of someone moving in on their street."""
         v = self.town.get(vid)
-        self.offenders.drop(vid)
         engine.feed.on_post(Utterance("", "app", APP, v.home, ARRESTED.format(name=v.name), None, "posted"), None)
+        return await self._depart(engine, vid)
+
+    async def _depart(self, engine, vid: str) -> asyncio.Task:
+        """The resident leaves town at once; returns the task of someone moving in on their street."""
+        home = self.town.get(vid).home
+        self.offenders.drop(vid)
         await engine.remove_villager(vid)
-        self.vacant.append(v.home)
-        return self._fill(engine, v.home)
+        self.vacant.append(home)
+        return self._fill(engine, home)
 
     def _fill(self, engine, home: str) -> asyncio.Task:
         """Start someone moving into the empty home, after anyone already moving in."""
@@ -306,7 +315,8 @@ class Cases:
 
     def dress(self, day: int) -> None:
         """Dress the town for day, culprits avoiding their crime's outfit."""
-        self.town.dress(day, self.rng, self.cautious(day), math.ceil(self.config.case_days) + 2)
+        days = max(self.config.case_days, self.config.major_case_days)
+        self.town.dress(day, self.rng, self.cautious(day), math.ceil(days) + 2)
 
     async def on_tick(self, engine, day: int, phase: str, finished: dict[str, list[str]]) -> None:
         """Dress the town, let exposed offenders reform of a morning, try again to fill an empty home, let old cases go
@@ -323,7 +333,7 @@ class Cases:
         now = self.now = day + PHASES.index(phase) / len(PHASES)
         self.finished = finished
         for case in [f for f in self.files.values() if f.state == "open"]:
-            if now - case.opened >= self.config.case_days:
+            if now - case.opened >= (self.config.major_case_days if case.crime.tier == "major" else self.config.case_days):
                 self.close(case, None)
                 self.offenders.escaped_with(case.crime.culprit)
                 cold = COLD.format(name=self.town.name_of(case.crime.culprit))
@@ -395,7 +405,8 @@ class Cases:
     async def _open(self, engine, crime: Crime, pictured: set[str]) -> bool:
         """Leave the crime's evidence, witnessed by no one pictured elsewhere then nor any open case's culprit, and, if
         it narrows to the culprit, open the case: tell its witnesses and victim what they saw and found, and post the
-        news. False if it cannot be made solvable."""
+        news. A death's victim is found by someone nearby or at home with them, then leaves town, and someone moves in.
+        False if it cannot be made solvable or a death has no one to find it."""
         away = pictured | {f.crime.culprit for f in self.files.values() if f.state == "open"}
         self.dress(crime.day)
         whereabouts = dict(self.finished or {v.id: [p] for v in self.town.villagers
@@ -413,9 +424,14 @@ class Cases:
         added = make_solvable(crime, records, self.town, self.routine, self.rng, self.ids, away)
         if added is None:
             return False
-        records += [*added, discovery(crime, self.town, self.rng, self.ids)]
+        death = crime.tier == "major"
+        finder = self._finder(crime, records + added, away) if death else None
+        if death and finder is None:
+            return False
+        records += [*added, discovery(crime, self.town, self.rng, self.ids, finder)]
         case = self.files[crime.id] = CaseFile(crime, {r.id: r for r in records}, "open", opened=self.now,
-                                               whereabouts=whereabouts, accomplice=accomplice)
+                                               whereabouts=whereabouts, accomplice=accomplice,
+                                               motives=motives(self.town, crime.victim) if death else [])
         for m in records:
             if m.kind in ("memory", "discovery"):
                 await self._remember(engine, case, m)
@@ -423,6 +439,9 @@ class Cases:
         victim = self.town.get(crime.victim)
         hearers = [victim.id, *(v.id for v in self.town.villagers if v.household == victim.household),
                    *(v.id for v in self.town.present(crime.place))]
+        if death:
+            self.last_major = self.now
+            await self._depart(engine, victim.id)
         case.roots[news.id] = "news"
         await engine.deliver(news, list(dict.fromkeys(hearers)))
         engine.feed.on_case(case_json(case, self.town, self.routine, self.now))
@@ -455,9 +474,20 @@ class Cases:
         others = sorted(vid for vid in self.offenders.active if vid in self.town and vid not in barred)
         return self.rng.choice(others) if others else None
 
+    def _finder(self, crime: Crime, records: list[Record], away: set[str]) -> str | None:
+        """Who finds a death's victim: someone expected at the scene or of the victim's household, not away, a
+        witness only when no one else is."""
+        victim = self.town.get(crime.victim)
+        near = [v.id for v in self.town.villagers if v.id not in (crime.culprit, victim.id, *away)
+                and (self.routine.place(v.id, crime.phase) == crime.place
+                     or bool(victim.household) and v.household == victim.household)]
+        seen_by = {r.holder for r in records}
+        return self.rng.choice([vid for vid in near if vid not in seen_by] or near) if near else None
+
     async def _remember(self, engine, case: CaseFile, m: Record) -> None:
-        """Tell the witness what they saw, or the victim in their own words what they found, rooted in the case."""
-        text = found_it(case.crime, m.clock) if m.kind == "discovery" else m.text
+        """Tell the witness what they saw, or the finder in their own words what they found, rooted in the case."""
+        victim = self.town.name_of(case.crime.victim) if case.crime.tier == "major" else ""
+        text = found_it(case.crime, m.clock, victim) if m.kind == "discovery" else m.text
         u = Utterance(self.ids.next("u"), "memory", self.town.get(m.holder).name, case.crime.place, text, None, "saw")
         case.roots[u.id] = "memory"
         m.utterance = u.id

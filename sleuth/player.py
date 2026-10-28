@@ -534,6 +534,8 @@ class Player:
 
     def _deed(self, crime: Crime) -> str:
         """What was done in the crime, as a gerund, like "stealing Ada Reyes's bike"."""
+        if crime.tier == "major":
+            return f"being behind the death of {self.town.name_of(crime.victim)}"
         return f"{CRIMES[crime.template].doing} {self.town.name_of(crime.victim)}'s {crime.item}"
 
     def known_json(self, vid: str) -> list[dict]:
@@ -594,8 +596,10 @@ class Player:
         if kind == "who_told_you":
             return await self._hearsay(file, villager)
         if kind == "who_had_reason":
-            victim = self.town.get(crime.victim)
-            if vid == victim.id:
+            victim = self.town.anyone(crime.victim)
+            if crime.tier == "major":
+                known = file.motives if acquainted(villager, victim) else []
+            elif vid == victim.id:
                 known = [v.id for v in self.town.villagers
                          if victim.warmth.get(v.id, 0.0) < 0 or motive_of(v, victim) != "opportunity"]
             else:
@@ -766,7 +770,7 @@ class Player:
         file.published.append(self.id)
         file.named[self.id] = culprit_id
         crime = file.crime
-        accused, victim = self.town.get(culprit_id), self.town.get(crime.victim)
+        accused, victim = self.town.get(culprit_id), self.town.anyone(crime.victim)
         held = holds(crime, culprit_id, self.town.looks(culprit_id, crime.day), [self.notebook[i] for i in record_ids])
         if crime.owner:
             verdict = HELD if held else f"{PRACTICE_WRONG} It was {self.town.get(crime.culprit).name}."
@@ -784,7 +788,8 @@ class Player:
                 handoff = {"head": head, "line": payoff}
             self._graduate(file, self.id if held else None, line, handoff)
             return None
-        named = f"{accused.name} {CRIMES[crime.template].did} {victim.name}'s {crime.item}"
+        named = (f"{accused.name} was behind the death of {victim.name}" if crime.tier == "major"
+                 else f"{accused.name} {CRIMES[crime.template].did} {victim.name}'s {crime.item}")
         if held:
             for rival in self.engine.players:
                 if rival is not self and any(r.case == crime.id for r in rival.notebook.values()):

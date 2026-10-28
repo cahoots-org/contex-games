@@ -16,8 +16,11 @@ class Config:
     cooldown_seconds: float = 30.0
     renew_seconds: float = 1200.0
     population: int = 50
-    # Game days before an open case goes cold.
+    # Game days before an open case goes cold, and a major one.
     case_days: float = 3.0
+    major_case_days: float = 6.0
+    # Fewest game days between one major case opening and the next.
+    major_every_days: float = 3.0
     # How a resident's regard for a podcaster moves: a right publish, a wrong one, and being wrongly accused.
     reputation_right: float = 0.3
     reputation_wrong: float = -0.4

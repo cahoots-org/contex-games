@@ -1505,3 +1505,33 @@ async def test_citing_the_accomplice_s_word_sinks_the_episode():
     ids = cite(player, file, memory_of(file, player.ids)) + [word.id]
     assert await player.publish("v3", ids) is None
     assert file.state == "open" and player.standing == 0
+
+
+def a_death(player, file):
+    """Dana (v1) died; Hal (v5), Jo (v7) and Kit (v8) had reason to."""
+    file.crime.template, file.crime.item, file.crime.tier = "death", "", "major"
+    file.motives = ["v5", "v7", "v8"]
+    player.town.remove("v1")
+    player.standing = player.config.major_at
+
+
+@pytest.mark.asyncio
+async def test_anyone_who_knew_the_victim_of_a_death_names_every_motive():
+    player, file, engine, _ = interviewing()
+    a_death(player, file)
+    await ask(player, "v2", "who_had_reason")
+    assert [(r.who, r.sound, r.kind) for r in notebook(player)] == [("v5", True, "statement"), ("v7", True, "statement"),
+                                                                   ("v8", True, "statement")]
+    assert notebook(player)[1].text == "Eli Reyes says Jo Tran has never got on with Dana Reyes."
+    player.notebook.clear()
+    await ask(player, "v4", "who_had_reason")
+    assert notebook(player) == []
+
+
+@pytest.mark.asyncio
+async def test_an_episode_on_a_death_names_it_soberly():
+    player, file, engine, _ = interviewing()
+    a_death(player, file)
+    ids = cite(player, file, memory_of(file, player.ids))
+    assert await player.publish("v3", ids) is None
+    assert engine.delivered[0][0].text == "Fay Okafor was behind the death of Dana Reyes, and the evidence holds up."

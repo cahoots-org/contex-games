@@ -28,16 +28,21 @@ and you work one at a time: the highest by default, or the one you pick. Intervi
 episodes all go to the case you're working. Crimes come from the catalog in `sleuth/case.py`. Petty ones: a stolen
 bike, a vandalized car, sabotaged county-fair jam, a dog let out, salted sugar jars at the cafe, a moustache drawn on a
 portrait at town hall, a goose made off with from the dog park, a pinched garden gnome. Serious ones: a till or cash
-box robbed at a shop or the bar, a mugging on the street, at the dog park or the bar, a stolen car. The culprit comes
+box robbed at a shop or the bar, a mugging on the street, at the dog park or the bar, a stolen car. Major ones: a
+death in town, offstage, opened at most once every `major_every_days` and only one at a time. The culprit comes
 from another household than the victim's, and one or two clues are left at the crime place. A petty crime has up to
 two witnesses, and its culprit is sometimes a regular at the scene. A serious one has up to three, its culprit is
 never a regular there, so they always lie about where they were, and a mugging's victim remembers one thing about
-the mugger. With `accomplice_chance`, a serious culprit has an accomplice, their closest friend or another offender,
+the mugger. A death has up to two witnesses, who saw someone arguing; its victim is someone at least two residents
+besides the culprit were on cold terms with, and anyone who knew the victim names them all when asked who had a
+reason. Someone at the scene or at home with the victim found them, and the victim leaves town at once, so someone
+moves in. Its news gives only a window, the part of the day before and the one it happened in, but every record is
+from the one it happened in. With `accomplice_chance`, a serious culprit has an accomplice, their closest friend or another offender,
 who is never a witness to it nor at the scene, and swears the culprit was with them. The game
 checks that the evidence, with that part of the day's check-ins and receipts, narrows to the culprit alone, adding a
 witness if that helps and drawing another crime if nothing can. A solvable case opens: its witnesses are told what
 they saw, and the neighborhood app posts the news. A case shows at the top of the page and goes cold after
-`case_days`, when the town learns who did it: a petty culprit is exposed just as a right episode would expose them,
+`case_days`, or `major_case_days` for a major one, when the town learns who did it: a petty culprit is exposed just as a right episode would expose them,
 and any other is arrested, and any accomplice is exposed for covering for them.
 
 **Offenders.** Only a few residents commit crimes: `offenders` of them, picked at random and topped back up whenever
@@ -45,7 +50,7 @@ the set falls below `min_offenders`. Nobody can see who they are, not the page, 
 don't make a case any easier or harder: the evidence still has to narrow to the culprit among everyone in town. An
 offender who gets away with it `escalate_after` times moves up to a bigger kind of crime, once the catalog has one, unless they are the last offender at their tier.
 
-**Moving in.** Nobody moves away by choice, but whenever someone leaves, say on an arrest, someone new moves in on
+**Moving in.** Nobody moves away by choice, but whenever someone leaves, on an arrest or a death, someone new moves in on
 the same street, as long as the town is under `population`, one at a time and tried again each part of the day
 until it works: a household of their own, a neighbor and one other tie,
 a look nobody else has, three outfits and a routine. It costs one Haiku call (up to three when a reply is unusable)
@@ -291,6 +296,8 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_MAX_OFFENDERS` | `6` | most offenders that moving in can bring the set to |
 | `SLEUTH_SERIOUS_AT` | `3` | standing at which a podcaster is offered serious cases |
 | `SLEUTH_MAJOR_AT` | `6` | standing at which a podcaster is offered major cases |
+| `SLEUTH_MAJOR_CASE_DAYS` | `6` | game days before an open major case goes cold |
+| `SLEUTH_MAJOR_EVERY_DAYS` | `3` | fewest game days between one major case opening and the next |
 | `SLEUTH_ACCOMPLICE_CHANCE` | `0.5` | chance a serious culprit has an accomplice who vouches for them |
 | `SLEUTH_DISTRICT_CRIME_DECAY` | `0.02` | how far a district's crime fades each part of the day |
 | `SLEUTH_DISTRICT_FEAR_DECAY` | `0.015` | how far a district's fear fades each part of the day |

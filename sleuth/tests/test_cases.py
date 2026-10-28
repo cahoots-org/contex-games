@@ -19,7 +19,7 @@ from sleuth.photos import Album, Photo
 from sleuth.players import Players
 from sleuth.reputation import Reputation
 from sleuth.tests.helpers import StubRoutine, stub_player
-from sleuth.tests.test_case import RESIDENTS, make_routine, make_town
+from sleuth.tests.test_case import RESIDENTS, feuding, make_routine, make_town
 from sleuth.traits import assign_traits
 
 
@@ -719,7 +719,7 @@ def test_every_tier_up_to_the_highest_reached_is_wanted():
     cases, engine, _ = make_cases()
     assert cases.wanted(engine) == ["petty"]
     engine.players.add(podcaster("major"))
-    assert cases.wanted(engine) == ["petty", "serious"]
+    assert cases.wanted(engine) == ["petty", "serious", "major"]
 
 
 @pytest.mark.asyncio
@@ -746,3 +746,89 @@ async def test_no_one_usually_at_the_scene_is_the_accomplice():
             opened += 1
             assert cases.files[crime.id].accomplice == "v7"
     assert opened
+
+
+def deadly(seed=0):
+    """A town where Dana (v1) is on cold terms with Hal (v5), Jo (v7) and Kit (v8), everyone on Oak Street a major
+    offender, and the game at the morning of day 2."""
+    cases, engine, town = make_cases()
+    cases.rng = Random(seed)
+    feuding(town)
+    cases.offenders.active = {vid: Offender("major") for vid in ("v5", "v6", "v7", "v8")}
+    cases.now = 2.0
+    return cases, engine, town
+
+
+async def open_death(seed=0):
+    cases, engine, town = deadly(seed)
+    await cases._stage(engine, "major", 1, "night", set())
+    return cases, engine, town, next(iter(cases.open_shared("major")), None)
+
+
+def test_a_major_case_opens_only_for_a_major_podcaster_and_not_too_often():
+    cases, engine, _ = make_cases()
+    cases.now = 2.0
+    engine.players.add(podcaster("serious"))
+    assert cases.wanted(engine) == ["petty", "serious"]
+    engine.players.add(podcaster("major", "p-2"))
+    assert cases.wanted(engine) == ["petty", "serious", "major"]
+    death = tiered(cases, "major")
+    assert cases.wanted(engine) == ["petty", "serious"]
+    cases.close(death, None)
+    cases.last_major = 1.0
+    assert cases.wanted(engine) == ["petty", "serious"]
+    cases.now = 1.0 + cases.config.major_every_days
+    assert cases.wanted(engine) == ["petty", "serious", "major"]
+
+
+@pytest.mark.asyncio
+async def test_the_victim_leaves_town_and_someone_else_found_them():
+    cases, engine, town, case = await open_death()
+    crime = case.crime
+    assert crime.victim == "v1" and "v1" not in town and "v1" in {v.id for v in town.departed}
+    assert cases.vacant == ["elm street"] and cases.last_major == 2.0
+    [found] = [r for r in case.records.values() if r.kind == "discovery"]
+    assert found.holder in town and found.holder not in (crime.culprit, crime.victim)
+    finder = town.get(found.holder)
+    assert finder.household == "h1" or cases.routine.place(finder.id, "night") == crime.place
+    assert found.text == f"Around {found.clock}, {finder.name} found Dana Reyes on Elm Street."
+    [told_them] = [(u, ids) for u, ids, _ in engine.delivered if u.id == found.utterance]
+    assert told_them == (told_them[0], [finder.id]) and told_them[0].text == f"Around {found.clock}, I found Dana Reyes on Elm Street."
+
+
+@pytest.mark.asyncio
+async def test_a_major_case_has_several_people_with_motives():
+    cases, engine, town, case = await open_death()
+    assert case.motives == ["v5", "v7", "v8"] and len(set(case.motives) - {case.crime.culprit}) >= 2
+
+
+@pytest.mark.asyncio
+async def test_a_major_case_stays_solvable_across_seeds():
+    opened = 0
+    for seed in range(30):
+        cases, engine, town, case = await open_death(seed)
+        if case is None:
+            continue
+        opened += 1
+        assert suspects(case.crime, list(case.records.values()), town) == {case.crime.culprit}
+        assert case.crime.window == ["evening", "night"]
+    assert opened > 20
+
+
+@pytest.mark.asyncio
+async def test_a_major_case_runs_longer_before_going_cold():
+    cases, engine, town = make_cases()
+    petty, death = tiered(cases, "petty"), tiered(cases, "major", "v5", "v2")
+    await tick(cases, engine, day=4)
+    assert petty.state == "closed" and death.state == "open"
+    await tick(cases, engine, day=6)
+    assert death.state == "closed" and "v5" not in town
+
+
+def test_window_and_motives_round_trip():
+    cases, _, town = make_cases()
+    file = tiered(cases, "major")
+    file.crime.window, file.motives, cases.last_major = ["night", "morning"], ["v5", "v7"], 1.5
+    fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
+    fresh.restore(json.loads(json.dumps(cases.to_state())))
+    assert fresh.files == cases.files and fresh.last_major == 1.5

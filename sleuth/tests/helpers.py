@@ -161,6 +161,9 @@ class FakeEngine:
     async def deliver(self, utterance, listener_ids, addressed=False):
         self.delivered.append((utterance, listener_ids, addressed))
 
+    async def remove_villager(self, vid):
+        self.cases.town.remove(vid)
+
     async def recall_heard(self, vid, text):
         self.recalls.append((vid, text))
         return self.heard

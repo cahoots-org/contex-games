@@ -28,6 +28,7 @@ from sleuth.case import (
     suspects,
     ago,
     misdated,
+    motives,
     retime,
     told,
     victim_memory,
@@ -38,6 +39,7 @@ from sleuth.models import Villager
 from sleuth.tests.helpers import StubRoutine
 from sleuth.town import PLACES, Town
 from sleuth.traits import assign_traits
+from sleuth.writer import CLOCK
 
 RESIDENTS = [
     ("v1", "Dana Reyes", "h1", "elm street"),
@@ -154,7 +156,7 @@ def test_every_item_is_only_ever_staged_at_its_places_and_no_line_uses_a_pronoun
             found = discovery(crime, town, Random(seed), Ids())
             for line in (crime.text, found.text):
                 assert not re.search(r"\b(their|his|her)\b", line, re.IGNORECASE), line
-    assert {i for i, p in ITEM_PLACES.items() if "bar" in p} == {"car", "till", "cash box", "wallet", "phone"}
+    assert {i for i, p in ITEM_PLACES.items() if "bar" in p} == {"car", "till", "cash box", "wallet", "phone", ""}
 
 
 @pytest.mark.parametrize("today, said", [(2, "this afternoon"), (3, "yesterday afternoon"),
@@ -300,7 +302,7 @@ def test_make_solvable_adds_a_pointing_record_when_only_logs_elsewhere_narrow_th
 
 
 def test_every_crime_says_what_was_done_as_a_gerund():
-    assert all(kind.doing.split()[0].endswith("ing") for kind in CRIMES.values())
+    assert all(kind.doing.split()[0].endswith("ing") for kind in CRIMES.values() if kind.tier != "major")
     assert CRIMES["trailer"].doing == "driving off with"
 
 
@@ -444,8 +446,50 @@ def test_every_crime_kind_has_places_for_its_items():
     assert all(item in ITEM_PLACES for k in CRIMES.values() for item in k.items)
 
 
-def test_the_catalog_has_petty_and_serious_crimes():
-    assert catalog_tiers() == ("petty", "serious")
+def test_the_catalog_has_petty_serious_and_major_crimes():
+    assert catalog_tiers() == ("petty", "serious", "major")
+
+
+def feuding(town):
+    """Dana (v1) is on cold terms with Hal (v5), Jo (v7) and Kit (v8)."""
+    town.get("v7").warmth["v1"] = -0.3
+    town.get("v1").warmth["v8"] = -0.2
+    return town
+
+
+def test_the_news_gives_a_window_not_a_time():
+    town, routine = feuding(make_town()), make_routine()
+    crime = stage_crime(town, routine, Random(3), 1, "night", "case-1", tier="major")
+    assert crime.template == "death" and crime.window == ["evening", "night"]
+    text = told(crime.text, crime, 2.0)
+    assert text == (f"{town.get(crime.victim).name} was found dead on Elm Street. It happened sometime between "
+                    "yesterday evening and last night. Police are treating it as suspicious.")
+    assert not CLOCK.search(text)
+    morning = Crime("case-2", "death", "", "v5", "v1", "cafe", 2, "morning", 500, "rival", "It happened {span}.",
+                    tier="major", window=["night", "morning"])
+    assert told(morning.text, morning, 2.25) == "It happened sometime between last night and this morning."
+    assert told(morning.text, morning, 3.0) == "It happened sometime between two days ago, at night and yesterday morning."
+
+
+def test_a_span_is_one_said_time():
+    span = "sometime between last night and this morning"
+    assert retime(f"It happened {span}.", "yesterday morning") == "It happened yesterday morning."
+    assert not misdated(f"Awful, {span}.", f"It happened {span}.")
+    assert misdated("Awful, yesterday evening.", f"It happened {span}.")
+
+
+def test_a_death_s_victim_has_at_least_two_others_with_reason():
+    town, routine = make_town(), make_routine()
+    assert all(stage_crime(town, routine, Random(s), 1, "night", "case-1", tier="major") is None for s in range(20))
+    feuding(town)
+    for seed in range(20):
+        crime = stage_crime(town, routine, Random(seed), 1, "night", "case-1", tier="major")
+        assert crime.victim == "v1" and len(set(motives(town, "v1")) - {crime.culprit}) >= 2
+    assert motives(town, "v1") == ["v5", "v7", "v8"]
+
+
+def test_a_death_never_happens_at_the_school():
+    assert "school" not in ITEM_PLACES[""] and "cafe" in ITEM_PLACES[""]
 
 
 def test_a_serious_culprit_is_never_a_regular_at_the_scene():

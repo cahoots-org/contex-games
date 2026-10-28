@@ -12,9 +12,10 @@ from sleuth.game import Game
 from sleuth.models import Villager
 from sleuth.photos import Album
 from sleuth.players import Players
+from sleuth.reputation import Reputation
 from sleuth.routine import Routine
 from sleuth.tests.helpers import StubBaselines, StubJev
-from sleuth.tests.test_cases import culprit_file, make_cases
+from sleuth.tests.test_cases import culprit_file, make_cases, tiered
 from sleuth.town_gen import settle
 from sleuth.traits import FIXED, TRAITS, assign_look
 
@@ -46,6 +47,7 @@ class Arriving:
         self.game = Game()
         self.album = Album()
         self.players = Players()
+        self.reputation = Reputation(Config())
         self.added = []
 
     async def deliver(self, utterance, listener_ids, addressed=False):
@@ -174,3 +176,15 @@ async def test_two_moving_in_at_once_get_their_own_ids_and_names(tmp_path):
     tasks = [await engine.cases.arrest(engine, vid) for vid in ("v5", "v6")]
     first, second = await asyncio.gather(*tasks)
     assert (first.id, first.name, second.id, second.name) == ("v009", "Wren Abara", "v010", "Oona Pike")
+
+
+@pytest.mark.asyncio
+async def test_a_held_major_episode_arrests_the_culprit_and_someone_moves_in(tmp_path):
+    engine, town = arriving(tmp_path)
+    file = tiered(engine.cases, "major", "v5", "v1")
+    await engine.cases.on_held(engine, file, "p-1")
+    await asyncio.gather(*engine.cases._moving)
+    assert file.state == "closed" and "v5" not in town and "v5" not in engine.cases.offenders.exposed
+    posts = [e.data["text"] for e in engine.feed.recent if e.kind == "post"]
+    assert "Hal Burke was arrested and has left town." in posts
+    assert "Wren Abara, a locksmith, moved in on Oak Street." in posts

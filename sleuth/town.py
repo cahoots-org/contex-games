@@ -105,9 +105,13 @@ class Town:
     def get(self, vid: str) -> Villager:
         return self._villagers[vid]
 
+    def anyone(self, vid: str) -> Villager | None:
+        """The villager, even after they left town."""
+        return self._villagers.get(vid) or next((d for d in self.departed if d.id == vid), None)
+
     def name_of(self, vid: str) -> str | None:
         """The villager's name, even after they left town."""
-        v = self._villagers.get(vid) or next((d for d in self.departed if d.id == vid), None)
+        v = self.anyone(vid)
         return v.name if v else None
 
     def place_of(self, vid: str) -> str:

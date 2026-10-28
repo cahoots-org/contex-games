@@ -7,7 +7,7 @@ from random import Random
 
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
-from sleuth.town import STREETS, Town, at, place_name
+from sleuth.town import PLACES, STREETS, Town, at, place_name
 from sleuth.traits import describe, figure
 
 TIERS = ("petty", "serious", "major")
@@ -43,6 +43,9 @@ CRIMES = {
     "mug": Kind("serious", "mugged", "mugging", ("wallet", "phone"), "gone", "was grabbing at someone",
                 news="Someone mugged {victim} {at} {when} and took their {item}.", title="The mugging of {victim}"),
     "car": Kind("serious", "stole", "stealing", ("car",), "gone", "was driving off in a car that wasn't theirs"),
+    "death": Kind("major", "", "", ("",), "", "was arguing with someone",
+                  news="{victim} was found dead {at}. It happened {window}. Police are treating it as suspicious.",
+                  title="The death of {victim}"),
 }
 TEMPLATES = CRIMES
 # Where each item plausibly is. Residents are on a street only at night, at home.
@@ -54,7 +57,10 @@ ITEM_PLACES = {"bike": (*STREETS, "gym", "school"), "tote bag": ("cafe", "gym", 
                "county-fair pumpkin": FAIR_PLACES, "county-fair jam": FAIR_PLACES, "county-fair quilt": FAIR_PLACES,
                "dog": STREETS, "marching band trailer": ("school",), "sugar jars": ("cafe", "grocery"),
                "portrait": ("town hall", "library"), "goose": ("dog park", *STREETS), "garden gnome": STREETS,
-               "till": TILL_PLACES, "cash box": TILL_PLACES, "wallet": MUG_PLACES, "phone": MUG_PLACES}
+               "till": TILL_PLACES, "cash box": TILL_PLACES, "wallet": MUG_PLACES, "phone": MUG_PLACES,
+               "": tuple(p for p in PLACES if p != "school")}
+# How many residents besides the culprit a death's victim must be on cold terms with.
+MOTIVES = 2
 # How many minutes after the crime the victim finds it.
 NOTICED = (10, 45)
 PHASE_MINUTES = {"morning": (420, 720), "afternoon": (720, 1020), "evening": (1020, 1320), "night": (1320, 1740)}
@@ -75,10 +81,13 @@ RECEIPT = "A grocery receipt dropped {at}, stamped {clock}."
 RECEIPT_BEFORE = (10, 60)
 # Case text keeps the crime's time as WHEN, said relative to the day it is read.
 WHEN = "{when}"
+# A death's news keeps the window it happened in as WINDOW, said the same way.
+WINDOW = "{span}"
 DAYS_AGO = ("two", "three", "four", "five", "six")
-# A time as ago() or a resident says it.
-SAID_TIME = re.compile(r"\b(?:this (?:morning|afternoon|evening)|tonight|last night|yesterday (?:morning|afternoon|evening)|"
-                       r"\w+ days ago, (?:in the (?:morning|afternoon|evening)|at night))\b", re.IGNORECASE)
+# A time as ago() or a resident says it, or a window between two such times.
+_TIME = (r"(?:this (?:morning|afternoon|evening)|tonight|last night|yesterday (?:morning|afternoon|evening)|"
+         r"\w+ days ago, (?:in the (?:morning|afternoon|evening)|at night))")
+SAID_TIME = re.compile(rf"\b(?:sometime between {_TIME} and {_TIME}|{_TIME})\b", re.IGNORECASE)
 # How people say an evening too.
 EVENING = {"last night": "yesterday evening", "tonight": "this evening"}
 
@@ -98,6 +107,7 @@ class Crime:
     text: str  # public news line
     owner: str | None = None  # the practice case's player
     tier: str = "petty"
+    window: list[str] = field(default_factory=list)  # a death's public window: the phase before, then its own
 
 
 @dataclass
@@ -138,13 +148,19 @@ def ago(day: int, phase: str, today: float) -> str:
 
 
 def when(crime: Crime, today: float | None = None) -> str:
-    """When the crime happened, said on today, or on the crime's own day."""
-    return ago(crime.day, crime.phase, crime.day if today is None else today)
+    """When the crime happened, or the window it happened in, said on today, or on the crime's own day."""
+    today = crime.day if today is None else today
+    if not crime.window:
+        return ago(crime.day, crime.phase, today)
+    first, last = crime.window
+    before = crime.day - (PHASES.index(first) > PHASES.index(last))
+    return f"sometime between {ago(before, first, today)} and {ago(crime.day, last, today)}"
 
 
 def told(text: str, crime: Crime, today: float | None = None) -> str:
-    """text with its WHEN said on today."""
-    return text.replace(WHEN, when(crime, today))
+    """text with its WHEN and WINDOW said on today."""
+    said = when(crime, today)
+    return text.replace(WHEN, said).replace(WINDOW, said)
 
 
 def retime(text: str, said: str) -> str:
@@ -156,6 +172,12 @@ def misdated(line: str, allowed: str) -> bool:
     """Whether the line gives a time allowed does not; "last night" and "tonight" may say an evening."""
     allowed = allowed.lower()
     return any(t not in allowed and EVENING.get(t, t) not in allowed for t in map(str.lower, SAID_TIME.findall(line)))
+
+
+def motives(town: Town, victim: str) -> list[str]:
+    """Residents on cold terms with the victim, either way."""
+    v = town.get(victim)
+    return [o.id for o in town.villagers if o.id != victim and (o.warmth.get(victim, 0.0) < 0 or v.warmth.get(o.id, 0.0) < 0)]
 
 
 def motive_of(culprit, victim) -> str:
@@ -170,15 +192,18 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
                 weight: Callable[[str], float] | None = None) -> Crime | None:
     """Draw a crime of tier, then a culprit (one of culprits, when given) and a victim from different households, the
     victim where the item plausibly is, each place weighted by weight when given. With the tier's EVIDENCE chance, when one fits, the culprit is expected at the
-    scene too, otherwise elsewhere; with none, never there. None if no crime fits."""
+    scene too, otherwise elsewhere; with none, never there. A death's victim is on cold terms with at least MOTIVES
+    others besides the culprit, and its window spans the part of the day before. None if no crime fits."""
     residents = [v for v in town.villagers if v.id not in exclude and routine.place(v.id, phase) is not None]
+    disliked = {v.id: set(motives(town, v.id)) for v in residents} if tier == "major" else {}
     crimes = [(t, item) for t, kind in CRIMES.items() if kind.tier == tier for item in kind.items]
     chance = EVIDENCE[tier][1]
     for template, item in rng.sample(crimes, len(crimes)):
         pairs = [(c, w, motive_of(c, w)) for w in residents for c in residents
                  if c.household != w.household and (culprits is None or c.id in culprits)
                  and routine.place(w.id, phase) in ITEM_PLACES[item]
-                 and (chance or routine.place(c.id, phase) != routine.place(w.id, phase))]
+                 and (chance or routine.place(c.id, phase) != routine.place(w.id, phase))
+                 and (not disliked or len(disliked[w.id] - {c.id}) >= MOTIVES)]
         if pairs:
             break
     else:
@@ -192,9 +217,10 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
     minute = rng.randrange(*PHASE_MINUTES[phase])
     place = routine.place(victim.id, phase)
     kind = CRIMES[template]
-    text = kind.news.format(did=kind.did, victim=victim.name, item=item, at=at(place), when=WHEN)
+    text = kind.news.format(did=kind.did, victim=victim.name, item=item, at=at(place), when=WHEN, window=WINDOW)
+    window = [PHASES[PHASES.index(phase) - 1], phase] if kind.tier == "major" else []
     return Crime(case_id, template, item, culprit.id, victim.id, place, day, phase, minute, motive, text,
-                 tier=kind.tier)
+                 tier=kind.tier, window=window)
 
 
 def crime_title(crime: Crime, town: Town) -> str:
@@ -258,15 +284,21 @@ def victim_memory(crime: Crime, town: Town, rng: Random, ids: Ids) -> Record:
     return _memory(crime, crime.victim, {trait: culprit[trait]}, rng, ids)
 
 
-def discovery(crime: Crime, town: Town, rng: Random, ids: Ids) -> Record:
-    """The victim finding the crime a little after it, which says nothing of who did it."""
+def discovery(crime: Crime, town: Town, rng: Random, ids: Ids, finder: str | None = None) -> Record:
+    """The victim finding the crime a little after it, or the finder finding the victim of a death, which says nothing
+    of who did it."""
     clock = clock_at(min(crime.minute + rng.randint(*NOTICED), PHASE_MINUTES[crime.phase][1] - 1))
-    text = f"Around {clock}, {town.get(crime.victim).name} found the {crime.item} {CRIMES[crime.template].found} {at(crime.place)}."
-    return Record(ids.next("r"), crime.id, "discovery", crime.place, clock, text, crime.victim, day=crime.day)
+    if finder:
+        text = f"Around {clock}, {town.get(finder).name} found {town.get(crime.victim).name} {at(crime.place)}."
+    else:
+        text = f"Around {clock}, {town.get(crime.victim).name} found the {crime.item} {CRIMES[crime.template].found} {at(crime.place)}."
+    return Record(ids.next("r"), crime.id, "discovery", crime.place, clock, text, finder or crime.victim, day=crime.day)
 
 
-def found_it(crime: Crime, clock: str) -> str:
-    """The discovery in the victim's own words."""
+def found_it(crime: Crime, clock: str, victim: str = "") -> str:
+    """The discovery in its finder's own words; victim names a death's victim."""
+    if victim:
+        return f"Around {clock}, I found {victim} {at(crime.place)}."
     return f"Around {clock}, I found my {crime.item} {CRIMES[crime.template].found} {at(crime.place)}."
 
 
