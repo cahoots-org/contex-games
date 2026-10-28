@@ -14,6 +14,7 @@ from sleuth.chatter import chatter
 from sleuth.config import Config
 from sleuth.contex_client import ContexClient, Match
 from sleuth.decide import Decision, TurnView, decide, warmth_words
+from sleuth.districts import Districts
 from sleuth.effects import act
 from sleuth.facts import Facts
 from sleuth.feed import APP
@@ -58,6 +59,7 @@ class Engine:
         facts: Facts | None = None,
         cases: Cases | None = None,
         album: Album | None = None,
+        districts: Districts | None = None,
     ):
         self.config = config
         self.town = town
@@ -71,6 +73,9 @@ class Engine:
         self.baselines = baselines
         self.routine = routine
         self.cases = cases
+        self.districts = districts
+        if cases is not None:
+            cases.districts = districts
         self.album = album or Album()
         self.reputation = Reputation(config)
         self.players = Players()
@@ -372,6 +377,8 @@ class Engine:
             day, phase = self.game.day, self.game.phase
             self.game.tick()
             self.reputation.decay()
+            if self.districts is not None:
+                self.districts.tick(self.game.phase == "morning")
             self.feed.on_time(self.game.day, self.game.phase)
             finished = self.town.new_phase()
             if self.cases is not None:

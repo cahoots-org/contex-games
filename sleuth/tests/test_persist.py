@@ -16,6 +16,7 @@ from sleuth.case import Crime, Record
 from sleuth.cases import CaseFile, Cases
 from sleuth.config import Config
 from sleuth.decide import Decision
+from sleuth.districts import Districts
 from sleuth.engine import Engine
 from sleuth.facts import Facts
 from sleuth.feed import Feed
@@ -56,7 +57,7 @@ def build(contex=None):
     engine = Engine(
         config, town, contex, None, None, lineage, ids, feed, mind_factory=FakeMind, game=game, baselines=baselines,
         facts=facts,
-        cases=Cases(config, town, None, random.Random(1), ids),
+        cases=Cases(config, town, None, random.Random(1), ids), districts=Districts(config),
     )
     players = Players(usage)
     engine.players = players
@@ -237,6 +238,17 @@ def test_components_have_no_pressure():
 def test_components_include_the_album():
     g = build()
     assert g.parts["album"] is g.engine.album
+
+
+def test_the_saved_game_includes_the_districts(tmp_path):
+    g = build()
+    g.engine.districts.by_street["oak street"].fear = 0.5
+    assert g.parts["districts"] is g.engine.districts is g.engine.cases.districts
+    path = state_path(SESSION, str(tmp_path))
+    save_game(path, g.parts, SESSION)
+    fresh = build()
+    assert restore_game(load_game(path, SESSION), fresh.parts, fresh.make)
+    assert fresh.engine.districts.by_street["oak street"].fear == 0.5
 
 
 def test_restore_resumes_record_and_case_ids(tmp_path):

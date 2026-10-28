@@ -17,6 +17,7 @@ from sleuth.calibration import Baselines
 from sleuth.cases import Cases
 from sleuth.config import Config
 from sleuth.contex_client import ContexClient
+from sleuth.districts import Districts
 from sleuth.engine import Engine
 from sleuth.facts import Facts
 from sleuth.feed import Feed
@@ -61,7 +62,7 @@ async def play() -> None:
             config, town, contex, jev, writer, lineage, ids, feed, game=game,
             baselines=baselines,
             routine=routine, facts=facts, cases=Cases(config, town, routine, rng, ids),
-            album=Album(random.Random(rng.random())),
+            album=Album(random.Random(rng.random())), districts=Districts(config),
         )
         players = Players(usage)
         engine.players = players

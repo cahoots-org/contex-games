@@ -13,6 +13,7 @@ from sleuth.case import (
 )
 from sleuth.config import Config
 from sleuth.decide import warmth_words
+from sleuth.districts import Districts
 from sleuth.feed import APP
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
@@ -69,6 +70,8 @@ class Cases:
         self.ids = ids
         self.files: dict[str, CaseFile] = {}
         self.offenders = Offenders(config)
+        # The real town's districts; the practice town has none.
+        self.districts: Districts | None = None
         # Homes someone left that no one has moved into yet.
         self.vacant: list[str] = []
         # Residents moving in, kept until they have, one at a time.
@@ -165,6 +168,8 @@ class Cases:
         crime = file.crime
         self.close(file, player_id)
         engine.feed.on_case_closed(crime.id, "")
+        if self.districts is not None:
+            self.districts.on_exposed(crime)
         town = [v.id for v in self.town.villagers if v.id != crime.culprit]
         engine.reputation.nudge_all(player_id, self.config.reputation_right, town)
         await self._unmask(engine, file, player_id)
@@ -350,6 +355,8 @@ class Cases:
         records += [*added, discovery(crime, self.town, self.rng, self.ids)]
         case = self.files[crime.id] = CaseFile(crime, {r.id: r for r in records}, "open", opened=self.now,
                                                whereabouts=whereabouts, accomplice=accomplice)
+        if self.districts is not None:
+            self.districts.on_crime(crime)
         for m in records:
             if m.kind in ("memory", "discovery"):
                 await self._remember(engine, case, m)

@@ -53,6 +53,12 @@ and one Jev call, and the app says who moved in. They may or may not be an offen
 `max_offenders`). Witnesses are never drawn from another open case's culprits, so an arrest never takes testimony
 with it, and notebook entries from someone who left still show their name.
 
+**Districts.** Each street is a district with the public places nearest it: Elm Street has the cafe, bar and dog
+park, Oak Street the gym, school and library, Maple Street the hardware store, grocery and town hall. Each district
+keeps a crime level and a fear level between 0 and 1. A crime opened there raises both, by 0.25, 0.45 or 0.7 for a
+petty, serious or major one; a held episode lowers crime by 0.15 and fear by 0.1. Each part of the day crime fades by
+`district_crime_decay` and fear by `district_fear_decay`.
+
 **Your first case.** Before the page, a new podcaster sees three short cards on what the game is and a button to
 start; they come back on a reload only until the podcaster has asked anyone anything. The first case happens in a
 practice town of its own (`sleuth/tutorial.py`), fixed in the code: six residents in three households, their looks,
@@ -267,6 +273,8 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_SERIOUS_AT` | `3` | standing at which a podcaster is offered serious cases |
 | `SLEUTH_MAJOR_AT` | `6` | standing at which a podcaster is offered major cases |
 | `SLEUTH_ACCOMPLICE_CHANCE` | `0.5` | chance a serious culprit has an accomplice who vouches for them |
+| `SLEUTH_DISTRICT_CRIME_DECAY` | `0.02` | how far a district's crime fades each part of the day |
+| `SLEUTH_DISTRICT_FEAR_DECAY` | `0.015` | how far a district's fear fades each part of the day |
 
 ## Tests
 
