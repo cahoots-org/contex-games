@@ -14,7 +14,7 @@ from sleuth.writer import Writer, extract_json
 
 BATCH = 10
 MAX_FAILED_BATCHES = 5
-REQUIRED = ("name", "occupation", "personality", "grudge", "needs")
+REQUIRED = ("name", "occupation", "personality", "grudge", "needs", "quirks")
 MAX_RELATIONSHIPS = 4
 REVERSE = {"parent": "child", "child": "parent"}
 # Weighted draw, so friends are commoner than the rest.
@@ -41,6 +41,9 @@ PROMPT = (
     "fascination or fear of their own (break-ins, layoffs, gossip, their health, the town "
     "changing, or anything else). Make needs particular to this person and "
     "different from the other residents', never generic topics like news or gossip. "
+    "quirks: a JSON array of 1 or 2 short phrases, each a strong, harmless obsession or habit that shows whenever "
+    'they talk, such as "convinced the dog-park goose is plotting something", "a would-be true-crime expert" or '
+    '"blames the town council for everything". '
     "Leave faith out: nothing about anyone, their work, places, grudges or needs may touch on faith or spirituality. "
     "{temper}{taken}"
 )
@@ -83,13 +86,16 @@ def _unwrap(parsed):
 
 
 def _valid(raw) -> bool:
-    """True for a dict with every required key and 3 or more string needs, and no word of faith."""
+    """True for a dict with every required key, 3 or more string needs, a quirk or more, and no word of faith."""
     return (
         isinstance(raw, dict)
         and all(k in raw for k in REQUIRED)
         and isinstance(raw["needs"], list)
         and len(raw["needs"]) >= 3
         and all(isinstance(n, str) for n in raw["needs"])
+        and isinstance(raw["quirks"], list)
+        and len(raw["quirks"]) >= 1
+        and all(isinstance(q, str) and q.strip() for q in raw["quirks"])
         and not FAITH.search(json.dumps(raw))
     )
 
@@ -98,7 +104,7 @@ def _villager(vid: str, raw: dict) -> Villager:
     return Villager(
         id=vid, name=raw["name"], occupation=raw["occupation"],
         personality=raw["personality"], grudge=raw["grudge"] or "",
-        needs=list(raw["needs"])[:5], relationships={},
+        needs=list(raw["needs"])[:5], relationships={}, quirks=raw["quirks"][:2],
     )
 
 

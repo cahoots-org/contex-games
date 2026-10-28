@@ -22,6 +22,7 @@ def entry(i):
         "name": f"Name{i}", "occupation": "baker", "personality": "gruff",
         "grudge": "old feud",
         "needs": ["my oven keeps failing", "my daughter wants to leave", "flour prices"],
+        "quirks": ["blames the town council for everything"],
     }
 
 
@@ -366,3 +367,43 @@ async def test_generation_says_no_religion_and_regenerates_religious_residents()
     assert len(villagers) == 2 and len(prompts) == 2
     assert not [v for v in villagers if WORDS.search(json.dumps(asdict(v)))]
     assert "faith or spirituality" in prompts[0]
+
+
+@pytest.mark.asyncio
+async def test_generated_residents_carry_one_or_two_quirks():
+    batch = [entry(i) for i in range(10)]
+    batch[3]["quirks"] = ["counts the ducks", "hates leaf blowers", "collects spoons"]
+    villagers = await generate_villagers(StubWriter(json.dumps(batch)), 10, random.Random(1))
+    assert all(1 <= len(v.quirks) <= 2 for v in villagers)
+    assert villagers[3].quirks == ["counts the ducks", "hates leaf blowers"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("quirks", [None, [], [""]])
+async def test_a_reply_without_quirks_is_rejected(quirks):
+    batch = [entry(0), entry(1)]
+    if quirks is None:
+        del batch[0]["quirks"]
+    else:
+        batch[0]["quirks"] = quirks
+    villagers = await generate_villagers(StubWriter(json.dumps(batch)), 1, random.Random(1))
+    assert [v.name for v in villagers] == ["Name1"]
+
+
+@pytest.mark.asyncio
+async def test_a_quirk_of_faith_is_rejected():
+    batch = [entry(0), entry(1)]
+    batch[0]["quirks"] = ["sings in the church choir"]
+    villagers = await generate_villagers(StubWriter(json.dumps(batch)), 1, random.Random(1))
+    assert [v.name for v in villagers] == ["Name1"]
+
+
+@pytest.mark.asyncio
+async def test_an_old_seed_without_quirks_still_loads(tmp_path):
+    path = tmp_path / "old.json"
+    old = asdict(Villager("v001", "Ada", "miller", "calm", "", ["a", "b", "c"], {},
+                          traits={"height": "tall"}, wardrobe=["a red scarf"]))
+    del old["quirks"]
+    path.write_text(json.dumps([old]))
+    villagers = await load_or_generate(str(path), FreshBatches(1), 1, random.Random(1))
+    assert [v.quirks for v in villagers] == [[]]

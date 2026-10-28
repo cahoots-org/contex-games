@@ -178,3 +178,23 @@ async def test_case_talk_is_told_to_add_nothing():
     client = StubClient("Someone took it.")
     await Writer(client, "haiku-test").say(villager(), Decision("speak", None, None, None), "x", "all", on_case=True)
     assert "Add no person, animal or detail" in client.messages.calls[0]["system"]
+
+
+@pytest.mark.asyncio
+async def test_say_and_reply_prompts_carry_the_residents_quirks():
+    client = StubClient("Hm.", "Hm.")
+    writer = Writer(client, "haiku-test")
+    quirky = villager()
+    quirky.quirks = ["blames the council for everything"]
+    await writer.say(quirky, Decision("speak", None, None, None), "x", "all", on_case=True)
+    await writer.reply(quirky, "Someone stole a bike.", "Who?", [], [])
+    assert all("blames the council for everything" in c["system"] for c in client.messages.calls)
+
+
+@pytest.mark.asyncio
+async def test_a_resident_without_quirks_gets_no_quirk_line():
+    client = StubClient("Hm.", "Hm.")
+    writer = Writer(client, "haiku-test")
+    await writer.say(villager(), Decision("speak", None, None, None), "x", "all")
+    await writer.reply(villager(), "Someone stole a bike.", "Who?", [], [])
+    assert not any("Your quirks" in c["system"] for c in client.messages.calls)

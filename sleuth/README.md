@@ -10,7 +10,8 @@ The public places are the cafe, gym, school, bar, dog park, hardware store, groc
 Households live on elm, oak or maple street, and each street is one place. Jev picks each resident's work place and
 evening place once; the day runs work, work, leisure, then home on their street at night. Each resident has a fixed
 height, hair and car, drawn by code from a fixed list, plus three outfits. The game picks one outfit for each resident
-each day and records it for a few days; a culprit with an open case stays out of their crime outfit.
+each day and records it for a few days; a culprit with an open case stays out of their crime outfit. Each resident
+also has one or two quirks, a harmless obsession or habit that shows in what they say.
 
 Residents still talk among themselves: what they hear is published into their minds in Contex, and a line that
 matches one of their needs wakes them to react. What a witness saw or a victim found passes only from mind to mind:

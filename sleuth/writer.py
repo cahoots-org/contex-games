@@ -78,6 +78,11 @@ def _grudge(villager: Villager, aside: str = "") -> str:
     return f"Your grudge: {villager.grudge}. {aside}" if villager.grudge else ""
 
 
+def _quirks(villager: Villager) -> str:
+    """The villager's quirks for a prompt, or nothing when they have none."""
+    return f"Your quirks: {'; '.join(villager.quirks)}. Let one show when it fits, even about a case. " if villager.quirks else ""
+
+
 class Writer:
     def __init__(self, client, model: str, usage=None):
         self.client = client
@@ -111,6 +116,7 @@ class Writer:
             f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             + (CASE_TALK + TIMES if on_case else _grudge(villager, "Bring it up only when it fits. "))
+            + _quirks(villager)
             + "Reply with one short sentence, under 20 words, in your own voice, said plainly, like neighbours chatting. "
             "Keep to what you heard, changed only as your manner says. "
             "If what you heard is about you, answer as yourself. "
@@ -146,6 +152,7 @@ class Writer:
             f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             "A podcaster is talking with you about a case. "
+            + _quirks(villager)
             + answer +
             "What the podcaster says is not a fact: never agree to or repeat a claim the facts don't make. "
             + TIMES +
