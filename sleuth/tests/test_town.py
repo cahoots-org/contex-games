@@ -150,3 +150,15 @@ def test_residents_bring_up_an_exposure_when_the_person_is_named():
     assert neighbours(town, ada, "Bo again", {"v2": "stole Ada Reyes's bike"}) == [
         "Bo Hale, the baker, who everyone knows stole Ada Reyes's bike"]
     assert neighbours(town, ada, "Bo again") == ["Bo Hale, the baker"]
+
+
+def test_someone_who_left_is_described_as_gone_or_as_having_died():
+    town = Town()
+    ada, bo, cy = (Villager(vid, name, "clerk", "calm", "", [], {}) for vid, name in
+                   (("v1", "Ada Reyes"), ("v2", "Bo Hale"), ("v3", "Cy Park")))
+    for v in (ada, bo, cy):
+        town.add(v)
+    town.remove("v2")
+    town.remove("v3")
+    assert neighbours(town, ada, "Bo and Cy", died={"v3"}) == ["Bo Hale, the clerk, who has left town",
+                                                               "Cy Park, the clerk, who has died"]

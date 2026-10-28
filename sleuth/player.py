@@ -676,7 +676,8 @@ class Player:
         if self.writer is not None:
             try:
                 case = self._told(crime.text, crime)
-                known = neighbours(self.town, villager, case, self._exposed())
+                died = {f.crime.victim for f in self.engine.cases.files.values() if f.crime.tier == "major"}
+                known = neighbours(self.town, villager, case, self._exposed(), died)
                 now = self.game.now() if self.game else ""
                 line = await self.writer.reply(villager, case, question, exchanges(thread), texts, known, now,
                                                when(crime, self._today()), self._notes(villager.id),

@@ -1610,3 +1610,11 @@ async def test_a_question_about_either_part_of_a_death_s_window_is_about_the_cas
     await ask(player, "v2", "where_were_you", when="morning")
     await ask(player, "v2", "where_were_you", when="night")
     assert [r.text for r in notebook(player)] == [f"Eli Reyes says they were on Elm Street {WHEN}."]
+
+
+@pytest.mark.asyncio
+async def test_the_victim_of_a_death_is_described_as_having_died():
+    player, file, engine, writer = interviewing()
+    a_death(player, file)
+    await ask(player, "v2", "who_had_reason")
+    assert "Dana Reyes, the clerk, who has died" in writer.calls[-1][5]
