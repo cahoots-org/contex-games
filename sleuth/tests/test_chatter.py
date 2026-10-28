@@ -90,6 +90,12 @@ async def test_a_line_with_gore_is_never_said():
     writer.line = "Poisoned, if you ask me."
     await ask(player, "v4", "what_did_you_see")
     assert replies(player)[1] in SHRUGS
+    writer.line = "Someone tall in a grey hoodie, I'll pray for them."
+    await ask(player, "v2", "what_did_you_see")
+    assert "pray" not in replies(player)[2]
+    writer.line = "I'll pray on it."
+    await ask(player, "v4", "what_did_you_see")
+    assert replies(player)[3] in SHRUGS
 
 
 @pytest.mark.asyncio
