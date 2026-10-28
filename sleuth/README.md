@@ -38,7 +38,7 @@ two witnesses, and its culprit is sometimes a regular at the scene. A serious on
 never a regular there, so they always lie about where they were, and a mugging's victim remembers one thing about
 the mugger. A death has up to two witnesses, who saw someone arguing; its victim is someone at least two residents
 besides the culprit were on cold terms with, and anyone who knew the victim names them all when asked who had a
-reason. Someone at the scene or at home with the victim found them, and the victim leaves town at once, so someone
+reason. Someone at the scene found them, and the victim leaves town at once, so someone
 moves in. Its news gives only a window, two parts of the day in a row, either of which may be the one it happened in,
 and every record is from that one. Asked where they were in either part, residents answer for the case. Its news reaches everyone on the victim's street and everyone with a tie to them, and
 the town talks about it soberly: residents are told someone has died and to say nothing of how, and any line with a

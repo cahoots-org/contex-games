@@ -411,8 +411,8 @@ class Cases:
     async def _open(self, engine, crime: Crime, pictured: set[str]) -> bool:
         """Leave the crime's evidence, witnessed by no one pictured elsewhere then nor any open case's culprit, and, if
         it narrows to the culprit, open the case: tell its witnesses and victim what they saw and found, and post the
-        news, a death's to the victim's street and ties. A death's victim is found by someone nearby or at home with
-        them, then leaves town, and someone moves in.
+        news, a death's to the victim's street and ties. A death's victim is found by someone at the scene, then leaves
+        town, and someone moves in.
         False if it cannot be made solvable or a death has no one to find it."""
         away = pictured | {f.crime.culprit for f in self.files.values() if f.state == "open"}
         self.dress(crime.day)
@@ -432,7 +432,7 @@ class Cases:
         if added is None:
             return False
         death = crime.tier == "major"
-        finder = self._finder(crime, records + added, away) if death else None
+        finder = self._finder(crime, records + added, away, scene) if death else None
         if death and finder is None:
             return False
         records += [*added, discovery(crime, self.town, self.rng, self.ids, finder)]
@@ -483,13 +483,9 @@ class Cases:
         others = sorted(vid for vid in self.offenders.active if vid in self.town and vid not in barred)
         return self.rng.choice(others) if others else None
 
-    def _finder(self, crime: Crime, records: list[Record], away: set[str]) -> str | None:
-        """Who finds a death's victim: someone expected at the scene or of the victim's household, not away, a
-        witness only when no one else is."""
-        victim = self.town.get(crime.victim)
-        near = [v.id for v in self.town.villagers if v.id not in (crime.culprit, victim.id, *away)
-                and (self.routine.place(v.id, crime.phase) == crime.place
-                     or bool(victim.household) and v.household == victim.household)]
+    def _finder(self, crime: Crime, records: list[Record], away: set[str], scene: set[str]) -> str | None:
+        """Who finds a death's victim: someone at the scene, not away, a witness only when no one else is."""
+        near = sorted(vid for vid in scene - away - {crime.culprit, crime.victim} if vid in self.town)
         seen_by = {r.holder for r in records}
         return self.rng.choice([vid for vid in near if vid not in seen_by] or near) if near else None
 

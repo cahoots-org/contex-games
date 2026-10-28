@@ -807,7 +807,7 @@ async def test_the_victim_leaves_town_and_someone_else_found_them():
     [found] = [r for r in case.records.values() if r.kind == "discovery"]
     assert found.holder in town and found.holder not in (crime.culprit, crime.victim)
     finder = town.get(found.holder)
-    assert finder.household == "h1" or cases.routine.place(finder.id, "night") == crime.place
+    assert crime.place in case.whereabouts[finder.id] or cases.routine.place(finder.id, "night") == crime.place
     assert found.text == f"Around {found.clock}, {finder.name} found Dana Reyes on Elm Street."
     [told_them] = [(u, ids) for u, ids, _ in engine.delivered if u.id == found.utterance]
     assert told_them == (told_them[0], [finder.id]) and told_them[0].text == f"Around {found.clock}, I found Dana Reyes on Elm Street."
@@ -862,3 +862,21 @@ async def test_major_news_reaches_the_district_and_the_victim_s_ties_only():
     [case] = cases.open_shared("major")
     [(news, hearers)] = [(u, ids) for u, ids, _ in engine.delivered if case.roots.get(u.id) == "news"]
     assert set(hearers) == {"v2", "v3", "v4", "v5", "v7"} and len(hearers) == 5
+
+
+@pytest.mark.asyncio
+async def test_a_death_is_found_only_by_someone_at_the_scene():
+    opened = 0
+    for seed in range(20):
+        cases, engine, town = deadly(seed)
+        cases.routine = make_routine(night={"v2": "gym"})
+        await cases._stage(engine, "major", 1, "night", set())
+        if case := next(iter(cases.open_shared("major")), None):
+            opened += 1
+            [found] = [r for r in case.records.values() if r.kind == "discovery"]
+            assert found.holder in ("v3", "v4")
+    assert opened
+    cases, engine, town = deadly()
+    cases.routine = make_routine(night={"v2": "gym", "v3": "gym", "v4": "gym"})
+    await cases._stage(engine, "major", 1, "night", set())
+    assert not cases.open_shared("major") and "v1" in town
