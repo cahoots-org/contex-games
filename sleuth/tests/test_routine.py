@@ -6,7 +6,7 @@ import pytest
 
 from sleuth.config import Config
 from sleuth.models import Villager
-from sleuth.routine import LEISURE_INSTRUCTIONS, WORK_INSTRUCTIONS, Routine
+from sleuth.routine import LEISURE_INSTRUCTIONS, WORK_INSTRUCTIONS, Routine, workplace
 from sleuth.game import PHASES
 from sleuth.routine import ROUTINE_PLACES
 from sleuth.town import PUBLIC_PLACES
@@ -14,8 +14,8 @@ from sleuth.town import PUBLIC_PLACES
 CONFIG = Config()
 
 
-def villager(vid="v1", name="Ada"):
-    return Villager(vid, name, "miller", "shy", "", [], {}, home="oak street")
+def villager(vid="v1", name="Ada", occupation="miller"):
+    return Villager(vid, name, occupation, "shy", "", [], {}, home="oak street")
 
 
 class CountingJev:
@@ -49,7 +49,7 @@ async def test_load_asks_once_per_villager_and_writes_the_sidecar(tmp_path):
     assert set(questions) == {"work", "leisure"}
     assert questions["work"].instructions == WORK_INSTRUCTIONS
     assert questions["leisure"].instructions == LEISURE_INSTRUCTIONS
-    assert set(questions["work"].criteria) == set(PUBLIC_PLACES)
+    assert set(questions["work"].criteria) == {*PUBLIC_PLACES, "home"}
     assert routine.place("v2", "morning") == "gym"
     assert '"v2"' in path.read_text()
 
@@ -160,3 +160,30 @@ async def test_routine_reasks_when_home_changed(tmp_path):
 
 def test_routine_places_are_the_public_places():
     assert ROUTINE_PLACES == PUBLIC_PLACES
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("occupation, jev, work", [
+    ("barista", "gym", "cafe"), ("town librarian", "bar", "library"), ("bartender at the bar", "cafe", "bar"),
+    ("night-shift nurse", "gym", "oak street"), ("retired schoolteacher", "school", "oak street"),
+    ("hairdresser", "grocery", "grocery"), ("hairdresser", "home", "oak street"),
+])
+async def test_the_work_place_fits_the_job(tmp_path, occupation, jev, work):
+    routine = Routine(CountingJev(work=jev), str(tmp_path / "p.json"), CONFIG)
+    await routine.load([villager(occupation=occupation)])
+    assert routine.place("v1", "morning") == routine.place("v1", "afternoon") == work
+
+
+@pytest.mark.asyncio
+async def test_a_saved_work_place_that_contradicts_the_job_is_asked_again(tmp_path):
+    path = tmp_path / "places.json"
+    path.write_text('{"v1": {"name": "Ada", "home": "oak street", "work": "bar", "leisure": "bar"}}')
+    jev = CountingJev(work="bar")
+    routine = Routine(jev, str(path), CONFIG)
+    await routine.load([villager(occupation="barista")])
+    assert len(jev.calls) == 1 and routine.place("v1", "morning") == "cafe"
+
+
+def test_every_place_in_town_has_jobs_that_name_it():
+    assert {p for p in PUBLIC_PLACES if workplace(f"manager at the {p}") == p} == set(PUBLIC_PLACES)
+    assert workplace("hairdresser at the salon") is None

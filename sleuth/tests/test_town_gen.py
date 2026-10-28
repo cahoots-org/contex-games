@@ -395,6 +395,23 @@ async def test_generation_says_no_religion_and_regenerates_religious_residents()
 
 
 @pytest.mark.asyncio
+async def test_generation_asks_for_jobs_at_the_town_s_places_and_regenerates_any_elsewhere():
+    prompts = []
+
+    class Salon:
+        async def complete(self, system, user, max_tokens=400):
+            prompts.append(user)
+            batch = [entry(i + 10 * len(prompts)) for i in range(2)]
+            if len(prompts) == 1:
+                batch[0]["occupation"] = "hairdresser at the salon"
+            return json.dumps(batch)
+
+    villagers = await generate_villagers(Salon(), 2, random.Random(1))
+    assert len(prompts) == 2 and all(v.occupation == "baker" for v in villagers)
+    assert all(p in prompts[0] for p in ("cafe", "hardware store", "town hall", "library", "from home"))
+
+
+@pytest.mark.asyncio
 async def test_generated_residents_carry_one_or_two_quirks():
     batch = [entry(i) for i in range(10)]
     batch[3]["quirks"] = ["counts the ducks", "hates leaf blowers", "collects spoons"]

@@ -7,8 +7,11 @@ The design is in [docs/superpowers/specs/2026-10-25-sleuth-design.md](../docs/su
 ## The town
 
 The public places are the cafe, gym, school, bar, dog park, hardware store, grocery, town hall and library.
-Households live on elm, oak or maple street, and each street is one place. Jev picks each resident's work place and
-evening place once; the day runs work, work, leisure, then home on their street at night. Each resident has a fixed
+Households live on elm, oak or maple street, and each street is one place. Every job is at one of those places or done
+from home (a night shift out of town counts as home by day): town generation asks for that and draws again for a
+resident whose job names nowhere in town. A job that names its place sets the work place (a barista works at the
+cafe, a librarian at the library), and Jev picks the rest, and each resident's evening place, once; the day runs
+work, work, leisure, then home on their street at night. A till is only ever robbed from someone who works where it is. Each resident has a fixed
 height, hair and car, drawn by code from a fixed list, plus three outfits. The game picks one outfit for each resident
 each day and records it for a few days; a culprit with an open case stays out of their crime outfit. Each resident
 also has one or two quirks, a harmless obsession or habit that shows in what they say.

@@ -8,6 +8,7 @@ from dataclasses import asdict
 
 from sleuth.models import Villager
 from sleuth.faith import FAITH, GORE
+from sleuth.routine import workplace
 from sleuth.town import STREETS
 from sleuth.traits import assign_traits
 from sleuth.writer import Writer, extract_json
@@ -38,7 +39,10 @@ WARMTH = {
 SYSTEM = "You invent residents of a small modern American town. Reply with only JSON, no prose."
 PROMPT = (
     "Invent {n} distinct residents as a top-level JSON array of objects, not wrapped in "
-    "another object. Each item has: name (a full name), occupation, personality (one "
+    "another object. Each item has: name (a full name), occupation (a job at one of the town's only workplaces, the "
+    "cafe, gym, school, bar, dog park, hardware store, grocery, town hall or library, saying which, like \"barista at "
+    "the cafe\"; or work done from home or on a night shift out of town, saying so, like \"night-shift nurse\" or "
+    "\"illustrator, works from home\"), personality (one "
     "short phrase), grudge (a string, empty for most residents), and needs: a JSON array of 3 to 5 strings, each one sentence in the resident's own voice "
     "about news they would prick up their ears at: one about their work, one about a "
     "person they love or resent, one about their standing or money, and one about an odd "
@@ -93,7 +97,8 @@ def _unwrap(parsed):
 
 
 def _valid(raw) -> bool:
-    """True for a dict with every required key, 3 or more string needs, a quirk or more, and nothing of faith or anything grisly."""
+    """True for a dict with every required key, 3 or more string needs, a quirk or more, a job somewhere in town or at
+    home, and nothing of faith or anything grisly."""
     return (
         isinstance(raw, dict)
         and all(k in raw for k in REQUIRED)
@@ -103,6 +108,8 @@ def _valid(raw) -> bool:
         and isinstance(raw["quirks"], list)
         and len(raw["quirks"]) >= 1
         and all(isinstance(q, str) and q.strip() for q in raw["quirks"])
+        and isinstance(raw["occupation"], str)
+        and workplace(raw["occupation"]) is not None
         and not FAITH.search(json.dumps(raw))
         and not GORE.search(json.dumps(raw))
     )

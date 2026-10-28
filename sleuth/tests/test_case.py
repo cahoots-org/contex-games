@@ -507,6 +507,18 @@ def test_a_grudge_either_way_is_a_motive():
     assert motives(town, "v1") == ["v5", "v7", "v8"]
 
 
+def test_a_till_is_robbed_from_someone_who_works_at_the_scene():
+    town = make_town()
+    routine = StubRoutine({vid: {"morning": "school", "evening": "gym"} for vid, *_ in RESIDENTS})
+    routine.places["v6"] = {"morning": "bar", "evening": "bar"}
+    for seed in range(30):
+        crime = stage_crime(town, routine, Random(seed), 1, "evening", "case-1", tier="serious")
+        assert crime.item not in ("till", "cash box") or crime.victim == "v6"
+    tills = [c for seed in range(30) if (c := stage_crime(town, routine, Random(seed), 1, "evening", "case-1",
+                                                          tier="serious")).item in ("till", "cash box")]
+    assert tills
+
+
 def test_a_death_never_happens_at_the_school():
     assert "school" not in ITEM_PLACES[""] and "cafe" in ITEM_PLACES[""]
 

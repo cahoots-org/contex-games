@@ -48,10 +48,12 @@ CRIMES = {
                   title="The death of {victim}"),
 }
 TEMPLATES = CRIMES
-# Where each item plausibly is. Residents are on a street only at night, at home.
+# Where each item plausibly is. Residents are on a street only at home: at night, or by day working from home.
 FAIR_PLACES = (*STREETS, "town hall", "library")
 TILL_PLACES = ("grocery", "hardware store", "cafe", "bar", "gym")
 MUG_PLACES = (*STREETS, "dog park", "bar", "gym", "grocery")
+# Items whose victim works where they are taken.
+AT_WORK = ("till", "cash box")
 ITEM_PLACES = {"bike": (*STREETS, "gym", "school"), "tote bag": ("cafe", "gym", "library", "grocery"),
                "thermos": ("cafe", "gym", "school", "library"), "car": (*STREETS, "grocery", "hardware store", "gym", "bar"),
                "county-fair pumpkin": FAIR_PLACES, "county-fair jam": FAIR_PLACES, "county-fair quilt": FAIR_PLACES,
@@ -198,7 +200,7 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
                 exclude=frozenset(), culprits: set[str] | None = None, tier: str = "petty",
                 weight: Callable[[str], float] | None = None) -> Crime | None:
     """Draw a crime of tier, then a culprit (one of culprits, when given) and a victim from different households, the
-    victim where the item plausibly is, each place weighted by weight when given. With the tier's EVIDENCE chance, when one fits, the culprit is expected at the
+    victim where the item plausibly is, at work for a till, each place weighted by weight when given. With the tier's EVIDENCE chance, when one fits, the culprit is expected at the
     scene too, otherwise elsewhere; with none, never there. A death's victim is on cold terms with at least MOTIVES
     others besides the culprit, and its window spans the part of the day before or after, either equally likely.
     None if no crime fits."""
@@ -211,6 +213,7 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
         pairs = [(c, w, motive_of(c, w)) for w in residents for c in residents
                  if c.household != w.household and (culprits is None or c.id in culprits)
                  and routine.place(w.id, phase) in ITEM_PLACES[item]
+                 and (item not in AT_WORK or routine.place(w.id, phase) == routine.place(w.id, "morning"))
                  and (chance or routine.place(c.id, phase) != routine.place(w.id, phase))
                  and (not disliked or len(disliked[w.id] - {c.id}) >= MOTIVES)]
         if pairs:

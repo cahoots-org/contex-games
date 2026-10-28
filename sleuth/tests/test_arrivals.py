@@ -75,7 +75,7 @@ async def test_someone_moves_in_on_the_arrested_resident_s_street(tmp_path):
     assert len(v.relationships) == 2 and "neighbor" in v.relationships.values()
     neighbour = next(o for o, kind in v.relationships.items() if kind == "neighbor")
     assert town.get(neighbour).home == "oak street" and town.get(neighbour).relationships[v.id] == "neighbor"
-    assert engine.added == [("v009", "library")] and engine.routine.place("v009", "night") == "oak street"
+    assert engine.added == [("v009", "hardware store")] and engine.routine.place("v009", "night") == "oak street"
     arrested, moved = [e for e in engine.feed.recent if e.kind == "post"]
     assert arrested.data["text"] == "Hal Burke was arrested and has left town."
     assert moved.data["text"] == "Wren Abara moved in on Oak Street. Locksmith." and moved.data["app"]
