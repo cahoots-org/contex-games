@@ -9,7 +9,7 @@ from dataclasses import asdict
 from sleuth.models import Villager
 from sleuth.faith import FAITH, GORE
 from sleuth.routine import workplace
-from sleuth.town import STREETS
+from sleuth.town import PUBLIC_PLACES, STREETS
 from sleuth.traits import assign_traits
 from sleuth.writer import Writer, extract_json
 
@@ -66,6 +66,7 @@ SOUR = (
 )
 MIX = f"Most residents are {GOOD}; vary their temperaments. Roughly one resident in five is {SOUR}. "
 SOUR_SHARE = 0.2
+INITIALS = "ABCDEFGHIJKLMNOPRSTVW"
 # How many replies are asked for one new resident with a first name no one has.
 RESIDENT_TRIES = 3
 
@@ -181,10 +182,14 @@ async def generate_villagers(writer: Writer, count: int, rng: random.Random) -> 
 async def generate_resident(writer: Writer, taken: list[Villager], rng: random.Random) -> Villager:
     """One new resident whose first name and id no one in taken has, with no ties; ValueError when every try fails."""
     temper = f"Make this resident {SOUR if rng.random() < SOUR_SHARE else GOOD}. "
+    # Asked for one resident, Haiku gives the same name and the prompt's example job every time, so the job's place
+    # and the name's first letter are drawn.
+    job = rng.choice([*(f"at the {p}" for p in PUBLIC_PLACES), "done from home"])
+    taken_line = (f"{_first_names_taken(taken)} Their first name starts with {rng.choice(INITIALS)}. "
+                  f"Give them a job {job}.")
     used = {_first(v.name) for v in taken}
     for _ in range(RESIDENT_TRIES):
-        text = await writer.complete(SYSTEM, PROMPT.format(n=1, temper=temper, taken=_first_names_taken(taken)),
-                                     max_tokens=800)
+        text = await writer.complete(SYSTEM, PROMPT.format(n=1, temper=temper, taken=taken_line), max_tokens=800)
         try:
             parsed = extract_json(text)
         except ValueError:

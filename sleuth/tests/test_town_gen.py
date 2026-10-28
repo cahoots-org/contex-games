@@ -11,7 +11,7 @@ from sleuth.town import STREETS
 from sleuth.tests.test_copy import WORDS
 from sleuth.town_gen import (
     HOUSEHOLDS, MAX_FAILED_BATCHES, SeedMismatch, form_households, generate_villagers,
-    load_or_generate, settle, wire_relationships, world_path,
+    generate_resident, load_or_generate, settle, wire_relationships, world_path,
 )
 
 HOUSEHOLD_TIES = {"spouse", "partner", "roommate", "parent", "child", "sibling"}
@@ -449,3 +449,21 @@ async def test_an_old_seed_without_quirks_still_loads(tmp_path):
     path.write_text(json.dumps([old]))
     villagers = await load_or_generate(str(path), FreshBatches(1), 1, random.Random(1))
     assert [v.quirks for v in villagers] == [[]]
+
+
+@pytest.mark.asyncio
+async def test_newcomers_are_asked_for_varied_names_and_jobs():
+    class Recording:
+        def __init__(self):
+            self.users = []
+
+        async def complete(self, system, user, max_tokens=400):
+            self.users.append(user)
+            return json.dumps([entry(len(self.users))])
+
+    writer = Recording()
+    taken = [Villager("v001", "Agnes Pruitt", "baker", "calm", "", [], {}, {}, "elm street", "h01")]
+    for seed in range(12):
+        await generate_resident(writer, taken, random.Random(seed))
+    assert len({u.split("Give them a job ")[1].split(".")[0] for u in writer.users}) > 3
+    assert len({u.split("first name starts with ")[1][0] for u in writer.users}) > 3
