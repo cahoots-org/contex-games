@@ -19,7 +19,7 @@ from sleuth.feed import APP
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.models import Utterance, Villager
-from sleuth.offenders import Offenders
+from sleuth.offenders import Offender, Offenders
 from sleuth.town import STREETS, Town, at, place_name
 
 log = logging.getLogger(__name__)
@@ -389,7 +389,8 @@ class Cases:
     async def _stage(self, engine, tier: str, day: int, phase: str, pictured: set[str]) -> None:
         """Open a case of tier, its culprit a ready offender of that tier, one promoted from the tier below when none
         is ready. With no major offender free, a serious one commits the major case, one promoted from petty when none
-        is free, and moves up. Up to DRAWS crimes are drawn for one that is solvable."""
+        is free, and moves up. With no petty offender free, one lying low commits a petty case, else a resident not
+        offending, who becomes one. Up to DRAWS crimes are drawn for one that is solvable."""
         busy = self._involved() | pictured
         if tier == TIERS[-1] and not self.offenders.ready(day, tier) - busy:
             below = TIERS[-2]
@@ -400,6 +401,10 @@ class Cases:
             if not self.offenders.ready(day, tier):
                 self.offenders.promote(tier, busy, day)
             culprits = self.offenders.ready(day, tier)
+        if tier == TIERS[0] and not culprits - busy:
+            # A new podcaster always has a tip: a petty offender lying low will do, else anyone not offending.
+            culprits = ({vid for vid, o in self.offenders.active.items() if o.tier == tier} - busy
+                        or {v.id for v in self.town.villagers if v.id not in self.offenders.active} - busy)
         # Nobody is a victim again the day after their own case, so one resident isn't robbed twice in a row.
         recent = {f.crime.victim for f in self.files.values() if f.crime.day >= day - 1}
         for _ in range(DRAWS):
@@ -410,7 +415,8 @@ class Cases:
                 return
             try:
                 if await self._open(engine, crime, pictured):
-                    if (offender := self.offenders.active.get(crime.culprit)) and offender.tier != tier:
+                    offender = self.offenders.active.setdefault(crime.culprit, Offender())
+                    if offender.tier != tier:
                         offender.tier, offender.escaped = tier, 0
                     return
             except Exception:

@@ -60,7 +60,8 @@ and any other is arrested, and any accomplice is exposed for covering for them.
 
 **Offenders.** Only a few residents commit crimes: `offenders` of them at first, picked at random. Once crime has begun
 the set is topped back up only to `min_offenders`, plus one more (up to `offenders`) when no petty offender is free to
-offend (all lying low). No more than `offender_share` of the town's residents are or ever were offenders: past it,
+offend (all lying low). A petty case is always open, so a new podcaster always has a tip: with no petty offender free,
+one lying low commits it, else a resident not offending, who becomes one. No more than `offender_share` of the town's residents are or ever were offenders: past it,
 nobody new moves in as one or is turned, and the set is topped up from exposed residents who had given it up. A watch's
 founder never becomes one. Nobody can see who they are, not the page, not the people list, not the other residents. They
 don't make a case any easier or harder: the evidence still has to narrow to the culprit among everyone in town. An

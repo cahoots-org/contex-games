@@ -434,13 +434,26 @@ async def test_only_offenders_commit_crimes():
 
 
 @pytest.mark.asyncio
-async def test_no_case_opens_while_every_offender_is_quiet():
+async def test_while_every_offender_is_lying_low_a_petty_case_still_opens_with_one_of_them():
     cases, engine, _ = make_cases()
     cases.offenders.top_up(cases.town, cases.rng)
     for o in cases.offenders.active.values():
         o.quiet_until = 9
     await tick(cases, engine)
-    assert not cases.files
+    [case] = cases.files.values()
+    assert case.crime.tier == "petty" and case.crime.culprit in cases.offenders.active
+
+
+@pytest.mark.asyncio
+async def test_a_new_podcaster_always_has_a_petty_case_even_with_no_petty_offender_free():
+    cases, engine, town = make_cases(offender_share=0.0, offenders=3, min_offenders=3)
+    cases.offenders.active = {"v5": Offender("serious"), "v6": Offender("serious"), "v7": Offender("major")}
+    await cases.ensure(engine, 2.0)
+    case = cases.for_player("newcomer", "petty")
+    assert case is not None and case.crime.tier == "petty" and case.crime.culprit not in {"v5", "v6", "v7"}
+    assert cases.offenders.active[case.crime.culprit].tier == "petty"
+    assert [o.tier for vid, o in cases.offenders.active.items() if vid in {"v5", "v6", "v7"}] == [
+        "serious", "serious", "major"]
 
 
 def test_solvability_still_narrows_among_everyone_not_just_offenders():

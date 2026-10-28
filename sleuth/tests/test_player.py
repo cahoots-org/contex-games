@@ -728,8 +728,8 @@ async def test_publish_right_closes_the_case_and_raises_reputation():
     assert regard(engine, "v1") == pytest.approx(config.reputation_right + config.reputation_ally)
     assert regard(engine, "v3") == pytest.approx(config.reputation_exposed)
     assert all(regard(engine, v) == pytest.approx(config.reputation_right) for v in ("v4", "v5", "v6", "v7", "v8"))
-    u, listeners, _ = engine.delivered[0]
-    assert (u.speaker, u.speaker_name, u.verb) == ("podcast", "A true-crime podcast", "reported")
+    [(u, listeners, _)] = [d for d in engine.delivered if d[0].speaker == "podcast"]
+    assert (u.speaker_name, u.verb) == ("A true-crime podcast", "reported")
     assert u.text == "Fay Okafor stole Dana Reyes's bike, and the evidence holds up."
     assert set(listeners) == {"v1", "v2", "v3", "v4"} and file.roots[u.id] == "episode"
     [episode] = [e for e in player.feed.recent if e.kind == "episode"]
@@ -1545,7 +1545,8 @@ async def test_an_episode_on_a_death_names_it_soberly():
     a_death(player, file)
     ids = cite(player, file, memory_of(file, player.ids))
     assert await player.publish("v3", ids) is None
-    assert engine.delivered[0][0].text == "Fay Okafor was behind the death of Dana Reyes, and the evidence holds up."
+    assert [u.text for u, _, _ in engine.delivered if u.speaker == "podcast"] == [
+        "Fay Okafor was behind the death of Dana Reyes, and the evidence holds up."]
 
 
 def heard_as(player, engine, file, text):
