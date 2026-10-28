@@ -107,8 +107,9 @@ class Writer:
         self.model = model
         self.usage = usage
 
-    async def complete(self, system: str, user: str, max_tokens: int = 400) -> str:
-        """One Haiku call, returning the reply text."""
+    async def complete(self, system: str, user: str, max_tokens: int = 400, whole: bool = False) -> str:
+        """One Haiku call, returning the reply text; with whole, a reply cut off by max_tokens keeps only its whole
+        sentences, so it may be empty."""
         response = await self.client.messages.create(
             model=self.model,
             max_tokens=max_tokens,
@@ -119,7 +120,11 @@ class Writer:
         )
         if self.usage:
             self.usage.record("haiku", response.usage.input_tokens, response.usage.output_tokens, charged_to.get())
-        return "".join(b.text for b in response.content if b.type == "text").strip()
+        text = "".join(b.text for b in response.content if b.type == "text").strip()
+        if whole and getattr(response, "stop_reason", None) == "max_tokens":
+            ends = list(re.finditer(r"[.!?][\"'\u201d)]*(?=\s|$)", text))
+            text = text[:ends[-1].end()] if ends else ""
+        return text
 
     async def say(
         self, villager: Villager, decision: Decision, source_text: str | None, audience: str, on_case: bool = False,
@@ -152,7 +157,7 @@ class Writer:
             lines.append(f"What you heard: {source_text}")
             lines.append("Do not say or hint who started this story.")
         lines += _timing(now, when)
-        return first_line(await self.complete(system, "\n".join(lines), max_tokens=SAY_MAX_TOKENS))
+        return first_line(await self.complete(system, "\n".join(lines), max_tokens=SAY_MAX_TOKENS, whole=True))
 
     async def reply(
         self, villager: Villager, case: str, question: str, thread: Sequence[dict], facts: Sequence[str],
@@ -206,4 +211,4 @@ class Writer:
             + "No stage directions, no quotation marks, no preamble."
         )
         user = f"The open case: {case_text}" if case_text else "Write your post."
-        return first_line(await self.complete(system, user, max_tokens=SAY_MAX_TOKENS))
+        return first_line(await self.complete(system, user, max_tokens=SAY_MAX_TOKENS, whole=True))

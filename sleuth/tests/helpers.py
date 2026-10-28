@@ -209,12 +209,13 @@ class StubMessages:
     def __init__(self, texts):
         self.texts = list(texts)
         self.calls = []
+        self.stop_reason = "end_turn"
 
     async def create(self, **kwargs):
         self.calls.append(kwargs)
         block = type("Block", (), {"type": "text", "text": self.texts.pop(0)})()
         usage = type("Usage", (), {"input_tokens": 120, "output_tokens": 30})()
-        return type("Response", (), {"content": [block], "usage": usage})()
+        return type("Response", (), {"content": [block], "usage": usage, "stop_reason": self.stop_reason})()
 
 
 class StubClient:

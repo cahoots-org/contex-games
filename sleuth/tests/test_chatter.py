@@ -53,6 +53,16 @@ async def test_a_post_that_swaps_the_victims_item_is_dropped_but_a_lost_pet_is_n
 
 
 @pytest.mark.asyncio
+async def test_a_post_cut_off_by_the_token_limit_keeps_only_its_whole_sentences():
+    client = StubClient("Lost my dog Biscuit by the cafe. Please call if you see the big shagg",
+                        "Lost my dog Biscuit by the cafe again, that big shagg")
+    client.messages.stop_reason = "max_tokens"
+    writer = Writer(client, "haiku-test")
+    assert (await chatter(writer, town(), Random(1), Ids(), None)).text == "Lost my dog Biscuit by the cafe."
+    assert await chatter(writer, town(), Random(1), Ids(), None) is None
+
+
+@pytest.mark.asyncio
 async def test_nobody_posts_without_quirks():
     t = town()
     t.get("v1").quirks = []
