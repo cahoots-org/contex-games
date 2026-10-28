@@ -379,7 +379,22 @@ async def test_what_do_you_think_of_someone_is_phrased_from_the_tie_but_not_reco
     assert player.notebook == {}
     assert writer.calls[0][4] == ["Dana Reyes is my rival, and we are on hostile terms."]
     await ask(player, "v5", "what_do_you_think_of", who="v8")
-    assert writer.calls[-1][4] == [] and len(writer.calls) == 2
+    assert writer.calls[-1][4] == ["I don't really know Kit Tran."]
+
+
+@pytest.mark.asyncio
+async def test_how_someone_got_along_with_a_victim_who_died_is_answered_from_the_tie_in_the_past():
+    player, file, engine, writer = interviewing()
+    player.place = "oak street"
+    town = player.town
+    town.get("v5").grudge = "Dana Reyes never paid me back for the fence."
+    town.remove("v1")
+    await ask(player, "v5", "what_do_you_think_of", "How did you get along with Dana Reyes?", who="v1")
+    assert "v1" in engine.jev.questions["who"].criteria
+    assert writer.calls[-1][4] == ["Dana Reyes was my rival, and we were on hostile terms.",
+                                   "Dana Reyes never paid me back for the fence."]
+    criterion = engine.jev.questions["kind"].criteria["what_do_you_think_of"].lower()
+    assert "get along" in criterion and "what was she like" in criterion
 
 
 @pytest.mark.asyncio

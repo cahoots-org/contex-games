@@ -135,7 +135,8 @@ records catch them instead.
 in your own words, like "Where were you last night?". Each resident keeps one conversation with you, which you can
 reopen from their card. Jev reads the question
 with the conversation so far and routes it to where the resident was, where someone else was, what they saw, who
-they heard something from, who'd have a reason (a feud or grudge with the victim), what they think of someone,
+they heard something from, who'd have a reason (a feud or grudge with the victim), what they think of someone or how they got along ("How did you get along with
+Dolores?", even once she has died, answered from their tie, how warm it is and any grudge naming her),
 or what someone looks like (only from someone who knows them).
 The game answers from what that resident knows and adds anything new to your notebook; Haiku only phrases the
 reply, in character: opinions, grudges, theories and quirks come through, but a reply that invents a case fact (a

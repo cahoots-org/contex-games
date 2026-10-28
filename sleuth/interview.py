@@ -20,7 +20,8 @@ KINDS = {
     "who_told_you": "who this resident heard something from, or what they heard",
     "who_had_reason": 'who would have a reason to do it, like a grudge or a feud with the victim, as in "Any idea '
                       'who may have taken it?"',
-    "what_do_you_think_of": "what this resident thinks of someone",
+    "what_do_you_think_of": 'what this resident thinks of someone or how they got along, as in "How did you get along '
+                            'with Dolores?" or "What was she like?"',
     "what_do_they_look_like": 'what someone else looks like, as in "What does Cal look like?"',
     "who_looks_like": 'who this resident knows that matches a look, as in "Who do you know that\'s tall with red '
                       'hair?"',
@@ -46,11 +47,14 @@ def exchanges(thread: list[dict]) -> list[dict]:
 
 async def route(jev, file: CaseFile, villager: Villager, town: Town, question: str, thread: list[dict],
                 case: str) -> Route:
-    """One Jev call: what the question asks, about whom and which part of the day, and the housemates' words.
+    """One Jev call: what the question asks, about whom (anyone in town, or the case's victim who died) and which part
+    of the day, and the housemates' words.
 
     case is the case's news as said today."""
     crime = file.crime
-    others = [v for v in town.villagers if v.id != villager.id][:MAX_OPTIONS]
+    # A victim who died can still be asked about.
+    victim = [] if crime.victim in town else [town.anyone(crime.victim)]
+    others = [v for v in [*town.villagers, *victim] if v.id != villager.id][:MAX_OPTIONS]
     state = {"resident": {"name": villager.name, "occupation": villager.occupation,
                           "personality": villager.personality},
              "case": case, **({"case_window": crime.window} if crime.window else {"case_part_of_day": crime.phase}),
@@ -69,7 +73,7 @@ async def route(jev, file: CaseFile, villager: Villager, town: Town, question: s
     resp = await jev.system_one(state=state, questions=questions)
     pick = {k: c.choice for k, c in resp.choices.items()}
     kind = pick.get("kind") if pick.get("kind") in KINDS else "none"
-    who = pick.get("who") if pick.get("who") in town and pick.get("who") != villager.id else None
+    who = pick.get("who") if pick.get("who") in {v.id for v in others} else None
     when = pick.get("when") if pick.get("when") in PHASES else (crime.window or [crime.phase])[0]
     words = {k.removeprefix("word:"): v for k, v in pick.items() if k.startswith("word:")}
     return Route(kind, who, when, words)

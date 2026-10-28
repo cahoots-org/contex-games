@@ -8,7 +8,7 @@ from dataclasses import asdict, replace
 
 from sleuth.alibi import accomplice_word, claim, household_word
 from sleuth.case import (
-    WHEN, CRIMES, Crime, Record, clock_at, motive_of, recall_more, record_json, retime, told, when,
+    WHEN, CRIMES, Crime, Record, clock_at, motive_of, recall_more, record_json, resents, retime, told, when,
 )
 from sleuth.cases import CaseFile
 from sleuth.config import Config
@@ -572,7 +572,7 @@ class Player:
                      question: str) -> tuple[list[Record], list[str]]:
         """What the resident knows for the routed question: records for evidence, and talk that is only phrased."""
         crime, vid, name, routine = file.crime, villager.id, villager.name, self.engine.routine
-        kind, about = routed.kind, self.town.get(routed.who) if routed.who else None
+        kind, about = routed.kind, self.town.anyone(routed.who) if routed.who else None
         if kind == "where_were_you" and (routed.when == crime.phase or routed.when in crime.window):
             places, sound = claim(file, vid, routine)
             text = f"{name} says they were {' then '.join(at(p) for p in places)} {WHEN}."
@@ -611,16 +611,25 @@ class Player:
             return [self._statement(file, vid, f"{name} says {o.name} has never got on with {victim.name}.", True,
                                     who=o.id) for o in reasons], []
         if kind == "what_do_you_think_of" and about:
-            mates = villager.household and about.household == villager.household
-            tie = villager.relationships.get(about.id) or ("housemate" if mates else None)
-            feeling = warmth_words(villager.warmth.get(about.id, 0.0))
-            return [], [f"{about.name} is my {tie}, and we are on {feeling} terms."] if tie else []
+            return [], self._ties(villager, about)
         if kind == "what_do_they_look_like" and about and acquainted(villager, about):
             return [self._describe(file, villager, about)], []
         if kind == "who_looks_like" and (asked := looks_in(question)):
             return [self._describe(file, villager, v) for v in self.town.villagers
                     if v.id != vid and acquainted(villager, v) and all(v.traits.get(c) in vs for c, vs in asked.items())], []
         return [], []
+
+    def _ties(self, villager: Villager, about: Villager) -> list[str]:
+        """How the resident got along with someone, from their tie, its warmth and any grudge naming them; in the past
+        once that someone has left town."""
+        mates = villager.household and about.household == villager.household
+        tie = villager.relationships.get(about.id) or ("housemate" if mates else None)
+        if not tie:
+            return [f"I don't really know {about.name}."]
+        is_, are = ("is", "are") if about.id in self.town else ("was", "were")
+        feeling = warmth_words(villager.warmth.get(about.id, 0.0))
+        return [f"{about.name} {is_} my {tie}, and we {are} on {feeling} terms.",
+                *([villager.grudge] if resents(villager, about) else [])]
 
     def _describe(self, file: CaseFile, villager: Villager, about: Villager) -> Record:
         """The resident's description of someone they know, by height, hair and car; the player learns it."""
