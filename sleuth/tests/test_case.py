@@ -30,6 +30,7 @@ from sleuth.case import (
     misdated,
     retime,
     told,
+    victim_memory,
     witness_memories,
 )
 from sleuth.lineage import Ids
@@ -153,7 +154,7 @@ def test_every_item_is_only_ever_staged_at_its_places_and_no_line_uses_a_pronoun
             found = discovery(crime, town, Random(seed), Ids())
             for line in (crime.text, found.text):
                 assert not re.search(r"\b(their|his|her)\b", line, re.IGNORECASE), line
-    assert {i for i, p in ITEM_PLACES.items() if "bar" in p} == {"car"}
+    assert {i for i, p in ITEM_PLACES.items() if "bar" in p} == {"car", "till", "cash box", "wallet", "phone"}
 
 
 @pytest.mark.parametrize("today, said", [(2, "this afternoon"), (3, "yesterday afternoon"),
@@ -443,8 +444,35 @@ def test_every_crime_kind_has_places_for_its_items():
     assert all(item in ITEM_PLACES for k in CRIMES.values() for item in k.items)
 
 
-def test_the_catalog_is_all_petty_for_now():
-    assert catalog_tiers() == ("petty",)
+def test_the_catalog_has_petty_and_serious_crimes():
+    assert catalog_tiers() == ("petty", "serious")
+
+
+def test_a_serious_culprit_is_never_a_regular_at_the_scene():
+    town, routine = make_town(), make_routine()
+    for seed in range(50):
+        crime = stage_crime(town, routine, Random(seed), 1, "night", "case-1", tier="serious")
+        assert CRIMES[crime.template].tier == crime.tier == "serious"
+        assert routine.place(crime.culprit, "night") != crime.place
+
+
+def test_a_serious_crime_has_up_to_three_witnesses():
+    town, routine = make_town(), make_routine()
+    assign_traits(town.villagers, Random(0))
+    crime = stage_crime(town, routine, Random(0), 1, "night", "case-1", tier="serious")
+    crime.place, crime.culprit, crime.victim = "oak street", "v1", "v5"
+    assert len(witness_memories(crime, town, routine, Random(0), Ids())) == 3
+
+
+def test_a_mugging_victim_remembers_one_trait_of_the_mugger():
+    town, routine = make_town(), make_routine()
+    assign_traits(town.villagers, Random(0))
+    crime = next(c for seed in range(200)
+                 if (c := stage_crime(town, routine, Random(seed), 1, "night", "case-1", tier="serious")).template == "mug")
+    m = victim_memory(crime, town, Random(0), Ids())
+    assert (m.kind, m.holder, m.case) == ("memory", crime.victim, crime.id) and len(m.traits) == 1
+    assert m.traits.items() <= town.looks(crime.culprit, 1).items()
+    assert crime_title(crime, town) == f"The mugging of {town.name_of(crime.victim)}"
 
 
 def test_the_goose_case_reads_well():

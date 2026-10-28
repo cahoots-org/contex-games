@@ -19,6 +19,7 @@ def test_the_set_is_topped_up_to_the_configured_size_from_non_offenders():
 def test_an_offender_who_gets_away_twice_moves_up_a_tier_only_when_the_catalog_has_one(monkeypatch):
     offenders = Offenders(Config(escalate_after=2))
     offenders.active["v1"] = Offender()
+    monkeypatch.setattr(offenders_mod, "catalog_tiers", lambda: ("petty",))
     offenders.escaped_with("v1")
     offenders.escaped_with("v1")
     assert offenders.active["v1"].tier == "petty"

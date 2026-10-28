@@ -1,4 +1,4 @@
-"""Staging a petty crime from where the town expects its residents to be, and the evidence it leaves."""
+"""Staging a crime from where the town expects its residents to be, and the evidence it leaves."""
 
 import re
 from dataclasses import dataclass, field, replace
@@ -37,24 +37,32 @@ CRIMES = {
     "moustache": Kind("petty", "drew a moustache on", "drawing a moustache on", ("portrait",), "defaced", "was scribbling on something"),
     "goose": Kind("petty", "made off with", "making off with", ("goose",), "missing", "was carrying something that honked"),
     "gnome": Kind("petty", "pinched", "pinching", ("garden gnome",), "missing", "was carrying something small and pointy"),
+    "rob": Kind("serious", "robbed", "robbing", ("till", "cash box"), "emptied", "was hurrying out with a bag",
+                news="Someone robbed {victim}'s {item} {at} {when}."),
+    "mug": Kind("serious", "mugged", "mugging", ("wallet", "phone"), "gone", "was grabbing at someone",
+                news="Someone mugged {victim} {at} {when} and took their {item}.", title="The mugging of {victim}"),
+    "car": Kind("serious", "stole", "stealing", ("car",), "gone", "was driving off in a car that wasn't theirs"),
 }
 TEMPLATES = CRIMES
 # Where each item plausibly is. Residents are on a street only at night, at home.
 FAIR_PLACES = (*STREETS, "town hall", "library")
+TILL_PLACES = ("grocery", "hardware store", "cafe", "bar")
+MUG_PLACES = (*STREETS, "dog park", "bar")
 ITEM_PLACES = {"bike": (*STREETS, "gym", "school"), "tote bag": ("cafe", "gym", "library", "grocery"),
                "thermos": ("cafe", "gym", "school", "library"), "car": (*STREETS, "grocery", "hardware store", "gym", "bar"),
                "county-fair pumpkin": FAIR_PLACES, "county-fair jam": FAIR_PLACES, "county-fair quilt": FAIR_PLACES,
                "dog": STREETS, "marching band trailer": ("school",), "sugar jars": ("cafe", "grocery"),
-               "portrait": ("town hall", "library"), "goose": ("dog park", *STREETS), "garden gnome": STREETS}
+               "portrait": ("town hall", "library"), "goose": ("dog park", *STREETS), "garden gnome": STREETS,
+               "till": TILL_PLACES, "cash box": TILL_PLACES, "wallet": MUG_PLACES, "phone": MUG_PLACES}
 # How many minutes after the crime the victim finds it.
 NOTICED = (10, 45)
 PHASE_MINUTES = {"morning": (420, 720), "afternoon": (720, 1020), "evening": (1020, 1320), "night": (1320, 1740)}
 MOTIVE_WEIGHT = 3
-# How often the culprit is someone expected at the scene anyway, when one fits.
-REGULAR_CULPRIT = 1 / 3
+# By tier: how many residents may witness a crime, and how often its culprit is someone expected at the scene anyway,
+# when one fits.
+EVIDENCE = {"petty": (2, 1 / 3), "serious": (3, 0.0), "major": (2, 0.0)}
 CAMERA_PLACES = ("grocery", "bar", "town hall", "elm street")
 LOG_PLACES = {"gym": "Gym check-in", "bar": "Bar tab closed", "grocery": "Grocery receipt", "library": "Library checkout"}
-MAX_WITNESSES = 2
 WITNESS_TRAITS = 2
 CLIP_TRAITS = ("height", "coat")
 WITNESS_DRIFT = 20
@@ -158,22 +166,24 @@ def motive_of(culprit, victim) -> str:
 
 def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id: str, *,
                 exclude=frozenset(), culprits: set[str] | None = None, tier: str = "petty") -> Crime | None:
-    """Draw a crime of tier, then a culprit (one of culprits, when given) and a victim from different households, the victim
-    where the item plausibly is. About REGULAR_CULPRIT of the time, when one fits, the culprit is expected at the scene
-    too, otherwise elsewhere; None if no crime fits."""
+    """Draw a crime of tier, then a culprit (one of culprits, when given) and a victim from different households, the
+    victim where the item plausibly is. With the tier's EVIDENCE chance, when one fits, the culprit is expected at the
+    scene too, otherwise elsewhere; with none, never there. None if no crime fits."""
     residents = [v for v in town.villagers if v.id not in exclude and routine.place(v.id, phase) is not None]
     crimes = [(t, item) for t, kind in CRIMES.items() if kind.tier == tier for item in kind.items]
+    chance = EVIDENCE[tier][1]
     for template, item in rng.sample(crimes, len(crimes)):
         pairs = [(c, w, motive_of(c, w)) for w in residents for c in residents
                  if c.household != w.household and (culprits is None or c.id in culprits)
-                 and routine.place(w.id, phase) in ITEM_PLACES[item]]
+                 and routine.place(w.id, phase) in ITEM_PLACES[item]
+                 and (chance or routine.place(c.id, phase) != routine.place(w.id, phase))]
         if pairs:
             break
     else:
         return None
     regular = [p for p in pairs if routine.place(p[0].id, phase) == routine.place(p[1].id, phase)]
     away = [p for p in pairs if p not in regular]
-    pairs = regular if regular and (not away or rng.random() < REGULAR_CULPRIT) else away
+    pairs = regular if regular and (not away or rng.random() < chance) else away
     culprit, victim, motive = rng.choices(pairs, [1 if m == "opportunity" else MOTIVE_WEIGHT for *_, m in pairs])[0]
     minute = rng.randrange(*PHASE_MINUTES[phase])
     place = routine.place(victim.id, phase)
@@ -226,14 +236,22 @@ def _bystanders(crime: Crime, town: Town, routine, away=frozenset()) -> list[str
 
 
 def witness_memories(crime: Crime, town: Town, routine, rng: Random, ids: Ids, away=frozenset()) -> list[Record]:
-    """Up to MAX_WITNESSES residents expected at the scene and not away, each recalling two of the culprit's traits."""
+    """Up to the tier's EVIDENCE count of residents expected at the scene and not away, each recalling two of the
+    culprit's traits."""
     bystanders = _bystanders(crime, town, routine, away)
     culprit = town.looks(crime.culprit, crime.day)
     memories = []
-    for w in rng.sample(bystanders, min(MAX_WITNESSES, len(bystanders))):
+    for w in rng.sample(bystanders, min(EVIDENCE[crime.tier][0], len(bystanders))):
         seen = {c: culprit[c] for c in rng.sample(list(culprit), WITNESS_TRAITS)}
         memories.append(_memory(crime, w, seen, rng, ids))
     return memories
+
+
+def victim_memory(crime: Crime, town: Town, rng: Random, ids: Ids) -> Record:
+    """What a mugging's victim saw of the mugger: one of their traits."""
+    culprit = town.looks(crime.culprit, crime.day)
+    trait = rng.choice(list(culprit))
+    return _memory(crime, crime.victim, {trait: culprit[trait]}, rng, ids)
 
 
 def discovery(crime: Crime, town: Town, rng: Random, ids: Ids) -> Record:

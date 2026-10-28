@@ -7,7 +7,7 @@ import pytest
 
 from sleuth import cases as cases_mod
 from sleuth.alibi import claim
-from sleuth.case import CLIP_TRAITS, CRIMES, ITEM_PLACES, WHEN, Crime, Kind, Record, points_at, suspects, told
+from sleuth.case import CLIP_TRAITS, CRIMES, WHEN, Crime, Record, points_at, suspects, told
 from sleuth.cases import CaseFile, Cases, case_json
 from sleuth.config import Config
 from sleuth.feed import Feed
@@ -19,7 +19,6 @@ from sleuth.photos import Album, Photo
 from sleuth.players import Players
 from sleuth.reputation import Reputation
 from sleuth.tests.helpers import StubRoutine, stub_player
-from sleuth.town import STREETS
 from sleuth.tests.test_case import RESIDENTS, make_routine, make_town
 from sleuth.traits import assign_traits
 
@@ -557,13 +556,6 @@ async def test_someone_only_logged_in_an_open_case_can_still_be_drawn_into_anoth
     assert "v6" in drawn
 
 
-@pytest.fixture
-def serious(monkeypatch):
-    """A serious crime against anyone at home."""
-    monkeypatch.setitem(CRIMES, "rob", Kind("serious", "robbed", "robbing", ("till",), "emptied", "was hurrying out"))
-    monkeypatch.setitem(ITEM_PLACES, "till", STREETS)
-
-
 def podcaster(tier, pid="p-1"):
     return SimpleNamespace(**{**vars(stub_player(pid)), "tier": tier})
 
@@ -575,12 +567,13 @@ def tiered(cases, tier, culprit="v3", victim="v1", opened=0.0):
 
 
 @pytest.mark.asyncio
-async def test_a_case_is_open_for_each_tier_someone_playing_has_reached(serious):
+async def test_a_case_is_open_for_each_tier_someone_playing_has_reached():
     cases, engine, _ = make_cases(offenders=8)
+    tiered(cases, "petty", opened=2.0)
     await tick(cases, engine)
     assert [f.crime.tier for f in cases.open_shared()] == ["petty"]
     engine.players.add(podcaster("serious"))
-    await tick(cases, engine, day=3)
+    await tick(cases, engine)
     assert sorted(f.crime.tier for f in cases.open_shared()) == ["petty", "serious"]
     [case] = cases.open_shared("serious")
     assert CRIMES[case.crime.template].tier == "serious"
@@ -600,7 +593,7 @@ def test_a_podcaster_is_offered_cases_at_or_below_their_tier():
 
 
 @pytest.mark.asyncio
-async def test_the_first_held_episode_closes_a_case_for_everyone_working_it(serious):
+async def test_the_first_held_episode_closes_a_case_for_everyone_working_it():
     cases, engine, _ = make_cases(offenders=8)
     engine.players.add(podcaster("serious"))
     petty, big = tiered(cases, "petty"), tiered(cases, "serious", "v5", "v7")
@@ -610,3 +603,75 @@ async def test_the_first_held_episode_closes_a_case_for_everyone_working_it(seri
     assert petty.state == "closed" and big.state == "open"
     [following] = cases.open_shared("petty")
     assert following is not petty and cases.open_shared("serious") == [big]
+
+
+@pytest.mark.asyncio
+async def test_serious_crimes_are_committed_by_serious_offenders_only():
+    opened = 0
+    for seed in range(20):
+        cases, engine, _ = make_cases(offenders=8)
+        cases.rng = Random(seed)
+        engine.players.add(podcaster("serious"))
+        tiered(cases, "petty", opened=2.0)
+        await tick(cases, engine)
+        for f in cases.open_shared():
+            opened += f.crime.tier == "serious"
+            assert CRIMES[f.crime.template].tier == f.crime.tier == cases.offenders.active[f.crime.culprit].tier
+    assert opened > 10
+
+
+@pytest.mark.asyncio
+async def test_serious_cases_stay_solvable_across_seeds():
+    opened = 0
+    for seed in range(30):
+        cases, engine, town = make_cases(offenders=8)
+        cases.rng = Random(seed)
+        engine.players.add(podcaster("serious"))
+        tiered(cases, "petty", opened=2.0)
+        await tick(cases, engine)
+        for f in cases.open_shared("serious"):
+            opened += 1
+            assert suspects(f.crime, list(f.records.values()), town) == {f.crime.culprit}
+    assert opened > 15
+
+
+@pytest.mark.asyncio
+async def test_a_mugging_victim_is_told_what_they_saw():
+    for seed in range(60):
+        cases, engine, _ = make_cases(offenders=8)
+        cases.rng = Random(seed)
+        engine.players.add(podcaster("serious"))
+        tiered(cases, "petty", opened=2.0)
+        await tick(cases, engine)
+        if mugging := next((f for f in cases.open_shared() if f.crime.template == "mug"), None):
+            break
+    victim = mugging.crime.victim
+    [m] = [r for r in mugging.records.values() if r.kind == "memory" and r.holder == victim]
+    assert len(m.traits) == 1 and any(u.id == m.utterance and ids == [victim] for u, ids, _ in engine.delivered)
+
+
+@pytest.mark.asyncio
+async def test_a_promoted_offender_fills_an_empty_serious_tier():
+    cases, engine, _ = make_cases(offenders=3)
+    engine.players.add(podcaster("serious"))
+    tiered(cases, "petty", opened=2.0)
+    cases.offenders.active = {"v3": Offender(escaped=1), "v6": Offender(escaped=1), "v8": Offender()}
+    cases.offenders.active["v6"].escaped = 2
+    await tick(cases, engine)
+    assert cases.offenders.active["v6"].tier == "serious"
+    [case] = cases.open_shared("serious")
+    assert case.crime.culprit == "v6"
+
+
+@pytest.mark.asyncio
+async def test_a_held_serious_episode_ends_in_an_arrest():
+    cases, engine, town = make_cases(offenders=8)
+    engine.players.add(podcaster("serious"))
+    tiered(cases, "petty", opened=2.0)
+    await tick(cases, engine)
+    [case] = cases.open_shared("serious")
+    culprit = case.crime.culprit
+    cases.now = 2.25
+    await cases.on_held(engine, case, "p-1")
+    assert culprit not in town and culprit not in cases.offenders.active and culprit not in cases.offenders.exposed
+    assert f"{town.name_of(culprit)} was arrested and has left town." in [e.data.get("text") for e in engine.feed.recent]

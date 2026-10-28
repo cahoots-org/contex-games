@@ -25,9 +25,14 @@ or goes cold, each tier missing its case gets a crime staged in the part of the 
 step. Its culprit is an offender of that tier; when nobody holds the tier, the offender below it who has got away with
 the most moves up. You're offered every open case at or below your standing as a tip, listed under the case title,
 and you work one at a time: the highest by default, or the one you pick. Interviews, records, searches, photos and
-episodes all go to the case you're working. Crimes come from a petty catalog in `sleuth/case.py`: a stolen bike, a vandalized car, sabotaged county-fair jam, a dog let
-out, salted sugar jars at the cafe, a moustache drawn on a portrait at town hall, a goose made off with from the dog
-park, a pinched garden gnome. The culprit comes from another household than the victim's, and one or two clues are left at the crime place. The game
+episodes all go to the case you're working. Crimes come from the catalog in `sleuth/case.py`. Petty ones: a stolen
+bike, a vandalized car, sabotaged county-fair jam, a dog let out, salted sugar jars at the cafe, a moustache drawn on a
+portrait at town hall, a goose made off with from the dog park, a pinched garden gnome. Serious ones: a till or cash
+box robbed at a shop or the bar, a mugging on the street, at the dog park or the bar, a stolen car. The culprit comes
+from another household than the victim's, and one or two clues are left at the crime place. A petty crime has up to
+two witnesses, and its culprit is sometimes a regular at the scene. A serious one has up to three, its culprit is
+never a regular there, so they always lie about where they were, and a mugging's victim remembers one thing about
+the mugger. The game
 checks that the evidence, with that part of the day's check-ins and receipts, narrows to the culprit alone, adding a
 witness if that helps and drawing another crime if nothing can. A solvable case opens: its witnesses are told what
 they saw, and the neighborhood app posts the news. A case shows at the top of the page and goes cold after
@@ -98,8 +103,8 @@ other line. You only hear that someone in town seems colder toward you.
 **Finding witnesses.** People who are usually at the scene in the part of the day it happened may have seen
 something. The people list tags them "usually nearby" and ranks them near the top; type "nearby" in its search to see
 only them. The tag comes from each resident's routine (their work place by day, their evening place, their street at
-night), not from where anyone actually was, so most of the people it marks are innocent regulars, but the culprit can be
-one of them too. It's a lead: ask them what they saw.
+night), not from where anyone actually was, so most of the people it marks are innocent regulars, but on a petty case
+the culprit can be one of them too. It's a lead: ask them what they saw.
 
 Walking still matters for the scene and the records: you search a place and pull its records only while you're there.
 

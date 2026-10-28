@@ -9,7 +9,7 @@ from random import Random
 from sleuth.arrivals import move_in
 from sleuth.case import (
     CRIMES, TIERS, WHEN, Crime, Record, camera_clip, catalog_tiers, crime_title, discovery, found_it, logs, make_solvable,
-    scene_clues, stage_crime, told, witness_memories,
+    scene_clues, stage_crime, told, victim_memory, witness_memories,
 )
 from sleuth.config import Config
 from sleuth.decide import warmth_words
@@ -330,6 +330,7 @@ class Cases:
         whereabouts[crime.culprit] = [crime.place]
         clip = camera_clip(crime, self.town, self.ids)
         records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids, away),
+                   *([victim_memory(crime, self.town, self.rng, self.ids)] if crime.template == "mug" else []),
                    *scene_clues(crime, self.town, self.routine, self.rng, self.ids, away), *([clip] if clip else []),
                    *logs(crime, whereabouts, self.town, self.rng, self.ids)]
         added = make_solvable(crime, records, self.town, self.routine, self.rng, self.ids, away)
