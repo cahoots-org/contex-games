@@ -432,3 +432,19 @@ generation and 16 newcomers. Per podcaster: A $0.0080, B $0.0076, C $0.0020, D $
 7. **Residents mention the game's day count.** "The app says last night, and it's day six now". Once.
 8. **"Breathes a little easier" after an arrest for a death** is the same line as for a stolen gnome. It reads a
    little light for a killing.
+
+## Fixes after playtest 2
+
+Each was test-first, with its own commit, and passed the full suite (876 passed, 9 skipped at the end), `ruff check
+.` and `node --check` on the page's script before committing. Not replayed live.
+
+| Commit | Open issue | Fix |
+|---|---|---|
+| `7365fd2` | 1. "That Halvorsen boy", "the Hollis kid from the bakery". | A line or post naming someone by title ("Mrs. X"), family ("the X kid") or surname ("Gordon X") who was never a resident, or a place the town lacks ("the bakery"), is dropped. Bare first names and ordinary words pass, so pets and opinions still get through. |
+| `8937751` | 6. A new podcaster could arrive to no tip. | With no petty offender free, a petty case goes to one lying low, else to a resident not offending, who becomes one. A new podcaster always has a petty case. |
+| `bcddcb8` | 3. "How did you get along with Dolores Finch?" got a shrug. | Relationship questions route to what the resident thinks of someone, the case's dead victim can be named, and the answer comes from the tie, its warmth and any grudge naming them, in the past once they're gone; with no tie, "I don't really know them". |
+| `d0c1188` | 4. "Sometime between three days ago, at night and two days ago, in the morning". | A window two or more days old reads "sometime at night three days ago or the next morning" ("... in the evening two days ago or that night"); recent windows read as before. |
+| `1ea9b8f` | 2. Six near-identical retellings of one thermos. | The app shows one retelling per case each part of the day; residents still hear them all. |
+
+Still open: 5 (watches everywhere flatten the panel), 7 (the day count in talk), 8 (light relief line after a death),
+and "When did you last see her?" still has no route.
