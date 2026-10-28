@@ -7,7 +7,9 @@ import pytest
 
 from sleuth.arrivals import move_in, moved_in
 from sleuth.case import Record, suspects
+from sleuth.cases import BREATHES, RESOLVED
 from sleuth.config import Config
+from sleuth.districts import Districts
 from sleuth.game import Game
 from sleuth.models import Villager
 from sleuth.photos import Album
@@ -195,3 +197,15 @@ def test_the_moved_in_post_reads_well_whatever_the_job_is_called():
         "Mavis Oakhurst moved in on Oak Street. Night-shift pharmacy technician."
     assert moved_in("Ada Reyes", "owner of the Pet Parlor", "Elm Street") == \
         "Ada Reyes moved in on Elm Street. Owner of the Pet Parlor."
+
+
+@pytest.mark.asyncio
+async def test_a_solved_death_gets_a_sober_line_not_relief(tmp_path):
+    engine, town = arriving(tmp_path)
+    engine.cases.districts = Districts(engine.cases.config)
+    file = tiered(engine.cases, "major", "v5", "v1")
+    await engine.cases.on_held(engine, file, "p-1")
+    await asyncio.gather(*engine.cases._moving)
+    posts = [e.data["text"] for e in engine.feed.recent if e.kind == "post"]
+    assert any(p.endswith(RESOLVED.split("}", 1)[1]) for p in posts)
+    assert not any(BREATHES.split("}", 1)[1].split("{")[0] in p for p in posts)

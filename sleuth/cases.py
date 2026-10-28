@@ -30,6 +30,7 @@ THANKS = "Thanks to that podcast, everyone knows who {did} my {item}!"
 ARRESTED = "{name} was arrested and has left town."
 ON_EDGE = "{street} is on edge after {title}."
 BREATHES = "{street} breathes a little easier now {name}'s been found out."
+RESOLVED = "{street} has its answer now. People are looking after one another."
 # How many crimes are drawn in one go for a solvable one.
 DRAWS = 10
 
@@ -187,7 +188,8 @@ class Cases:
         if self.districts is not None:
             street = district_of(crime.place)
             self.districts.on_exposed(crime)
-            breathes = BREATHES.format(street=place_name(street), name=self.town.name_of(crime.culprit))
+            line = RESOLVED if crime.tier == "major" else BREATHES
+            breathes = line.format(street=place_name(street), name=self.town.name_of(crime.culprit))
             engine.feed.on_post(Utterance("", "app", APP, street, breathes, None, "posted"), crime.id)
             await self.rally(engine, street, crime.victim)
             self._show_districts(engine)
