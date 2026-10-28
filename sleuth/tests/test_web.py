@@ -109,7 +109,7 @@ def test_nothing_sent_shows_unlearned_looks(game):
     state = game.client.get("/api/state").json()
     rows = state["villagers"]
     assert all(r["looks"] == "" and r["face"] is None for r in rows)
-    assert set(rows[0]) == {"id", "name", "occupation", "looks", "face", "known_for"}
+    assert set(rows[0]) == {"id", "name", "occupation", "looks", "face", "known_for", "accused"}
     card = game.client.get("/api/villagers/v2").json()
     assert "traits" not in card and "traits_text" not in card and card["known"] == []
     sent = json.dumps([state, game.client.get("/api/case").json(), card])
@@ -1010,3 +1010,12 @@ def test_everyone_sees_who_was_exposed_for_what_in_the_people_list(game):
     game.cases.offenders.exposed["v2"] = "stole Marta Hale's bike"
     rows = {v["id"]: v for v in game.client.get("/api/state").json()["villagers"]}
     assert rows["v2"]["known_for"] == "stole Marta Hale's bike" and rows["v1"]["known_for"] == ""
+
+
+def test_the_people_list_marks_who_you_accused(game):
+    file = open_case(game)
+    other = game.join("o-2")
+    file.named = {game.player.id: "v1", other.id: "v2"}
+    rows = {v["id"]: v for v in game.client.get("/api/state").json()["villagers"]}
+    assert rows["v1"]["accused"] is True and rows["v2"]["accused"] is False
+    assert other.person("v1")["accused"] is False and other.person("v2")["accused"] is False

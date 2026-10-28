@@ -125,7 +125,9 @@ doesn't back it. One episode per podcaster per case.
   household warms to you (`reputation_ally`), and the victim thanks the podcast on the app.
   A culprit of anything worse than a petty crime is arrested instead and leaves town at once.
 - A wrong one leaves the case open for others. The town hears the accusation anyway, everyone thinks less of you
-  (`reputation_wrong`), and the accused most of all (`reputation_accused`).
+  (`reputation_wrong`), and the accused most of all (`reputation_accused`). Their household and anyone close to them
+  think less of you too (`reputation_accused_ties`). The accused remembers: they bring it up, hurt and short with
+  you, and the people list tags them "you named them".
 
 **Reputation** is each resident's regard for you, in [-1, 1], drifting back toward 0 by `reputation_decay` each part
 of the day. A resident below `guarded_at` won't talk to you or share the records they keep. A witness at or above
@@ -219,6 +221,7 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_REPUTATION_ACCUSED` | `-0.4` | further regard the wrongly accused loses |
 | `SLEUTH_REPUTATION_EXPOSED` | `-0.6` | regard an exposed culprit has for the podcaster who exposed them |
 | `SLEUTH_REPUTATION_ALLY` | `0.3` | further regard the victim's household gains for a right episode |
+| `SLEUTH_REPUTATION_ACCUSED_TIES` | `-0.3` | further regard the wrongly accused's household and close ties lose |
 | `SLEUTH_REPUTATION_WARNED` | `-0.2` | regard a resident loses when the culprit warns them about you |
 | `SLEUTH_REPUTATION_DECAY` | `0.02` | how far regard drifts back toward 0 each part of the day |
 | `SLEUTH_GUARDED_AT` | `-0.3` | below this regard a resident won't talk to you or share records |

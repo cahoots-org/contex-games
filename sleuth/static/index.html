@@ -1019,6 +1019,8 @@ function person(v, role, nearby) {
       title: tag === NEARBY ? "Usually at the scene at that time of day" : "" }) : null,
     v.known_for ? el("span", { className: "role known", textContent: "exposed",
       title: `Everyone knows they ${v.known_for}` }) : null,
+    v.accused ? el("span", { className: "role known", textContent: "you named them",
+      title: "Your episode named them, and it didn't hold up" }) : null,
     el("small", { textContent: v.looks || v.occupation }))));
 }
 
@@ -1034,7 +1036,7 @@ $("find").addEventListener("keydown", (ev) => {
 
 // The residents' list changes only when someone arrives or leaves or their looks are learned, not when they move.
 function setResidents(list) {
-  const key = list.map((v) => `${v.id}:${v.name}:${v.looks}:${v.known_for}`).join("|");
+  const key = list.map((v) => `${v.id}:${v.name}:${v.looks}:${v.known_for}:${v.accused}`).join("|");
   if (key === residentsKey) return;
   residents = list;
   residentsKey = key;

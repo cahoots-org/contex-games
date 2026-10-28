@@ -486,3 +486,11 @@ async def test_no_open_case_s_witness_is_another_open_case_s_culprit():
         holders = {r.holder for r in case.records.values() if r.kind == "memory"}
         dropped = {r.who for r in case.records.values() if r.trail}
         assert "v7" not in holders | dropped
+
+
+def test_named_round_trips_with_the_case():
+    cases, _, town = make_cases()
+    culprit_file(cases).named = {"p-1": "v5", "p-2": "v3"}
+    fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
+    fresh.restore(json.loads(json.dumps(cases.to_state())))
+    assert fresh.files["case-1"].named == {"p-1": "v5", "p-2": "v3"}

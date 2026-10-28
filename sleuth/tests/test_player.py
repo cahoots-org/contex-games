@@ -1375,3 +1375,30 @@ async def test_an_exposed_resident_is_touchy_with_other_podcasters():
     engine.reputation.nudge("v3", PID, 1.0)
     await ask(player, "v3", "none")
     assert writer.notes[-1] == ["This podcaster exposed you for stole Dana Reyes's bike. You're cold with them."]
+
+
+@pytest.mark.asyncio
+async def test_a_wrong_episode_cools_the_accused_household_and_close_ties():
+    player, file, engine, _ = interviewing()
+    player.town.get("v7").warmth["v5"] = 0.7
+    player.town.get("v8").warmth["v5"] = 0.1
+    assert await player.publish("v5", cite(player, file, memory_of(file, player.ids))) is None
+    config = player.config
+    assert file.named == {PID: "v5"}
+    assert regard(engine, "v6") == regard(engine, "v7") == pytest.approx(config.reputation_wrong + config.reputation_accused_ties)
+    assert regard(engine, "v8") == pytest.approx(config.reputation_wrong)
+    assert regard(engine, "v5") == pytest.approx(config.reputation_wrong + config.reputation_accused)
+
+
+@pytest.mark.asyncio
+async def test_the_wrongly_accused_bring_it_up_when_interviewed():
+    player, file, engine, writer = interviewing()
+    assert await player.publish("v5", cite(player, file, memory_of(file, player.ids))) is None
+    engine.reputation.nudge("v5", PID, 1.0)
+    await ask(player, "v5", "none")
+    assert writer.notes[-1] == ["This podcaster publicly accused you of stole Dana Reyes's bike, and you didn't do it. "
+                                "You're hurt and short with them."]
+    rival = run_of(player, "p-2")
+    rival.writer = writer
+    await ask(rival, "v5", "none")
+    assert writer.notes[-1] == []

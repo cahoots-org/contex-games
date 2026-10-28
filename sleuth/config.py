@@ -25,6 +25,8 @@ class Config:
     # How an exposed culprit's regard for the podcaster who exposed them moves, and their victim's household's.
     reputation_exposed: float = -0.6
     reputation_ally: float = 0.3
+    # How the wrongly accused's household and close ties regard a podcaster who named them.
+    reputation_accused_ties: float = -0.3
     # How a resident's regard moves when the culprit warns them about the podcaster.
     reputation_warned: float = -0.2
     # How far every regard drifts back toward 0 each part of the day.

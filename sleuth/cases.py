@@ -12,6 +12,7 @@ from sleuth.case import (
     witness_memories,
 )
 from sleuth.config import Config
+from sleuth.decide import warmth_words
 from sleuth.feed import APP
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
@@ -43,6 +44,7 @@ class CaseFile:
     pressed_by: str = ""  # the podcaster who last asked around
     warned: str = ""  # "day:phase" the culprit last warned someone
     words: dict[str, list] = field(default_factory=dict)  # "speaker:about" → [household word, sound]
+    named: dict[str, str] = field(default_factory=dict)  # player → the resident their episode named
 
 
 def case_json(case: CaseFile, town: Town, routine, today: float | None = None) -> dict:
@@ -159,9 +161,13 @@ class Cases:
         return task
 
     def on_wrong(self, engine, file: CaseFile, player_id: str, accused: str) -> None:
-        """A wrong episode costs the town's regard, and the accused's most of all."""
-        engine.reputation.nudge_all(player_id, self.config.reputation_wrong, [v.id for v in self.town.villagers])
-        engine.reputation.nudge(accused, player_id, self.config.reputation_accused)
+        """A wrong episode costs the town's regard, the accused's most of all, then their household's and close ties'."""
+        config, them = self.config, self.town.get(accused)
+        engine.reputation.nudge_all(player_id, config.reputation_wrong, [v.id for v in self.town.villagers])
+        engine.reputation.nudge(accused, player_id, config.reputation_accused)
+        ties = [v.id for v in self.town.villagers if v.id != accused and (
+            them.household and v.household == them.household or warmth_words(v.warmth.get(accused, 0.0)) == "close")]
+        engine.reputation.nudge_all(player_id, config.reputation_accused_ties, ties)
 
     def _expose(self, engine, file: CaseFile, player_id: str) -> None:
         """The town learns what the culprit did, and they lie low, cold to the podcaster; the victim's household warms

@@ -464,20 +464,26 @@ class Player:
         return {"id": v.id, "name": v.name, "occupation": v.occupation,
                 "looks": describe(newest["looks"]) if newest else "",
                 "face": face(newest["looks"]) if newest else None,
-                "known_for": self._exposed().get(vid, "")}
+                "known_for": self._exposed().get(vid, ""), "accused": bool(self._wrongly_named(vid))}
 
     def _exposed(self) -> dict[str, str]:
         """What the town knows each exposed resident did."""
         return self.engine.cases.offenders.exposed if self.engine.cases else {}
 
+    def _wrongly_named(self, vid: str) -> list[Crime]:
+        """The crimes this podcaster's episodes wrongly named the resident for."""
+        files = self.engine.cases.files.values() if self.engine.cases else []
+        return [f.crime for f in files if f.named.get(self.id) == vid != f.crime.culprit]
+
     def _notes(self, vid: str) -> list[str]:
         """What the resident feels about this podcaster or about themselves, for the writer."""
-        what = self._exposed().get(vid)
-        if not what:
-            return []
-        if any(f.crime.culprit == vid and f.solved_by == self.id for f in self.engine.cases.files.values()):
-            return [f"This podcaster exposed you for {what}. You're cold with them."]
-        return [f"Everyone knows you {what}. You're touchy about it."]
+        notes = [f"This podcaster publicly accused you of {CRIMES[c.template].did} {self.town.name_of(c.victim)}'s "
+                 f"{c.item}, and you didn't do it. You're hurt and short with them." for c in self._wrongly_named(vid)]
+        if what := self._exposed().get(vid):
+            mine = any(f.crime.culprit == vid and f.solved_by == self.id for f in self.engine.cases.files.values())
+            notes.append(f"This podcaster exposed you for {what}. You're cold with them." if mine
+                         else f"Everyone knows you {what}. You're touchy about it.")
+        return notes
 
     def known_json(self, vid: str) -> list[dict]:
         """Each time the player learned how the resident looks, oldest first."""
@@ -706,6 +712,7 @@ class Player:
         if culprit_id not in self.town:
             return "No one in town has that id."
         file.published.append(self.id)
+        file.named[self.id] = culprit_id
         crime = file.crime
         accused, victim = self.town.get(culprit_id), self.town.get(crime.victim)
         held = holds(crime, culprit_id, self.town.looks(culprit_id, crime.day), [self.notebook[i] for i in record_ids])
