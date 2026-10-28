@@ -903,3 +903,15 @@ async def test_a_petty_case_opens_when_every_petty_offender_is_lying_low():
     await tick(cases, engine)
     [case] = cases.open_shared("petty")
     assert case.crime.culprit not in {"v3", "v5", "v6"} and cases.offenders.active[case.crime.culprit].tier == "petty"
+
+
+@pytest.mark.asyncio
+async def test_a_case_opens_after_someone_logged_that_part_of_the_day_has_left_town():
+    cases, engine, town = make_cases(offenders=3)
+    everyone = {v.id: ["gym"] for v in town.villagers}
+    cases.finished = everyone
+    town.remove("v8")
+    cases.offenders.active.pop("v8", None)
+    await cases.ensure(engine, 3.0)
+    [case] = cases.open_shared("petty")
+    assert "v8" not in case.whereabouts and all(r.who != "v8" for r in case.records.values())

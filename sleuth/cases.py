@@ -419,6 +419,8 @@ class Cases:
         self.dress(crime.day)
         whereabouts = dict(self.finished or {v.id: [p] for v in self.town.villagers
                                              if (p := self.routine.place(v.id, crime.phase))})
+        # Someone arrested since the tick still has that part of the day's whereabouts.
+        whereabouts = {vid: places for vid, places in whereabouts.items() if vid in self.town}
         whereabouts[crime.culprit] = [crime.place]
         scene = {vid for vid, places in whereabouts.items() if crime.place in places}
         scene |= {v.id for v in self.town.villagers if self.routine.place(v.id, crime.phase) == crime.place}
