@@ -35,7 +35,7 @@ METHOD = re.compile(r"\b(?:bats?|crowbars?|hammers?|bricks?|rocks?|wrench(?:es)?
                     r"spray[- ]?paint\w*|key(?:ed|ing)|smash\w*|slash\w*|shatter\w*|kick\w* (?:in|down|open)|"
                     r"pried|pry(?:ing)?|jimm(?:y|ied|ying)|hot-?wir\w*|ignition|propped|picked the lock|lock ?pick\w*|"
                     r"broke in|broken into|break-?in|left (?:it )?unlocked|back door|ski mask|punch\w*|shov\w*|"
-                    r"tackl\w*|snatch\w*)\b", re.IGNORECASE)
+                    r"tackl\w*|snatch\w*|cut (?:up|open|it|them)|scissors|shred\w*)\b", re.IGNORECASE)
 # A sentence's end, not an abbreviation's like "6 a.m." or "Mr.".
 WHOLE_END = re.compile(r"(?<![ap]\.m)(?<!\bM[rs])(?<!\bMrs)(?<!\bDr)(?<!\bSt)[.!?][\"'\u201d)]*(?=\s|$)")
 SENTENCE_END = re.compile(r"(?<=[.!?;])\s+")

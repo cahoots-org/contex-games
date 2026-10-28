@@ -214,6 +214,8 @@ def test_a_pronoun_may_refer_back_to_a_named_resident_but_never_give_someone_a_g
     ("Somebody took a bat to Lorraine's car on Oak Street last night.", True),
     ("Whoever smashed Lorraine's car should be ashamed.", True),
     ("I bet they left the keys in the ignition.", True),
+    ("Whoever cut up Lorraine's car seats ought to be ashamed.", True),
+    ("I heard they took scissors to it.", True),
     ("Someone vandalized Lorraine's car on Oak Street last night. Shameful.", False),
 ])
 def test_a_case_line_may_not_say_how_it_was_done(line, invented):
