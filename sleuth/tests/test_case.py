@@ -485,6 +485,19 @@ def test_the_news_gives_a_window_not_a_time():
     assert told(morning.text, morning, 3.0) == "It happened sometime between the night before last and yesterday morning."
 
 
+def test_an_older_window_is_said_from_its_first_part():
+    morning = Crime("case-2", "death", "", "v5", "v1", "cafe", 2, "morning", 500, "rival", "It happened {span}.",
+                    tier="major", window=["night", "morning"])
+    assert [told(morning.text, morning, today) for today in (4.0, 5.0)] == [
+        "It happened sometime at night three days ago or the next morning.",
+        "It happened sometime at night four days ago or the next morning."]
+    night = replace(morning, phase="night", window=["evening", "night"])
+    assert told(night.text, night, 4.0) == "It happened sometime in the evening two days ago or that night."
+    said = told(morning.text, morning, 4.0).removeprefix("It happened ").removesuffix(".")
+    assert retime(f"Awful, {said}.", "yesterday") == "Awful, yesterday."
+    assert not misdated(f"Awful, {said}.", f"It happened {said}.")
+
+
 def test_the_true_part_of_the_day_is_sometimes_first_in_the_window():
     town, routine = feuding(make_town()), make_routine()
     windows = {tuple(stage_crime(town, routine, Random(seed), 1, "night", "case-1", tier="major").window)

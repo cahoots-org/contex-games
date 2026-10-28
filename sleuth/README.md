@@ -47,7 +47,8 @@ besides the culprit were on cold terms with or held a grudge with, either way, a
 them all when asked who had a reason. Town generation turns friends, coworkers and neighbors into rivals until one
 resident in five has two people on bad terms with them, and someone moving in is a rival of one resident short of two
 while too few have them. Someone at the scene found them, and the victim leaves town at once, so someone
-moves in. Its news gives only a window, two parts of the day in a row, either of which may be the one it happened in,
+moves in. Its news gives only a window, two parts of the day in a row, either of which may be the one it happened in
+("sometime between last night and this morning", and days on "sometime at night three days ago or the next morning"),
 and every record is from that one. Asked where they were in either part, residents answer for the case. Its news reaches everyone on the victim's street and everyone with a tie to them, and
 the town talks about it soberly: residents are told someone has died and to say nothing of how, and any line with a
 grisly word is never said or posted. With `accomplice_chance`, a serious culprit has an accomplice, their closest friend or another offender,

@@ -92,7 +92,8 @@ DAYS_AGO = ("two", "three", "four", "five", "six")
 _TIME = (r"(?:this (?:morning|afternoon|evening)|tonight|last night|the night before last|"
          r"yesterday (?:morning|afternoon|evening)|"
          r"\w+ days ago, (?:in the (?:morning|afternoon|evening)|at night))")
-SAID_TIME = re.compile(rf"\b(?:sometime between {_TIME} and {_TIME}|{_TIME})\b", re.IGNORECASE)
+_OLDER_SPAN = r"sometime (?:at night|in the evening) \w+ days ago or (?:the next morning|that night)"
+SAID_TIME = re.compile(rf"\b(?:{_OLDER_SPAN}|sometime between {_TIME} and {_TIME}|{_TIME})\b", re.IGNORECASE)
 # How people say an evening too.
 EVENING = {"last night": "yesterday evening", "tonight": "this evening"}
 
@@ -150,12 +151,17 @@ def ago(day: int, phase: str, today: float) -> str:
         return "last night" if phase == "night" else f"yesterday {phase}"
     if days == 2 and phase == "night":
         return "the night before last"
-    count = DAYS_AGO[days - 2] if days - 2 < len(DAYS_AGO) else str(days)
-    return f"{count} days ago, " + ("at night" if phase == "night" else f"in the {phase}")
+    return f"{_days(days)} days ago, " + ("at night" if phase == "night" else f"in the {phase}")
+
+
+def _days(days: int) -> str:
+    """Two or more days as said, like "three"."""
+    return DAYS_AGO[days - 2] if days - 2 < len(DAYS_AGO) else str(days)
 
 
 def when(crime: Crime, today: float | None = None) -> str:
-    """When the crime happened, or the window it happened in, said on today, or on the crime's own day."""
+    """When the crime happened, or the window it happened in, said on today, or on the crime's own day; a window
+    two or more days old is said from its first part, like "sometime at night three days ago or the next morning"."""
     today = crime.day if today is None else today
     if not crime.window:
         return ago(crime.day, crime.phase, today)
@@ -163,7 +169,11 @@ def when(crime: Crime, today: float | None = None) -> str:
     i = PHASES.index(crime.phase)
     first_day = crime.day - (PHASES.index(first) > i)
     last_day = crime.day + (PHASES.index(last) < i)
-    return f"sometime between {ago(first_day, first, today)} and {ago(last_day, last, today)}"
+    if int(today) - last_day < 2:
+        return f"sometime between {ago(first_day, first, today)} and {ago(last_day, last, today)}"
+    start = "at night" if first == "night" else f"in the {first}"
+    return f"sometime {start} {_days(int(today) - first_day)} days ago or " + (
+        f"the next {last}" if last_day > first_day else f"that {last}")
 
 
 def told(text: str, crime: Crime, today: float | None = None) -> str:
