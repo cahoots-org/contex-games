@@ -255,6 +255,14 @@ def test_logs_list_whoever_was_at_a_log_place():
     assert r.day == crime.day
 
 
+def test_a_death_s_victim_is_never_logged_after_it():
+    town, _, crime = make_case()
+    death = replace(crime, template="death", tier="major", phase="morning", minute=480)
+    for seed in range(30):
+        [r] = logs(death, {death.victim: ["gym"]}, town, Random(seed), Ids())
+        assert r.clock.startswith("7:")
+
+
 def test_suspects_narrow_by_traits_and_log_alibis():
     town, _, crime = make_case()
     culprit = town.get("v5")

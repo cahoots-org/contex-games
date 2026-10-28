@@ -363,12 +363,15 @@ def scene_clues(crime: Crime, town: Town, routine, rng: Random, ids: Ids, away=f
 
 
 def logs(crime: Crime, phase_log: dict[str, list[str]], town: Town, rng: Random, ids: Ids) -> list[Record]:
-    """A check-in, tab or receipt for every resident who passed through a logging place this phase."""
+    """A check-in, tab or receipt for every resident who passed through a logging place this phase, a death's victim
+    only before it."""
     records = []
+    start, end = PHASE_MINUTES[crime.phase]
     for vid, places in phase_log.items():
+        last = crime.minute if crime.template == "death" and vid == crime.victim else end
         for place in dict.fromkeys(places):
-            if place in LOG_PLACES:
-                clock = clock_at(rng.randrange(*PHASE_MINUTES[crime.phase]))
+            if place in LOG_PLACES and start < last:
+                clock = clock_at(rng.randrange(start, last))
                 text = f"{LOG_PLACES[place]}: {town.get(vid).name}, {clock}"
                 records.append(Record(ids.next("r"), crime.id, "log", place, clock, text, who=vid,
                                       day=crime.day))
