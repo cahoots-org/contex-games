@@ -12,6 +12,7 @@ from sleuth.models import Villager
 from sleuth.routine import Routine
 from sleuth.tests.helpers import StubBaselines, StubJev
 from sleuth.tests.test_cases import culprit_file, make_cases
+from sleuth.town_gen import settle
 from sleuth.traits import FIXED, TRAITS, assign_look
 
 RESIDENT = {"name": "Wren Abara", "occupation": "locksmith", "personality": "dry and patient", "grudge": "",
@@ -121,3 +122,25 @@ async def test_someone_who_moved_in_never_fits_an_open_case(tmp_path):
         before = suspects(file.crime, list(file.records.values()), town)
         v = await move_in(engine, "oak street")
         assert v.traits["hair"] != hair and suspects(file.crime, list(file.records.values()), town) == before
+
+
+@pytest.mark.asyncio
+async def test_a_failed_move_in_leaves_no_ties_and_no_offender(tmp_path):
+    engine, town = arriving(tmp_path)
+    engine.config = Config(newcomer_offender_chance=1.0)
+
+    async def fails(v, place):
+        raise RuntimeError("no mind")
+
+    engine.add_villager = fails
+    assert await move_in(engine, "oak street") is None
+    assert not any("v009" in v.relationships or "v009" in v.warmth for v in town.villagers)
+    assert "v009" not in engine.cases.offenders.active
+
+
+def test_someone_settling_on_an_empty_street_still_gets_two_ties():
+    villagers = [Villager(f"v{i}", f"N{i}", "x", "y", "", [], {}, home="elm street", household=f"h{i:02d}")
+                 for i in range(1, 5)]
+    v = Villager("v9", "Wren Abara", "x", "y", "", [], {})
+    settle(v, villagers, "oak street", Random(0))
+    assert (v.home, v.household) == ("oak street", "h05") and len(v.relationships) == 2

@@ -185,13 +185,14 @@ async def generate_resident(writer: Writer, taken: list[Villager], rng: random.R
 
 
 def settle(v: Villager, villagers: list[Villager], home: str, rng: random.Random) -> None:
-    """Give the resident a household of their own on home, a neighbor there, and one drawn tie."""
+    """Give the resident a household of their own on home, a neighbor there with room for one, and drawn ties up to
+    two."""
     last = max((int(o.household[1:]) for o in villagers if o.household[1:].isdigit()), default=0)
     v.household, v.home = f"h{last + 1:02d}", home
-    street = [o for o in villagers if o.home == home and o.id != v.id]
+    street = [o for o in villagers if o.home == home and o.id != v.id and len(o.relationships) < MAX_RELATIONSHIPS]
     if street:
         _tie(v, rng.choice(street), "neighbor", rng)
-    if other := _partner(v, villagers, rng):
+    while len(v.relationships) < 2 and (other := _partner(v, villagers, rng)):
         _link(v, other, rng)
 
 
