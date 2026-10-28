@@ -174,6 +174,7 @@ def create_app(
             "standing": player.standing_json(),
             "photos": [{**photo_json(p, player.town), "saved": p.id in player.saved_photos}
                        for p in player.engine.album.photos],
+            "districts": cases.districts.levels(player.town) if (cases := player.engine.cases) and cases.districts else [],
             **case_of(player),
         }
 

@@ -168,6 +168,10 @@ class Feed:
         """The podcaster's standing after an episode, with what changed for them when their tier rose."""
         self.emit("standing", line, player=player, score=standing, tier=tier, label=label, text=line)
 
+    def on_districts(self, levels: list[dict]) -> None:
+        """Each district's crime and fear levels, trends and watch."""
+        self.emit("districts", districts=levels)
+
     def on_case_closed(self, case_id: str, line: str, player: str | None = None) -> None:
         self.emit("case_closed", line, player=player, case_id=case_id, text=line)
 

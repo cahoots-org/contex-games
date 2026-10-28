@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import math
+import re
 from dataclasses import asdict, dataclass, field
 from random import Random
 
@@ -13,7 +14,7 @@ from sleuth.case import (
 )
 from sleuth.config import Config
 from sleuth.decide import warmth_words
-from sleuth.districts import FORMED, TOLD, WOUND_DOWN, Districts, district_of
+from sleuth.districts import FORMED, TOLD, WOUND_DOWN, Districts, district_of, level
 from sleuth.feed import APP
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
@@ -27,6 +28,8 @@ COLD = "The case went cold. It was {name}."
 COVERED = "covered for {name}"
 THANKS = "Got my {item} back thanks to that podcast!"
 ARRESTED = "{name} was arrested and has left town."
+ON_EDGE = "{street} is on edge after {title}."
+BREATHES = "{street} breathes a little easier now {name}'s been found out."
 # How many crimes are drawn in one go for a solvable one.
 DRAWS = 10
 
@@ -172,8 +175,12 @@ class Cases:
         engine.reputation.nudge_all(player_id, self.config.reputation_right, town)
         await self._unmask(engine, file, player_id)
         if self.districts is not None:
+            street = district_of(crime.place)
             self.districts.on_exposed(crime)
-            await self.rally(engine, district_of(crime.place), crime.victim)
+            breathes = BREATHES.format(street=place_name(street), name=self.town.name_of(crime.culprit))
+            engine.feed.on_post(Utterance("", "app", APP, street, breathes, None, "posted"), crime.id)
+            await self.rally(engine, street, crime.victim)
+            self._show_districts(engine)
         await self.ensure(engine)
 
     async def _unmask(self, engine, file: CaseFile, player_id: str | None = None) -> None:
@@ -248,8 +255,12 @@ class Cases:
                               None)
         await engine.deliver(told_them, watch.members[1:])
 
-    async def _watch(self, engine) -> None:
-        """Wind down the watches no longer needed, and let every street organize, its latest victim the founder."""
+    def _show_districts(self, engine) -> None:
+        engine.feed.on_districts(self.districts.levels(self.town))
+
+    async def _watch(self, engine) -> bool:
+        """Wind down the watches no longer needed, and let every street organize, its latest victim the founder;
+        whether any watch changed."""
         names = {street: d.watch.name for street, d in self.districts.by_street.items() if d.watch}
         for street in self.districts.wind_down():
             text = WOUND_DOWN.format(name=names[street], street=place_name(street))
@@ -258,6 +269,7 @@ class Cases:
             here = [f for f in self.files.values() if district_of(f.crime.place) == street]
             latest = max(here, key=lambda f: f.opened).crime.victim if here else None
             await self.rally(engine, street, latest)
+        return names != {street: d.watch.name for street, d in self.districts.by_street.items() if d.watch}
 
     def brief(self, feed, player_id: str, today: float | None, tier: str) -> None:
         """Tell a player just off the practice case every open case offered at tier and, unless the feed still
@@ -314,8 +326,8 @@ class Cases:
                 cold = COLD.format(name=self.town.name_of(case.crime.culprit))
                 engine.feed.on_case_closed(case.crime.id, cold)
                 await self._unmask(engine, case)
-        if self.districts is not None:
-            await self._watch(engine)
+        if self.districts is not None and (await self._watch(engine) or phase == "morning"):
+            self._show_districts(engine)
         await self.ensure(engine)
 
     def _breed(self) -> None:
@@ -401,8 +413,6 @@ class Cases:
         records += [*added, discovery(crime, self.town, self.rng, self.ids)]
         case = self.files[crime.id] = CaseFile(crime, {r.id: r for r in records}, "open", opened=self.now,
                                                whereabouts=whereabouts, accomplice=accomplice)
-        if self.districts is not None:
-            self.districts.on_crime(crime)
         for m in records:
             if m.kind in ("memory", "discovery"):
                 await self._remember(engine, case, m)
@@ -414,7 +424,20 @@ class Cases:
         await engine.deliver(news, list(dict.fromkeys(hearers)))
         engine.feed.on_case(case_json(case, self.town, self.routine, self.now))
         engine.feed.on_post(news, crime.id)
+        if self.districts is not None:
+            self._shaken(engine, crime)
         return True
+
+    def _shaken(self, engine, crime: Crime) -> None:
+        """Raise the crime's district's crime and fear; the app notices when its fear level rises."""
+        street = district_of(crime.place)
+        before = level(self.districts.by_street[street].fear)
+        self.districts.on_crime(crime)
+        if level(self.districts.by_street[street].fear) > before:
+            title = re.sub(r"^The ", "the ", crime_title(crime, self.town))
+            text = ON_EDGE.format(street=place_name(street), title=title)
+            engine.feed.on_post(Utterance("", "app", APP, street, text, None, "posted"), crime.id)
+        self._show_districts(engine)
 
     def _accomplice(self, crime: Crime, barred: set[str]) -> str | None:
         """With accomplice_chance, who covers for the culprit: their warmest close tie, else another active offender;

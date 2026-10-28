@@ -2,7 +2,8 @@ import json
 
 import pytest
 
-from sleuth.case import Crime
+from sleuth.case import Crime, crime_title
+from sleuth.cases import BREATHES, ON_EDGE, THANKS
 from sleuth.config import Config
 from sleuth.districts import (
     FORMED, HIT, PLACE_DISTRICT, RELIEF, TOLD, WATCH_SIZE, WOUND_DOWN, Districts, Watch, district_of,
@@ -11,7 +12,9 @@ from sleuth.engine import Engine
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Villager
 from sleuth.offenders import Offender
+from sleuth.tests.helpers import PID
 from sleuth.tests.test_cases import kinds, make_cases, shared, tick
+from sleuth.tests.test_player import cite, interviewing, memory_of
 from sleuth.town import PLACES, STREETS, Town
 
 
@@ -234,3 +237,66 @@ def test_the_engine_gives_each_resident_their_own_street_s_mood():
     oak = Villager("v2", "Bo", "baker", "calm", "", [], {}, home="oak street")
     assert engine.mood(elm) == "on edge" and engine.mood(oak) is None
     assert Engine(Config(), Town(), None, None, None, Lineage(), Ids(), None).mood(elm) is None
+
+
+def test_district_json_carries_levels_not_internals():
+    _, _, town = make_cases()
+    districts = Districts(Config())
+    elm = districts.by_street["elm street"]
+    elm.crime, elm.fear, elm.was, elm.exposures = 0.2, 0.5, [0.0, 0.6], 2
+    elm.watch = Watch("Elm Street Group Chat", "v1", ["v1", "v2"], 1.5)
+    levels = districts.levels(town)
+    assert [d["street"] for d in levels] == list(STREETS)
+    assert levels[0] == {"street": "elm street", "name": "Elm Street", "crime": 1, "fear": 2, "crime_trend": 1,
+                         "fear_trend": -1, "watch": "Elm Street Group Chat", "founder": "Dana Reyes"}
+    assert levels[1] == {"street": "oak street", "name": "Oak Street", "crime": 0, "fear": 0, "crime_trend": 0,
+                         "fear_trend": 0, "watch": None, "founder": None}
+    elm.crime = 0.04
+    assert districts.levels(town)[0]["crime_trend"] == 0
+    assert not [v for d in json.loads(json.dumps(levels)) for v in d.values() if isinstance(v, float)]
+
+
+def district_events(engine):
+    return [e for e in engine.feed.recent if e.kind == "districts"]
+
+
+@pytest.mark.asyncio
+async def test_a_crime_that_rattles_a_street_is_noticed_on_the_app():
+    cases, engine, town = make_cases()
+    cases.districts = Districts(cases.config)
+    await tick(cases, engine)
+    case = shared(cases)
+    street = district_of(case.crime.place)
+    title = crime_title(case.crime, town)
+    assert [e.data["text"] for e in kinds(engine, "post") if e.data["text"].endswith(f"after {title}.")] == [
+        ON_EDGE.format(street=street.title(), title=title)]
+    levels = district_events(engine)[-1].data["districts"]
+    assert next(d for d in levels if d["street"] == street)["fear"] == 1
+    calm, _, _ = make_cases()
+    calm.districts = Districts(calm.config)
+    for d in calm.districts.by_street.values():
+        d.fear = 1.0
+    calm_engine = make_cases()[1]
+    await tick(calm, calm_engine)
+    assert not [e for e in kinds(calm_engine, "post") if "on edge" in e.data["text"]]
+
+
+@pytest.mark.asyncio
+async def test_a_first_held_case_changes_the_town_at_once():
+    player, file, engine, _ = interviewing()
+    cases = engine.cases
+    cases.districts = Districts(cases.config)
+    elm = cases.districts.by_street["elm street"]
+    elm.crime, elm.fear = 0.6, 0.6
+    before = elm.crime
+    cases.now = 2.0
+    ids = cite(player, file, memory_of(file, player.ids))
+    await player.publish("v3", ids)
+    assert player.person("v3")["known_for"] == "stole Dana Reyes's bike"
+    assert engine.reputation.get("v1", PID) > 0
+    posts = [e.data["text"] for e in player.feed.recent if e.kind == "post"]
+    assert THANKS.format(item="bike") in posts and BREATHES.format(street="Elm Street", name="Fay Okafor") in posts
+    [after] = [d for d in [e for e in player.feed.recent if e.kind == "districts"][-1].data["districts"]
+               if d["street"] == "elm street"]
+    assert after["crime"] <= round(before * 3)
+    assert elm.watch is not None and after["watch"] == elm.watch.name

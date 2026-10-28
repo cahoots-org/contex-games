@@ -72,7 +72,8 @@ crime moves elsewhere. It winds down, said on the app, once the district's crime
 least `neglect_at`, turns one of its residents who has never been exposed into a petty offender with `turn_chance`,
 until the set reaches `max_offenders`. Whenever the set falls below `min_offenders`, it is refilled only from
 districts without a watch. So a district left to itself breeds crime, while one that organizes pushes crime elsewhere
-and breeds none. Residents feel their street: a district on edge or rattled, and whether a watch is on it, is in what
+and breeds none. The app reacts at once, in code copy: a crime that raises a street's fear level leaves it "on edge after" the case,
+and a held episode lets it breathe a little easier now the culprit's been found out. Residents feel their street: a district on edge or rattled, and whether a watch is on it, is in what
 Jev and Haiku are told about them.
 
 **Your first case.** Before the page, a new podcaster sees three short cards on what the game is and a button to
@@ -178,7 +179,9 @@ a new entry.
 Everything is done on one page, built around the case. On the left: the case with Publish (and, on a first case, its checklist),
 which opens the form in place (choose a resident, tick notebook entries); the notebook grouped by kind (Seen, Clip,
 Logs, Said, Found, Heard, Photos), newest first; where you are, with Search here and Pull records when they apply and the
-places you can go. In the header, the neighborhood app: a link that counts what's new and opens one feed, newest
+places you can go; and at the foot, a small Districts map: each street with its crime and fear as three pips, an
+arrow when either has risen or fallen since the morning, and any watch with who started it, never the numbers behind
+them (hidden in the first case). In the header, the neighborhood app: a link that counts what's new and opens one feed, newest
 first, as a panel on the right (a sheet from the bottom on a phone) of case news, what residents are saying, and their
 photo posts, each with who posted it, the faces in it, its caption and Save. On the right:
 everyone in town with their job and street, searchable by name, job or known looks, marked victim or witness once you

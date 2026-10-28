@@ -15,6 +15,8 @@ PLACE_DISTRICT = {"cafe": "elm street", "bar": "elm street", "dog park": "elm st
 HIT = {"petty": 0.25, "serious": 0.45, "major": 0.7}
 # How far an exposure lowers its district's crime, and fear.
 RELIEF = (0.15, 0.1)
+# How far a value must move since the last morning to show a trend.
+TREND_DEAD_ZONE = 0.05
 WATCH_NAMES = ("{street} Neighborhood Watch", "{street} Porch-Light Pact", "{street} Group Chat")
 WATCH_SIZE = 6
 FORMED = "{street} residents are starting a watch. {first}'s making flyers."
@@ -24,6 +26,16 @@ WOUND_DOWN = "The {name} has wound down. {street} feels safe again."
 
 def district_of(place: str) -> str:
     return PLACE_DISTRICT[place]
+
+
+def level(x: float) -> int:
+    """A crime or fear value as the browser sees it, 0 to 3."""
+    return round(x * 3)
+
+
+def _trend(now: float, was: float) -> int:
+    """Whether a value rose (1), fell (-1) or held (0) since the last morning, ignoring changes up to TREND_DEAD_ZONE."""
+    return 0 if abs(now - was) <= TREND_DEAD_ZONE else 1 if now > was else -1
 
 
 def _clamp(x: float) -> float:
@@ -111,3 +123,11 @@ class Districts:
         d = self.by_street[street]
         mood = "rattled" if d.fear >= 0.6 else "on edge" if d.fear >= 0.3 else None
         return f"{mood}, but the {d.watch.name} is on it" if mood and d.watch else mood
+
+    def levels(self, town: Town) -> list[dict]:
+        """What the browser sees of each district: levels, trends since the last morning, and any watch and founder."""
+        return [{"street": s, "name": s.title(), "crime": level(d.crime), "fear": level(d.fear),
+                 "crime_trend": _trend(d.crime, d.was[0]), "fear_trend": _trend(d.fear, d.was[1]),
+                 "watch": d.watch.name if d.watch else None,
+                 "founder": town.name_of(d.watch.founder) if d.watch else None}
+                for s, d in self.by_street.items()]

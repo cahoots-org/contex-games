@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from sleuth.case import WHEN, Crime, Record
 from sleuth.cases import CaseFile, Cases
 from sleuth.config import Config
+from sleuth.districts import Districts
 from sleuth.feed import Feed
 from sleuth.game import Game
 from sleuth.lineage import Ids, Lineage
@@ -1051,3 +1052,13 @@ def test_choose_case_endpoint(game):
     assert res.status_code == 400 and res.json()["error"] == web.BAD_CHOOSE
     res = game.client.post("/api/case/choose", json={"case_id": "case-99"})
     assert res.status_code == 400 and res.json()["error"] == "That case isn't one of your tips."
+
+
+def test_state_carries_the_districts_but_not_while_practising(game):
+    assert game.client.get("/api/state").json()["districts"] == []
+    game.cases.districts = Districts(game.config)
+    game.cases.districts.by_street["oak street"].fear = 0.4
+    districts = game.client.get("/api/state").json()["districts"]
+    assert [d["name"] for d in districts] == ["Elm Street", "Oak Street", "Maple Street"] and districts[1]["fear"] == 1
+    game.player.begin_tutorial()
+    assert game.client.get("/api/state").json()["districts"] == []
