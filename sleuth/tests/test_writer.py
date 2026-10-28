@@ -6,7 +6,7 @@ from sleuth.config import Config
 from sleuth.models import Villager
 from sleuth.usage import Usage
 from sleuth.tests.helpers import StubClient
-from sleuth.writer import ANSWER_MAX_TOKENS, Writer, first_line, invents
+from sleuth.writer import ANSWER_MAX_TOKENS, Writer, first_line, invents_facts
 
 
 def villager():
@@ -142,23 +142,32 @@ async def test_case_talk_keeps_to_the_case():
     await writer.say(villager(), decision, "Bob stole a loaf", "all")
 
     case_say, other_say = (c["system"] for c in client.messages.calls)
-    assert "Talk only about what you know of this case and how you feel about it." in case_say
-    assert "Leave your other worries out." in case_say and "owes me flour" not in case_say
+    assert "owes me flour" not in case_say
     assert "this case" not in other_say and "owes me flour" in other_say
 
 
 FIRSTS = {"Ada", "Cy", "Lorraine"}
 
 
-def test_invents_catches_people_genders_animals_and_looks_the_facts_lack():
+@pytest.mark.parametrize("line", ["Honestly I blame the council, and Cal's always been a sourpuss.",
+                                  "That goose at the dog park knows something.", "Poor Ada, she loved that bike."])
+def test_flavor_passes_the_guard(line):
+    assert not invents_facts(line, "Ada Reyes's bike", {"Cal", "Ada"})
+
+
+@pytest.mark.parametrize("line", ["I saw Cal by the library last night.", "It was a tall guy in a hoodie.",
+                                  "Around 9pm, I reckon.", "Someone said he ran off."])
+def test_case_facts_fail_the_guard(line):
+    assert invents_facts(line, "Ada Reyes's bike", {"Cal", "Ada"})
+
+
+def test_the_guard_lets_through_what_the_facts_give():
     facts = "Someone in a grey hoodie was bent over something on Elm Street around 12:50am."
-    assert not invents("Some figure in a grey hoodie, bent over on Elm Street at ten to one.", facts, FIRSTS)
-    assert invents("A man in a grey hoodie was bent over on Elm Street.", facts, FIRSTS)
-    assert invents("Someone in a grey hoodie had a little dog with him.", facts, FIRSTS)
-    assert invents("Someone in a grey hoodie by a silver minivan.", facts, FIRSTS)
-    assert invents("Cy says someone in a grey hoodie was out.", facts, FIRSTS)
-    assert not invents("Someone let Lorraine's dog out, she says.", "Someone let out Lorraine's dog. She found it.",
-                       FIRSTS)
+    assert not invents_facts("Some figure in a grey hoodie, on Elm Street at 12:50 am.", facts, FIRSTS)
+    assert invents_facts("Someone in a grey hoodie by a silver minivan.", facts, FIRSTS)
+    assert invents_facts("Cy says someone in a grey hoodie was spotted.", facts, FIRSTS)
+    assert not invents_facts("Someone let Lorraine's dog out, she says.", "Someone let out Lorraine's dog. She found it.",
+                             FIRSTS)
 
 
 @pytest.mark.parametrize("line, invented", [
@@ -166,18 +175,19 @@ def test_invents_catches_people_genders_animals_and_looks_the_facts_lack():
     ("Lorraine's bike went missing last night, and she's beside herself.", False),
     ("She took Lorraine's bike.", True),
     ("Someone took Lorraine's bike, and he got away with it.", True),
-    ("Lorraine says a man took it.", True),
+    ("Lorraine says someone took it, and he ran.", True),
     ("He took it.", True),
 ])
 def test_a_pronoun_may_refer_back_to_a_named_resident_but_never_give_someone_a_gender(line, invented):
-    assert invents(line, "Someone stole Lorraine's bike last night.", FIRSTS) is invented
+    assert invents_facts(line, "Someone stole Lorraine's bike last night.", FIRSTS) is invented
 
 
 @pytest.mark.asyncio
-async def test_case_talk_is_told_to_add_nothing():
+async def test_case_talk_welcomes_opinion_but_no_facts():
     client = StubClient("Someone took it.")
     await Writer(client, "haiku-test").say(villager(), Decision("speak", None, None, None), "x", "all", on_case=True)
-    assert "Add no person, animal or detail" in client.messages.calls[0]["system"]
+    system = client.messages.calls[0]["system"]
+    assert "opinions, theories" in system and "Never add a fact about the case" in system
 
 
 @pytest.mark.asyncio

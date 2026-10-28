@@ -67,7 +67,8 @@ with the conversation so far and routes it to where the resident was, where some
 they heard something from, who'd have a reason (a feud or grudge with the victim), what they think of someone,
 or what someone looks like (only from someone who knows them).
 The game answers from what that resident knows and adds anything new to your notebook; Haiku only phrases the
-reply. A question the game can't answer, or one the resident knows nothing about, gets "I wouldn't know about that."
+reply, in character: opinions, grudges, theories and quirks come through, but a reply that invents a case fact (a
+sighting, a time, a look) is swapped for the plain record. A question the game can't answer, or one the resident knows nothing about, gets "I wouldn't know about that."
 You can ask each resident 4 questions a part of the day, then they'd rather talk later. Every question tells the
 culprit, at most once a part of the day, that a podcaster is asking around, and they may start covering their tracks. Once pressed, the culprit may also warn
 someone they're close to that the podcaster is stirring up trouble, at most once a part of the day per case: that

@@ -5,22 +5,25 @@ import re
 from collections.abc import Sequence
 
 from sleuth.actions import STYLES
+from sleuth.case import misdated
 from sleuth.decide import Decision
 from sleuth.models import Villager
+from sleuth.traits import TRAITS
 from sleuth.usage import charged_to
 
 SAY_MAX_TOKENS = 80
 ANSWER_MAX_TOKENS = 120
-CASE_TALK = ("This is about a case. Talk only about what you know of this case and how you feel about it. "
-             "Leave your other worries out. Add no person, animal or detail that what you heard doesn't give, and "
-             "never guess whether anyone was a man or a woman. ")
+CASE_TALK = ("This is about a case. Say what you think, feel and suspect, in character: opinions, theories, grudges "
+             "and your quirks are welcome. Never add a fact about the case: no one seen or placed anywhere, no time, no "
+             "look or clothing, no sighting. ")
 TIMES = "Say when the case happened only as you are told it, never as another time. "
-# ponytail: a word list, not a judge; it only ever stops a case line that adds one of these to its facts.
-INVENTED = re.compile(
-    r"\b(he|him|his|himself|she|her|hers|herself|man|men|woman|women|guy|guys|lady|ladies|gal|bloke|fella|fellow|"
-    r"boy|girl|gentleman|mr|mrs|ms|dogs?|pup\w*|cats?|kitten\w*|birds?|parrots?|horses?|rabbits?|hamsters?|"
-    r"hood\w*|hats?|caps?|beard\w*|glasses|tattoo\w*|coat|jacket|raincoat|puffer|flannel|denim|pickup|truck|"
-    r"sedan|hatchback|minivan|van|car|bicycle|bike|tall|bald|blond\w*|haired)\b", re.IGNORECASE)
+# ponytail: word lists, not a judge; they only ever stop a case line that adds one of these to its facts.
+LOOK_WORDS = re.compile(r"\b(?:" + "|".join(re.escape(t) for ts in TRAITS.values() for t in ts)
+                        + r"|haired|hood\w*|jacket|coat|tall|short|bald|blond\w*)\b", re.IGNORECASE)
+CLOCK = re.compile(r"\b\d{1,2}(?::\d\d)?\s?(?:am|pm)\b", re.IGNORECASE)
+PLACED = re.compile(r"\b(saw|seen|spotted|was (at|on|in|by|near|outside)|were (at|on|in)|hanging around|sneaking)\b",
+                    re.IGNORECASE)
+SENTENCE_END = re.compile(r"(?<=[.!?;])\s+")
 
 
 STAGE_DIRECTION = re.compile(r"\*[^*]*\*")
@@ -45,27 +48,34 @@ def extract_json(text: str):
     raise ValueError(f"no JSON in model output: {text[:200]!r}")
 
 
-def strangers(line: str, allowed: str, firsts: set[str]) -> bool:
-    """Whether the line names someone by first name whom allowed does not."""
-    return any(re.search(rf"\b{re.escape(f)}\b", line) and not re.search(rf"\b{re.escape(f)}\b", allowed)
-               for f in firsts)
-
-
 PRONOUNS = {"he", "him", "his", "himself", "she", "her", "hers", "herself"}
 # Someone the line can't name, whom a pronoun would give a gender.
 UNKNOWN = re.compile(r"\b(?:someone|somebody|whoever|anyone|anybody|thief|culprit|stranger|person|figure)\b",
                      re.IGNORECASE)
 
 
-def invents(line: str, allowed: str, firsts: set[str]) -> bool:
-    """Whether the line adds to allowed a resident, a gender, an animal or a look. A pronoun may refer back to a
-    resident the line names, when no unknown someone is in it."""
-    known = set(re.findall(r"\w+", allowed.lower()))
+def _has(word: str, text: str) -> bool:
+    return re.search(rf"\b{re.escape(word)}\b", text, re.IGNORECASE) is not None
+
+
+def _clock(text: str) -> str:
+    return re.sub(r"\s", "", text.lower())
+
+
+def invents_facts(line: str, allowed: str, firsts: set[str]) -> bool:
+    """Whether the line adds a case fact allowed lacks: a look, a time, a resident placed or sighted, or a gender for
+    an unknown someone. A pronoun may refer back to a resident the line names, when no unknown someone is in it."""
     named = [m.start() for f in firsts if (m := re.search(rf"\b{re.escape(f)}\b", line))]
     after = min(named) if named and not UNKNOWN.search(line) else len(line)
-    return strangers(line, allowed, firsts) or any(
-        m.group().lower() not in known and not (m.group().lower() in PRONOUNS and m.start() > after)
-        for m in INVENTED.finditer(line))
+    return (
+        any(not _has(m.group(), allowed) for m in LOOK_WORDS.finditer(line))
+        or misdated(line, allowed)
+        or any(_clock(m.group()) not in _clock(allowed) for m in CLOCK.finditer(line))
+        or any(PLACED.search(s) and any(_has(f, s) and not _has(f, allowed) for f in firsts)
+               for s in SENTENCE_END.split(line))
+        or any(not _has(m.group(), allowed) and m.start() <= after
+               for m in re.finditer(rf"\b(?:{'|'.join(PRONOUNS)})\b", line, re.IGNORECASE))
+    )
 
 
 def _timing(now: str, when: str) -> list[str]:
@@ -109,8 +119,8 @@ class Writer:
     ) -> str:
         """The villager's words for this decision, in their voice and chosen style, keeping the source unnamed.
 
-        Talk about a case keeps to the case, without the villager's grudge or other worries, and says when it
-        happened as when, said on now.
+        Talk about a case leaves the villager's grudge out, adds no fact about it, and says when it happened as when,
+        said on now.
         """
         system = (
             f"You are {villager.name}, a {villager.occupation} in a small town. "

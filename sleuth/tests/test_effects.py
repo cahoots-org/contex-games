@@ -261,6 +261,15 @@ async def test_case_talk_that_invents_is_dropped():
 
 
 @pytest.mark.asyncio
+async def test_case_talk_with_opinion_and_quirk_is_said():
+    s = Setup()
+    s.hub.case_roots.add("u-0")
+    s.writer.line = "Typical. I blame the council."
+    await s.act("v1", Decision(RETELL, source("u-0"), "v2", "faithful"))
+    assert [u.text for u, _ in s.hub.delivered] == ["Typical. I blame the council."]
+
+
+@pytest.mark.asyncio
 async def test_case_talk_may_say_when_the_case_happened_as_the_writer_is_told():
     s = Setup()
     s.hub.case_roots.add("u-0")

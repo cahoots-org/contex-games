@@ -8,7 +8,7 @@ from dataclasses import asdict, replace
 
 from sleuth.alibi import claim, household_word
 from sleuth.case import (
-    WHEN, TEMPLATES, Crime, Record, clock_at, misdated, motive_of, recall_more, record_json, retime, told, when,
+    WHEN, TEMPLATES, Crime, Record, clock_at, motive_of, recall_more, record_json, retime, told, when,
 )
 from sleuth.cases import CaseFile
 from sleuth.config import Config
@@ -23,7 +23,7 @@ from sleuth.town import PLACES, START_PLACE, Town, at, neighbours
 from sleuth.traits import BY_WORD, IN_PERSON, TRAITS, describe, face
 from sleuth.tutorial import Practice
 from sleuth.usage import charging
-from sleuth.writer import invents, strangers
+from sleuth.writer import invents_facts
 
 log = logging.getLogger(__name__)
 # ponytail: a phrase list, not a judge; it only ever swaps a model line for the plain record text.
@@ -101,11 +101,8 @@ def first_hand(line: str, records: list[Record], villager: Villager) -> bool:
 
 
 def adds_nothing(line: str, names: set[str]) -> bool:
-    """Whether a reply with no facts behind it names no one and gives no time, place, look or whereabouts."""
-    lower = line.lower()
-    return bool(line) and not (invents(line, "", names) or misdated(line, "") or re.search(r"\d", line)
-                               or WHEREABOUTS.search(_apostrophes(line))
-                               or any(re.search(rf"\b{re.escape(w)}\b", lower) for w in (*PLACES, *LOOKS)))
+    """Whether a reply with no facts behind it adds no case fact and says nothing of where the resident was."""
+    return bool(line) and not (invents_facts(line, "", names) or WHEREABOUTS.search(_apostrophes(line)))
 
 
 def analytics(event: str, **fields) -> None:
@@ -586,7 +583,7 @@ class Player:
     async def _phrase(self, villager: Villager, file: CaseFile, question: str, thread: list[dict],
                       records: list[Record], talk: list[str]) -> str:
         """The resident's reply from the writer, or a plain line from the records when it fails, doesn't convey them
-        all, names someone they don't or gives a time they and the case don't; with nothing known, a shrug."""
+        all, or adds a case fact they and the case don't give; with nothing known, a shrug."""
         crime = file.crime
         records = [replace(r, text=self._told(r.text, crime)) for r in records]
         texts = [r.text for r in records] + talk
@@ -599,12 +596,11 @@ class Player:
                 now = self.game.now() if self.game else ""
                 line = await self.writer.reply(villager, case, question, exchanges(thread), texts, known, now,
                                                when(crime, self._today()))
-                allowed = " ".join([villager.name, question, *texts, *known, *(t["line"] for t in thread)])
+                allowed = " ".join([villager.name, case, question, *texts, *known, *(t["line"] for t in thread)])
                 firsts = {v.name.split()[0] for v in self.town.villagers}
                 if (line and conveys(line, records) and first_hand(line, records, villager)
-                        and not strangers(line, allowed, firsts)
-                        and not (any(r.traits for r in records) and adds_looks(line, texts))
-                        and not misdated(line, " ".join([case, *texts]))):
+                        and not invents_facts(line, allowed, firsts)
+                        and not (any(r.traits for r in records) and adds_looks(line, texts))):
                     return line
             except Exception:
                 log.exception("reply from %s failed", villager.id)

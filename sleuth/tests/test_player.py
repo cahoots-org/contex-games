@@ -393,13 +393,23 @@ async def test_none_or_nothing_known_is_still_a_reply_in_character_with_no_facts
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("line", ["Ask Hal, he'd know.", "Try the bar.", "Around 11pm, maybe.", "It was last night.",
+@pytest.mark.parametrize("line", ["Around 11pm, maybe.", "It was last night.", "I saw Hal at the bar.",
                                   "Someone in a grey hoodie, I think.", "Someone tall, I think.", ""])
 async def test_a_reply_with_no_facts_that_adds_a_name_place_time_or_look_falls_back_to_a_shrug(line):
     player, file, engine, writer = interviewing()
     writer.line = line
     await ask(player, "v2", "none")
     assert replies(player)[-1] in SHRUGS and player.notebook == {}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("line", ["The council should fix the library roof, and Gus agrees.", "Ask Hal, he'd know.",
+                                  "Try the bar."])
+async def test_a_reply_with_no_facts_may_grumble_about_a_place_or_a_neighbour(line):
+    player, file, engine, writer = interviewing()
+    writer.line = line
+    await ask(player, "v2", "none")
+    assert replies(player)[-1] == line
 
 
 @pytest.mark.asyncio
@@ -435,16 +445,6 @@ async def test_a_reply_says_where_the_resident_was_only_when_a_record_does():
     writer.line = "I was at the bar last night."
     await ask(player, "v2", "where_were_you")
     assert replies(player)[-1] == writer.line
-
-
-@pytest.mark.asyncio
-async def test_a_reply_with_no_facts_may_echo_a_name_from_the_question_but_no_other():
-    player, file, engine, writer = interviewing()
-    writer.line = "I don't really know Hal."
-    await ask(player, "v2", "none", "What do you think of Hal?")
-    assert replies(player)[-1] == writer.line
-    await ask(player, "v2", "none", "What do you think of Dana?")
-    assert replies(player)[-1] in SHRUGS
 
 
 @pytest.mark.asyncio
@@ -616,7 +616,7 @@ async def test_a_reply_falls_back_to_the_records_text_when_phrasing_fails():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reply", ["I didn’t see anything, someone tall in a grey hoodie or not.",
-                                   "I saw someone tall.", "It was Fay Okafor, someone tall in a grey hoodie."])
+                                   "I saw someone tall.", "I saw Fay Okafor in a grey hoodie."])
 async def test_a_reply_that_denies_drops_or_names_beyond_its_records_falls_back(reply):
     player, file, _, writer = interviewing()
     memory_of(file, player.ids)

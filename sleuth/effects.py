@@ -11,8 +11,8 @@ from sleuth.facts import Facts
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
 from sleuth.town import Town
-from sleuth.case import misdated, retime
-from sleuth.writer import Writer, invents
+from sleuth.case import retime
+from sleuth.writer import Writer, invents_facts
 
 DIRECT = (RETELL, DENY, CONFRONT)
 ROOM = "room"
@@ -83,7 +83,7 @@ async def act(
         """The writer's line; on a case, plain or nothing when it adds what facts_text and the people at hand don't."""
         text = await writer.say(villager, decision, facts_text, audience, case, *(timing or ()))
         allowed = " ".join([villager.name, audience, facts_text or "", *(timing or ())])
-        if case and (invents(text, allowed, {v.name.split()[0] for v in town.villagers}) or misdated(text, allowed)):
+        if case and invents_facts(text, allowed, {v.name.split()[0] for v in town.villagers}):
             return plain
         return text
 
