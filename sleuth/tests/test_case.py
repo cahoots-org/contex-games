@@ -23,6 +23,7 @@ from sleuth.case import (
     make_solvable,
     points_at,
     record_json,
+    recall_more,
     scene_clues,
     stage_crime,
     suspects,
@@ -38,8 +39,8 @@ from sleuth.districts import district_of
 from sleuth.lineage import Ids
 from sleuth.models import Villager
 from sleuth.tests.helpers import StubRoutine
-from sleuth.town import PLACES, STREETS, Town
-from sleuth.traits import assign_traits
+from sleuth.town import PLACES, STREETS, Town, at
+from sleuth.traits import assign_traits, describe
 from sleuth.writer import CLOCK
 
 RESIDENTS = [
@@ -548,6 +549,10 @@ def test_a_mugging_victim_remembers_one_trait_of_the_mugger():
     assert (m.kind, m.holder, m.case) == ("memory", crime.victim, crime.id) and len(m.traits) == 1
     assert m.traits.items() <= town.looks(crime.culprit, 1).items()
     assert crime_title(crime, town) == f"The mugging of {town.name_of(crime.victim)}"
+    said = f"Around {m.clock}, {at(crime.place)}, someone {describe(m.traits)} grabbed at me and took my {crime.item}."
+    assert m.text == said
+    more = recall_more(crime, m, town.looks(crime.culprit, 1))
+    assert len(more.traits) == 2 and more.text.endswith(f"grabbed at me and took my {crime.item}.")
 
 
 def test_the_goose_case_reads_well():

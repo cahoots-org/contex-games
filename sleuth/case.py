@@ -61,6 +61,8 @@ ITEM_PLACES = {"bike": (*STREETS, "gym", "school"), "tote bag": ("cafe", "gym", 
                "portrait": ("town hall", "library"), "goose": ("dog park", *STREETS), "garden gnome": STREETS,
                "till": TILL_PLACES, "cash box": TILL_PLACES, "wallet": MUG_PLACES, "phone": MUG_PLACES,
                "": tuple(p for p in PLACES if p != "school")}
+# What a mugging's victim saw the mugger do.
+VICTIM_SAW = "grabbed at me and took my {item}"
 # How many residents besides the culprit a death's victim must be on cold terms with.
 MOTIVES = 2
 # How many minutes after the crime the victim finds it.
@@ -260,15 +262,17 @@ def record_json(r: Record, town: Town, crime: Crime | None = None, today: float 
             "from": town.name_of(r.holder) or "" if r.holder else "", "holder": r.holder}
 
 
-def _memory_text(crime: Crime, clock: str, seen: dict[str, str]) -> str:
-    return f"Around {clock}, {at(crime.place)}, someone {describe(seen)} {CRIMES[crime.template].seen}."
+def _memory_text(crime: Crime, clock: str, seen: dict[str, str], holder: str) -> str:
+    """What the holder saw, a mugging's victim in their own words."""
+    did = VICTIM_SAW.format(item=crime.item) if holder == crime.victim else CRIMES[crime.template].seen
+    return f"Around {clock}, {at(crime.place)}, someone {describe(seen)} {did}."
 
 
 def _memory(crime: Crime, witness: str, seen: dict[str, str], rng: Random, ids: Ids) -> Record:
     lo, hi = PHASE_MINUTES[crime.phase]
     clock = clock_at(min(max(crime.minute + rng.randint(-WITNESS_DRIFT, WITNESS_DRIFT), lo), hi - 1))
-    return Record(ids.next("r"), crime.id, "memory", crime.place, clock, _memory_text(crime, clock, seen), witness, seen,
-                  day=crime.day)
+    return Record(ids.next("r"), crime.id, "memory", crime.place, clock, _memory_text(crime, clock, seen, witness),
+                  witness, seen, day=crime.day)
 
 
 def recall_more(crime: Crime, memory: Record, culprit: dict[str, str]) -> Record:
@@ -277,7 +281,7 @@ def recall_more(crime: Crime, memory: Record, culprit: dict[str, str]) -> Record
     if extra is None:
         return replace(memory)
     seen = {**memory.traits, extra: culprit[extra]}
-    return replace(memory, id="", traits=seen, text=_memory_text(crime, memory.clock, seen))
+    return replace(memory, id="", traits=seen, text=_memory_text(crime, memory.clock, seen, memory.holder))
 
 
 def _bystanders(crime: Crime, town: Town, routine, away=frozenset()) -> list[str]:
