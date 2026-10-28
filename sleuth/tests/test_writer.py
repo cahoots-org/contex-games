@@ -150,13 +150,18 @@ FIRSTS = {"Ada", "Cy", "Lorraine"}
 
 
 @pytest.mark.parametrize("line", ["Honestly I blame the council, and Cal's always been a sourpuss.",
-                                  "That goose at the dog park knows something.", "Poor Ada, she loved that bike."])
+                                  "That goose at the dog park knows something.", "Poor Ada, she loved that bike.",
+                                  "Cal was at it again, and Cal was in a mood.", "My money is on Cal, always shifty.",
+                                  "Cal's short-tempered and short on patience.", "Who'd take a bicycle like that?"])
 def test_flavor_passes_the_guard(line):
     assert not invents_facts(line, "Ada Reyes's bike", {"Cal", "Ada"})
 
 
 @pytest.mark.parametrize("line", ["I saw Cal by the library last night.", "It was a tall guy in a hoodie.",
-                                  "Around 9pm, I reckon.", "Someone said he ran off."])
+                                  "Around 9pm, I reckon.", "Someone said he ran off.", "It was Cal, someone tall.",
+                                  "Cal did it.", "Cal took it, no doubt.", "Cal went to the library.",
+                                  "I noticed Cal by the cafe.", "Ada told me Cal was there.", "Around midnight.",
+                                  "Must have been about noon.", "Right after dinner.", "At 9 o'clock sharp."])
 def test_case_facts_fail_the_guard(line):
     assert invents_facts(line, "Ada Reyes's bike", {"Cal", "Ada"})
 

@@ -448,14 +448,15 @@ async def test_a_reply_says_where_the_resident_was_only_when_a_record_does():
 
 
 @pytest.mark.asyncio
-async def test_a_reply_with_facts_may_echo_a_name_from_the_question_but_no_other():
+async def test_a_name_in_the_question_never_licenses_a_sighting():
     player, file, engine, writer = interviewing()
     memory_of(file, player.ids)
     writer.line = "I saw someone tall in a grey hoodie, not Hal."
     await ask(player, "v2", "what_did_you_see", "Was Hal involved?")
-    assert replies(player)[-1] == writer.line
-    await ask(player, "v3", "what_did_you_see", "Who was it?")
-    assert replies(player)[-1] != writer.line
+    assert replies(player)[-1] == f"I saw it myself. {MEMORY}"
+    writer.line = "Yes, I saw Hal there."
+    await ask(player, "v3", "none", "Was Hal at the bar?")
+    assert replies(player)[-1] in SHRUGS
 
 
 @pytest.mark.asyncio

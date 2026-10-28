@@ -596,7 +596,7 @@ class Player:
                 now = self.game.now() if self.game else ""
                 line = await self.writer.reply(villager, case, question, exchanges(thread), texts, known, now,
                                                when(crime, self._today()))
-                allowed = " ".join([villager.name, case, question, *texts, *known, *(t["line"] for t in thread)])
+                allowed = " ".join([villager.name, case, *texts, *known, *(t["line"] for t in thread)])
                 firsts = {v.name.split()[0] for v in self.town.villagers}
                 if (line and conveys(line, records) and first_hand(line, records, villager)
                         and not invents_facts(line, allowed, firsts)
@@ -609,13 +609,12 @@ class Player:
 
     async def _shrug(self, villager: Villager, file: CaseFile, question: str, thread: list[dict]) -> str:
         """The resident's reply when they know nothing for the question: the writer's, if it adds nothing, else a
-        stock line. Names the question itself used may be echoed."""
+        stock line."""
         if self.writer is not None:
             try:
                 line = await self.writer.reply(villager, self._told(file.crime.text, file.crime), question,
                                                exchanges(thread), [])
-                asked = set(re.findall(r"\w+", question.lower()))
-                names = {w for v in self.town.villagers for w in v.name.split() if w.lower() not in asked}
+                names = {w for v in self.town.villagers for w in v.name.split()}
                 if adds_nothing(line, names):
                     return line
             except Exception:

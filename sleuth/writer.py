@@ -19,11 +19,13 @@ CASE_TALK = ("This is about a case. Say what you think, feel and suspect, in cha
              "and your quirks are welcome. " + NO_CASE_FACTS)
 TIMES = "Say when the case happened only as you are told it, never as another time. "
 # ponytail: word lists, not a judge; they only ever stop a case line that adds one of these to its facts.
-LOOK_WORDS = re.compile(r"\b(?:" + "|".join(re.escape(t) for ts in TRAITS.values() for t in ts)
-                        + r"|haired|hood\w*|jacket|coat|tall|short|bald|blond\w*)\b", re.IGNORECASE)
-CLOCK = re.compile(r"\b\d{1,2}(?::\d\d)?\s?(?:am|pm)\b", re.IGNORECASE)
-PLACED = re.compile(r"\b(saw|seen|spotted|was (at|on|in|by|near|outside)|were (at|on|in)|hanging around|sneaking)\b",
-                    re.IGNORECASE)
+LOOK_WORDS = re.compile(r"\b(?:" + "|".join(re.escape(t) for ts in TRAITS.values() for t in ts if t != "short")
+                        + r"|haired|hood\w*|jacket|coat|tall|short(?!-| on\b)|bald|blond\w*)\b", re.IGNORECASE)
+CLOCK = re.compile(r"\b(?:\d{1,2}(?::\d\d)?\s?(?:am|pm)|\d{1,2} o'clock|midnight|noon|dawn|dusk|"
+                   r"after (?:breakfast|lunch|dinner|supper))\b", re.IGNORECASE)
+PLACED = re.compile(r"\b(saw|seen|spotted|noticed|watched|caught|it was|was the one|did it|done it|took it|went|headed|"
+                    r"hanging around|sneaking|was (?:at|on|in|by|near|outside|there|out|around)(?! it\b| a\b)|"
+                    r"were (?:at|on|in|there))\b", re.IGNORECASE)
 SENTENCE_END = re.compile(r"(?<=[.!?;])\s+")
 
 
@@ -66,12 +68,14 @@ def _clock(text: str) -> str:
 def invents_facts(line: str, allowed: str, firsts: set[str]) -> bool:
     """Whether the line adds a case fact allowed lacks: a look, a time, a resident placed or sighted, or a gender for
     an unknown someone. A pronoun may refer back to a resident the line names, when no unknown someone is in it."""
+    clocks = {_clock(m.group()) for m in CLOCK.finditer(allowed)}
+    looks = allowed + (" bicycle" if _has("bike", allowed) else "")
     named = [m.start() for f in firsts if (m := re.search(rf"\b{re.escape(f)}\b", line))]
     after = min(named) if named and not UNKNOWN.search(line) else len(line)
     return (
-        any(not _has(m.group(), allowed) for m in LOOK_WORDS.finditer(line))
+        any(not _has(m.group(), looks) for m in LOOK_WORDS.finditer(line))
         or misdated(line, allowed)
-        or any(_clock(m.group()) not in _clock(allowed) for m in CLOCK.finditer(line))
+        or any(_clock(m.group()) not in clocks for m in CLOCK.finditer(line))
         or any(PLACED.search(s) and any(_has(f, s) and not _has(f, allowed) for f in firsts)
                for s in SENTENCE_END.split(line))
         or any(not _has(m.group(), allowed) and m.start() <= after

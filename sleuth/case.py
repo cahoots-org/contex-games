@@ -35,7 +35,7 @@ CRIMES = {
     "salt": Kind("petty", "salted", ("sugar jars",), "salted", "was fiddling with the jars"),
     "moustache": Kind("petty", "drew a moustache on", ("portrait",), "defaced", "was scribbling on something"),
     "goose": Kind("petty", "made off with", ("goose",), "missing", "was carrying something that honked"),
-    "gnome": Kind("petty", "kidnapped", ("garden gnome",), "missing", "was carrying something small and pointy"),
+    "gnome": Kind("petty", "pinched", ("garden gnome",), "missing", "was carrying something small and pointy"),
 }
 TEMPLATES = CRIMES
 # Where each item plausibly is. Residents are on a street only at night, at home.
