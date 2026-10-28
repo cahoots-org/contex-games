@@ -1407,3 +1407,47 @@ async def test_the_wrongly_accused_bring_it_up_when_interviewed():
     rival.writer = writer
     await ask(rival, "v5", "none")
     assert writer.notes[-1] == []
+
+
+async def no_arrest(engine, vid):
+    """Stands in for an arrest, which needs a whole engine."""
+
+
+@pytest.mark.asyncio
+async def test_held_episodes_raise_standing_by_their_tier_and_wrong_ones_lower_it(monkeypatch):
+    standing = 0
+    for tier, culprit, after in (("petty", "v3", 1), ("serious", "v3", 3), *[("petty", "v5", s) for s in (2, 1, 0, 0, 0, 0)]):
+        player, file, engine, _ = interviewing()
+        monkeypatch.setattr(engine.cases, "arrest", no_arrest)
+        file.crime.tier, player.standing = tier, standing
+        assert await player.publish(culprit, cite(player, file, memory_of(file, player.ids))) is None
+        standing = player.standing
+        assert standing == after
+        [event] = [e for e in player.feed.recent if e.kind == "standing"]
+        assert event.player == PID and (event.data["score"], event.data["tier"]) == (after, player.tier)
+        risen = tier == "serious"
+        assert event.data["text"] == ("Bigger tips are coming in now: serious cases." if risen else "")
+        assert event.data["label"] == ("Known in town" if risen else "New podcaster")
+
+
+def test_tier_follows_standing_thresholds():
+    player = make("Ann")[0]
+    for standing, tier in ((0, "petty"), (2, "petty"), (3, "serious"), (5, "serious"), (6, "major"), (9, "major")):
+        player.standing = standing
+        assert player.tier == tier
+
+
+@pytest.mark.asyncio
+async def test_the_practice_case_never_moves_standing():
+    player, *_ = practising()
+    ids = await solve(player)
+    assert await player.publish("t5", ids) is None
+    assert player.standing == 0 and not [e for e in player.feed.recent if e.kind == "standing"]
+
+
+def test_standing_round_trips_with_the_run():
+    player, town, _, engine, lineage = make("Bert")
+    player.standing = 4
+    back = Player(engine, town, lineage, Ids(), player.feed, player.config, player_id=PID)
+    back.restore(json.loads(json.dumps(player.to_state())))
+    assert (back.standing, back.tier) == (4, "serious")

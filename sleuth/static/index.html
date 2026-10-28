@@ -69,6 +69,7 @@ header {
 }
 h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
 .clock { margin: 0 0 0 auto; font-size: .9rem; white-space: nowrap; }
+.standing { margin: 0; font-size: .9rem; white-space: nowrap; }
 #replay { font-size: .85rem; }
 /* The connection says something only when it is lost. */
 .conn { font-size: .875rem; color: var(--danger); }
@@ -346,6 +347,7 @@ select, input[type="text"], input[type="search"] {
   <header>
     <h1>Sleuth</h1>
     <p class="clock" id="clock"></p>
+    <p class="standing" id="standing"></p>
     <button type="button" class="linkish" id="app-open" aria-haspopup="dialog" aria-controls="app-panel" hidden>Neighborhood app</button>
     <button type="button" class="linkish" id="replay">Tutorial</button>
     <span class="conn" id="conn" data-state="connecting" role="status">Connecting</span>
@@ -445,6 +447,8 @@ let boot = null;
 let lastId = 0;
 // The open case the page shows, and how many questions the player has asked each resident.
 let caseNow = null;
+// The podcaster's standing: score, tier and what they are known as.
+let standing = { score: 0, tier: "petty", label: "" };
 let talked = {};
 let selected = null;
 // How many feed items came in while the app was closed.
@@ -1230,6 +1234,10 @@ function render(e, fresh) {
     case "system":
       talk("plain", fresh, e.text);
       break;
+    case "standing":
+      if (fresh) setStanding(e);
+      if (e.text) talk("loud", fresh, e.text);
+      break;
   }
 }
 
@@ -1387,6 +1395,11 @@ function setClock(t) {
   $("clock").textContent = `Day ${t.day} · ${capital(t.phase)}`;
 }
 
+function setStanding(s) {
+  standing = { score: s.score, tier: s.tier, label: s.label };
+  $("standing").textContent = `${s.label} · ${plural(s.score, "point")}`;
+}
+
 function setConn(state, text) {
   $("conn").dataset.state = state;
   $("conn").textContent = text;
@@ -1442,6 +1455,7 @@ async function loadState() {
   talked = state.talked;
   here = state.place;
   setClock(state.time);
+  setStanding(state.standing);
   setResidents(state.villagers);
   // Photos older than the events replayed go below them; the rest land where their event is.
   album = new Map(state.photos.map((p) => [p.id, p]));

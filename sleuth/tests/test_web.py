@@ -1022,3 +1022,9 @@ def test_the_people_list_marks_who_you_accused(game):
     rows = {v["id"]: v for v in game.client.get("/api/state").json()["villagers"]}
     assert rows["v1"]["accused"] is True and rows["v2"]["accused"] is False
     assert other.person("v1")["accused"] is False and other.person("v2")["accused"] is False
+
+
+def test_state_shows_the_players_standing(game):
+    assert game.client.get("/api/state").json()["standing"] == {"score": 0, "tier": "petty", "label": "New podcaster"}
+    game.player.standing = 6
+    assert game.client.get("/api/state").json()["standing"] == {"score": 6, "tier": "major", "label": "Town legend"}

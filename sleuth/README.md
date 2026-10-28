@@ -131,6 +131,11 @@ doesn't back it. One episode per podcaster per case.
   think less of you too (`reputation_accused_ties`). Once the case is closed, the accused remembers: they bring it
   up, hurt and short with you, and the people list tags them "you named them".
 
+**Standing** is how far your podcast has come in this run, shown in the header. A held episode on the town's case
+adds 1, 2 or 3 points for a petty, serious or major case; a wrong one takes 1 away, never below 0. The practice case
+never moves it. At `serious_at` points you're "Known in town" and bigger tips start coming in; at `major_at` you're a
+"Town legend".
+
 **Reputation** is each resident's regard for you, in [-1, 1], drifting back toward 0 by `reputation_decay` each part
 of the day. A resident below `guarded_at` won't talk to you or share the records they keep. A witness at or above
 `trusted_at` recalls one more of the culprit's traits in an interview, a fuller memory that goes in your notebook as
@@ -247,6 +252,8 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_REFORM_CHANCE` | `0.3` | chance each morning after that an exposed offender reforms |
 | `SLEUTH_NEWCOMER_OFFENDER_CHANCE` | `0.3` | chance someone who moves in is an offender |
 | `SLEUTH_MAX_OFFENDERS` | `6` | most offenders that moving in can bring the set to |
+| `SLEUTH_SERIOUS_AT` | `3` | standing at which a podcaster is offered serious cases |
+| `SLEUTH_MAJOR_AT` | `6` | standing at which a podcaster is offered major cases |
 
 ## Tests
 

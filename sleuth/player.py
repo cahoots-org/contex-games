@@ -127,6 +127,11 @@ HELD = "It holds up. Case closed."
 RIVAL = "Another podcaster cracked the case first."
 # How many times a resident's looks are remembered.
 KNOWN_KEPT = 4
+# What a held episode adds to standing, by the case's tier, what each tier is called, and what rising to it means.
+TIER_POINTS = {"petty": 1, "serious": 2, "major": 3}
+LABELS = {"petty": "New podcaster", "serious": "Known in town", "major": "Town legend"}
+TIPS_UP = {"serious": "Bigger tips are coming in now: serious cases.",
+           "major": "The whole town is listening. The biggest cases come to you now."}
 
 
 def learned(entry: dict, town: Town) -> str:
@@ -187,13 +192,15 @@ class Player:
         self._town_run: dict | None = None
         # The app's photos the player saved, oldest first.
         self.saved_photos: list[str] = []
+        # Points from the town's cases: held episodes add by tier, wrong ones take one away.
+        self.standing = 0
 
     def to_state(self) -> dict:
         """The run's durable fields as plain JSON; tabs and tasks are left out."""
         return {
             "id": self.id, "owner": self.owner, "created_at": self.created_at, "active_at": self._active_at,
             **self._progress(), "handoff": self.handoff, "town_run": self._town_run,
-            "saved_photos": self.saved_photos,
+            "saved_photos": self.saved_photos, "standing": self.standing,
             "tutorial": self.engine.cases.to_state() if self.practising else None,
         }
 
@@ -202,7 +209,7 @@ class Player:
         self.created_at = state["created_at"]
         self._resume(state)
         self.handoff, self._town_run = state["handoff"], state["town_run"]
-        self.saved_photos = state["saved_photos"]
+        self.saved_photos, self.standing = state["saved_photos"], state["standing"]
         active_at = state["active_at"]
         self._active_at = None if active_at is None else min(active_at, time.time() - self.config.idle_after_seconds)
         if state["tutorial"] is not None:
@@ -219,6 +226,24 @@ class Player:
         self.place, self.threads, self.searched = progress["place"], progress["threads"], progress["searched"]
         self.known = progress["known"]
         self.notebook = {r["id"]: Record(**r) for r in progress["notebook"]}
+
+    @property
+    def tier(self) -> str:
+        """The highest tier of case the player's standing has reached."""
+        if self.standing >= self.config.major_at:
+            return "major"
+        return "serious" if self.standing >= self.config.serious_at else "petty"
+
+    def standing_json(self) -> dict:
+        return {"score": self.standing, "tier": self.tier, "label": LABELS[self.tier]}
+
+    def _rank(self, held: bool, crime: Crime) -> None:
+        """Move standing for an episode on the town's case, and tell the player."""
+        before = self.tier
+        self.standing = self.standing + TIER_POINTS[crime.tier] if held else max(0, self.standing - 1)
+        tier = self.tier
+        line = TIPS_UP[tier] if tier != before and held else ""
+        self.feed.on_standing(self.standing, tier, LABELS[tier], line, player=self.id)
 
     @property
     def practising(self) -> bool:
@@ -745,6 +770,7 @@ class Player:
                     self.feed.say(RIVAL, player=rival.id)
         self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids),
                              verdict=HELD if held else WRONG)
+        self._rank(held, crime)
         if held:
             await self.engine.cases.on_held(self.engine, file, self.id)
         else:
