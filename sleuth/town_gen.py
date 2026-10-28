@@ -19,6 +19,10 @@ MAX_RELATIONSHIPS = 4
 REVERSE = {"parent": "child", "child": "parent"}
 # Weighted draw, so friends are commoner than the rest.
 KINDS = ["friend", "friend", "coworker", "neighbor", "rival"]
+# How many residents must be on bad terms with someone for them to have that many people with a motive, and one
+# resident in how many is.
+RIVALS = 2
+RIVALED_EVERY = 5
 # (kind, size, tie, weight); a pair tie is the same both ways unless given as (first's, second's).
 HOUSEHOLDS = (
     ("alone", 1, None, 3), ("married", 2, "spouse", 3), ("partners", 2, "partner", 2),
@@ -186,13 +190,18 @@ async def generate_resident(writer: Writer, taken: list[Villager], rng: random.R
 
 
 def settle(v: Villager, villagers: list[Villager], home: str, rng: random.Random) -> None:
-    """Give the resident a household of their own on home, a neighbor there with room for one, and drawn ties up to
-    two."""
+    """Give the resident a household of their own on home, a neighbor there with room for one, a rival who lacks
+    RIVALS people on bad terms with them while too few residents have that many, and drawn ties up to two."""
     last = max((int(o.household[1:]) for o in villagers if o.household[1:].isdigit()), default=0)
     v.household, v.home = f"h{last + 1:02d}", home
     street = [o for o in villagers if o.home == home and o.id != v.id and len(o.relationships) < MAX_RELATIONSHIPS]
     if street:
         _tie(v, rng.choice(street), "neighbor", rng)
+    if _short(villagers) > 0:
+        others = [o for o in villagers if o.id != v.id and o.id not in v.relationships
+                  and len(o.relationships) < MAX_RELATIONSHIPS and _bad_terms(o, villagers) < RIVALS]
+        if others:
+            _tie(v, max(others, key=lambda o: (_bad_terms(o, villagers), rng.random())), "rival", rng)
     while len(v.relationships) < 2 and (other := _partner(v, villagers, rng)):
         _link(v, other, rng)
 
@@ -240,7 +249,7 @@ def _partner(v: Villager, villagers: list[Villager], rng: random.Random) -> Vill
 
 
 def wire_relationships(villagers: list[Villager], rng: random.Random) -> None:
-    """Give each villager 2-4 reciprocal relationships.
+    """Give each villager 2-4 reciprocal relationships, and stir up rivalries.
 
     Fewer than 2 only when impossible: fewer than 3 villagers, or every other
     villager is already at the cap of 4 or related to them.
@@ -259,6 +268,35 @@ def wire_relationships(villagers: list[Villager], rng: random.Random) -> None:
         other = _partner(v, villagers, rng)
         if len(v.relationships) < 3 and other and rng.random() < 0.5:
             _link(v, other, rng)
+    stir_rivalries(villagers, rng)
+
+
+def _bad_terms(v: Villager, villagers: list[Villager]) -> int:
+    """How many of villagers v is on cold terms with."""
+    ids = {o.id for o in villagers}
+    return sum(w < 0 for o, w in v.warmth.items() if o in ids)
+
+
+def _short(villagers: list[Villager]) -> int:
+    """How many more residents should be on bad terms with RIVALS people."""
+    return len(villagers) // RIVALED_EVERY - sum(_bad_terms(v, villagers) >= RIVALS for v in villagers)
+
+
+def stir_rivalries(villagers: list[Villager], rng: random.Random) -> None:
+    """Give one resident in RIVALED_EVERY RIVALS people on bad terms with them, the most feuding first: their friends,
+    coworkers and neighbors turn rival, else a new rival is drawn."""
+    by_id = {v.id: v for v in villagers}
+    for v in sorted(villagers, key=lambda v: (-_bad_terms(v, villagers), rng.random())):
+        if _short(villagers) <= 0:
+            return
+        while _bad_terms(v, villagers) < RIVALS:
+            warm = [o for o, kind in v.relationships.items()
+                    if kind in ("friend", "coworker", "neighbor") and v.warmth[o] >= 0 and o in by_id]
+            room = len(v.relationships) < MAX_RELATIONSHIPS
+            other = by_id[rng.choice(warm)] if warm else _partner(v, villagers, rng) if room else None
+            if other is None:
+                break
+            _tie(v, other, "rival", rng)
 
 
 class SeedMismatch(ValueError):

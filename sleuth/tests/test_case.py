@@ -500,6 +500,13 @@ def test_a_death_s_victim_has_at_least_two_others_with_reason():
     assert motives(town, "v1") == ["v5", "v7", "v8"]
 
 
+def test_a_grudge_either_way_is_a_motive():
+    town = make_town()
+    town.get("v7").grudge = "Dana never returned my ladder."
+    town.get("v1").grudge = "Kit's dog digs up my roses."
+    assert motives(town, "v1") == ["v5", "v7", "v8"]
+
+
 def test_a_death_never_happens_at_the_school():
     assert "school" not in ITEM_PLACES[""] and "cafe" in ITEM_PLACES[""]
 

@@ -10,16 +10,19 @@ from sleuth.alibi import claim
 from sleuth.case import CLIP_TRAITS, CRIMES, WHEN, Crime, Record, points_at, suspects, told
 from sleuth.cases import CaseFile, Cases, case_json
 from sleuth.config import Config
+from sleuth.districts import Districts
 from sleuth.feed import Feed
 from sleuth.game import PHASES
 from sleuth.lineage import Ids, Lineage
-from sleuth.models import Utterance
+from sleuth.models import Utterance, Villager
 from sleuth.offenders import Offender
 from sleuth.photos import Album, Photo
 from sleuth.players import Players
 from sleuth.reputation import Reputation
 from sleuth.tests.helpers import StubRoutine, stub_player
 from sleuth.tests.test_case import RESIDENTS, feuding, make_routine, make_town
+from sleuth.town import PUBLIC_PLACES, Town
+from sleuth.town_gen import form_households, wire_relationships
 from sleuth.traits import assign_traits
 
 
@@ -846,6 +849,61 @@ async def test_a_major_case_stays_solvable_across_seeds(phase):
         assert suspects(case.crime, list(case.records.values()), town) == {case.crime.culprit}
         assert phase in case.crime.window and told("{span}", case.crime, 2.25).startswith("sometime between ")
     assert opened > 20
+
+
+@pytest.mark.asyncio
+async def test_a_lone_serious_offender_commits_the_major_case_on_demand():
+    cases, engine, town = deadly()
+    cases.offenders.active = {"v5": Offender("serious"), "v6": Offender()}
+    await cases._stage(engine, "major", 1, "night", set())
+    [case] = cases.open_shared("major")
+    assert case.crime.culprit == "v5" and cases.offenders.active["v5"].tier == "major"
+
+
+@pytest.mark.asyncio
+async def test_with_no_serious_offender_free_one_is_promoted_for_the_major_case():
+    cases, engine, town = deadly()
+    cases.offenders.active = {"v6": Offender(), "v7": Offender(escaped=1)}
+    await cases._stage(engine, "major", 1, "night", set())
+    [case] = cases.open_shared("major")
+    assert case.crime.culprit == "v7" and cases.offenders.active["v7"].tier == "major"
+
+
+# The playtest's pacing knobs.
+PACING = dict(population=24, case_days=2, major_case_days=3, serious_at=2, major_at=4, major_every_days=0,
+              escalate_after=1, organize_fear=0.25, neglect_at=0.3, turn_chance=1, reform_chance=0.5,
+              exposed_quiet_days=1)
+
+
+def generated_town(seed):
+    """A town of 24 wired as town generation wires one, with routines drawn from the town's places."""
+    rng = Random(seed)
+    villagers = [Villager(f"v{i:03d}", f"Name{i} Last{i}", "clerk", "calm", "", ["a", "b", "c"], {})
+                 for i in range(1, 25)]
+    form_households(villagers, rng)
+    assign_traits(villagers, rng)
+    wire_relationships(villagers, rng)
+    town = Town()
+    for v in villagers:
+        town.add(v, v.home)
+    routine = StubRoutine({v.id: {"morning": (work := rng.choice(PUBLIC_PLACES)), "afternoon": work,
+                                  "evening": rng.choice(PUBLIC_PLACES), "night": v.home} for v in villagers})
+    return town, routine
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("seed", range(5))
+async def test_a_town_at_test_pacing_opens_a_major_case_for_a_major_podcaster(seed):
+    town, routine = generated_town(seed)
+    config = Config(**PACING)
+    cases = Cases(config, town, routine, Random(seed), Ids())
+    cases.districts = Districts(config)
+    engine = FakeEngine(town)
+    engine.players.add(podcaster("major"))
+    for day in (1, 2):
+        for phase in PHASES:
+            await cases.on_tick(engine, day, phase, {})
+    assert any(f.crime.tier == "major" for f in cases.files.values())
 
 
 @pytest.mark.asyncio

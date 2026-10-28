@@ -11,7 +11,7 @@ from sleuth.town import STREETS
 from sleuth.tests.test_copy import WORDS
 from sleuth.town_gen import (
     HOUSEHOLDS, MAX_FAILED_BATCHES, SeedMismatch, form_households, generate_villagers,
-    load_or_generate, wire_relationships, world_path,
+    load_or_generate, settle, wire_relationships, world_path,
 )
 
 HOUSEHOLD_TIES = {"spouse", "partner", "roommate", "parent", "child", "sibling"}
@@ -307,6 +307,31 @@ def test_rival_ties_are_cold_and_household_ties_warm():
         if kind == "neighbor":
             assert v.home == by_id[o].home
         assert len(v.relationships) <= 4
+
+
+def bad_terms(v, villagers):
+    """How many residents v is on cold terms with."""
+    ids = {o.id for o in villagers}
+    return sum(w < 0 for o, w in v.warmth.items() if o in ids)
+
+
+def test_several_residents_have_two_people_on_bad_terms_with_them():
+    for seed in range(20):
+        vs = ring(24)
+        rng = random.Random(seed)
+        form_households(vs, rng)
+        wire_relationships(vs, rng)
+        assert sum(bad_terms(v, vs) >= 2 for v in vs) >= 4
+        assert all(2 <= len(v.relationships) <= 4 for v in vs)
+
+
+def test_someone_moving_in_is_a_rival_while_too_few_have_two_on_bad_terms():
+    vs = ring(10)
+    rng = random.Random(3)
+    form_households(vs, rng)
+    v = Villager("v099", "Wren Abara", "x", "y", "", [], {})
+    settle(v, vs, "oak street", rng)
+    assert bad_terms(v, vs) >= 1
 
 
 @pytest.mark.asyncio

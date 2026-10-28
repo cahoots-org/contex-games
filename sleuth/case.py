@@ -176,17 +176,22 @@ def misdated(line: str, allowed: str) -> bool:
     return any(t not in allowed and EVENING.get(t, t) not in allowed for t in map(str.lower, SAID_TIME.findall(line)))
 
 
+def resents(a, b) -> bool:
+    """Whether a's grudge names b."""
+    return bool(re.search(rf"\b{re.escape(b.name.split()[0])}\b", a.grudge, re.IGNORECASE))
+
+
 def motives(town: Town, victim: str) -> list[str]:
-    """Residents on cold terms with the victim, either way."""
+    """Residents on cold terms with the victim or holding a grudge with them, either way."""
     v = town.get(victim)
-    return [o.id for o in town.villagers if o.id != victim and (o.warmth.get(victim, 0.0) < 0 or v.warmth.get(o.id, 0.0) < 0)]
+    return [o.id for o in town.villagers if o.id != victim and (
+        o.warmth.get(victim, 0.0) < 0 or v.warmth.get(o.id, 0.0) < 0 or resents(o, v) or resents(v, o))]
 
 
 def motive_of(culprit, victim) -> str:
     if culprit.warmth.get(victim.id, 0.0) < 0:
         return "rival"
-    first = re.escape(victim.name.split()[0])
-    return "grudge" if re.search(rf"\b{first}\b", culprit.grudge, re.IGNORECASE) else "opportunity"
+    return "grudge" if resents(culprit, victim) else "opportunity"
 
 
 def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id: str, *,

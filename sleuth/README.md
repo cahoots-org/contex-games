@@ -25,7 +25,8 @@ never adds to what it says.
 standing for it: one open case per tier at most. At startup, on each part of the day, and the moment a case is solved
 or goes cold, each tier missing its case gets a crime staged in the part of the day just finished, opened in the same
 step. Its culprit is an offender of that tier; when nobody holds the tier, the offender below it who has got away with
-the most moves up, as long as someone is left below. You're offered every open case at or below your standing as a tip, listed under the case title,
+the most moves up, as long as someone is left below. A major case needs no major offender: when none is free, a
+serious one commits it and moves up, and with no serious one free either, a petty one is promoted first. You're offered every open case at or below your standing as a tip, listed under the case title,
 and you work one at a time: the highest by default, or the one you pick. The case title and each tip say its tier:
 Petty, Serious or Major. Interviews, records, searches, photos and
 episodes all go to the case you're working. Crimes come from the catalog in `sleuth/case.py`. Petty ones: a stolen
@@ -37,8 +38,10 @@ from another household than the victim's, and one or two clues are left at the c
 two witnesses, and its culprit is sometimes a regular at the scene. A serious one has up to three, its culprit is
 never a regular there, so they always lie about where they were, and a mugging's victim remembers one thing about
 the mugger. A death has up to two witnesses, who saw someone arguing; its victim is someone at least two residents
-besides the culprit were on cold terms with, and anyone who knew the victim names them all when asked who had a
-reason. Someone at the scene found them, and the victim leaves town at once, so someone
+besides the culprit were on cold terms with or held a grudge with, either way, and anyone who knew the victim names
+them all when asked who had a reason. Town generation turns friends, coworkers and neighbors into rivals until one
+resident in five has two people on bad terms with them, and someone moving in is a rival of one resident short of two
+while too few have them. Someone at the scene found them, and the victim leaves town at once, so someone
 moves in. Its news gives only a window, two parts of the day in a row, either of which may be the one it happened in,
 and every record is from that one. Asked where they were in either part, residents answer for the case. Its news reaches everyone on the victim's street and everyone with a tie to them, and
 the town talks about it soberly: residents are told someone has died and to say nothing of how, and any line with a
@@ -57,7 +60,7 @@ offender who gets away with it `escalate_after` times moves up to a bigger kind 
 
 **Moving in.** Nobody moves away by choice, but whenever someone leaves, on an arrest or a death, someone new moves in on
 the same street, as long as the town is under `population`, one at a time and tried again each part of the day
-until it works: a household of their own, a neighbor and one other tie,
+until it works: a household of their own, a neighbor and one other tie (a rival while too few residents have two),
 a look nobody else has, three outfits and a routine. It costs one Haiku call (up to three when a reply is unusable)
 and one Jev call, and the app says who moved in. They may or may not be an offender (`newcomer_offender_chance`, while there are fewer than
 `max_offenders`). Witnesses are never drawn from another open case's culprits, so an arrest never takes testimony

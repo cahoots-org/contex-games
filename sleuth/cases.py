@@ -381,10 +381,18 @@ class Cases:
 
     async def _stage(self, engine, tier: str, day: int, phase: str, pictured: set[str]) -> None:
         """Open a case of tier, its culprit a ready offender of that tier, one promoted from the tier below when none
-        is ready. Up to DRAWS crimes are drawn for one that is solvable."""
-        if not self.offenders.ready(day, tier):
-            self.offenders.promote(tier, self._involved() | pictured, day)
-        culprits = self.offenders.ready(day, tier)
+        is ready. With no major offender free, a serious one commits the major case, one promoted from petty when none
+        is free, and moves up. Up to DRAWS crimes are drawn for one that is solvable."""
+        busy = self._involved() | pictured
+        if tier == TIERS[-1] and not self.offenders.ready(day, tier) - busy:
+            below = TIERS[-2]
+            if not self.offenders.ready(day, below) - busy:
+                self.offenders.promote(below, busy, day)
+            culprits = self.offenders.ready(day, tier) | self.offenders.ready(day, below)
+        else:
+            if not self.offenders.ready(day, tier):
+                self.offenders.promote(tier, busy, day)
+            culprits = self.offenders.ready(day, tier)
         # Nobody is a victim again the day after their own case, so one resident isn't robbed twice in a row.
         recent = {f.crime.victim for f in self.files.values() if f.crime.day >= day - 1}
         for _ in range(DRAWS):
@@ -395,6 +403,8 @@ class Cases:
                 return
             try:
                 if await self._open(engine, crime, pictured):
+                    if (offender := self.offenders.active.get(crime.culprit)) and offender.tier != tier:
+                        offender.tier, offender.escaped = tier, 0
                     return
             except Exception:
                 log.exception("opening %s failed", crime.id)
