@@ -33,6 +33,7 @@ BAD_WALK = 'Send JSON like {"place": "bar"}.'
 BAD_INTERVIEW = 'Send JSON like {"villager_id": "v1", "text": "Where were you last night?"}.'
 BAD_PHOTO = 'Send JSON like {"photo_id": "r-1"}.'
 BAD_PUBLISH = 'Send JSON like {"culprit_id": "v1", "record_ids": ["r-1"]}.'
+BAD_CHOOSE = 'Send JSON like {"case_id": "case-1"}.'
 COOKIE = "sleuth_player"
 COOKIE_SECONDS = 365 * 24 * 3600
 RELOAD = "Reload the page to rejoin the town."
@@ -177,13 +178,14 @@ def create_app(
         }
 
     def case_of(player: Player) -> dict:
-        """The player's open case, and the notebook of it or, till the next opens, of the case closed last; their times
-        said today."""
+        """The case the player is working and every case offered them, and the notebook of the one they work or, till
+        the next opens, of the case closed last; their times said today."""
         cases, town, today = player.engine.cases, player.town, player.game.time()
-        case = cases.for_player(player.id) if cases else None
+        case = player.current()
         book = case or next((f for f in reversed(cases.files.values()) if f.state == "closed"), None) if cases else None
         return {
             "case": case_json(case, town, cases.routine, today) if case else None,
+            "cases": [case_json(f, town, cases.routine, today) for f in player.offered()],
             "notebook": [record_json(r, town, book.crime, today) for r in player.notebook.values()
                          if book and r.case == book.crime.id],
             "searched": player.searched,
@@ -195,6 +197,20 @@ def create_app(
         if (player := player_for(players, request.cookies.get(COOKIE))) is None:
             return _error(401, RELOAD)
         return case_of(player)
+
+    @app.post("/api/case/choose")
+    async def choose(request: Request):
+        if (player := player_for(players, request.cookies.get(COOKIE))) is None:
+            return _error(401, RELOAD)
+        payload = await _payload(request, BAD_CHOOSE, "That request is too long.")
+        if isinstance(payload, JSONResponse):
+            return payload
+        case_id = payload.get("case_id")
+        if not isinstance(case_id, str):
+            return _error(400, BAD_CHOOSE)
+        if problem := player.choose_case(case_id):
+            return _error(400, problem)
+        return {"ok": True}
 
     @app.get("/api/villagers/{vid}")
     async def inspect(vid: str, request: Request):

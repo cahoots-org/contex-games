@@ -185,7 +185,7 @@ class StubWriter:
 
 def stub_player(pid=PID, place="cafe"):
     """An active player standing at place."""
-    return SimpleNamespace(id=pid, owner=pid, place=place, active=lambda: True)
+    return SimpleNamespace(id=pid, owner=pid, place=place, active=lambda: True, tier="petty")
 
 
 def make_player(*names, cooldown=0.0):

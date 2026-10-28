@@ -192,11 +192,11 @@ def test_walk_moves_the_player_and_reports_problems(game):
 ASK = {"villager_id": "v1", "text": "Where were you last night?"}
 
 
-def open_case(game, culprit="v2"):
-    crime = Crime("case-1", "steal", "bike", culprit, "v1", "library", 1, "night", 1422, "rival",
-                  "Someone stole Marta Hale's bike at the library last night.")
-    game.cases.files["case-1"] = CaseFile(crime, {}, "open")
-    return game.cases.files["case-1"]
+def open_case(game, culprit="v2", tier="petty"):
+    crime = Crime(f"case-{len(game.cases.files) + 1}", "steal", "bike", culprit, "v1", "library", 1, "night", 1422,
+                  "rival", "Someone stole Marta Hale's bike at the library last night.", tier=tier)
+    game.cases.files[crime.id] = CaseFile(crime, {}, "open")
+    return game.cases.files[crime.id]
 
 
 def test_an_evening_case_reads_last_night_once_night_falls(game):
@@ -744,7 +744,7 @@ def test_state_shows_the_case_without_its_culprit(game):
     body = game.client.get("/api/state").json()
     assert body["case"] == {"id": "case-1", "text": crime.text, "place": "library", "phase": "night", "day": 1,
                             "state": "open", "private": False, "title": "Marta Hale's bike", "victim": "v1",
-                            "nearby": []}
+                            "nearby": [], "tier": "petty"}
     assert "culprit" not in json.dumps(body["case"]) and "Bert Cole" not in json.dumps(body["case"])
 
 
@@ -1028,3 +1028,26 @@ def test_state_shows_the_players_standing(game):
     assert game.client.get("/api/state").json()["standing"] == {"score": 0, "tier": "petty", "label": "New podcaster"}
     game.player.standing = 6
     assert game.client.get("/api/state").json()["standing"] == {"score": 6, "tier": "major", "label": "Town legend"}
+
+
+def test_state_lists_only_offered_cases(game):
+    petty, big = open_case(game), open_case(game, tier="serious")
+    state = game.client.get("/api/state").json()
+    assert [c["id"] for c in state["cases"]] == [petty.crime.id] and state["case"]["id"] == petty.crime.id
+    assert state["case"]["tier"] == "petty"
+    game.player.standing = game.config.serious_at
+    state = game.client.get("/api/state").json()
+    assert [c["id"] for c in state["cases"]] == [big.crime.id, petty.crime.id] and state["case"]["id"] == big.crime.id
+
+
+def test_choose_case_endpoint(game):
+    petty, big = open_case(game), open_case(game, tier="serious")
+    game.player.standing = game.config.serious_at
+    assert game.client.get("/api/case").json()["case"]["id"] == big.crime.id
+    res = game.client.post("/api/case/choose", json={"case_id": petty.crime.id})
+    assert res.status_code == 200 and res.json() == {"ok": True}
+    assert game.client.get("/api/case").json()["case"]["id"] == petty.crime.id
+    res = game.client.post("/api/case/choose", content="nope")
+    assert res.status_code == 400 and res.json()["error"] == web.BAD_CHOOSE
+    res = game.client.post("/api/case/choose", json={"case_id": "case-99"})
+    assert res.status_code == 400 and res.json()["error"] == "That case isn't one of your tips."

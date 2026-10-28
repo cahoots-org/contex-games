@@ -194,13 +194,15 @@ class Player:
         self.saved_photos: list[str] = []
         # Points from the town's cases: held episodes add by tier, wrong ones take one away.
         self.standing = 0
+        # The town's case the player chose to work, while it is offered.
+        self.case_id: str | None = None
 
     def to_state(self) -> dict:
         """The run's durable fields as plain JSON; tabs and tasks are left out."""
         return {
             "id": self.id, "owner": self.owner, "created_at": self.created_at, "active_at": self._active_at,
             **self._progress(), "handoff": self.handoff, "town_run": self._town_run,
-            "saved_photos": self.saved_photos, "standing": self.standing,
+            "saved_photos": self.saved_photos, "standing": self.standing, "case_id": self.case_id,
             "tutorial": self.engine.cases.to_state() if self.practising else None,
         }
 
@@ -209,7 +211,7 @@ class Player:
         self.created_at = state["created_at"]
         self._resume(state)
         self.handoff, self._town_run = state["handoff"], state["town_run"]
-        self.saved_photos, self.standing = state["saved_photos"], state["standing"]
+        self.saved_photos, self.standing, self.case_id = state["saved_photos"], state["standing"], state["case_id"]
         active_at = state["active_at"]
         self._active_at = None if active_at is None else min(active_at, time.time() - self.config.idle_after_seconds)
         if state["tutorial"] is not None:
@@ -233,6 +235,24 @@ class Player:
         if self.standing >= self.config.major_at:
             return "major"
         return "serious" if self.standing >= self.config.serious_at else "petty"
+
+    def current(self) -> CaseFile | None:
+        """The case the player is working: their private one, else the one they chose while offered, else the
+        highest offered."""
+        cases = self.engine.cases
+        return cases.for_player(self.id, self.tier, self.case_id) if cases else None
+
+    def offered(self) -> list[CaseFile]:
+        """The town's open cases the player's standing fits."""
+        return self.engine.cases.offered(self.tier) if self.engine.cases else []
+
+    def choose_case(self, case_id: str) -> str | None:
+        """Work on one of the offered cases; returns why it could not be done."""
+        self.touch()
+        if case_id not in [f.crime.id for f in self.offered()]:
+            return "That case isn't one of your tips."
+        self.case_id = case_id
+        return None
 
     def standing_json(self) -> dict:
         return {"score": self.standing, "tier": self.tier, "label": LABELS[self.tier]}
@@ -302,7 +322,7 @@ class Player:
         self.notebook, self.threads, self.searched, self._talked, self.known = {}, {}, [], {}, {}
         self.place = START_PLACE
         self.feed.forget(self.id)
-        self.engine.cases.brief(self.feed, self.id, self._today())
+        self.engine.cases.brief(self.feed, self.id, self._today(), self.tier)
 
     def steps(self) -> list[dict] | None:
         """The practice case's checklist, each step with why it matters, done or not, the person or action it needs
@@ -404,7 +424,7 @@ class Player:
             return "Type a question."
         if len(question) > MAX_QUESTION:
             return f"Keep your question under {MAX_QUESTION} characters."
-        file = self.engine.cases.for_player(self.id) if self.engine.cases else None
+        file = self.current()
         if file is None:
             return "There's no open case."
         villager = self.town.get(vid)
@@ -474,7 +494,7 @@ class Player:
         if photo.id not in self.saved_photos:
             self.saved_photos.append(photo.id)
             del self.saved_photos[:-PHOTOS_KEPT]
-        file = self.engine.cases.for_player(self.id) if self.engine.cases else None
+        file = self.current()
         records = []
         if file is not None:
             r = self.notebook[photo.id] = Record(photo.id, file.crime.id, "photo", photo.place, "", posted(photo, self.town),
@@ -675,7 +695,7 @@ class Player:
     def pull(self) -> str | None:
         """Copy the open case's footage and logs at this place into the notebook; returns why it could not be done."""
         self.touch()
-        file = self.engine.cases.for_player(self.id) if self.engine.cases else None
+        file = self.current()
         if file is None:
             return "There's no open case."
         if max((self.engine.reputation.get(vid, self.id) for vid in self._keepers()), default=0.0) < self.config.guarded_at:
@@ -695,7 +715,7 @@ class Player:
         """Search the open case's crime place, once per case, adding what was left there to the notebook; returns
         why it could not be done."""
         self.touch()
-        file = self.engine.cases.for_player(self.id) if self.engine.cases else None
+        file = self.current()
         if file is None:
             return "There's no open case."
         if self.place != file.crime.place:
@@ -792,7 +812,7 @@ class Player:
         if cases is None:
             return None
         latest = next(reversed(self.notebook.values()), None)
-        return cases.for_player(self.id) or (cases.files.get(latest.case) if latest else None)
+        return self.current() or (cases.files.get(latest.case) if latest else None)
 
     def _clock(self) -> str:
         """The game's time of day, like "9:40am"; empty without a game."""

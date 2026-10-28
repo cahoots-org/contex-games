@@ -1,12 +1,13 @@
 import json
 from dataclasses import asdict, replace
+from types import SimpleNamespace
 from random import Random
 
 import pytest
 
 from sleuth import cases as cases_mod
 from sleuth.alibi import claim
-from sleuth.case import CLIP_TRAITS, WHEN, Crime, Record, points_at, suspects, told
+from sleuth.case import CLIP_TRAITS, CRIMES, ITEM_PLACES, WHEN, Crime, Kind, Record, points_at, suspects, told
 from sleuth.cases import CaseFile, Cases, case_json
 from sleuth.config import Config
 from sleuth.feed import Feed
@@ -17,7 +18,8 @@ from sleuth.offenders import Offender
 from sleuth.photos import Album, Photo
 from sleuth.players import Players
 from sleuth.reputation import Reputation
-from sleuth.tests.helpers import StubRoutine
+from sleuth.tests.helpers import StubRoutine, stub_player
+from sleuth.town import STREETS
 from sleuth.tests.test_case import RESIDENTS, make_routine, make_town
 from sleuth.traits import assign_traits
 
@@ -52,6 +54,11 @@ async def tick(cases, engine, day=2, phase="morning", finished=None):
     await cases.on_tick(engine, day, phase, finished or {})
 
 
+def shared(cases):
+    """The first open shared case."""
+    return next(iter(cases.open_shared()), None)
+
+
 def kinds(engine, kind):
     return [e for e in engine.feed.recent if e.kind == kind]
 
@@ -61,7 +68,7 @@ async def test_a_tick_with_no_shared_case_opens_one_at_once():
     cases, engine, _ = make_cases()
     await tick(cases, engine)
     [case] = cases.files.values()
-    assert case.state == "open" and cases.shared() is case and case.opened == 2.0
+    assert case.state == "open" and shared(cases) is case and case.opened == 2.0
     assert kinds(engine, "case") and kinds(engine, "post")
     await tick(cases, engine, day=3)
     assert list(cases.files.values()) == [case]
@@ -75,7 +82,7 @@ async def test_the_crime_is_set_in_the_part_of_the_day_just_finished(now, part, 
     cases, engine, _ = make_cases()
     cases.routine = StubRoutine({vid: {p: street for p in PHASES} for vid, _, _, street in RESIDENTS})
     await cases.ensure(engine, now)
-    case = cases.shared()
+    case = shared(cases)
     assert (case.crime.day, case.crime.phase) == part and case.opened == now
     [post] = kinds(engine, "post")
     assert post.data["text"].endswith(f"{said}.")
@@ -92,7 +99,7 @@ async def test_no_one_in_a_photo_of_the_crime_s_part_of_the_day_is_its_culprit_v
         engine.album.photos += [Photo("r-90", "gym", 2, "morning", {vid: {} for vid in pictured}, "", "v1"),
                                 Photo("r-91", "gym", 2, "afternoon", {"v2": {}, "v4": {}}, "", "v2")]
         await cases.ensure(engine, 2.25)
-        case = cases.shared()
+        case = shared(cases)
         if case is None:
             continue
         witnesses = {r.holder for r in case.records.values() if r.kind == "memory"}
@@ -126,7 +133,8 @@ async def test_the_news_breaks_as_the_case_opens():
                                   "title": f"{town.name_of(case.crime.victim)}'s {case.crime.item}",
                                   "victim": case.crime.victim,
                                   "nearby": [v.id for v in town.villagers
-                                             if v.id != case.crime.victim and v.home == case.crime.place]}
+                                             if v.id != case.crime.victim and v.home == case.crime.place],
+                                  "tier": "petty"}
     assert cases.for_player("p-1") is case
     news, listeners, _ = next(d for d in engine.delivered if cases.root_kind(d[0].id)[1] == "news")
     victim = town.get(case.crime.victim)
@@ -163,7 +171,7 @@ async def test_no_case_opens_when_every_draw_is_unsolvable_and_the_next_tick_tri
     assert len(calls) == cases_mod.DRAWS and not cases.files and not kinds(engine, "case") and not engine.delivered
     monkeypatch.undo()
     await tick(cases, engine, day=3)
-    assert cases.shared().state == "open"
+    assert shared(cases).state == "open"
 
 
 @pytest.mark.asyncio
@@ -196,7 +204,7 @@ async def test_a_case_gone_cold_is_followed_by_the_next_in_the_same_tick():
     [closed] = kinds(engine, "case_closed")
     assert closed.data["case_id"] == case.crime.id
     assert f"The case went cold. It was {town_name(cases, case.crime.culprit)}." in engine.lines
-    following = cases.shared()
+    following = shared(cases)
     assert following.state == "open" and following is not case and following.opened == 5.0
 
 
@@ -223,9 +231,9 @@ async def test_a_restore_with_no_open_case_opens_one():
     state["files"].append(json.loads(json.dumps(asdict(stale))))
     fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
     fresh.restore(state)
-    assert list(fresh.files) == ["case-1"] and fresh.shared() is None
+    assert list(fresh.files) == ["case-1"] and shared(fresh) is None
     await fresh.ensure(engine, 3.0)
-    assert fresh.shared().state == "open"
+    assert shared(fresh).state == "open"
 
 
 def culprit_file(cases, culprit="v3", victim="v1", phase="night"):
@@ -296,8 +304,8 @@ async def test_the_crime_phase_log_is_kept_as_whereabouts_with_the_culprit_at_th
 async def test_without_a_finished_log_the_routine_gives_the_whereabouts():
     cases, engine, _ = make_cases()
     await cases.ensure(engine, 2.0)
-    crime = cases.shared().crime
-    assert cases.shared().whereabouts == {**{vid: [street] for vid, _, _, street in RESIDENTS},
+    crime = shared(cases).crime
+    assert shared(cases).whereabouts == {**{vid: [street] for vid, _, _, street in RESIDENTS},
                                           crime.culprit: [crime.place]}
 
 
@@ -307,13 +315,13 @@ async def test_a_player_off_the_practice_case_is_told_the_town_s_open_case():
     shared = culprit_file(cases)
     shared.crime.text = "Someone stole Dana Reyes's bike on Elm Street {when}."
     engine.feed.recent.clear()
-    cases.brief(engine.feed, "p-1", 2)
+    cases.brief(engine.feed, "p-1", 2, "petty")
     case, post = engine.feed.recent
     assert (case.kind, case.player, case.data["case"]["id"]) == ("case", "p-1", shared.crime.id)
     assert (post.kind, post.player, post.data["app"]) == ("post", "p-1", True)
     assert post.data["text"] == "Someone stole Dana Reyes's bike on Elm Street last night."
     shared.state = "closed"
-    cases.brief(engine.feed, "p-1", 2)
+    cases.brief(engine.feed, "p-1", 2, "petty")
     assert len(engine.feed.recent) == 2
 
 
@@ -322,7 +330,7 @@ async def test_the_brief_leaves_out_news_the_feed_still_replays():
     cases, engine, _ = make_cases()
     shared = culprit_file(cases)
     engine.feed.on_post(Utterance("u-9", "app", "The neighborhood app", "elm street", "news", None), shared.crime.id)
-    cases.brief(engine.feed, "p-1", 2)
+    cases.brief(engine.feed, "p-1", 2, "petty")
     assert [e.kind for e in engine.feed.recent] == ["post", "case"]
 
 
@@ -333,7 +341,7 @@ def test_for_player_prefers_the_private_case():
     cases.files[private.crime.id] = private
     assert cases.for_player("p-1") is private and cases.for_player("p-2") is shared
     assert cases.private("p-1") is private and cases.private("p-2") is None
-    assert cases.shared() is shared
+    assert cases.open_shared() == [shared]
 
 
 @pytest.mark.asyncio
@@ -353,7 +361,7 @@ async def test_the_victim_is_told_what_they_found_when_the_case_opens():
 async def test_staged_cases_hold_clues_at_the_crime_place():
     cases, engine, _ = make_cases()
     await tick(cases, engine)
-    case = cases.shared()
+    case = shared(cases)
     clues = [r for r in case.records.values() if r.kind == "clue"]
     assert 1 <= len(clues) <= 2 and {r.place for r in clues} == {case.crime.place}
 
@@ -365,7 +373,7 @@ async def test_cases_with_a_regular_culprit_still_open_solvable():
         cases, engine, town = make_cases()
         cases.rng = Random(seed)
         await tick(cases, engine)
-        case = cases.shared()
+        case = shared(cases)
         if case is None or cases.routine.place(case.crime.culprit, case.crime.phase) != case.crime.place:
             continue
         crime = case.crime
@@ -399,7 +407,7 @@ async def test_only_offenders_commit_crimes():
         cases, engine, _ = make_cases(offenders=3)
         cases.rng = Random(seed)
         await tick(cases, engine)
-        if case := cases.shared():
+        if case := shared(cases):
             opened += 1
             assert case.crime.culprit in cases.offenders.active and len(cases.offenders.active) == 3
     assert opened > 30
@@ -431,7 +439,7 @@ def test_solvability_still_narrows_among_everyone_not_just_offenders():
 async def test_a_case_gone_cold_counts_as_an_escape():
     cases, engine, _ = make_cases()
     await tick(cases, engine)
-    culprit = cases.shared().crime.culprit
+    culprit = shared(cases).crime.culprit
     await tick(cases, engine, day=5)
     assert cases.offenders.active[culprit].escaped == 1
 
@@ -482,7 +490,7 @@ async def test_no_open_case_s_witness_is_another_open_case_s_culprit():
         other = culprit_file(cases, culprit="v7", victim="v2")
         other.crime.owner = "p-1"
         await tick(cases, engine)
-        case = cases.shared()
+        case = shared(cases)
         if case is None:
             continue
         holders = {r.holder for r in case.records.values() if r.kind == "memory"}
@@ -502,7 +510,7 @@ def test_named_round_trips_with_the_case():
 async def test_a_petty_case_gone_cold_exposes_its_culprit_to_the_town():
     cases, engine, town = make_cases()
     await tick(cases, engine)
-    crime = cases.shared().crime
+    crime = shared(cases).crime
     await tick(cases, engine, day=5)
     assert crime.culprit in town and cases.offenders.exposed[crime.culprit].startswith("stole ")
     assert cases.offenders.active[crime.culprit].quiet_until == 5 + cases.config.exposed_quiet_days
@@ -530,7 +538,7 @@ async def test_no_one_an_open_case_needs_is_drawn_into_another():
         other.records = {"r-1": Record("r-1", other.crime.id, "memory", "elm street", "", "", "v4"),
                          "r-2": Record("r-2", other.crime.id, "log", "grocery", "", "", who="v6", trail=True)}
         await tick(cases, engine)
-        if case := cases.shared():
+        if case := shared(cases):
             assert not {case.crime.culprit, case.crime.victim} & {"v4", "v6"}
 
 
@@ -544,6 +552,61 @@ async def test_someone_only_logged_in_an_open_case_can_still_be_drawn_into_anoth
         other.crime.owner = "p-1"
         other.records = {"r-1": Record("r-1", other.crime.id, "log", "gym", "", "", who="v6")}
         await tick(cases, engine)
-        if case := cases.shared():
+        if case := shared(cases):
             drawn |= {case.crime.culprit, case.crime.victim}
     assert "v6" in drawn
+
+
+@pytest.fixture
+def serious(monkeypatch):
+    """A serious crime against anyone at home."""
+    monkeypatch.setitem(CRIMES, "rob", Kind("serious", "robbed", "robbing", ("till",), "emptied", "was hurrying out"))
+    monkeypatch.setitem(ITEM_PLACES, "till", STREETS)
+
+
+def podcaster(tier, pid="p-1"):
+    return SimpleNamespace(**{**vars(stub_player(pid)), "tier": tier})
+
+
+def tiered(cases, tier, culprit="v3", victim="v1", opened=0.0):
+    file = culprit_file(cases, culprit, victim)
+    file.crime.tier, file.opened = tier, opened
+    return file
+
+
+@pytest.mark.asyncio
+async def test_a_case_is_open_for_each_tier_someone_playing_has_reached(serious):
+    cases, engine, _ = make_cases(offenders=8)
+    await tick(cases, engine)
+    assert [f.crime.tier for f in cases.open_shared()] == ["petty"]
+    engine.players.add(podcaster("serious"))
+    await tick(cases, engine, day=3)
+    assert sorted(f.crime.tier for f in cases.open_shared()) == ["petty", "serious"]
+    [case] = cases.open_shared("serious")
+    assert CRIMES[case.crime.template].tier == "serious"
+    assert cases.offenders.active[case.crime.culprit].tier == "serious"
+
+
+def test_a_podcaster_is_offered_cases_at_or_below_their_tier():
+    cases, _, _ = make_cases()
+    old = tiered(cases, "petty")
+    big = tiered(cases, "serious", "v5", "v7", opened=1.0)
+    new = tiered(cases, "petty", "v6", "v2", opened=2.0)
+    assert cases.offered("petty") == [old, new]
+    assert cases.offered("serious") == cases.offered("major") == [big, old, new]
+    assert cases.for_player("p-1") is old and cases.for_player("p-1", "serious") is big
+    assert cases.for_player("p-1", "serious", new.crime.id) is new
+    assert cases.for_player("p-1", "petty", big.crime.id) is old
+
+
+@pytest.mark.asyncio
+async def test_the_first_held_episode_closes_a_case_for_everyone_working_it(serious):
+    cases, engine, _ = make_cases(offenders=8)
+    engine.players.add(podcaster("serious"))
+    petty, big = tiered(cases, "petty"), tiered(cases, "serious", "v5", "v7")
+    cases.offenders.active = {"v3": Offender(), "v5": Offender("serious")}
+    cases.now = 2.0
+    await cases.on_held(engine, petty, "p-1")
+    assert petty.state == "closed" and big.state == "open"
+    [following] = cases.open_shared("petty")
+    assert following is not petty and cases.open_shared("serious") == [big]

@@ -157,12 +157,12 @@ def motive_of(culprit, victim) -> str:
 
 
 def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id: str, *,
-                exclude=frozenset(), culprits: set[str] | None = None) -> Crime | None:
-    """Draw a crime, then a culprit (one of culprits, when given) and a victim from different households, the victim
+                exclude=frozenset(), culprits: set[str] | None = None, tier: str = "petty") -> Crime | None:
+    """Draw a crime of tier, then a culprit (one of culprits, when given) and a victim from different households, the victim
     where the item plausibly is. About REGULAR_CULPRIT of the time, when one fits, the culprit is expected at the scene
     too, otherwise elsewhere; None if no crime fits."""
     residents = [v for v in town.villagers if v.id not in exclude and routine.place(v.id, phase) is not None]
-    crimes = [(t, item) for t, kind in CRIMES.items() for item in kind.items]
+    crimes = [(t, item) for t, kind in CRIMES.items() if kind.tier == tier for item in kind.items]
     for template, item in rng.sample(crimes, len(crimes)):
         pairs = [(c, w, motive_of(c, w)) for w in residents for c in residents
                  if c.household != w.household and (culprits is None or c.id in culprits)

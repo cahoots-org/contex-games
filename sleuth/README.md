@@ -19,14 +19,18 @@ the feed doesn't show it, so you learn it only by interviewing someone.
 
 ## Playing
 
-**A case.** The town always has a case open. At startup, on each part of the day, and the moment a case is solved or
-goes cold, if none is open a crime is staged in the part of the day just finished and opened in the same step. Crimes
-come from a petty catalog in `sleuth/case.py`: a stolen bike, a vandalized car, sabotaged county-fair jam, a dog let
+**A case.** The town always has a petty case open, and a case of each bigger tier while someone playing has the
+standing for it: one open case per tier at most. At startup, on each part of the day, and the moment a case is solved
+or goes cold, each tier missing its case gets a crime staged in the part of the day just finished, opened in the same
+step. Its culprit is an offender of that tier; when nobody holds the tier, the offender below it who has got away with
+the most moves up. You're offered every open case at or below your standing as a tip, listed under the case title,
+and you work one at a time: the highest by default, or the one you pick. Interviews, records, searches, photos and
+episodes all go to the case you're working. Crimes come from a petty catalog in `sleuth/case.py`: a stolen bike, a vandalized car, sabotaged county-fair jam, a dog let
 out, salted sugar jars at the cafe, a moustache drawn on a portrait at town hall, a goose made off with from the dog
 park, a pinched garden gnome. The culprit comes from another household than the victim's, and one or two clues are left at the crime place. The game
 checks that the evidence, with that part of the day's check-ins and receipts, narrows to the culprit alone, adding a
 witness if that helps and drawing another crime if nothing can. A solvable case opens: its witnesses are told what
-they saw, and the neighborhood app posts the news. The case shows at the top of the Hear panel and goes cold after
+they saw, and the neighborhood app posts the news. A case shows at the top of the page and goes cold after
 `case_days`, when the town learns who did it: a petty culprit is exposed just as a right episode would expose them,
 and any other is arrested.
 

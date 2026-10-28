@@ -61,3 +61,9 @@ def test_nobody_is_promoted_to_the_lowest_tier():
     offenders = Offenders(Config())
     offenders.active["v1"] = Offender("major")
     assert offenders.promote("petty") is None and offenders.active["v1"].tier == "major"
+
+
+def test_no_one_excluded_is_promoted():
+    offenders = Offenders(Config())
+    offenders.active.update({"v1": Offender(escaped=1), "v2": Offender(escaped=0)})
+    assert offenders.promote("serious", {"v1"}) == "v2" and offenders.active["v1"].tier == "petty"

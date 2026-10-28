@@ -404,8 +404,8 @@ class Engine:
         shared case."""
         if self.cases is None or not self.players.any_playing() or self.cases.rng.random() >= self.config.chatter_chance:
             return
-        shared = self.cases.shared()
-        case_text = told(shared.crime.text, shared.crime, self._today()) if shared and shared.state == "open" else None
+        shared = next(iter(self.cases.open_shared()), None)
+        case_text = told(shared.crime.text, shared.crime, self._today()) if shared else None
         if post := await chatter(self.writer, self.town, self.cases.rng, self.ids, case_text):
             self.feed.on_post(post, None)
 

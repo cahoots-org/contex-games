@@ -21,7 +21,7 @@ from sleuth.lineage import Lineage
 from sleuth.offenders import Offender
 from sleuth.photos import Album, posted
 from sleuth.tests.helpers import PID, FakeEngine, StubJev, StubRoutine, StubWriter
-from sleuth.tests.test_cases import culprit_file, make_cases
+from sleuth.tests.test_cases import culprit_file, make_cases, shared
 from sleuth.tests.helpers import make_player as make
 
 
@@ -744,7 +744,7 @@ async def test_solving_the_town_s_case_opens_the_next_at_once():
     engine.cases.now = 2.0
     ids = cite(player, file, memory_of(file, player.ids))
     await player.publish("v3", ids)
-    following = engine.cases.shared()
+    following = shared(engine.cases)
     assert following.state == "open" and following is not file and following.opened == 2.0
     assert [e.data["case"]["id"] for e in player.feed.recent if e.kind == "case"] == [following.crime.id]
 
@@ -1451,3 +1451,45 @@ def test_standing_round_trips_with_the_run():
     back = Player(engine, town, lineage, Ids(), player.feed, player.config, player_id=PID)
     back.restore(json.loads(json.dumps(player.to_state())))
     assert (back.standing, back.tier) == (4, "serious")
+
+
+def two_tips(player, file):
+    """A serious case beside the petty one, offered to a podcaster known in town."""
+    file.crime.tier = "petty"
+    big = culprit_file(player.engine.cases, "v5", "v7")
+    big.crime.tier = "serious"
+    player.standing = player.config.serious_at
+    return big
+
+
+@pytest.mark.asyncio
+async def test_actions_follow_the_chosen_case():
+    player, file, engine, _ = interviewing()
+    big = two_tips(player, file)
+    assert player.current() is big
+    assert player.choose_case(file.crime.id) is None and player.current() is file
+    memory_of(file, player.ids)
+    await ask(player, "v2", "what_did_you_see")
+    assert [r.case for r in player.notebook.values()] == [file.crime.id]
+    assert player.search() is None and player.searched == [file.crime.id]
+    assert await player.publish("v3", list(player.notebook)) is None
+    assert file.state == "closed" and big.state == "open" and big.published == []
+
+
+@pytest.mark.asyncio
+async def test_choosing_a_case_not_offered_is_refused():
+    player, file, engine, _ = interviewing()
+    big = two_tips(player, file)
+    player.standing = 0
+    assert player.choose_case(big.crime.id) == "That case isn't one of your tips."
+    assert player.choose_case("case-99") == "That case isn't one of your tips."
+    assert player.current() is file and player.case_id is None
+
+
+def test_the_chosen_case_round_trips_with_the_run():
+    player, file, engine, _ = interviewing()
+    two_tips(player, file)
+    player.choose_case(file.crime.id)
+    back = Player(engine, player.town, player.lineage, Ids(), player.feed, player.config, player_id=PID)
+    back.restore(json.loads(json.dumps(player.to_state())))
+    assert back.case_id == file.crime.id and back.current() is file

@@ -11,6 +11,7 @@ from sleuth.config import Config
 from sleuth.game import Game
 from sleuth.models import Villager
 from sleuth.photos import Album
+from sleuth.players import Players
 from sleuth.routine import Routine
 from sleuth.tests.helpers import StubBaselines, StubJev
 from sleuth.tests.test_cases import culprit_file, make_cases
@@ -44,6 +45,7 @@ class Arriving:
         self.baselines = StubBaselines(0.5)
         self.game = Game()
         self.album = Album()
+        self.players = Players()
         self.added = []
 
     async def deliver(self, utterance, listener_ids, addressed=False):

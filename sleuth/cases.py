@@ -8,8 +8,8 @@ from random import Random
 
 from sleuth.arrivals import move_in
 from sleuth.case import (
-    CRIMES, WHEN, Crime, Record, camera_clip, crime_title, discovery, found_it, logs, make_solvable, scene_clues, stage_crime, told,
-    witness_memories,
+    CRIMES, TIERS, WHEN, Crime, Record, camera_clip, catalog_tiers, crime_title, discovery, found_it, logs, make_solvable,
+    scene_clues, stage_crime, told, witness_memories,
 )
 from sleuth.config import Config
 from sleuth.decide import warmth_words
@@ -55,7 +55,7 @@ def case_json(case: CaseFile, town: Town, routine, today: float | None = None) -
               if v.id != c.victim and routine is not None and routine.place(v.id, c.phase) == c.place]
     return {"id": c.id, "text": told(c.text, c, today), "place": c.place, "phase": c.phase, "day": c.day, "state": case.state,
             "private": c.owner is not None, "title": crime_title(c, town), "victim": c.victim,
-            "nearby": nearby}
+            "nearby": nearby, "tier": c.tier}
 
 
 class Cases:
@@ -94,17 +94,32 @@ class Cases:
             records = {k: Record(**r) for k, r in f["records"].items()}
             self.files[f["crime"]["id"]] = CaseFile(**{**f, "crime": Crime(**f["crime"]), "records": records})
 
-    def shared(self) -> CaseFile | None:
-        return next((f for f in self.files.values() if f.state != "closed" and f.crime.owner is None), None)
+    def open_shared(self, tier: str | None = None) -> list[CaseFile]:
+        """The town's open cases, of tier when given."""
+        return [f for f in self.files.values()
+                if f.state == "open" and f.crime.owner is None and tier in (None, f.crime.tier)]
+
+    def offered(self, tier: str) -> list[CaseFile]:
+        """The open shared cases at or below tier, highest tier first, then oldest."""
+        fits = [f for f in self.open_shared() if TIERS.index(f.crime.tier) <= TIERS.index(tier)]
+        return sorted(fits, key=lambda f: (-TIERS.index(f.crime.tier), f.opened))
 
     def private(self, player_id: str) -> CaseFile | None:
         """The player's private open case."""
         return next((f for f in self.files.values() if f.state == "open" and f.crime.owner == player_id), None)
 
-    def for_player(self, player_id: str) -> CaseFile | None:
-        """The player's private open case, otherwise the shared open case."""
-        return self.private(player_id) or next(
-            (f for f in self.files.values() if f.state == "open" and f.crime.owner is None), None)
+    def for_player(self, player_id: str, tier: str = "petty", chosen: str | None = None) -> CaseFile | None:
+        """The player's private open case, otherwise the chosen case if it is offered at tier, else the first
+        offered."""
+        if private := self.private(player_id):
+            return private
+        offered = self.offered(tier)
+        return next((f for f in offered if f.crime.id == chosen), offered[0] if offered else None)
+
+    def wanted(self, engine) -> list[str]:
+        """The tiers that should have a case open: petty, and every tier an active podcaster has reached."""
+        tiers = {"petty", *(p.tier for p in engine.players if p.active())}
+        return [t for t in catalog_tiers() if t in tiers]
 
     def culprit_case(self, vid: str) -> CaseFile | None:
         return next((f for f in self.files.values() if f.state != "closed" and f.crime.culprit == vid), None)
@@ -208,18 +223,16 @@ class Cases:
         thanks = Utterance("", victim.id, victim.name, crime.place, THANKS.format(item=crime.item), None, "posted")
         engine.feed.on_post(thanks, crime.id)
 
-    def brief(self, feed, player_id: str, today: float | None) -> None:
-        """Tell a player just off the practice case the town's open case and, unless the feed still replays it, its
-        news."""
-        case = self.shared()
-        if case is None or case.state != "open":
-            return
-        crime = case.crime
-        feed.on_case(case_json(case, self.town, self.routine, today), player=player_id)
-        if any(e.kind == "post" and e.data["app"] and e.data["case_id"] == crime.id for e in feed.recent):
-            return
-        news = Utterance("", "app", APP, crime.place, told(crime.text, crime, today), None, "posted")
-        feed.on_post(news, crime.id, player=player_id)
+    def brief(self, feed, player_id: str, today: float | None, tier: str) -> None:
+        """Tell a player just off the practice case every open case offered at tier and, unless the feed still
+        replays it, its news."""
+        for case in self.offered(tier):
+            crime = case.crime
+            feed.on_case(case_json(case, self.town, self.routine, today), player=player_id)
+            if any(e.kind == "post" and e.data["app"] and e.data["case_id"] == crime.id for e in feed.recent):
+                continue
+            news = Utterance("", "app", APP, crime.place, told(crime.text, crime, today), None, "posted")
+            feed.on_post(news, crime.id, player=player_id)
 
     def mark_cover(self, vid: str, uid: str) -> None:
         if case := self.culprit_case(vid):
@@ -246,7 +259,7 @@ class Cases:
 
     async def on_tick(self, engine, day: int, phase: str, finished: dict[str, list[str]]) -> None:
         """Dress the town, let exposed offenders reform of a morning, try again to fill an empty home, let old cases go
-        cold, their culprits made known, and open a new shared case when none is open."""
+        cold, their culprits made known, and open a shared case for each wanted tier with none open."""
         self.dress(day)
         if phase == "morning":
             self.offenders.new_day(day, self.rng)
@@ -266,20 +279,29 @@ class Cases:
         await self.ensure(engine)
 
     async def ensure(self, engine, now: float | None = None) -> None:
-        """Open a shared case set in the part of the day just finished, unless one is open, its culprit a ready petty
-        offender; now is the game time, else the last tick's. Up to DRAWS crimes are drawn for one that is solvable."""
+        """Open a shared case, set in the part of the day just finished, for each wanted tier with none open; now is
+        the game time, else the last tick's."""
         if now is not None:
             self.now = now
-        if self.shared() is not None:
+        missing = [t for t in self.wanted(engine) if not self.open_shared(t)]
+        if not missing:
             return
         before = self.now - 1 / len(PHASES)
         day, phase = math.floor(before), PHASES[int(before % 1 * len(PHASES))]
         pictured = {vid for p in engine.album.photos if (p.day, p.phase) == (day, phase) for vid in p.people}
         self.offenders.top_up(self.town, self.rng)
-        culprits = self.offenders.ready(day, "petty")
+        for tier in missing:
+            await self._stage(engine, tier, day, phase, pictured)
+
+    async def _stage(self, engine, tier: str, day: int, phase: str, pictured: set[str]) -> None:
+        """Open a case of tier, its culprit a ready offender of that tier, one promoted from the tier below when none
+        holds it. Up to DRAWS crimes are drawn for one that is solvable."""
+        if not any(o.tier == tier for o in self.offenders.active.values()):
+            self.offenders.promote(tier, self._involved() | pictured)
+        culprits = self.offenders.ready(day, tier)
         for _ in range(DRAWS):
             crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"),
-                                exclude=self._involved() | pictured, culprits=culprits)
+                                exclude=self._involved() | pictured, culprits=culprits, tier=tier)
             if crime is None:
                 return
             try:

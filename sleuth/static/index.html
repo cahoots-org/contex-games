@@ -83,6 +83,8 @@ h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
 .case-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .case-actions { display: flex; align-items: center; gap: .5rem; white-space: nowrap; }
 .case-title { font: 500 1.9rem/1.15 var(--serif); margin: .15rem 0 .3rem; }
+.tips { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: 0 0 .4rem; font-size: .875rem; }
+.tips [aria-pressed="true"] { font-weight: 600; }
 .case-text { margin: 0; font: 1.05rem/1.55 var(--serif); }
 .resting { margin: .75rem 0 0; padding: .45rem .75rem; border-radius: 4px; font-size: .9rem; border: 1px solid var(--edge); color: var(--muted); }
 .primary {
@@ -361,6 +363,7 @@ select, input[type="text"], input[type="search"] {
           <button type="button" class="primary" id="publish-open" aria-expanded="false" aria-controls="publish" hidden>Publish</button>
         </span>
       </div>
+      <div class="tips" id="tips" role="group" aria-label="Your tips" hidden></div>
       <p class="case-text" id="case-text">Something's bound to happen soon.</p>
       <div class="where-line">
         <div class="places" id="places">
@@ -449,6 +452,7 @@ let lastId = 0;
 let caseNow = null;
 // The podcaster's standing: score, tier and what they are known as.
 let standing = { score: 0, tier: "petty", label: "" };
+const TIERS = ["petty", "serious", "major"];
 let talked = {};
 let selected = null;
 // How many feed items came in while the app was closed.
@@ -525,6 +529,21 @@ function setCase(c) {
   showApp();
   drawNotebook();
   drawWhere();
+}
+
+// One button per case offered, the one being worked marked; a single tip needs no choosing.
+function setTips(cases) {
+  $("tips").hidden = cases.length < 2;
+  $("tips").replaceChildren(...cases.map((c) => {
+    const button = el("button", { type: "button", className: "plain-button", textContent: `${c.title} · ${capital(c.tier)}` });
+    button.setAttribute("aria-pressed", String(Boolean(caseNow && caseNow.id === c.id)));
+    button.addEventListener("click", async () => {
+      const { error } = await post("/api/case/choose", { case_id: c.id });
+      if (error) say("case-status", error, true);
+      else await retell();
+    });
+    return button;
+  }));
 }
 
 function setResting(on) {
@@ -1155,7 +1174,9 @@ function talk(tone, fresh, ...children) {
 function render(e, fresh) {
   switch (e.kind) {
     case "case":
-      setCase(e.case);
+      // A tip above the podcaster's standing isn't theirs; any other may change which cases they have.
+      if (TIERS.indexOf(e.case.tier) > TIERS.indexOf(standing.tier)) break;
+      if (fresh) retell().catch(() => {});
       break;
     case "case_closed":
       if (caseNow && caseNow.id === e.case_id) {
@@ -1163,6 +1184,8 @@ function render(e, fresh) {
         setCase(null);
         setSteps(null);
         if (fresh) loadState().catch(() => {});
+      } else if (fresh) {
+        retell().catch(() => {});
       }
       if (e.text) talk("quiet", fresh, e.text);
       break;
@@ -1439,6 +1462,7 @@ async function retell() {
   const now = await res.json();
   searched = new Set(now.searched);
   setCase(now.case);
+  setTips(now.cases);
   note(now.notebook);
   setSteps(now.steps);
 }
@@ -1467,6 +1491,7 @@ async function loadState() {
   setResting(state.resting);
   searched = new Set(state.searched);
   setCase(state.case);
+  setTips(state.cases);
   notebook.clear();
   note(state.notebook);
   setSteps(state.steps);
