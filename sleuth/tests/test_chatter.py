@@ -5,6 +5,7 @@ import pytest
 from sleuth.actions import ALIBI, RETELL, SPEAK
 from sleuth.chatter import chatter
 from sleuth.decide import Decision
+from sleuth.faith import GORE
 from sleuth.lineage import Ids
 from sleuth.models import Villager
 from sleuth.player import SHRUGS
@@ -108,3 +109,15 @@ async def test_retold_talk_with_faith_or_gore_is_dropped(line):
     await s.act("v1", Decision(SPEAK, source("u-0"), None, "faithful"))
     await s.act("v1", Decision(SPEAK, source("u-9"), None, "faithful"))
     assert s.hub.delivered == []
+
+
+@pytest.mark.parametrize("line", ["He was stabbed.", "A stabbing, they say.", "She was shot.", "Shot him dead.",
+                                  "Someone was shooting.", "There was a gunshot."])
+def test_grisly_words_are_caught(line):
+    assert GORE.search(line)
+
+
+@pytest.mark.parametrize("line", ["Things feel stable again.", "Stability, finally.", "Lovely photo shoot today.",
+                                  "Got my flu shot.", "Worth a shot.", "I'll take a shot at the pie contest."])
+def test_everyday_words_are_not_grisly(line):
+    assert not GORE.search(line)

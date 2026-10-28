@@ -11,7 +11,8 @@ FAITH = re.compile(
     re.IGNORECASE,
 )
 GORE = re.compile(
-    r"\b(blood\w*|gor(e|y)|stab\w*|corpses?|knife|knives|guns?|shot|shoot\w*|strangl\w*|poison\w*|weapons?|"
-    r"slaughter\w*|butcher\w*)\b",
+    r"\b(blood\w*|gor(e|y)|stab(?:s|bed|bing|ber\w*)?|corpses?|knife|knives|guns?|gunshots?|"
+    r"(?:was|were|got|been|being) shot|shot (?:dead|him|her|them)|(?<!photo )shoot(?:s|ing|er\w*)?|strangl\w*|"
+    r"poison\w*|weapons?|slaughter\w*|butcher\w*)\b",
     re.I,
 )
