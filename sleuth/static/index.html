@@ -101,13 +101,18 @@ h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
   padding: .35rem .85rem; font-weight: 700; cursor: pointer;
 }
 .linkish { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; }
-/* Publishing: the case column becomes one composer, the culprit on top, the notebook to cite, then send or cancel. */
+/* Publishing: the case rail takes over the stage as one composer, the culprit on top, the notebook to cite, then send
+   or cancel. */
+.citing .stage, .citing .rail-foot { display: none; }
+.citing .desk { grid-column: 1 / 3; align-items: center; padding-top: 1.75rem; background: var(--bg); }
+.citing .desk > * { width: min(100%, 40rem); }
 .publish, .send { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
-.publish { margin: .9rem 0 0; }
-.send { border-top: 1px solid var(--rail); padding-top: .75rem; }
+.publish { margin: 1.25rem 0 0; }
+.publish label { flex-basis: 100%; font: 500 1.6rem/1.2 var(--serif); }
+.publish select { font-size: 1.05rem; }
+.send { position: sticky; bottom: 0; margin-top: auto; padding: .75rem 0 1rem; background: var(--bg); border-top: 1px solid var(--rail); }
 .send p { flex-basis: 100%; margin: 0; font-size: .9rem; color: var(--muted); }
 .send p.error { color: var(--danger); }
-.citing .case-actions { display: none; }
 select, input[type="text"], input[type="search"] {
   background: var(--bg); border: 1px solid var(--edge); border-radius: 6px; padding: .4rem .6rem; min-width: 0;
 }
@@ -344,6 +349,7 @@ select, input[type="text"], input[type="search"] {
   .desk { left: 0; transform: translateX(-100%); }
   .side { right: 0; transform: translateX(100%); }
   .rail.open { visibility: visible; transform: none; box-shadow: 0 0 0 100vmax rgb(20 28 30 / .45); transition: transform .2s ease-out, box-shadow .2s; }
+  .citing .desk { width: 100%; padding: 1rem 16px 0; }
   .stage { grid-column: 1; padding: 0 1.25rem; }
 }
 @media (max-width: 900px) and (prefers-reduced-motion: reduce) {
@@ -371,11 +377,12 @@ select, input[type="text"], input[type="search"] {
   .ask input { font-size: 1rem; }
   .person { min-height: 48px; }
   .pop {
-    inset: auto 0 0 0; z-index: 3; width: 100%; max-height: 75dvh; overflow-y: auto;
+    inset: auto 0 0 0; z-index: 3; width: 100%; max-height: 75dvh; flex-direction: column;
     padding-bottom: max(.5rem, env(safe-area-inset-bottom)); border-radius: 14px 14px 0 0; border-width: 1px 0 0;
     box-shadow: 0 0 0 100vmax rgb(20 28 30 / .5);
   }
-  .place-list { max-height: none; }
+  .pop[open] { display: flex; }
+  .place-list { flex: 1; min-height: 0; max-height: none; }
   .place-list li { min-height: 48px; padding-left: 2.5rem; }
   .coach { z-index: 8; width: calc(100% - 32px); }
   .sheet {
@@ -656,6 +663,7 @@ function openPublish(on) {
   $("publish").hidden = $("send").hidden = !on;
   $("publish-open").ariaExpanded = String(on);
   if (on) {
+    if (drawers.matches) openDrawer($("desk"));
     setCulprits();
     $("culprit").focus();
   }
@@ -1257,7 +1265,7 @@ function drawConvo(body) {
   $("convo").dataset.name = body.name;
   $("portrait").replaceChildren(faceFor(v));
   $("convo-title").textContent = body.name;
-  $("convo-meta").textContent = capital(body.occupation);
+  $("convo-meta").textContent = body.occupation.replace(/^./, (c) => c.toUpperCase());
   const link = (r) => el("button", { type: "button", className: "linkish", textContent: r.name, onclick: () => choose(r.id) });
   const list = (rs) => rs.flatMap((r, i) => [i ? ", " : "", link(r), ` (${r.kind})`]);
   $("about-list").replaceChildren(

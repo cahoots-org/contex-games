@@ -1103,6 +1103,14 @@ def test_narrow_screens_keep_the_stage_and_slide_the_case_and_people_in_as_drawe
     assert "openDrawer(null, true);" in page[page.index('if (ev.key !== "Escape"'):]
 
 
+def test_the_publish_composer_takes_over_the_stage(game):
+    page = game.client.get("/").text
+    assert ".citing .stage, .citing .rail-foot { display: none; }" in page
+    assert ".citing .desk { grid-column: 1 / 3;" in page
+    publish = page[page.index("function openPublish(on)"):page.index("function cited()")]
+    assert 'if (drawers.matches) openDrawer($("desk"));' in publish
+
+
 def test_the_district_map_opens_from_the_header_once_there_are_districts(game):
     page = game.client.get("/").text
     head = page[page.index("<header>"):page.index("</header>")]
