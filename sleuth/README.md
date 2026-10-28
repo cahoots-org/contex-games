@@ -7,7 +7,8 @@ The design is in [docs/superpowers/specs/2026-10-25-sleuth-design.md](../docs/su
 ## The town
 
 The public places are the cafe, gym, school, bar, dog park, hardware store, grocery, town hall and library.
-Households live on elm, oak or maple street, and each street is one place. Every job is at one of those places or done
+Households live on elm, oak or maple street, and each street is one place; a resident's line that names any other
+street is never said or posted. Every job is at one of those places or done
 from home (a night shift out of town counts as home by day): town generation asks for that and draws again for a
 resident whose job names nowhere in town. A job that names its place sets the work place (a barista works at the
 cafe, a librarian at the library), and Jev picks the rest, and each resident's evening place, once; the day runs

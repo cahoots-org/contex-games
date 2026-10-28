@@ -8,6 +8,7 @@ from sleuth.actions import STYLES
 from sleuth.case import misdated
 from sleuth.decide import Decision
 from sleuth.models import Villager
+from sleuth.town import STREETS
 from sleuth.traits import TRAITS
 from sleuth.usage import charged_to
 
@@ -46,6 +47,16 @@ def first_line(text: str) -> str:
     line = text.strip().split("\n")[0]
     line = re.sub(r"\s{2,}", " ", STAGE_DIRECTION.sub("", line))
     return line.strip().strip('"\u201c\u201d').strip()
+
+
+# A named street, like "Main Street".
+STREET = re.compile(r"\b[A-Z][\w'-]* (?:Street|St\b\.?|Avenue|Ave\b\.?|Road|Rd\b\.?|Lane|Boulevard|Blvd\b\.?|Drive)")
+
+
+def town_line(text: str) -> str:
+    """The first line of a reply, or nothing when it names a street the town doesn't have."""
+    line = first_line(text)
+    return "" if any(m.group().lower() not in STREETS for m in STREET.finditer(line)) else line
 
 
 def extract_json(text: str):
@@ -165,7 +176,7 @@ class Writer:
             lines.append(f"What you heard: {source_text}")
             lines.append("Do not say or hint who started this story.")
         lines += _timing(now, when)
-        return first_line(await self.complete(system, "\n".join(lines), max_tokens=SAY_MAX_TOKENS, whole=True))
+        return town_line(await self.complete(system, "\n".join(lines), max_tokens=SAY_MAX_TOKENS, whole=True))
 
     async def reply(
         self, villager: Villager, case: str, question: str, thread: Sequence[dict], facts: Sequence[str],
@@ -204,7 +215,7 @@ class Writer:
         lines.append(f"Podcaster: {question}")
         if facts:
             lines.append("Facts: " + " / ".join(facts))
-        return first_line(await self.complete(system, "\n".join(lines), max_tokens=ANSWER_MAX_TOKENS))
+        return town_line(await self.complete(system, "\n".join(lines), max_tokens=ANSWER_MAX_TOKENS))
 
     async def post(self, villager: Villager, kind: str, case_text: str | None, somber: bool = False) -> str:
         """The villager's post of kind on the neighborhood app, in their voice, adding no fact about the open case,
@@ -219,4 +230,4 @@ class Writer:
             + "No stage directions, no quotation marks, no preamble."
         )
         user = f"The open case: {case_text}" if case_text else "Write your post."
-        return first_line(await self.complete(system, user, max_tokens=SAY_MAX_TOKENS, whole=True))
+        return town_line(await self.complete(system, user, max_tokens=SAY_MAX_TOKENS, whole=True))

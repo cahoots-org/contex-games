@@ -70,6 +70,21 @@ async def test_say_is_plain_short_chat_not_whispered_gossip():
     assert not any(w in system.lower() for w in ("gossip", "secret", "whisper", "psst", "relish"))
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text, kept", [
+    ("Half the people on Main Street saw nothing.", False),
+    ("It's on the Ferris Street bulletin board.", False),
+    ("Elm Street is buzzing about it.", True),
+    ("Nobody on our street saw a thing.", True),
+])
+async def test_a_line_naming_a_street_the_town_lacks_is_dropped(text, kept):
+    writer = Writer(StubClient(text, text, text), "haiku-test")
+    said = [await writer.say(villager(), Decision("speak", None, None, None), None, "all"),
+            await writer.reply(villager(), "Someone stole a bike.", "Hi?", [], []),
+            await writer.post(villager(), "a gripe", None)]
+    assert said == ([text] * 3 if kept else [""] * 3)
+
+
 def test_first_line_drops_stage_directions():
     raw = "*lowers voice conspiratorially* Mark my words, the taxes are *really* climbing."
     assert first_line(raw) == "Mark my words, the taxes are climbing."
