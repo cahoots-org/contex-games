@@ -286,3 +286,149 @@ and anyone who moved in was a stand-in with no model calls.
 Each case still needs a culprit, and every serious culprit is arrested and leaves town. So the count of distinct
 offenders mostly follows how many cases open. The cap bounds what a player sees: how much of the town they live
 beside has offended.
+
+## Playtest 2
+
+A second town, generated fresh so the fixes after playtest 1 applied from the start, played from day 1 to day 12
+against the same live Contex with real Jev and Haiku. Ten fix commits landed along the way.
+
+### Setup
+
+- Game server on 8790, session `lt28c`, data in a scratch `live2/` directory, the same pacing knobs as round 1
+  (including the two district decay overrides from the start) and `SLEUTH_DAILY_SPEND_CAP=3`.
+- Round 1's oracle and loop, unchanged except for the session. Podcaster A kept a WebSocket open throughout, as a
+  player with a tab would; B also did, for the leak scan. The loop played every open petty and serious case each part
+  of the day. It skipped major cases, so the first death was worked by hand.
+- Five restarts to pick up fixes, each a SIGINT, each restoring the town intact.
+
+### Log
+
+- **Day 0 to 1.** The town was generated with 24 residents. A held case-1 (Lorna Vance, a jam, petty) and case-6
+  (Fiona Marchetti, a portrait moustache, petty). A moved to "Known in town" and the serious tier.
+- **Day 1.** The jobs spot-check found two residents whose job contradicted the game: Opal Vanterpool,
+  "schoolteacher, works out of town", spent the day at the school, and Murray Kettering, "night attendant at the
+  gym", spent the day at the gym. Fixed (`b40dddb`). On restart the saved routine was asked again and both were home
+  by day.
+- **Day 1 to 3.** No serious case opened from day 1 evening to day 3 morning. That was A being idle with no tab
+  open, which is how a serious tier is meant to lapse. A's WebSocket was kept open from then on. The first serious
+  case (Silas Ferreira mugging Fiona Marchetti at the bar) was held by A; "Silas Ferreira was arrested and has left
+  town." was followed by "Imogen Parrish moved in on Elm Street. Children's librarian at the library."
+- **Day 3 to 4.** The app showed a post cut at "on my 6 a.m." (`0666309`), a post saying "whoever cut up Gordon
+  Pike's prize quilt" while the open case it was checked against was a mugging (`77e2db7`, `07560dc`).
+- **Day 4 morning: the death.** With A at "Town legend", Gordon Pike, a petty offender moved up, killed Dolores
+  Finch at the grocery. Her window was night to morning; the truth was morning.
+- **Day 5 to 6.** A worked the death by hand (below) and held it. Four fixes came out of it: `ceb97bf`, `fc17379`,
+  `a3678fb`, `37d1a7a`.
+- **Day 6 to 9.** Four newcomers in a row moved in as "Barista at the cafe", and three move-ins failed outright
+  because Haiku kept offering taken first names, leaving three homes empty. Fixed (`91dfc8d`); the next move-ins
+  were a bookkeeper, a hardware store cashier and a dog park attendant, and the homes filled. A second death
+  (Lorenzo Pike killing Agnes Pruitt on Oak Street) opened on day 7 and B held it through the loop.
+- **Day 9 to 10.** Victims retold the app's news of their own case about themselves (`78d07a5`).
+- **Day 10 to 12.** A third death (Derek Lindqvist killing Lottie Abernathy-Pryce, window evening to night) opened
+  and was still open when the run stopped.
+
+### Cases
+
+40 held episodes and none gone cold: 27 petty, 11 serious and 2 major. 13 serious and major culprits were arrested;
+with the three deaths, 16 residents left and 16 moved in. No wrong episode was taken this round.
+
+### Goals
+
+**1. A major case, worked naturally, held ✓.** case-1038, "The death of Dolores Finch".
+- News: "Dolores Finch was found dead at the grocery. It happened sometime between last night and this morning.
+  Police are treating it as suspicious." No how, no gore.
+- Questions A asked, in order: Derek Lindqvist (the finder) "I'm so sorry. I heard you were the one who found
+  Dolores. Can you tell me what happened?" and "Did you see anyone else around the grocery that morning?"; Nadia
+  Brandt "Were you at the grocery when Dolores died?"; Lorna Vance (her spouse) "Was there anyone who'd want to hurt
+  her?" and "When did you last see her?"; Tamsin Overby (a rival) "How did you get along with Dolores Finch?";
+  Priya Raman (a rival) and Gordon Pike "Where were you when Dolores died?"; then the scene's search and records.
+- Replies stayed sober. Lorna: "I won't pretend I'm not hurting, and I'd rather not speculate about who might have
+  wanted to harm Dolores. What I can tell you is that Tamsin Overby has never got on with Dolores, and Priya Raman
+  has never got on with her either." Gordon, the culprit: "Well enough to say good morning to, and that's about the
+  extent of it."
+- Posts stayed sober and said nothing of how. Edith Monroe-Shaw: "I can't stop thinking about Dolores Finch, who
+  always had a kind word for the cashiers and always remembered to ask after my sketchbook." Retold: "Oh, goodness,
+  the app says Dolores Finch was found dead at the grocery, and police are calling it suspicious, so I'm worried
+  sick for her family."
+- The window held everywhere it was said. Posts and alibis gave only the window ("between two nights ago and
+  yesterday morning"; "I was on Maple Street, sometime between ..."). The morning showed only in the evidence:
+  sightings at 7:25am, 7:58am and 8:01am, the camera at 7:41am and Gordon's receipts at 7:00am and 7:33am. That is
+  the detective work, not a leak.
+- A published Gordon Pike citing two sightings, the clip and his two receipts: "It holds up. Case closed." The app
+  said "Gordon Pike was arrested and has left town." and "Maple Street breathes a little easier now Gordon Pike's
+  been found out."
+- Screenshots: the case before publishing ([p2-major-before.jpg](2026-10-28-living-town/p2-major-before.jpg)) and
+  the app after ([p2-major-app.jpg](2026-10-28-living-town/p2-major-app.jpg)).
+
+**2. Round-1 ripples ✓.**
+- Several cases solved: 40 held, each followed by a new tip of its tier.
+- Petty exposure: D exposed Ingrid Solberg on case-1007; D's interviews with her on the next case were refused
+  ("Ingrid Solberg won't talk to you."). The people list tags the exposed with what they did. Thanks and relief
+  posts followed every petty hold, for example "Thanks to that podcast, everyone knows who let out my dog!" and
+  "Oak Street breathes a little easier now Ruben Castellanos's been found out."
+- Arrest and newcomer: 13 arrests, each followed by a move-in (after `91dfc8d`).
+- Watch and crime moving: watches formed on all three streets by day 5. Maple Street's crime fell from 0.65 on day 4
+  to 0 by day 8 and its watch wound down ("The Maple Street Group Chat has wound down. Maple Street feels safe
+  again."), while Elm and Oak climbed to full.
+- Standing to tips: A went "New podcaster" (day 1 morning) to "Known in town" (day 1 evening) to "Town legend" (day
+  4). On day 10 A's tips were a serious mugging and a petty bike; a new podcaster (E) saw only the petty bike.
+
+**3. The fixes ✓, with gaps.**
+- Jobs fit routines: 22 of 24 generated residents had a job at a named place they worked at, or a home job and were
+  home by day. The two that didn't are fixed in `b40dddb`.
+- Offender share: the set held at 3 to 5 throughout. Of 21 residents on day 9, 4 had been a culprit.
+- No invented methods: after `77e2db7` and `07560dc`, none of the last 109 app events named a method. Before them,
+  "whoever cut up Gordon Pike's prize quilt" got through as an unchecked post.
+- Gossip shows as hearsay: every retold line showed as "{name} heard: ...". Hearsay still embellishes, by design,
+  for example "slashed it right down the middle".
+- No invented street names in any post.
+
+**4. Un-fun or confusing to a player.** See open issues 1 to 6.
+
+### Leaks
+
+349 saved payloads (`/api/state`, `/api/case`, `/api/villagers/*` and WebSocket frames for A and B), 0 hits for
+offender flags, a resident's tier, raw district floats, warmth or `sound`.
+
+### Fixes
+
+Each was test-first, with its own commit, and passed the full suite (856 passed, 9 skipped at the end), `ruff check
+.` and `node --check` on the page's script before committing.
+
+| Commit | What the playtest showed | Fix |
+|---|---|---|
+| `b40dddb` | "Schoolteacher, works out of town" at the school all day; "night attendant at the gym" at the gym all day. | Any job at night or out of town is home by day. |
+| `0666309` | A cut-off post ended "... by the hedges on my 6 a.m." | A cut line never ends at "a.m.", "p.m.", "Mr.", "Mrs.", "Ms.", "Dr." or "St.". |
+| `77e2db7` | "Whoever cut up Gordon Pike's prize quilt" passed: chatter was checked only against the first open case. | Chatter gets and is checked against every open shared case; somber if any is a death. |
+| `07560dc` | Quilts "cut up" and "ripped to shreds with scissors". | "Cut up/open", "scissors" and "shredded" are methods. |
+| `ceb97bf` | The finder said "Around 8:23am, me found Dolores Finch at the grocery." | "I found Dolores Finch". |
+| `fc17379` | Every reply Haiku wrote for the finder was thrown away, so two questions got the same stiff record. "Found her" counted as gendering the unknown someone, and "black puffer jacket" as a new look. | A pronoun right after "found" is allowed, and "jacket" or "coat" when the facts name a coat. |
+| `a3678fb` | The death's news read "sometime between two days ago, at night and yesterday morning". | "Sometime between the night before last and yesterday morning". |
+| `37d1a7a` | Dolores was found dead at 8:23am and had a grocery receipt at 8:45am. | A death's victim is logged only before the death. |
+| `91dfc8d` | Four newcomers in a row were baristas; three move-ins failed on taken first names and homes stood empty. | A newcomer's workplace and first initial are drawn. Eight live draws all succeeded. |
+| `78d07a5` | "Jolene Pruitt heard: Oh, I'm so worried about Jolene ..." | A retold case line that names its teller is dropped. |
+
+### Spend
+
+The game's own estimate for the session: **$0.088**, Haiku 262k in / 59k out and Jev 817k in / 187k out, including
+generation and 16 newcomers. Per podcaster: A $0.0080, B $0.0076, C $0.0020, D $0.0085.
+
+### Open issues
+
+1. **Invented people and places in hearsay.** "That Halvorsen boy who always buys energy drinks", "the Hollis kid from
+   the bakery". Neither exists, and the town has no bakery; a player could go looking. The street-name check doesn't
+   cover names or places.
+2. **Hearsay choruses.** One stolen thermos drew six near-identical "I'm so worried, love, poor thing" retellings in
+   a row. Readable once, noise by the third.
+3. **A natural question gets a shrug.** "How did you get along with Dolores Finch?" to her rival got "Can't help you
+   there."; "When did you last see her?" to her spouse got "No idea, I'm afraid." Relationship questions have no
+   intent, so the people with the most to say about a death say nothing.
+4. **Older windows still read clumsily.** Two or more days on, the death's news says "sometime between three days
+   ago, at night and two days ago, in the morning".
+5. **Once every street has a watch, the panel says little.** From day 5 all three streets were organized, so the
+   watch weighting was even and the "watch moves crime" ripple stopped being visible.
+6. **A new podcaster can arrive to no tip.** On day 9 night no petty case was open for part of a day while every
+   petty offender was lying low; the refill only opens one on the next tick.
+7. **Residents mention the game's day count.** "The app says last night, and it's day six now". Once.
+8. **"Breathes a little easier" after an arrest for a death** is the same line as for a stolen gnome. It reads a
+   little light for a killing.
