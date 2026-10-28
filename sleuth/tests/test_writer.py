@@ -211,6 +211,18 @@ def test_a_pronoun_may_refer_back_to_a_named_resident_but_never_give_someone_a_g
 
 
 @pytest.mark.parametrize("line, invented", [
+    ("I was the one who found her, around 8:23am. Someone tall in a black puffer jacket was arguing with someone.",
+     False),
+    ("Someone tall in a black puffer was arguing with her.", True),
+    ("Someone tall in a denim jacket was arguing with someone.", True),
+])
+def test_a_finder_may_say_found_her_and_call_a_puffer_a_jacket(line, invented):
+    facts = ("Lorraine Pike was found dead at the grocery. Around 7:58am, at the grocery, someone tall, in a black "
+             "puffer was arguing with someone. Around 8:23am, Ada Reyes found Lorraine Pike at the grocery.")
+    assert invents_facts(line, facts, FIRSTS) is invented
+
+
+@pytest.mark.parametrize("line, invented", [
     ("Somebody took a bat to Lorraine's car on Oak Street last night.", True),
     ("Whoever smashed Lorraine's car should be ashamed.", True),
     ("I bet they left the keys in the ignition.", True),

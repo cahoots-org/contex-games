@@ -90,9 +90,10 @@ def _clock(text: str) -> str:
 def invents_facts(line: str, allowed: str, firsts: set[str]) -> bool:
     """Whether the line adds a case fact allowed lacks: a look, a time, how it was done, a resident placed or sighted,
     or a gender for an unknown someone. A pronoun may refer back to a resident the line names, when no unknown someone
-    is in it."""
+    is in it, or be whom someone found."""
     clocks = {_clock(m.group()) for m in CLOCK.finditer(allowed)}
-    looks = allowed + (" bicycle" if _has("bike", allowed) else "")
+    looks = allowed + (" bicycle" if _has("bike", allowed) else "") + (
+        " jacket coat" if any(_has(c, allowed) for c in TRAITS["coat"]) else "")
     named = [m.start() for f in firsts if (m := re.search(rf"\b{re.escape(f)}\b", line))]
     after = min(named) if named and not UNKNOWN.search(line) else len(line)
     return (
@@ -103,7 +104,7 @@ def invents_facts(line: str, allowed: str, firsts: set[str]) -> bool:
         or any(PLACED.search(s) and any(_has(f, s) and not _has(f, allowed) for f in firsts)
                for s in SENTENCE_END.split(line))
         or any(not _has(m.group(), allowed) and m.start() <= after
-               for m in re.finditer(rf"\b(?:{'|'.join(PRONOUNS)})\b", line, re.IGNORECASE))
+               for m in re.finditer(rf"(?<!\bfound )\b(?:{'|'.join(PRONOUNS)})\b", line, re.IGNORECASE))
     )
 
 
