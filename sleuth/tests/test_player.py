@@ -1024,6 +1024,7 @@ async def test_publish_refuses_a_repeated_citation_without_spending_the_episode(
     ("Eli Reyes heard from Kit Tran: someone tall took a bike", "Kit Tran told me: someone tall took a bike"),
     ("Around 11:58pm, Eli Reyes found the bike missing on Elm Street.",
      "Around 11:58pm, I found my bike missing on Elm Street."),
+    ("Around 8:23am, Eli Reyes found Hal Burke at the grocery.", "Around 8:23am, I found Hal Burke at the grocery."),
     ("Kit Tran told me: someone tall took a bike", "Kit Tran told me: someone tall took a bike"),
 ])
 def test_a_fallback_line_is_said_in_the_resident_s_own_voice(text, said):

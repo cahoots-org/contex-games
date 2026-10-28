@@ -76,7 +76,7 @@ def voiced(text: str, name: str) -> str:
         said, n = re.subn(rf"^{re.escape(name)}{third}", first, text)
         if n:
             return said.replace(name, "me")
-    return text.replace(f"{name} found the ", "I found my ").replace(name, "me")
+    return text.replace(f"{name} found the ", "I found my ").replace(f"{name} found ", "I found ").replace(name, "me")
 
 
 # ponytail: phrase lists, not judges; they only ever swap a model line for the plain record text.
