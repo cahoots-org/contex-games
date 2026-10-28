@@ -143,11 +143,16 @@ class Cases:
         engine.feed.on_case_closed(crime.id, "")
         town = [v.id for v in self.town.villagers if v.id != crime.culprit]
         engine.reputation.nudge_all(player_id, self.config.reputation_right, town)
-        if crime.tier == "petty":
+        await self._unmask(engine, file, player_id)
+        await self.ensure(engine)
+
+    async def _unmask(self, engine, file: CaseFile, player_id: str | None = None) -> None:
+        """The town learns who did it, from a podcaster's episode or a case gone cold: a petty culprit is exposed, any
+        other arrested."""
+        if file.crime.tier == "petty":
             self._expose(engine, file, player_id)
         else:
-            await self.arrest(engine, crime.culprit)
-        await self.ensure(engine)
+            await self.arrest(engine, file.crime.culprit)
 
     async def arrest(self, engine, vid: str) -> asyncio.Task:
         """The resident is arrested and leaves town at once; returns the task of someone moving in on their street."""
@@ -169,14 +174,16 @@ class Cases:
             them.household and v.household == them.household or warmth_words(v.warmth.get(accused, 0.0)) == "close")]
         engine.reputation.nudge_all(player_id, config.reputation_accused_ties, ties)
 
-    def _expose(self, engine, file: CaseFile, player_id: str) -> None:
-        """The town learns what the culprit did, and they lie low, cold to the podcaster; the victim's household warms
-        to the podcaster, and the victim says thanks on the app."""
+    def _expose(self, engine, file: CaseFile, player_id: str | None) -> None:
+        """The town learns what the culprit did, and they lie low. When a podcaster exposed them, the culprit is cold to
+        the podcaster, the victim's household warms to them, and the victim says thanks on the app."""
         crime, config = file.crime, self.config
         victim = self.town.get(crime.victim)
         self.offenders.exposed[crime.culprit] = f"{CRIMES[crime.template].did} {victim.name}'s {crime.item}"
         if offender := self.offenders.active.get(crime.culprit):
             offender.quiet_until = int(self.now) + config.exposed_quiet_days
+        if player_id is None:
+            return
         engine.reputation.nudge(crime.culprit, player_id, config.reputation_exposed)
         household = {victim.id, *(v.id for v in self.town.villagers if victim.household and v.household == victim.household)}
         engine.reputation.nudge_all(player_id, config.reputation_ally, household)
@@ -220,8 +227,8 @@ class Cases:
         self.town.dress(day, self.rng, self.cautious(day), math.ceil(self.config.case_days) + 2)
 
     async def on_tick(self, engine, day: int, phase: str, finished: dict[str, list[str]]) -> None:
-        """Dress the town, let exposed offenders reform of a morning, let old cases go cold, and open a new shared case
-        when none is open."""
+        """Dress the town, let exposed offenders reform of a morning, let old cases go cold, their culprits made known,
+        and open a new shared case when none is open."""
         self.dress(day)
         if phase == "morning":
             self.offenders.new_day(day, self.rng)
@@ -233,6 +240,7 @@ class Cases:
                 self.offenders.escaped_with(case.crime.culprit)
                 cold = COLD.format(name=self.town.name_of(case.crime.culprit))
                 engine.feed.on_case_closed(case.crime.id, cold)
+                await self._unmask(engine, case)
         await self.ensure(engine)
 
     async def ensure(self, engine, now: float | None = None) -> None:

@@ -494,3 +494,25 @@ def test_named_round_trips_with_the_case():
     fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
     fresh.restore(json.loads(json.dumps(cases.to_state())))
     assert fresh.files["case-1"].named == {"p-1": "v5", "p-2": "v3"}
+
+
+@pytest.mark.asyncio
+async def test_a_petty_case_gone_cold_exposes_its_culprit_to_the_town():
+    cases, engine, town = make_cases()
+    await tick(cases, engine)
+    crime = cases.shared().crime
+    await tick(cases, engine, day=5)
+    assert crime.culprit in town and cases.offenders.exposed[crime.culprit].startswith("stole ")
+    assert cases.offenders.active[crime.culprit].quiet_until == 5 + cases.config.exposed_quiet_days
+    assert engine.reputation.to_state() == {} and not [e for e in engine.feed.recent if "podcast!" in e.line]
+
+
+@pytest.mark.asyncio
+async def test_a_serious_case_gone_cold_has_its_culprit_arrested():
+    cases, engine, town = make_cases()
+    file = culprit_file(cases)
+    file.crime.tier = "serious"
+    cases.offenders.active["v3"] = Offender("serious")
+    await tick(cases, engine, day=5)
+    assert file.state == "closed" and "v3" not in town and "v3" not in cases.offenders.active
+    assert "Fay Okafor was arrested and has left town." in [e.data.get("text") for e in engine.feed.recent]
