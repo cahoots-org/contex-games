@@ -355,9 +355,10 @@ class Cases:
             if self.rng.random() < self.config.turn_chance:
                 self.offenders.turn([v.id for v in self.town.villagers if v.home == street], self.rng)
 
-    def _refill(self) -> None:
-        """Refill a set below min_offenders up to offenders from districts without a watch."""
-        if len(self.offenders.active) >= self.config.min_offenders:
+    def _refill(self, day: int) -> None:
+        """Refill a set below min_offenders, or with no petty offender free to offend on day, up to offenders from
+        districts without a watch."""
+        if len(self.offenders.active) >= self.config.min_offenders and self.offenders.ready(day, TIERS[0]):
             return
         calm = [s for s in STREETS if self.districts is None or not self.districts.organized(s)]
         self.offenders.top_up(self.town, self.rng, [v.id for v in self.town.villagers if v.home in calm])
@@ -373,7 +374,7 @@ class Cases:
         before = self.now - 1 / len(PHASES)
         day, phase = math.floor(before), PHASES[int(before % 1 * len(PHASES))]
         pictured = {vid for p in engine.album.photos if (p.day, p.phase) == (day, phase) for vid in p.people}
-        self._refill()
+        self._refill(day)
         for tier in missing:
             await self._stage(engine, tier, day, phase, pictured)
 

@@ -893,3 +893,13 @@ async def test_a_death_is_found_only_by_someone_at_the_scene():
     cases.routine = make_routine(night={"v2": "gym", "v3": "gym", "v4": "gym"})
     await cases._stage(engine, "major", 1, "night", set())
     assert not cases.open_shared("major") and "v1" in town
+
+
+@pytest.mark.asyncio
+async def test_a_petty_case_opens_when_every_petty_offender_is_lying_low():
+    cases, engine, _ = make_cases(offenders=4, min_offenders=3)
+    cases.offenders.active = {"v3": Offender(quiet_until=9), "v5": Offender("serious"), "v6": Offender("serious")}
+    cases.offenders.exposed["v3"] = "stole Dana Reyes's bike"
+    await tick(cases, engine)
+    [case] = cases.open_shared("petty")
+    assert case.crime.culprit not in {"v3", "v5", "v6"} and cases.offenders.active[case.crime.culprit].tier == "petty"

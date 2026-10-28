@@ -51,7 +51,7 @@ they saw, and the neighborhood app posts the news. A case shows at the top of th
 and any other is arrested, and any accomplice is exposed for covering for them.
 
 **Offenders.** Only a few residents commit crimes: `offenders` of them, picked at random and topped back up whenever
-the set falls below `min_offenders`. Nobody can see who they are, not the page, not the people list, not the other residents. They
+the set falls below `min_offenders` or no petty offender is free to offend (all lying low). Nobody can see who they are, not the page, not the people list, not the other residents. They
 don't make a case any easier or harder: the evidence still has to narrow to the culprit among everyone in town. An
 offender who gets away with it `escalate_after` times moves up to a bigger kind of crime, once the catalog has one, unless they are the last offender at their tier.
 
@@ -80,7 +80,7 @@ crime moves elsewhere. It winds down, said on the app, once the district's crime
 
 **How the districts connect.** Each morning a neglected district, one with no watch whose crime and fear are both at
 least `neglect_at`, turns one of its residents who has never been exposed into a petty offender with `turn_chance`,
-until the set reaches `max_offenders`. Whenever the set falls below `min_offenders`, it is refilled only from
+until the set reaches `max_offenders`. Whenever the set is refilled, it is refilled only from
 districts without a watch. So a district left to itself breeds crime, while one that organizes pushes crime elsewhere
 and breeds none. The app reacts at once, in code copy: a crime that raises a street's fear level leaves it "on edge after" the case,
 and a held episode lets it breathe a little easier now the culprit's been found out. Residents feel their street: a district on edge or rattled, and whether a watch is on it, is in what
