@@ -56,36 +56,41 @@ button, input, select { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
 h2 { font: 500 1.2rem/1.2 var(--serif); margin: 0; }
 
+/* Three columns under the header: the case and notebook, quiet on the left; the conversation, the stage, in the
+   middle; people to pick from on the right. */
 .app {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 25rem);
+  grid-template-columns: minmax(14rem, 17rem) minmax(0, 1fr) minmax(13rem, 16rem);
   grid-template-rows: auto minmax(0, 1fr);
   height: 100dvh;
 }
 header {
   grid-column: 1 / -1;
-  display: flex; align-items: center; gap: .5rem 1.25rem;
-  padding: .35rem 1.5rem; border-bottom: 1px solid var(--rail);
+  display: flex; align-items: center; gap: .5rem 1rem; min-width: 0;
+  padding: .35rem 1rem .35rem 1.25rem; border-bottom: 1px solid var(--rail);
 }
 h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
-.clock { margin: 0 0 0 auto; font-size: .9rem; white-space: nowrap; }
-.standing { margin: 0; font-size: .9rem; white-space: nowrap; }
+.headline { display: flex; align-items: baseline; gap: .6rem; min-width: 0; margin: 0 0 0 .75rem; padding-left: 1rem; border-left: 1px solid var(--rail); }
+.case-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 500 1.2rem/1.3 var(--serif); }
+.when { flex: none; color: var(--muted); font-size: .9rem; white-space: nowrap; }
+.clock { margin: 0 0 0 auto; font-size: .9rem; white-space: nowrap; color: var(--muted); }
 /* The connection says something only when it is lost. */
 .conn { font-size: .875rem; color: var(--danger); }
 .conn:not([data-state="down"]) { display: none; }
 
-/* The left column: the case, the notebook, and where you are. */
-.desk { overflow-y: auto; min-height: 0; padding: 1.25rem 1.5rem 2rem; }
-.desk > * { max-width: 46rem; }
-.desk > * + * { margin-top: 1.5rem; }
-
-.case-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.case-actions { display: flex; align-items: center; gap: .5rem; white-space: nowrap; }
-.case-title { font: 500 1.9rem/1.15 var(--serif); margin: .15rem 0 .3rem; }
-.tips { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: 0 0 .4rem; font-size: .875rem; }
+/* The rails: narrow, on the panel color, each scrolling on its own. */
+.rail { overflow-y: auto; min-height: 0; background: var(--panel); }
+.desk { display: flex; flex-direction: column; gap: 1.5rem; padding: 1.1rem 1.1rem 0; border-right: 1px solid var(--rail); }
+.rail-foot {
+  position: sticky; bottom: 0; margin: auto -1.1rem 0; padding: .75rem 1.1rem 1rem;
+  background: var(--panel); border-top: 1px solid var(--rail);
+}
+.rail-foot .plain-button { width: 100%; min-height: 40px; }
+.standing { margin: .5rem 0 0; font-size: .8rem; color: var(--muted); }
+.tips { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: 0 0 .6rem; font-size: .8rem; }
 .tips [aria-pressed="true"] { font-weight: 600; }
-.case-text { margin: 0; font: 1.05rem/1.55 var(--serif); }
-.resting { margin: .75rem 0 0; padding: .45rem .75rem; border-radius: 4px; font-size: .9rem; border: 1px solid var(--edge); color: var(--muted); }
+.case-text { margin: 0; font: .95rem/1.5 var(--serif); }
+.resting { margin: .75rem 0 0; padding: .45rem .75rem; border-radius: 4px; font-size: .85rem; border: 1px solid var(--edge); color: var(--muted); }
 .primary {
   background: var(--accent); color: var(--on-accent); border: 0; border-radius: 6px;
   padding: .45rem 1.1rem; font-weight: 700; cursor: pointer;
@@ -110,23 +115,16 @@ select, input[type="text"], input[type="search"] {
 .status.error { color: var(--danger); }
 .status:empty { min-height: 0; margin: 0; }
 
-/* The notebook: kinds in the margin, left of a ruled line, newest entry first. */
-.group {
-  display: grid; grid-template-columns: 4.5rem minmax(0, 1fr);
-  border-top: 1px solid var(--rail);
-}
-.group:first-child { margin-top: .5rem; }
-.group h3 {
-  margin: 0; padding: .4rem .6rem 0 0; text-align: right;
-  font: italic 400 1rem/1.4 var(--serif); color: var(--muted);
-  border-right: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
-}
-.group ol { list-style: none; margin: 0; padding: 0; }
-.group-note { margin: .4rem 0 0 .75rem; font-size: .8rem; color: var(--muted); }
-.group li { padding: .35rem 0 .35rem .75rem; font-size: .9rem; }
+/* The notebook: each kind over its entries, ruled down the margin, newest entry first. */
+.book h2 { font-size: 1.05rem; }
+.group { margin-top: .7rem; }
+.group h3 { margin: 0; font: italic 400 .95rem/1.3 var(--serif); color: var(--muted); }
+.group ol { list-style: none; margin: .2rem 0 0; padding: 0 0 0 .6rem; border-left: 1px solid color-mix(in srgb, var(--danger) 45%, transparent); }
+.group-note { margin: .1rem 0 0; font-size: .75rem; color: var(--muted); }
+.group li { padding: .3rem 0; font-size: .85rem; line-height: 1.4; }
 .group li + li { border-top: 1px dashed var(--rail); }
 .group label { display: flex; gap: .5rem; align-items: flex-start; }
-.group input { display: none; margin-top: .3rem; flex: none; }
+.group input { display: none; margin-top: .2rem; flex: none; }
 .citing .group input { display: block; }
 .citing .group label { cursor: pointer; }
 .by { color: var(--muted); }
@@ -202,53 +200,61 @@ select, input[type="text"], input[type="search"] {
 .feed .plain-button:disabled { color: var(--muted); border-color: var(--edge); cursor: default; }
 .face.big canvas { width: 44px; height: 44px; }
 
-/* The right column: people, then the conversation with whoever is picked. */
-.side {
-  display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1.3fr); min-height: 0;
-  background: var(--panel); border-left: 1px solid var(--rail);
-}
-.people { display: flex; flex-direction: column; min-height: 0; padding: 1rem 0 0; border-bottom: 1px solid var(--edge); }
-.people > h2, .people > input, .people > .status { margin-left: 1rem; margin-right: 1rem; }
+/* The right rail: people to pick from. */
+.side { display: flex; flex-direction: column; border-left: 1px solid var(--rail); }
+.people { display: flex; flex-direction: column; min-height: 0; flex: 1; padding: 1rem 0 0; }
+.people > h2, .people > input, .people > .status { margin-left: .9rem; margin-right: .9rem; }
+.people h2 { font-size: 1.05rem; }
 .people input { margin-top: .5rem; }
 .people .status { margin-top: .15rem; min-height: 0; }
-.list { list-style: none; margin: .35rem 0 0; padding: 0; overflow-y: auto; flex: 1; }
+.list { list-style: none; margin: .5rem 0 0; padding: 0; flex: 1; }
 .person {
-  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .65rem;
-  width: 100%; padding: .45rem 1rem; text-align: left;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .6rem;
+  width: 100%; padding: .4rem .9rem; text-align: left;
   background: none; border: 0; border-top: 1px solid var(--rail); cursor: pointer;
 }
 .person:hover { background: var(--bg); }
 .person[aria-current="true"] { background: var(--bg); box-shadow: inset 3px 0 var(--accent); }
-.who { min-width: 0; line-height: 1.3; }
-.who small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-size: .8rem; }
-.role { margin-left: .4rem; padding: 0 .35rem; border-radius: 3px; font-size: .72rem; font-weight: 700; vertical-align: .1rem; }
+.who { min-width: 0; line-height: 1.3; font-size: .9rem; }
+.who small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-size: .78rem; }
+.role { margin-left: .4rem; padding: 0 .35rem; border-radius: 3px; font-size: .7rem; font-weight: 700; vertical-align: .1rem; }
 .role.victim { border: 1px solid var(--danger); color: var(--danger); }
 .role.witness { background: var(--mark); color: var(--ink); }
 .role.nearby { border: 1px solid var(--edge); color: var(--muted); font-weight: 400; }
 .role.known { border: 1px dashed var(--danger); color: var(--muted); font-weight: 400; }
-.role.tier { margin-right: auto; border: 1px solid var(--edge); color: var(--muted); }
+.role.tier { flex: none; border: 1px solid var(--edge); color: var(--muted); }
 .face { display: inline-block; flex: none; line-height: 0; }
-.face canvas {
+.face canvas, .portrait canvas {
   width: 30px; height: 30px; border-radius: 6px; image-rendering: pixelated;
   outline: 1px solid var(--face-edge); outline-offset: -1px;
 }
 
-.convo { display: flex; flex-direction: column; min-height: 0; padding: 1rem; scroll-margin-top: 56px; }
-.convo h2 { display: flex; align-items: center; gap: .6rem; }
-.convo .meta { margin: .35rem 0 0; font-size: .85rem; color: var(--muted); }
-.convo .meta:empty { display: none; }
+/* The stage: whoever you are talking to, large, their words the loudest thing on the page. */
+.stage { display: flex; justify-content: center; min-height: 0; padding: 0 2rem; }
+.pick, .talk { display: flex; flex-direction: column; width: 100%; max-width: 40rem; min-height: 0; }
+.who-head { display: flex; align-items: flex-end; gap: 1.25rem; padding: 1.75rem 0 1rem; border-bottom: 1px solid var(--rail); }
+.portrait canvas { display: block; width: 132px; height: 132px; border-radius: 12px; }
+.talk h2 { font-size: 2.1rem; line-height: 1.1; }
+.talk .meta { margin: .3rem 0 0; color: var(--muted); }
+.talk .meta:empty { display: none; }
 .about { font-size: .85rem; }
-.about summary { color: var(--accent); cursor: pointer; margin-top: .2rem; }
-.about dl { margin: .25rem 0 0; }
+.about summary { color: var(--accent); cursor: pointer; margin-top: .3rem; }
+.about dl { margin: .25rem 0 0; max-height: 12rem; overflow-y: auto; }
 .about dt { color: var(--muted); font-size: .8rem; }
 .about dd { margin: 0 0 .3rem; }
-.thread { list-style: none; margin: .5rem 0 0; padding: 0; overflow-y: auto; flex: 1; }
-.thread li { padding: .5rem 0; border-top: 1px solid var(--rail); }
+/* Earlier exchanges small and quiet above; the latest reply large, just over the question box. */
+.thread { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; list-style: none; margin: 0; padding: 1rem 0 .5rem; }
+.thread li:first-child { margin-top: auto; }
+.thread li { padding: .45rem 0; color: var(--muted); }
 .thread p { margin: 0; }
-.you { color: var(--muted); font-size: .875rem; }
-.said { margin-top: .15rem; font: 1.02rem/1.5 var(--serif); }
+.you { font-size: .85rem; color: var(--muted); }
+.said { margin-top: .1rem; font: 1.05rem/1.5 var(--serif); }
+.thread li:last-child { padding-top: 1rem; color: var(--ink); }
+.thread li:last-child .said { margin-top: .35rem; font-size: 1.75rem; line-height: 1.35; }
+.thread [data-none] { font: italic 1.2rem/1.4 var(--serif); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 /* "Noted" on a reply that added to the notebook; what it added shows while the marker is hovered or focused. */
-.noted { margin-top: .2rem; font-size: .75rem; color: var(--muted); }
+.noted { margin-top: .3rem; font-size: .8rem; color: var(--muted); }
 .noted span { cursor: help; color: var(--accent); font-weight: 700; }
 .noted span + span {
   display: block; margin-top: .15rem; padding-left: .6rem; border-left: 2px solid var(--accent);
@@ -256,9 +262,26 @@ select, input[type="text"], input[type="search"] {
 }
 /* Hidden from sight, not from screen readers, until shown. */
 .noted:not(:hover) span:not(:focus) + span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-.ask { display: flex; gap: .4rem; margin-top: .6rem; }
-.ask input { flex: 1; }
+.ask { display: flex; gap: .5rem; margin: .5rem 0 0; padding: .4rem; border: 2px solid var(--accent); border-radius: 12px; background: var(--bg); }
+.ask input { flex: 1; border: 0; background: none; font-size: 1.1rem; padding: .45rem .6rem; }
+.ask input:focus-visible { outline: none; }
+.ask:focus-within { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.talk > .status { margin-bottom: 1.25rem; }
+.talk > .status:empty { min-height: 1.25rem; margin: 0 0 1rem; }
 
+/* With nobody picked, the stage asks who to start with. */
+.pick { justify-content: center; padding-bottom: 4rem; }
+.pick h2 { font-size: 2.1rem; line-height: 1.15; }
+.pick > p { margin: .5rem 0 0; color: var(--muted); }
+.leads { list-style: none; margin: 1.5rem 0 0; padding: 0; display: grid; gap: .6rem; }
+.lead {
+  display: flex; align-items: center; gap: 1rem; width: 100%; padding: .75rem 1rem; text-align: left;
+  background: var(--panel); border: 1px solid var(--rail); border-radius: 12px; cursor: pointer;
+}
+.lead:hover { border-color: var(--accent); }
+.lead .face canvas { width: 60px; height: 60px; border-radius: 8px; }
+.lead .who { font-size: 1.1rem; }
+.lead .who small { font-size: .85rem; }
 
 /* The tutorial layer: its own raised cards over the game, never part of it, and a ring on what the current step needs. */
 .tut {
@@ -308,20 +331,18 @@ select, input[type="text"], input[type="search"] {
   @keyframes beckon { 50% { outline-color: rgb(240 196 90 / .45); } }
 }
 
-@media (max-width: 900px) {
-  header, .desk { padding-left: 1rem; padding-right: 1rem; }
-  .group { grid-template-columns: 3.9rem minmax(0, 1fr); }
-}
-/* A phone: one column, the case, then people, then the conversation. */
+/* A phone: one column, the conversation, then the case, then people. */
 @media (max-width: 600px) {
-  .app { display: block; height: auto; }
+  .app { display: flex; flex-direction: column; height: auto; }
+  .stage { order: 1; min-height: 85dvh; padding: 0 1rem; }
+  .desk { order: 2; }
+  .side { order: 3; }
   header { position: sticky; top: 0; z-index: 2; background: var(--bg); min-height: 52px; flex-wrap: wrap; gap: .25rem 1rem; }
   h1 { font-size: 1.25rem; }
   .tool { min-height: 44px; }
   .tool .label { display: none; }
   .conn { flex-basis: 100%; }
   .desk { padding: 1rem 1rem 1.5rem; }
-  .case-title { font-size: 1.5rem; }
   .side { display: block; border-left: 0; border-top: 1px solid var(--edge); }
   .list { max-height: 55dvh; }
   .person { min-height: 48px; }
@@ -333,7 +354,6 @@ select, input[type="text"], input[type="search"] {
   .place-list { max-height: none; }
   .place-list li { min-height: 48px; padding-left: 2.5rem; }
   .thread { max-height: 60dvh; }
-  .convo { padding-bottom: 2rem; }
   .coach { z-index: 8; width: calc(100% - 32px); }
   .sheet {
     margin: auto 0 0; width: 100%; height: auto; max-height: 80dvh;
@@ -376,8 +396,8 @@ select, input[type="text"], input[type="search"] {
 <div class="app" id="app">
   <header>
     <h1>Sleuth</h1>
+    <p class="headline"><b class="case-title" id="case-title">Quiet day in town</b><span class="when" id="case-when"></span><span class="role tier" id="case-tier" hidden></span></p>
     <p class="clock" id="clock"></p>
-    <p class="standing" id="standing"></p>
     <span class="conn" id="conn" data-state="connecting" role="status">Connecting</span>
     <nav class="tools" aria-label="Town">
       <button type="button" class="tool" id="here" aria-haspopup="dialog" aria-expanded="false" aria-controls="places"></button>
@@ -396,15 +416,8 @@ select, input[type="text"], input[type="search"] {
     <ul class="place-list" id="place-list" role="listbox" aria-label="Where to go" tabindex="-1"></ul>
   </dialog>
 
-  <main class="desk" id="desk">
-    <section class="case" id="case" aria-labelledby="case-title">
-      <div class="case-top">
-        <h2 class="case-title" id="case-title">Quiet day in town</h2>
-        <span class="role tier" id="case-tier" hidden></span>
-        <span class="case-actions">
-          <button type="button" class="primary" id="publish-open" aria-expanded="false" aria-controls="publish" hidden>Publish</button>
-        </span>
-      </div>
+  <aside class="rail desk" id="desk" aria-label="Your case">
+    <section class="case" id="case" aria-label="The case">
       <div class="tips" id="tips" role="group" aria-label="Your tips" hidden></div>
       <p class="case-text" id="case-text">Something's bound to happen soon.</p>
       <p class="resting" id="resting" role="status" hidden></p>
@@ -427,25 +440,42 @@ select, input[type="text"], input[type="search"] {
       <button type="button" class="plain-button" id="publish-cancel">Cancel</button>
     </div>
 
-  </main>
+    <div class="rail-foot">
+      <button type="button" class="plain-button" id="publish-open" aria-expanded="false" aria-controls="publish" hidden>Publish an episode</button>
+      <p class="standing" id="standing"></p>
+    </div>
+  </aside>
 
-  <aside class="side" aria-label="People">
-    <section class="people" aria-labelledby="people-title">
-      <h2 id="people-title">People</h2>
-      <input type="search" id="find" placeholder="Find by name, job, known looks, or nearby" aria-label="Find someone" autocomplete="off">
-      <p class="status" id="find-status" role="status"></p>
-      <ul class="list" id="people"></ul>
+  <main class="stage" id="convo" aria-label="Conversation">
+    <section class="pick" id="pick" aria-labelledby="pick-title">
+      <h2 id="pick-title">Who do you want to talk to?</h2>
+      <p id="pick-why"></p>
+      <ul class="leads" id="leads"></ul>
     </section>
-    <section class="convo" id="convo" aria-labelledby="convo-title">
-      <h2 id="convo-title">Pick someone to talk to</h2>
-      <p class="meta" id="convo-meta"></p>
-      <details class="about" id="about" hidden><summary>About them</summary><dl id="about-list"></dl></details>
+    <section class="talk" id="dialogue" aria-labelledby="convo-title" hidden>
+      <div class="who-head">
+        <span class="portrait" id="portrait" aria-hidden="true"></span>
+        <div>
+          <h2 id="convo-title"></h2>
+          <p class="meta" id="convo-meta"></p>
+          <details class="about" id="about" hidden><summary>About them</summary><dl id="about-list"></dl></details>
+        </div>
+      </div>
       <ol class="thread" id="thread" aria-live="polite"></ol>
       <form class="ask" id="ask" hidden>
         <input type="text" id="ask-text" maxlength="300" autocomplete="off" aria-label="Your question" placeholder="Where were you last night?">
         <button type="submit" class="primary">Ask</button>
       </form>
       <p class="status" id="ask-status" role="status"></p>
+    </section>
+  </main>
+
+  <aside class="rail side" id="side" aria-label="People">
+    <section class="people" aria-labelledby="people-title">
+      <h2 id="people-title">People</h2>
+      <input type="search" id="find" placeholder="Name, job, looks or nearby" aria-label="Find someone by name, job, known looks, or nearby" autocomplete="off">
+      <p class="status" id="find-status" role="status"></p>
+      <ul class="list" id="people"></ul>
     </section>
   </aside>
 </div>
@@ -473,6 +503,8 @@ const GROUPS = ["Seen", "Clip", "Logs", "Said", "Found", "Heard", "Photos"];
 const GROUP_NOTES = { Heard: "Retold. It may have changed along the way." };
 const GROUP_OF = { memory: "Seen", clip: "Clip", log: "Logs", statement: "Said", clue: "Found", discovery: "Found",
   photo: "Photos" };
+// When the case's news says it happened, like "last night" or "sometime between last night and this morning".
+const SAID_WHEN = /(sometime .+|this \w+|tonight|last night|the night before last|yesterday \w+|\w+ days ago, .+)(?=\.$)/;
 // A hearsay statement reads "<name> heard from <speaker>: ...".
 const HEARSAY = / heard from [^:]+: /;
 
@@ -558,6 +590,7 @@ function setCase(c) {
   }
   caseNow = open;
   $("case-title").textContent = open ? open.title : "Quiet day in town";
+  $("case-when").textContent = open?.text.match(SAID_WHEN)?.[0] || "";
   $("case-text").textContent = open ? open.text : "Something's bound to happen soon.";
   $("case-tier").hidden = !open || open.private;
   $("case-tier").textContent = open ? capital(open.tier) : "";
@@ -889,12 +922,13 @@ function light() {
     : beat?.about ? $("people").querySelector(`[data-id="${CSS.escape(beat.about)}"]`) || $("people")
     : beat && $("convo").dataset.id === beat.person ? $("thread").lastElementChild : null;
   const target = past ? pastTarget(past) : beat ? reply : !s ? null : talking ? $("ask")
-    : s.person ? $("people").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
+    : s.person ? !$("pick").hidden && $("leads").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
+      || $("people").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
     : s.place && s.place !== here ? $("here")
     : s.action === "publish" && !$("publish").hidden ? publishNext()
     : s.action !== "publish" && !$("places").open ? $("here")
     : $(ACTION_BUTTON[s.action]);
-  hole = !target ? [] : past === CASE_PAGE ? [target, $("case-text")] : past || beat ? [target] : talking ? [$("convo")] : target === $("culprit") ? [$("publish")]
+  hole = !target ? [] : past === CASE_PAGE ? [target, $("case-text")] : past || beat ? [target] : talking ? [$("dialogue")] : target === $("culprit") ? [$("publish")]
     : target === $("publish-send") ? [$("publish"), $("send")]
     : target === $("here") && $("places").open ? [target, $("places")] : [target];
   watch.disconnect();
@@ -946,9 +980,6 @@ function placeCoach() {
   // On a phone the open place list is a sheet over the page, so the card points at the sheet alone.
   const sheet = hole.includes($("places")) && $("places").getBoundingClientRect();
   if (phone.matches && t) return anchor(card, c, sheet || t);
-  // A cutout outside the people column keeps the card off it, so the list stays readable.
-  const column = document.querySelector(".side").getBoundingClientRect();
-  const apart = !hole.some((n) => n.closest(".side"));
   const at = (side) => {
     const across = side === "below" || side === "above";
     const left = across ? clamp(t.left + t.width / 2 - c.width / 2, 8, w - c.width - 8)
@@ -956,7 +987,7 @@ function placeCoach() {
     const top = !across ? clamp(t.top + t.height / 2 - c.height / 2, 8, h - c.height - 8)
       : side === "below" ? t.bottom + GAP : t.top - GAP - c.height;
     const box = { left, top, right: left + c.width, bottom: top + c.height };
-    const fits = left >= 8 && top >= 8 && box.right <= w - 8 && box.bottom <= h - 8 && !(apart && meets(box, column));
+    const fits = left >= 8 && top >= 8 && box.right <= w - 8 && box.bottom <= h - 8;
     const arrow = across ? t.left + t.width / 2 - left : t.top + t.height / 2 - top;
     return { side, left, top, fits, arrow: clamp(arrow, 16, (across ? c.width : c.height) - 16) };
   };
@@ -1080,7 +1111,21 @@ function drawPeople() {
   if (focused) $("people").querySelector(`[data-id="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
   $("find-status").textContent = !q ? "" : shown.length ? `${plural(shown.length, "match", "matches")}.`
     : "No one matches. Try part of a name or a look like red-haired.";
+  const ranked = [...residents].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+  const close = ranked.filter((v) => v.id === wanted || role[v.id] || nearby.has(v.id));
+  drawLeads((close.length ? close : ranked).slice(0, 3), role, nearby);
   light();
+}
+
+// With nobody picked, the stage suggests who to start with, closest to the case first.
+const LEAD_WHY = { victim: "The victim", witness: "Saw something", nearby: "Usually at the scene then" };
+function drawLeads(leads, role, nearby) {
+  $("pick-why").textContent = caseNow ? `Start with someone close to ${caseNow.title}, or pick anyone from People.`
+    : "Nothing's happened yet. Get to know people: pick anyone from People.";
+  $("leads").replaceChildren(...leads.map((v) => el("li", {}, el("button", {
+    type: "button", className: "lead", dataset: { id: v.id }, onclick: () => choose(v.id),
+  }, faceWith(v), el("span", { className: "who" }, el("b", { textContent: v.name }),
+    el("small", { textContent: LEAD_WHY[role[v.id] || (nearby.has(v.id) ? NEARBY : "")] || capital(v.occupation) }))))));
 }
 
 // A row: the name with one tag, then the looks once learned, else the job.
@@ -1129,25 +1174,27 @@ async function choose(id, quiet = false) {
   const body = res ? await res.json().catch(() => ({})) : {};
   if (request !== convoRequest) return;
   say("ask-status", "");
+  $("pick").hidden = true;
+  $("dialogue").hidden = false;
   if (!res || !res.ok) {
     $("convo-title").textContent = "Can't open that conversation";
     $("convo-meta").textContent = body.error || "Try again.";
     $("about").hidden = $("ask").hidden = true;
+    $("portrait").replaceChildren();
     $("thread").replaceChildren();
     return;
   }
   drawConvo(body);
-  if (quiet) return;
-  if (phone.matches) $("convo").scrollIntoView({ block: "start", behavior: REDUCED_MOTION.matches ? "auto" : "smooth" });
-  else $("ask-text").focus({ preventScroll: true });
+  if (!quiet && !phone.matches) $("ask-text").focus({ preventScroll: true });
 }
 
 function drawConvo(body) {
   const v = residents.find((r) => r.id === body.id) || body;
   $("convo").dataset.id = body.id;
   $("convo").dataset.name = body.name;
-  $("convo-title").replaceChildren(faceWith(v), `Talking with ${body.name}`);
-  $("convo-meta").textContent = "";
+  $("portrait").replaceChildren(faceFor(v));
+  $("convo-title").textContent = body.name;
+  $("convo-meta").textContent = capital(body.occupation);
   const link = (r) => el("button", { type: "button", className: "linkish", textContent: r.name, onclick: () => choose(r.id) });
   const list = (rs) => rs.flatMap((r, i) => [i ? ", " : "", link(r), ` (${r.kind})`]);
   $("about-list").replaceChildren(
@@ -1174,12 +1221,12 @@ function timesTalked(id) {
   return talked[id] ? plural(talked[id], "time") : "Not yet";
 }
 
-// One question and reply, marked Noted when it added to the notebook.
+// One question and reply, marked noted when it added to the notebook.
 function exchange(t, name) {
   const added = t.records.map((r) => r.text).join("\n");
   return el("li", {}, el("p", { className: "you", textContent: `You: ${t.question}` }),
-    el("p", { className: "said" }, el("b", { textContent: name }), `: “${t.line}”`),
-    added ? el("p", { className: "noted" }, el("span", { tabIndex: 0, textContent: "Noted" }),
+    el("p", { className: "said" }, el("b", { className: "sr", textContent: `${name}: ` }), `“${t.line}”`),
+    added ? el("p", { className: "noted" }, el("span", { tabIndex: 0, textContent: "✓ noted" }),
       el("span", { textContent: added })) : null);
 }
 
@@ -1534,8 +1581,8 @@ function reset() {
   selected = null;
   liveConvo = null;
   delete $("convo").dataset.id;
-  $("convo-title").textContent = "Pick someone to talk to";
-  $("convo-meta").textContent = "";
+  $("pick").hidden = false;
+  $("dialogue").hidden = true;
   $("about").hidden = $("ask").hidden = true;
   $("thread").replaceChildren();
 }

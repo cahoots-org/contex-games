@@ -302,7 +302,7 @@ def test_the_cutout_opens_on_the_conversation_and_the_composer_when_the_step_nee
     page = game.client.get("/").text
     lit = page[page.index("function light()"):page.index("function placeCoach()")]
     assert 'const talking = s?.person && $("convo").dataset.id === s.person && !$("ask").hidden;' in lit
-    assert 'talking ? [$("convo")] : target === $("culprit") ? [$("publish")]' in lit
+    assert 'talking ? [$("dialogue")] : target === $("culprit") ? [$("publish")]' in lit
     assert 'target === $("publish-send") ? [$("publish"), $("send")]' in lit
     assert 'target === $("here") && $("places").open ? [target, $("places")]' in lit
     convo = page[page.index("function drawConvo("):page.index("function exchange(")]
@@ -315,7 +315,7 @@ def test_the_step_card_stays_clear_of_the_cutout_and_a_new_target_is_scrolled_in
     assert 'const best = (t && ["right", "below", "left", "above"].map(at).find((o) => o.fits))' in place
     assert "if (phone.matches && t) return anchor(card, c, sheet || t);" in place
     assert "|| docks.find((o) => t && !meets(t, o.box)) || docks.find((o) => ring && !meets(ring, o.box)) || docks[0];" in place
-    assert "const fits = left >= 8 && top >= 8 && box.right <= w - 8 && box.bottom <= h - 8 && !(apart && meets(box, column));" in place
+    assert "const fits = left >= 8 && top >= 8 && box.right <= w - 8 && box.bottom <= h - 8;" in place
     assert "CONTROLS" not in page
     lit = page[page.index("function light()"):page.index("function placeCoach()")]
     assert "bringIntoView(target);" in lit
@@ -779,9 +779,9 @@ def test_whisper_endpoint_is_gone(game):
     assert game.client.post("/api/whisper", json={"villager_id": "v1", "text": "hi"}).status_code in (404, 405)
 
 
-def test_page_is_built_around_the_case(game):
+def test_the_page_is_a_stage_for_the_conversation_between_the_case_and_people(game):
     html = game.client.get("/").text
-    order = ['id="here"', 'id="case"', 'id="notebook"', 'id="people"', 'id="convo"']
+    order = ['id="case-title"', 'id="here"', 'id="case"', 'id="notebook"', 'id="convo"', 'id="people"']
     assert [html.index(n) for n in order] == sorted(html.index(n) for n in order)
     for needle in ('id="publish-open"', 'id="culprit"', "/api/publish", "/api/interview", "/api/walk", "/api/pull",
                    "/api/search", "/api/handoff", 'id="handoff"', 'case "interview"', 'case "pulled"', 'case "searched"', 'case "steps"', "const NEARBY = \"nearby\";", 'id="intro"',
@@ -807,10 +807,27 @@ def test_a_person_row_is_a_name_with_one_tag_over_their_looks_or_job_and_the_res
 def test_a_reply_that_added_to_the_notebook_is_marked_noted_with_the_entry_on_hover_or_focus(game):
     page = game.client.get("/").text
     reply = page[page.index("function exchange("):page.index('$("ask").addEventListener')]
-    assert 'el("span", { tabIndex: 0, textContent: "Noted" })' in reply and "added to notebook" not in page
+    assert 'el("span", { tabIndex: 0, textContent: "✓ noted" })' in reply and "added to notebook" not in page
     assert ".noted:not(:hover) span:not(:focus) + span {" in page
     convo = page[page.index("function drawConvo("):page.index("function exchange(")]
-    assert '$("convo-meta").textContent = "";' in convo and 'id="about" hidden><summary>About them</summary>' in page
+    assert '$("convo-title").textContent = body.name;' in convo and 'id="about" hidden><summary>About them</summary>' in page
+
+
+def test_the_stage_shows_who_you_talk_to_large_and_suggests_who_to_start_with_when_nobody_is_picked(game):
+    page = game.client.get("/").text
+    stage = page[page.index('<main class="stage" id="convo"'):page.index("</main>")]
+    assert stage.index('id="pick"') < stage.index('id="dialogue"') and 'id="dialogue" aria-labelledby="convo-title" hidden>' in stage
+    assert '<span class="portrait" id="portrait" aria-hidden="true"></span>' in stage
+    assert ".thread li:last-child .said {" in page
+    convo = page[page.index("function drawConvo("):page.index("function exchange(")]
+    assert '$("portrait").replaceChildren(faceFor(v));' in convo
+    people = page[page.index("function drawPeople("):page.index("function person(")]
+    assert "const close = ranked.filter((v) => v.id === wanted || role[v.id] || nearby.has(v.id));" in people
+    assert "drawLeads((close.length ? close : ranked).slice(0, 3), role, nearby);" in people
+    lit = page[page.index("function light()"):page.index("function placeCoach()")]
+    assert '!$("pick").hidden && $("leads").querySelector(' in lit
+    fresh = page[page.index("function reset()"):page.index("async function retell()")]
+    assert '$("pick").hidden = false;' in fresh
 
 
 def test_the_app_feed_leaves_out_the_time_of_day(game):
