@@ -321,3 +321,13 @@ async def test_a_case_gone_cold_calms_nothing_and_never_earns_a_watch(monkeypatc
     assert case.state == "closed" and case.crime.culprit in cases.offenders.exposed
     assert (district.crime, district.fear, district.exposures, district.watch) == (0.6, 0.9, 0, None)
     assert not [e for e in kinds(engine, "post") if "starting a watch" in e.data["text"]]
+
+
+@pytest.mark.asyncio
+async def test_the_floor_refills_from_anywhere_once_every_district_has_a_watch():
+    cases, engine, _, _ = neglected(min_offenders=3, turn_chance=0.0)
+    for street, d in cases.districts.by_street.items():
+        d.crime = d.fear = 0.9
+        d.watch = Watch(f"{street} Group Chat", "v1", ["v1"], 1.0)
+    await cases.on_tick(engine, 2, "morning", {})
+    assert all(d.watch for d in cases.districts.by_street.values()) and len(cases.offenders.active) >= 3

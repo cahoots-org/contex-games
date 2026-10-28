@@ -360,7 +360,8 @@ class Cases:
         districts without a watch."""
         if len(self.offenders.active) >= self.config.min_offenders and self.offenders.ready(day, TIERS[0]):
             return
-        calm = [s for s in STREETS if self.districts is None or not self.districts.organized(s)]
+        # With a watch on every street there is nowhere calmer to draw from, so draw from anywhere.
+        calm = [s for s in STREETS if self.districts is None or not self.districts.organized(s)] or list(STREETS)
         self.offenders.top_up(self.town, self.rng, [v.id for v in self.town.villagers if v.home in calm])
 
     async def ensure(self, engine, now: float | None = None) -> None:

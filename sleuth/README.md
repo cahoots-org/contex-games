@@ -81,7 +81,7 @@ crime moves elsewhere. It winds down, said on the app, once the district's crime
 **How the districts connect.** Each morning a neglected district, one with no watch whose crime and fear are both at
 least `neglect_at`, turns one of its residents who has never been exposed into a petty offender with `turn_chance`,
 until the set reaches `max_offenders`. Whenever the set is refilled, it is refilled only from
-districts without a watch. So a district left to itself breeds crime, while one that organizes pushes crime elsewhere
+districts without a watch, or from anywhere once every district has one. So a district left to itself breeds crime, while one that organizes pushes crime elsewhere
 and breeds none. The app reacts at once, in code copy: a crime that raises a street's fear level leaves it "on edge after" the case,
 and a held episode lets it breathe a little easier now the culprit's been found out. Residents feel their street: a district on edge or rattled, and whether a watch is on it, is in what
 Jev and Haiku are told about them.
