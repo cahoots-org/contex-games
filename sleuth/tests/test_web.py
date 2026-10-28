@@ -775,7 +775,7 @@ def test_whisper_endpoint_is_gone(game):
 
 def test_page_is_built_around_the_case(game):
     html = game.client.get("/").text
-    order = ['id="case"', 'id="here"', 'id="notebook"', 'id="talk"', 'id="people"', 'id="convo"']
+    order = ['id="case"', 'id="here"', 'id="notebook"', 'id="people"', 'id="convo"']
     assert [html.index(n) for n in order] == sorted(html.index(n) for n in order)
     for needle in ('id="publish-open"', 'id="culprit"', "/api/publish", "/api/interview", "/api/walk", "/api/pull",
                    "/api/search", "/api/handoff", 'id="handoff"', 'case "interview"', 'case "pulled"', 'case "searched"', 'case "steps"', "const NEARBY = \"nearby\";", 'id="intro"',
@@ -807,13 +807,10 @@ def test_a_reply_that_added_to_the_notebook_is_marked_noted_with_the_entry_on_ho
     assert '$("convo-meta").textContent = "";' in convo and 'id="about" hidden><summary>About them</summary>' in page
 
 
-def test_town_talk_shows_only_once_something_is_said_and_leaves_out_the_time_of_day(game):
+def test_the_app_feed_leaves_out_the_time_of_day(game):
     page = game.client.get("/").text
-    assert '<details class="talk" id="talk" hidden>' in page
-    assert "function showTalk() {\n  $(\"talk\").hidden = !$(\"feed\").children.length" in page
     tick = page[page.index('case "time":'):page.index('case "known":')]
     assert "talk(" not in tick and "setClock(e);" in tick
-    assert '<span class="unread" id="unread"></span>' in page
 
 
 def test_page_draws_learned_looks_and_a_silhouette(game):
@@ -825,7 +822,8 @@ def test_page_draws_learned_looks_and_a_silhouette(game):
 
 def test_page_has_a_photo_feed(game):
     page = game.client.get("/").text
-    for s in ('id="photos"', 'case "photo":', 'case "photo_saved":', "/api/photos/save", 'photo: "Photos"'):
+    for s in ('case "photo":', 'case "photo_saved":', "/api/photos/save", 'photo: "Photos"',
+              'el("b", { textContent: `${p.poster} posted:` })'):
         assert s in page
 
 
@@ -947,26 +945,36 @@ def test_state_has_the_apps_photos_and_which_this_player_saved(game):
     photos = game.client.get("/api/state").json()["photos"]
     assert [(p["id"], p["saved"]) for p in photos] == [("r-50", True), ("r-51", False)]
     page = game.client.get("/").text
-    assert "if (p.saved) savedPhotos.add(p.id);" in page and "if (fresh) photo(e.photo, true);" in page
+    assert "if (p.saved) savedPhotos.add(p.id);" in page
+    assert "const p = fresh ? e.photo : album.get(e.photo.id);\n      if (p) photo(p, fresh);" in page
     assert photos[1] == {**photo_json(other, game.town), "saved": False}
     back = game.join("someone")
     back.restore(json.loads(json.dumps(game.player.to_state())))
     assert back.saved_photos == ["r-50"]
 
 
-def test_photos_stay_closed_behind_a_control_with_an_unseen_count_and_open_as_a_panel(game):
+def test_news_talk_and_photos_share_one_neighborhood_app_closed_behind_a_control(game):
     page = game.client.get("/").text
-    desk = page[page.index('<main class="desk"'):page.index("</main>")]
-    assert '<button type="button" class="linkish" id="photos-open" aria-haspopup="dialog" aria-controls="photos-panel" hidden>Photos</button>' in desk
-    assert 'id="photos"' not in desk
-    panel = page[page.index('<dialog class="sheet" id="photos-panel"'):page.index('<div class="app" id="app">')]
-    assert '<form method="dialog"><button class="linkish">Close</button></form>' in panel and 'id="photos"' in panel
-    assert "if (fresh && !$(\"photos-panel\").open) unseenPhotos++;" in page
-    assert "`Photos · ${unseenPhotos} new`" in page
-    opening = page[page.index("function openPhotos()"):page.index('$("photos-open").addEventListener')]
-    assert "unseenPhotos = 0;" in opening and "rememberPhotos(true);" in opening
-    assert '$("photos-panel").addEventListener("close", () => rememberPhotos(false));' in page
-    assert "Boolean(caseNow && caseNow.private)" in page[page.index("function showPhotos()"):page.index("const PHOTOS_OPEN")]
+    head = page[page.index("<header>"):page.index("</header>")]
+    assert ('<button type="button" class="linkish" id="app-open" aria-haspopup="dialog" aria-controls="app-panel" '
+            'hidden>Neighborhood app</button>') in head
+    panel = page[page.index('<dialog class="sheet" id="app-panel"'):page.index('<div class="app" id="app">')]
+    assert '<h2 id="app-title">Neighborhood app</h2>' in panel
+    assert '<form method="dialog"><button class="linkish">Close</button></form>' in panel
+    assert '<ol class="feed" id="feed" aria-label="Neighborhood app, newest first"></ol>' in panel
+    for gone in ('id="talk"', 'id="photos', "Town talk", "unseenPhotos", "talk-latest"):
+        assert gone not in page, gone
+    feed = page[page.index("function addToFeed("):page.index("function render(")]
+    assert 'if (fresh && !$("app-panel").open) unread++;' in feed
+    assert "function talk(tone, fresh, ...children) {\n  addToFeed(" in feed
+    assert 'addToFeed(el("li", { className: "post" },' in page
+    assert "`Neighborhood app · ${unread} new`" in page
+    opening = page[page.index("function openApp()"):page.index('$("app-open").addEventListener')]
+    assert "unread = 0;" in opening and "rememberApp(true);" in opening
+    assert '$("app-panel").addEventListener("close", () => rememberApp(false));' in page
+    shown = page[page.index("function showApp()"):page.index("const APP_OPEN")]
+    assert '!$("feed").children.length || Boolean(caseNow && caseNow.private)' in shown
+    assert "else if (!state.intro && appWasOpen()) openApp();" in page
 
 
 def test_photos_are_public_but_not_shown_in_the_practice_town(game):

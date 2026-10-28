@@ -74,7 +74,7 @@ h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
 .conn { font-size: .875rem; color: var(--danger); }
 .conn:not([data-state="down"]) { display: none; }
 
-/* The left column: the case, the notebook, where you are, and the town's talk. */
+/* The left column: the case, the notebook, and where you are. */
 .desk { overflow-y: auto; min-height: 0; padding: 1.25rem 1.5rem 2rem; }
 .desk > * { max-width: 46rem; }
 .desk > * + * { margin-top: 1.5rem; }
@@ -100,7 +100,7 @@ h1 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
 .send { border-top: 1px solid var(--rail); padding-top: .75rem; }
 .send p { flex-basis: 100%; margin: 0; font-size: .9rem; color: var(--muted); }
 .send p.error { color: var(--danger); }
-.citing .case-actions, .citing .where-line, .citing #where-status, .citing #talk, .citing #photos-open { display: none; }
+.citing .case-actions, .citing .where-line, .citing #where-status, .citing #app-open { display: none; }
 select, input[type="text"], input[type="search"] {
   background: var(--bg); border: 1px solid var(--edge); border-radius: 6px; padding: .4rem .6rem; min-width: 0;
 }
@@ -156,20 +156,8 @@ select, input[type="text"], input[type="search"] {
 .pin { width: 1rem; height: 1rem; flex: none; fill: var(--danger); }
 .role.scene { margin-left: .1rem; background: var(--danger); color: var(--bg); }
 
-/* The town's talk: one strip, closed until opened. */
-.talk { border: 1px solid var(--rail); border-radius: 6px; background: var(--panel); }
-.talk summary { display: flex; align-items: baseline; gap: .75rem; padding: .5rem .75rem; cursor: pointer; }
-.talk summary b { flex: none; }
-.latest { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-size: .85rem; }
-.talk[open] .latest { visibility: hidden; }
-.unread { flex: none; border-radius: 999px; padding: 0 .5rem; background: var(--accent); color: var(--on-accent); font-size: .75rem; font-weight: 700; }
-.unread:empty { display: none; }
-.feed { list-style: none; margin: 0; padding: 0 .75rem .5rem; max-height: 18rem; overflow-y: auto; font-size: .875rem; }
-.feed li { padding: .3rem 0; border-top: 1px solid var(--rail); overflow-wrap: anywhere; }
-.feed .quiet { color: var(--muted); }
-.feed .loud { font-weight: 700; }
-/* The app's photos: newest first, scrolling, each with the faces in it, its caption and Save. */
-/* The photos: closed behind one control, opened as a panel on the right, or a sheet from the bottom on a phone. */
+/* The neighborhood app: closed behind one control, opened as a panel on the right, or a sheet from the bottom on a
+   phone; one feed, newest first, of news, what residents say, and their photo posts with faces, caption and Save. */
 .sheet {
   margin: 0 0 0 auto; width: min(28rem, 100%); height: 100%; max-width: none; max-height: none; padding: 1rem 1.25rem;
   background: var(--bg); color: var(--ink); border: solid var(--edge); border-width: 0 0 0 1px;
@@ -177,13 +165,17 @@ select, input[type="text"], input[type="search"] {
 .sheet::backdrop { background: rgb(20 28 30 / .4); }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; }
 .sheet-head button { min-height: 44px; }
-.photo-feed { list-style: none; margin: .5rem 0 0; padding: 0; }
-.photo-feed li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .25rem .75rem; padding: .6rem 0; border-top: 1px solid var(--rail); }
-.photo-feed .faces { display: flex; gap: .25rem; grid-row: span 2; align-self: start; }
-.photo-feed .status { margin-top: .2rem; }
-.photo-feed p { margin: 0; font-size: .9rem; }
-.photo-feed .plain-button { justify-self: start; padding: .2rem .7rem; font-size: .85rem; }
-.photo-feed .plain-button:disabled { color: var(--muted); border-color: var(--edge); cursor: default; }
+.feed { list-style: none; margin: .5rem 0 0; padding: 0; font-size: .9rem; }
+.feed li { padding: .5rem 0; border-top: 1px solid var(--rail); overflow-wrap: anywhere; }
+.feed .quiet { color: var(--muted); }
+.feed .loud { font-weight: 700; }
+.feed .post { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .25rem .75rem; }
+.feed .post > b { grid-column: 1 / -1; font-weight: 400; }
+.feed .faces { display: flex; gap: .25rem; grid-row: span 2; align-self: start; }
+.feed .status { margin-top: .2rem; }
+.feed p { margin: 0; }
+.feed .plain-button { justify-self: start; padding: .2rem .7rem; font-size: .85rem; }
+.feed .plain-button:disabled { color: var(--muted); border-color: var(--edge); cursor: default; }
 .face.big canvas { width: 44px; height: 44px; }
 
 /* The right column: people, then the conversation with whoever is picked. */
@@ -299,7 +291,10 @@ select, input[type="text"], input[type="search"] {
   .app { display: block; height: auto; }
   header { position: sticky; top: 0; z-index: 2; background: var(--bg); min-height: 52px; flex-wrap: wrap; gap: .25rem 1rem; }
   h1 { font-size: 1.25rem; }
-  #replay, #photos-open { min-height: 44px; }
+  #replay, #app-open { min-height: 44px; order: 2; }
+  /* The app and Tutorial on a row of their own, so a count never moves them. */
+  header::after { content: ""; order: 1; flex-basis: 100%; }
+  #app-open { margin-right: auto; }
   .conn { flex-basis: 100%; }
   .desk { padding: 1rem 1rem 1.5rem; }
   .case-title { font-size: 1.5rem; }
@@ -339,17 +334,18 @@ select, input[type="text"], input[type="search"] {
   <ol id="handoff-cards"></ol>
   <form method="dialog"><button class="tut-go" autofocus>Take the case</button></form>
 </dialog>
-<dialog class="sheet" id="photos-panel" aria-labelledby="photos-title">
+<dialog class="sheet" id="app-panel" aria-labelledby="app-title">
   <div class="sheet-head">
-    <h2 id="photos-title">Photos</h2>
+    <h2 id="app-title">Neighborhood app</h2>
     <form method="dialog"><button class="linkish">Close</button></form>
   </div>
-  <ol class="photo-feed" id="photos" aria-label="Photos, newest first"></ol>
+  <ol class="feed" id="feed" aria-label="Neighborhood app, newest first"></ol>
 </dialog>
 <div class="app" id="app">
   <header>
     <h1>Sleuth</h1>
     <p class="clock" id="clock"></p>
+    <button type="button" class="linkish" id="app-open" aria-haspopup="dialog" aria-controls="app-panel" hidden>Neighborhood app</button>
     <button type="button" class="linkish" id="replay">Tutorial</button>
     <span class="conn" id="conn" data-state="connecting" role="status">Connecting</span>
   </header>
@@ -392,12 +388,6 @@ select, input[type="text"], input[type="search"] {
       <button type="button" class="plain-button" id="publish-cancel">Cancel</button>
     </div>
 
-    <details class="talk" id="talk" hidden>
-      <summary><b>Town talk</b><span class="latest" id="talk-latest"></span><span class="unread" id="unread"></span></summary>
-      <ol class="feed" id="feed" aria-label="Town talk, newest first"></ol>
-    </details>
-
-    <button type="button" class="linkish" id="photos-open" aria-haspopup="dialog" aria-controls="photos-panel" hidden>Photos</button>
   </main>
 
   <aside class="side" aria-label="People">
@@ -437,7 +427,7 @@ const $ = (id) => document.getElementById(id);
 const RESTING = "The town is resting for today. Come back after midnight UTC.";
 const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)");
 const phone = matchMedia("(max-width: 600px)");
-const MAX_TALK = 300;
+const MAX_FEED = 300;
 // The notebook's groups, in order, and the group of each kind of record.
 const GROUPS = ["Seen", "Clip", "Logs", "Said", "Found", "Heard", "Photos"];
 const GROUP_OF = { memory: "Seen", clip: "Clip", log: "Logs", statement: "Said", clue: "Found", discovery: "Found",
@@ -456,6 +446,7 @@ let lastId = 0;
 let caseNow = null;
 let talked = {};
 let selected = null;
+// How many feed items came in while the app was closed.
 let unread = 0;
 // Whether this page has shown the intro; the server says whether the player still needs it.
 let introShown = false;
@@ -471,8 +462,9 @@ let pages = [];
 let back = 0;
 // The notebook by record id, in the order the player got each entry.
 const notebook = new Map();
-// The photos this player has saved.
+// The photos this player has saved, and the app's photos by id as the last load had them.
 const savedPhotos = new Set();
+let album = new Map();
 
 function el(tag, { dataset, ...props } = {}, ...children) {
   const node = Object.assign(document.createElement(tag), props);
@@ -525,8 +517,7 @@ function setCase(c) {
   $("case-text").textContent = open ? open.text : "Something's bound to happen soon.";
   $("publish-open").hidden = !open;
   $("replay").hidden = Boolean(open && open.private);
-  showTalk();
-  showPhotos();
+  showApp();
   drawNotebook();
   drawWhere();
 }
@@ -1138,29 +1129,18 @@ function answered(e) {
   $("thread").scrollTop = $("thread").scrollHeight;
 }
 
-// Town talk shows once someone has said something, and never on the first case, which keeps the page small.
-function showTalk() {
-  $("talk").hidden = !$("feed").children.length || Boolean(caseNow && caseNow.private);
-}
-
-// Town talk: newest first, with the latest line and how many are new on the closed strip.
-function talk(tone, fresh, ...children) {
+// One item at the top of the app's feed; a new one while the app is closed counts as unread.
+function addToFeed(item, fresh) {
   const feed = $("feed");
-  const item = el("li", { className: tone }, ...children);
   feed.prepend(item);
-  while (feed.children.length > MAX_TALK) feed.lastElementChild.remove();
-  $("talk-latest").textContent = children.map((c) => c.textContent ?? c).join(" ");
-  if (fresh && !$("talk").open) unread++;
-  $("unread").textContent = unread ? `${unread} new` : "";
-  showTalk();
+  while (feed.children.length > MAX_FEED) feed.lastElementChild.remove();
+  if (fresh && !$("app-panel").open) unread++;
+  showApp();
 }
 
-$("talk").addEventListener("toggle", () => {
-  if (!$("talk").open) return;
-  unread = 0;
-  $("unread").textContent = "";
-  $("feed").scrollTop = 0;
-});
+function talk(tone, fresh, ...children) {
+  addToFeed(el("li", { className: tone }, ...children), fresh);
+}
 
 function render(e, fresh) {
   switch (e.kind) {
@@ -1169,7 +1149,7 @@ function render(e, fresh) {
       break;
     case "case_closed":
       if (caseNow && caseNow.id === e.case_id) {
-        // Off the first case the page moves into the town, and the closing line goes to Town talk.
+        // Off the first case the page moves into the town, and the closing line goes to the app.
         setCase(null);
         setSteps(null);
         if (fresh) loadState().catch(() => {});
@@ -1219,10 +1199,12 @@ function render(e, fresh) {
         if (selected === e.villager.id) choose(selected, true);
       }
       break;
-    case "photo":
-      // A load draws the app's photos from the state, so only new ones come from events.
-      if (fresh) photo(e.photo, true);
+    case "photo": {
+      // A load draws a photo as the state has it now, and skips one gone from the app.
+      const p = fresh ? e.photo : album.get(e.photo.id);
+      if (p) photo(p, fresh);
       break;
+    }
     case "photo_saved":
       note(e.records);
       savedPhotos.add(e.photo_id);
@@ -1251,10 +1233,9 @@ function addEvents(events, fresh) {
   }
 }
 
-// A photo from the app, newest on top: the faces in it, its caption and Save; a new one while the
-// photos are closed counts as unseen.
+// A resident's photo post: who posted it, the faces in it, its caption and Save.
 function photo(p, fresh = false) {
-  if (fresh && !$("photos-panel").open) unseenPhotos++;
+  if ($("feed").querySelector(`[data-photo="${CSS.escape(p.id)}"]`)) return;
   const kept = savedPhotos.has(p.id) || notebook.has(p.id);
   const status = el("p", { className: "status", role: "status" });
   const save = el("button", { type: "button", className: "plain-button", dataset: { photo: p.id },
@@ -1266,50 +1247,50 @@ function photo(p, fresh = false) {
     status.classList.toggle("error", !ok);
     if (!ok) save.disabled = false;
   });
-  $("photos").prepend(el("li", {},
+  addToFeed(el("li", { className: "post" },
+    el("b", { textContent: `${p.poster} posted:` }),
     el("span", { className: "faces" }, ...p.people.map((v) => faceWith({ id: v.id, face: v.face }, true))),
     el("p", { textContent: p.caption }),
-    el("div", {}, save, status)));
-  showPhotos();
+    el("div", {}, save, status)), fresh);
 }
 
-// The photos control, with how many came in unseen; never on the first case.
-let unseenPhotos = 0;
-function showPhotos() {
-  $("photos-open").hidden = !$("photos").children.length || Boolean(caseNow && caseNow.private);
-  $("photos-open").textContent = unseenPhotos ? `Photos · ${unseenPhotos} new` : "Photos";
+// The app's control, with how many items came in unread; shown once there is something, never on the first case.
+function showApp() {
+  $("app-open").hidden = !$("feed").children.length || Boolean(caseNow && caseNow.private);
+  $("app-open").textContent = unread ? `Neighborhood app · ${unread} new` : "Neighborhood app";
 }
 
-// Whether this browser left the photos open, so a reload opens them again.
-const PHOTOS_OPEN = "sleuth-photos-open";
-function rememberPhotos(open) {
+// Whether this browser left the app open, so a reload opens it again.
+const APP_OPEN = "sleuth-app-open";
+function rememberApp(open) {
   try {
-    if (open) localStorage.setItem(PHOTOS_OPEN, "1");
-    else localStorage.removeItem(PHOTOS_OPEN);
+    if (open) localStorage.setItem(APP_OPEN, "1");
+    else localStorage.removeItem(APP_OPEN);
   } catch {}
 }
 
-function photosWereOpen() {
+function appWasOpen() {
   try {
-    return localStorage.getItem(PHOTOS_OPEN) === "1";
+    return localStorage.getItem(APP_OPEN) === "1";
   } catch {
     return false;
   }
 }
 
-function openPhotos() {
-  if ($("photos-open").hidden || $("photos-panel").open) return;
-  unseenPhotos = 0;
-  showPhotos();
-  $("photos-panel").showModal();
-  rememberPhotos(true);
+function openApp() {
+  if ($("app-open").hidden || $("app-panel").open) return;
+  unread = 0;
+  showApp();
+  $("app-panel").showModal();
+  $("feed").scrollTop = 0;
+  rememberApp(true);
 }
 
-$("photos-open").addEventListener("click", openPhotos);
-$("photos-panel").addEventListener("close", () => rememberPhotos(false));
+$("app-open").addEventListener("click", openApp);
+$("app-panel").addEventListener("close", () => rememberApp(false));
 
 function markSaved(id) {
-  const button = $("photos").querySelector(`[data-photo="${CSS.escape(id)}"]`);
+  const button = $("feed").querySelector(`[data-photo="${CSS.escape(id)}"]`);
   if (!button) return;
   button.textContent = "Saved";
   button.disabled = true;
@@ -1408,11 +1389,9 @@ function reset() {
   say("case-status", "");
   say("where-status", "");
   $("feed").replaceChildren();
-  $("talk").hidden = true;
-  $("photos").replaceChildren();
-  unseenPhotos = 0;
-  $("photos-open").hidden = true;
+  $("app-open").hidden = true;
   savedPhotos.clear();
+  album = new Map();
   faces.clear();
   notebook.clear();
   talked = {};
@@ -1456,18 +1435,18 @@ async function loadState() {
   here = state.place;
   setClock(state.time);
   setResidents(state.villagers);
+  // Photos older than the events replayed go below them; the rest land where their event is.
+  album = new Map(state.photos.map((p) => [p.id, p]));
+  for (const p of state.photos) if (p.saved) savedPhotos.add(p.id);
+  const replayed = new Set(state.events.filter((e) => e.kind === "photo").map((e) => e.photo.id));
+  for (const p of state.photos) if (!replayed.has(p.id)) photo(p);
   addEvents(state.events, false);
+  for (const id of savedPhotos) markSaved(id);
   setResting(state.resting);
   searched = new Set(state.searched);
   setCase(state.case);
   notebook.clear();
   note(state.notebook);
-  $("photos").replaceChildren();
-  for (const p of state.photos) {
-    if (p.saved) savedPhotos.add(p.id);
-    photo(p);
-  }
-  showPhotos();
   setSteps(state.steps);
   if (state.intro && !introShown) {
     introShown = true;
@@ -1475,7 +1454,7 @@ async function loadState() {
     light();
   }
   if (state.handoff && !$("handoff").open) handoff(state.handoff);
-  else if (!state.intro && photosWereOpen()) openPhotos();
+  else if (!state.intro && appWasOpen()) openApp();
   if (selected) choose(selected);
 }
 
