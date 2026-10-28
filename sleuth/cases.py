@@ -16,7 +16,7 @@ from sleuth.decide import warmth_words
 from sleuth.feed import APP
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
-from sleuth.models import Utterance
+from sleuth.models import Utterance, Villager
 from sleuth.offenders import Offenders
 from sleuth.town import STREETS, Town, at
 
@@ -67,20 +67,26 @@ class Cases:
         self.ids = ids
         self.files: dict[str, CaseFile] = {}
         self.offenders = Offenders(config)
-        # Residents moving in, kept until they have.
+        # Homes someone left that no one has moved into yet.
+        self.vacant: list[str] = []
+        # Residents moving in, kept until they have, one at a time.
         self._moving: set[asyncio.Task] = set()
+        self._moving_in = asyncio.Lock()
         # Game time (day + phase index / 4) of the last tick.
         self.now = 0.0
         # Everyone's whereabouts through the part of the day the last tick finished.
         self.finished: dict[str, list[str]] | None = None
 
     def to_state(self) -> dict:
-        """Every case file and the offenders as plain JSON."""
-        return {"files": [asdict(f) for f in self.files.values()], "offenders": self.offenders.to_state()}
+        """Every case file, the offenders and the empty homes as plain JSON."""
+        return {"files": [asdict(f) for f in self.files.values()], "offenders": self.offenders.to_state(),
+                "vacant": list(self.vacant)}
 
     def restore(self, state: dict) -> None:
-        """Replace the case files and offenders with a saved state, leaving out cases saved before they opened."""
+        """Replace the case files, offenders and empty homes with a saved state, leaving out cases saved before they
+        opened."""
         self.offenders.restore(state["offenders"])
+        self.vacant = list(state["vacant"])
         self.files = {}
         for f in state["files"]:
             if f["state"] == "setup":
@@ -160,10 +166,22 @@ class Cases:
         self.offenders.drop(vid)
         engine.feed.on_post(Utterance("", "app", APP, v.home, ARRESTED.format(name=v.name), None, "posted"), None)
         await engine.remove_villager(vid)
-        task = asyncio.create_task(move_in(engine, v.home))
+        self.vacant.append(v.home)
+        return self._fill(engine, v.home)
+
+    def _fill(self, engine, home: str) -> asyncio.Task:
+        """Start someone moving into the empty home, after anyone already moving in."""
+        task = asyncio.create_task(self._move_in(engine, home))
         self._moving.add(task)
         task.add_done_callback(self._moving.discard)
         return task
+
+    async def _move_in(self, engine, home: str) -> Villager | None:
+        async with self._moving_in:
+            v = await move_in(engine, home)
+        if v is not None:
+            self.vacant.remove(home)
+        return v
 
     def on_wrong(self, engine, file: CaseFile, player_id: str, accused: str) -> None:
         """A wrong episode costs the town's regard, the accused's most of all, then their household's and close ties'."""
@@ -227,11 +245,15 @@ class Cases:
         self.town.dress(day, self.rng, self.cautious(day), math.ceil(self.config.case_days) + 2)
 
     async def on_tick(self, engine, day: int, phase: str, finished: dict[str, list[str]]) -> None:
-        """Dress the town, let exposed offenders reform of a morning, let old cases go cold, their culprits made known,
-        and open a new shared case when none is open."""
+        """Dress the town, let exposed offenders reform of a morning, try again to fill an empty home, let old cases go
+        cold, their culprits made known, and open a new shared case when none is open."""
         self.dress(day)
         if phase == "morning":
             self.offenders.new_day(day, self.rng)
+        if self.town.alive_count >= self.config.population:
+            self.vacant.clear()
+        elif self.vacant and not self._moving:
+            self._fill(engine, self.vacant[0])
         now = self.now = day + PHASES.index(phase) / len(PHASES)
         self.finished = finished
         for case in [f for f in self.files.values() if f.state == "open"]:

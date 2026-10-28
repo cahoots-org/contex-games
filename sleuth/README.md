@@ -36,7 +36,8 @@ don't make a case any easier or harder: the evidence still has to narrow to the 
 offender who gets away with it `escalate_after` times moves up to a bigger kind of crime, once the catalog has one.
 
 **Moving in.** Nobody moves away by choice, but whenever someone leaves, say on an arrest, someone new moves in on
-the same street, as long as the town is under `population`: a household of their own, a neighbor and one other tie,
+the same street, as long as the town is under `population`, one at a time and tried again each part of the day
+until it works: a household of their own, a neighbor and one other tie,
 a look nobody else has, three outfits and a routine. It costs one Haiku call and one Jev call, and the app says who
 moved in. They may or may not be an offender (`newcomer_offender_chance`, while there are fewer than
 `max_offenders`). Witnesses are never drawn from another open case's culprits, so an arrest never takes testimony

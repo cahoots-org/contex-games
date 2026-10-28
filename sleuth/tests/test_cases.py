@@ -443,9 +443,11 @@ async def test_offenders_round_trip_with_the_cases():
     vid = next(iter(cases.offenders.active))
     cases.offenders.active[vid] = Offender("serious", 1, 4)
     cases.offenders.exposed["v8"] = "stole Dana Reyes's bike"
+    cases.vacant = ["oak street"]
     fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
     fresh.restore(json.loads(json.dumps(cases.to_state())))
     assert fresh.offenders.active == cases.offenders.active and fresh.offenders.exposed == cases.offenders.exposed
+    assert fresh.vacant == ["oak street"]
 
 
 @pytest.mark.asyncio

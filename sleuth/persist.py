@@ -12,7 +12,7 @@ from sleuth.town_gen import WORLDS_DIR
 
 log = logging.getLogger(__name__)
 
-STATE_VERSION = 31
+STATE_VERSION = 32
 # Every id the game's Ids counters hand out, as prefix and number.
 ID = re.compile(r"\b(u|w|r|case)-(\d+)\b")
 # How far a restore skips each id that also keys Contex data past the last one saved, so ids handed out after a save

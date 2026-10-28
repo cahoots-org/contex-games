@@ -1,3 +1,4 @@
+import asyncio
 import json
 from itertools import product
 from random import Random
@@ -9,6 +10,7 @@ from sleuth.case import Record, suspects
 from sleuth.config import Config
 from sleuth.game import Game
 from sleuth.models import Villager
+from sleuth.photos import Album
 from sleuth.routine import Routine
 from sleuth.tests.helpers import StubBaselines, StubJev
 from sleuth.tests.test_cases import culprit_file, make_cases
@@ -26,7 +28,8 @@ class CountingWriter:
 
     async def complete(self, system, user, max_tokens=400):
         self.calls += 1
-        return self.reply
+        await asyncio.sleep(0)
+        return self.reply.pop(0) if isinstance(self.reply, list) else self.reply
 
 
 class Arriving:
@@ -40,7 +43,11 @@ class Arriving:
         self.routine = Routine(self.jev, places, self.config)
         self.baselines = StubBaselines(0.5)
         self.game = Game()
+        self.album = Album()
         self.added = []
+
+    async def deliver(self, utterance, listener_ids, addressed=False):
+        pass
 
     async def add_villager(self, v, place):
         self.added.append((v.id, place))
@@ -144,3 +151,24 @@ def test_someone_settling_on_an_empty_street_still_gets_two_ties():
     v = Villager("v9", "Wren Abara", "x", "y", "", [], {})
     settle(v, villagers, "oak street", Random(0))
     assert (v.home, v.household) == ("oak street", "h05") and len(v.relationships) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_home_left_empty_is_moved_into_on_a_later_tick(tmp_path):
+    engine, town = arriving(tmp_path)
+    engine.writer.reply = "not json"
+    assert await (await engine.cases.arrest(engine, "v5")) is None
+    assert engine.cases.vacant == ["oak street"]
+    engine.writer.reply = json.dumps([RESIDENT])
+    await engine.cases.on_tick(engine, 2, "morning", {})
+    await asyncio.gather(*engine.cases._moving)
+    assert engine.cases.vacant == [] and town.get("v009").home == "oak street"
+
+
+@pytest.mark.asyncio
+async def test_two_moving_in_at_once_get_their_own_ids_and_names(tmp_path):
+    engine, town = arriving(tmp_path)
+    engine.writer.reply = [json.dumps([RESIDENT]), json.dumps([{**RESIDENT, "name": "Oona Pike"}])]
+    tasks = [await engine.cases.arrest(engine, vid) for vid in ("v5", "v6")]
+    first, second = await asyncio.gather(*tasks)
+    assert (first.id, first.name, second.id, second.name) == ("v009", "Wren Abara", "v010", "Oona Pike")
