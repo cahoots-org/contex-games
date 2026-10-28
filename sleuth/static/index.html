@@ -331,20 +331,44 @@ select, input[type="text"], input[type="search"] {
   @keyframes beckon { 50% { outline-color: rgb(240 196 90 / .45); } }
 }
 
-/* A phone: one column, the conversation, then the case, then people. */
+/* Narrower: the stage is the whole page, and the case and people slide in as drawers from header buttons. */
+.drawer-open { display: none; }
+@media (max-width: 900px) {
+  .app { grid-template-columns: minmax(0, 1fr); height: calc(100dvh - var(--dock, 0px)); }
+  .drawer-open { display: inline-flex; }
+  .rail {
+    position: fixed; top: 0; bottom: 0; z-index: 3; width: min(20rem, 86vw); visibility: hidden;
+    box-shadow: 0 0 0 100vmax rgb(20 28 30 / 0); transition: transform .2s ease-out, box-shadow .2s, visibility 0s .2s;
+  }
+  .rail:focus { outline: none; }
+  .desk { left: 0; transform: translateX(-100%); }
+  .side { right: 0; transform: translateX(100%); }
+  .rail.open { visibility: visible; transform: none; box-shadow: 0 0 0 100vmax rgb(20 28 30 / .45); transition: transform .2s ease-out, box-shadow .2s; }
+  .stage { grid-column: 1; padding: 0 1.25rem; }
+}
+@media (max-width: 900px) and (prefers-reduced-motion: reduce) {
+  .rail, .rail.open { transition: none; }
+}
+/* A phone: the header on two rows, the case and people buttons either side of the case's title. */
 @media (max-width: 600px) {
-  .app { display: flex; flex-direction: column; height: auto; }
-  .stage { order: 1; min-height: 85dvh; padding: 0 1rem; }
-  .desk { order: 2; }
-  .side { order: 3; }
-  header { position: sticky; top: 0; z-index: 2; background: var(--bg); min-height: 52px; flex-wrap: wrap; gap: .25rem 1rem; }
-  h1 { font-size: 1.25rem; }
-  .tool { min-height: 44px; }
+  header { flex-wrap: wrap; gap: 0 .25rem; padding: .25rem .5rem .35rem; }
+  h1 { display: none; }
+  .headline { order: 1; flex: 1 1 calc(100% - 7rem); flex-wrap: wrap; gap: 0 .5rem; margin: 0; padding: 0 .25rem; border: 0; }
+  .case-title { font-size: 1.1rem; }
+  #case-open { order: 0; }
+  #people-open { order: 2; }
+  .clock { order: 3; flex: 1; margin: 0; padding-left: .6rem; font-size: .85rem; }
+  .tools { order: 4; margin: 0; }
+  .conn { order: 5; flex-basis: 100%; padding-left: .6rem; }
+  .tool { min-height: 44px; min-width: 44px; justify-content: center; }
   .tool .label { display: none; }
-  .conn { flex-basis: 100%; }
-  .desk { padding: 1rem 1rem 1.5rem; }
-  .side { display: block; border-left: 0; border-top: 1px solid var(--edge); }
-  .list { max-height: 55dvh; }
+  .stage { padding: 0 16px; }
+  .who-head { gap: 1rem; padding: 1rem 0 .75rem; }
+  .portrait canvas { width: 96px; height: 96px; }
+  .talk h2, .pick h2 { font-size: 1.6rem; }
+  .thread li:last-child .said { font-size: 1.4rem; }
+  .pick { padding-bottom: 2rem; }
+  .ask input { font-size: 1rem; }
   .person { min-height: 48px; }
   .pop {
     inset: auto 0 0 0; z-index: 3; width: 100%; max-height: 75dvh; overflow-y: auto;
@@ -353,7 +377,6 @@ select, input[type="text"], input[type="search"] {
   }
   .place-list { max-height: none; }
   .place-list li { min-height: 48px; padding-left: 2.5rem; }
-  .thread { max-height: 60dvh; }
   .coach { z-index: 8; width: calc(100% - 32px); }
   .sheet {
     margin: auto 0 0; width: 100%; height: auto; max-height: 80dvh;
@@ -395,6 +418,7 @@ select, input[type="text"], input[type="search"] {
 </dialog>
 <div class="app" id="app">
   <header>
+    <button type="button" class="tool drawer-open" id="case-open" aria-controls="desk" aria-expanded="false" aria-label="Case and notebook"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg></button>
     <h1>Sleuth</h1>
     <p class="headline"><b class="case-title" id="case-title">Quiet day in town</b><span class="when" id="case-when"></span><span class="role tier" id="case-tier" hidden></span></p>
     <p class="clock" id="clock"></p>
@@ -405,6 +429,7 @@ select, input[type="text"], input[type="search"] {
       <button type="button" class="tool" id="map-open" aria-haspopup="dialog" aria-controls="map-panel" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg><span class="label">Districts</span></button>
       <button type="button" class="linkish" id="replay">Tutorial</button>
     </nav>
+    <button type="button" class="tool drawer-open" id="people-open" aria-controls="side" aria-expanded="false" aria-label="People"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20c.5-4 3-6 6.5-6s6 2 6.5 6M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14c2 .7 3.2 2.6 3.5 6"/></svg></button>
   </header>
   <dialog class="pop" id="places" aria-labelledby="places-title">
     <h2 id="places-title">Where you are</h2>
@@ -416,7 +441,7 @@ select, input[type="text"], input[type="search"] {
     <ul class="place-list" id="place-list" role="listbox" aria-label="Where to go" tabindex="-1"></ul>
   </dialog>
 
-  <aside class="rail desk" id="desk" aria-label="Your case">
+  <aside class="rail desk" id="desk" aria-label="Your case" data-opener="case-open" tabindex="-1">
     <section class="case" id="case" aria-label="The case">
       <div class="tips" id="tips" role="group" aria-label="Your tips" hidden></div>
       <p class="case-text" id="case-text">Something's bound to happen soon.</p>
@@ -470,7 +495,7 @@ select, input[type="text"], input[type="search"] {
     </section>
   </main>
 
-  <aside class="rail side" id="side" aria-label="People">
+  <aside class="rail side" id="side" aria-label="People" data-opener="people-open" tabindex="-1">
     <section class="people" aria-labelledby="people-title">
       <h2 id="people-title">People</h2>
       <input type="search" id="find" placeholder="Name, job, looks or nearby" aria-label="Find someone by name, job, known looks, or nearby" autocomplete="off">
@@ -496,6 +521,8 @@ const $ = (id) => document.getElementById(id);
 const RESTING = "The town is resting for today. Come back after midnight UTC.";
 const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)");
 const phone = matchMedia("(max-width: 600px)");
+// Narrow enough that the case and people are drawers.
+const drawers = matchMedia("(max-width: 900px)");
 const MAX_FEED = 300;
 // The notebook's groups, in order, and the group of each kind of record.
 const GROUPS = ["Seen", "Clip", "Logs", "Said", "Found", "Heard", "Photos"];
@@ -897,7 +924,7 @@ function pastTarget(page) {
   const t = page.beat?.book ? $("book")
     : page.beat?.about ? row(page.beat.about)
     : page.beat && $("convo").dataset.id === page.beat.person ? $("thread").lastElementChild
-    : s.person ? row(s.person) : $(ACTION_BUTTON[s.action]);
+    : s.person ? row(s.person) : s.action === "publish" || $("places").open ? $(ACTION_BUTTON[s.action]) : $("here");
   return t && !t.hidden ? t : t?.parentElement || $("people");
 }
 
@@ -921,23 +948,25 @@ function light() {
   const reply = beat?.book ? $("book")
     : beat?.about ? $("people").querySelector(`[data-id="${CSS.escape(beat.about)}"]`) || $("people")
     : beat && $("convo").dataset.id === beat.person ? $("thread").lastElementChild : null;
-  const target = past ? pastTarget(past) : beat ? reply : !s ? null : talking ? $("ask")
+  let target = past ? pastTarget(past) : beat ? reply : !s ? null : talking ? $("ask")
     : s.person ? !$("pick").hidden && $("leads").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
       || $("people").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
     : s.place && s.place !== here ? $("here")
     : s.action === "publish" && !$("publish").hidden ? publishNext()
     : s.action !== "publish" && !$("places").open ? $("here")
     : $(ACTION_BUTTON[s.action]);
+  target = reach(target);
   hole = !target ? [] : past === CASE_PAGE ? [target, $("case-text")] : past || beat ? [target] : talking ? [$("dialogue")] : target === $("culprit") ? [$("publish")]
     : target === $("publish-send") ? [$("publish"), $("send")]
     : target === $("here") && $("places").open ? [target, $("places")] : [target];
+  hole = [...new Set(hole.map(reach))];
   watch.disconnect();
   for (const node of [document.body, ...hole]) watch.observe(node);
   $("coach").hidden = !(s || beat) || $("intro").open || $("handoff").open;
   $("mask").hidden = $("coach").hidden;
   if (!$("coach").hidden && !beat && !past) target?.classList.add("lit");
   if (!s && !beat) {
-    document.body.style.paddingBottom = "";
+    $("app").style.removeProperty("--dock");
     return;
   }
   const page = past || live;
@@ -955,6 +984,36 @@ function light() {
   }
   placeSoon();
 }
+
+// A node in a closed drawer is reached through the button that opens it.
+function reach(node) {
+  const rail = node?.closest?.(".rail");
+  return rail && drawers.matches && !rail.classList.contains("open") ? $(rail.dataset.opener) : node;
+}
+
+// Open one drawer, or none, focusing the drawer opened or the button of the one closed.
+function openDrawer(rail, refocus = false) {
+  for (const r of document.querySelectorAll(".rail")) {
+    const open = r === rail;
+    if (!open && refocus && r.classList.contains("open")) $(r.dataset.opener).focus();
+    r.classList.toggle("open", open);
+    $(r.dataset.opener).ariaExpanded = String(open);
+  }
+  rail?.focus({ preventScroll: true });
+  light();
+}
+
+for (const rail of document.querySelectorAll(".rail")) {
+  $(rail.dataset.opener).addEventListener("click", () => openDrawer(rail.classList.contains("open") ? null : rail));
+  // A sliding drawer moves the cutout without resizing anything, so the card is placed again once it lands.
+  rail.addEventListener("transitionend", placeSoon);
+}
+// A tap outside an open drawer closes it.
+document.addEventListener("click", (ev) => {
+  const open = document.querySelector(".rail.open");
+  if (open && !ev.target.closest(".rail, .drawer-open, .coach, .mask")) openDrawer(null);
+});
+drawers.addEventListener("change", () => openDrawer(null));
 
 // Scroll a new target into view; on a phone, clear of the header with room for the card below it.
 let shown = "";
@@ -976,7 +1035,9 @@ function placeCoach() {
   const w = innerWidth, h = innerHeight;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
   const meets = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
-  document.body.style.paddingBottom = phone.matches ? `${c.height + 16}px` : "";
+  // On a phone the page shrinks above the card, so the card never covers what the step needs.
+  if (phone.matches) $("app").style.setProperty("--dock", `${c.height + 40}px`);
+  else $("app").style.removeProperty("--dock");
   // On a phone the open place list is a sheet over the page, so the card points at the sheet alone.
   const sheet = hole.includes($("places")) && $("places").getBoundingClientRect();
   if (phone.matches && t) return anchor(card, c, sheet || t);
@@ -1185,7 +1246,9 @@ async function choose(id, quiet = false) {
     return;
   }
   drawConvo(body);
-  if (!quiet && !phone.matches) $("ask-text").focus({ preventScroll: true });
+  if (quiet) return;
+  if (drawers.matches) openDrawer(null);
+  if (!phone.matches) $("ask-text").focus({ preventScroll: true });
 }
 
 function drawConvo(body) {
@@ -1541,6 +1604,8 @@ document.addEventListener("keydown", (ev) => {
   } else if (!$("publish").hidden) {
     openPublish(false);
     $("publish-open").focus();
+  } else if (document.querySelector(".rail.open")) {
+    openDrawer(null, true);
   }
 });
 

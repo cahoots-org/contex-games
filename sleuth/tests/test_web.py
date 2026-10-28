@@ -356,7 +356,7 @@ def test_the_tutorial_card_turns_back_and_forward_through_the_pages_seen(game):
     assert "if (!pages.length) pages = steps.flatMap((n, i) => n.done ? [{ i }] : []);" in add
     assert "pages.push(live);" in add
     lit = page[page.index("function light()"):page.index("function placeCoach()")]
-    assert "const target = past ? pastTarget(past)" in lit and "past || beat ? [target]" in lit
+    assert "let target = past ? pastTarget(past)" in lit and "past || beat ? [target]" in lit
     assert '$("coach-next").hidden = !(past || beat);' in lit
     assert '$("coach-back").hidden = back >= pages.length - 1;' in lit
     assert "`Step ${page.i + 1} of ${steps.length}`" in lit
@@ -1087,6 +1087,20 @@ def test_state_carries_the_districts_but_not_while_practising(game):
     assert [d["name"] for d in districts] == ["Elm Street", "Oak Street", "Maple Street"] and districts[1]["fear"] == 1
     game.player.begin_tutorial()
     assert game.client.get("/api/state").json()["districts"] == []
+
+
+def test_narrow_screens_keep_the_stage_and_slide_the_case_and_people_in_as_drawers(game):
+    page = game.client.get("/").text
+    head = page[page.index("<header>"):page.index("</header>")]
+    assert 'id="case-open" aria-controls="desk" aria-expanded="false"' in head
+    assert 'id="people-open" aria-controls="side" aria-expanded="false"' in head
+    assert 'id="desk" aria-label="Your case" data-opener="case-open"' in page
+    assert 'id="side" aria-label="People" data-opener="people-open"' in page
+    narrow = page[page.index("@media (max-width: 900px) {"):page.index("</style>")]
+    assert ".rail.open { visibility: visible; transform: none;" in narrow
+    lit = page[page.index("function light()"):page.index("function placeCoach()")]
+    assert "target = reach(target);" in lit and "hole = [...new Set(hole.map(reach))];" in lit
+    assert "openDrawer(null, true);" in page[page.index('if (ev.key !== "Escape"'):]
 
 
 def test_the_district_map_opens_from_the_header_once_there_are_districts(game):
