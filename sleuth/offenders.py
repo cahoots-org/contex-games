@@ -43,20 +43,27 @@ class Offenders:
         """Active offenders at tier whose quiet_until <= day."""
         return {vid for vid, o in self.active.items() if o.tier == tier and o.quiet_until <= day}
 
+    def _held_by(self, tier: str) -> int:
+        return sum(o.tier == tier for o in self.active.values())
+
     def escaped_with(self, vid: str) -> None:
-        """Count a case gone cold; at config.escalate_after move up one tier within catalog_tiers(), reset escaped."""
+        """Count a case gone cold; at config.escalate_after move up one tier within catalog_tiers(), reset escaped,
+        unless they are the last offender of their tier."""
         if (o := self.active.get(vid)) is None:
             return
         o.escaped += 1
         tiers = catalog_tiers()
-        if o.escaped >= self.config.escalate_after and o.tier in tiers[:-1]:
+        if o.escaped >= self.config.escalate_after and o.tier in tiers[:-1] and self._held_by(o.tier) > 1:
             o.tier, o.escaped = tiers[tiers.index(o.tier) + 1], 0
 
     def promote(self, tier: str, exclude=frozenset()) -> str | None:
-        """Move the offender one tier below, not in exclude, with the most escapes up to tier."""
+        """Move the offender one tier below, not in exclude, with the most escapes up to tier, unless the tier below
+        would be left with none."""
         if tier == TIERS[0]:
             return None
         below = TIERS[TIERS.index(tier) - 1]
+        if self._held_by(below) < 2:
+            return None
         vid = max((vid for vid, o in self.active.items() if o.tier == below and vid not in exclude),
                   key=lambda v: self.active[v].escaped, default=None)
         if vid is not None:

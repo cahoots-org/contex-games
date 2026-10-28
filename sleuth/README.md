@@ -23,7 +23,7 @@ the feed doesn't show it, so you learn it only by interviewing someone.
 standing for it: one open case per tier at most. At startup, on each part of the day, and the moment a case is solved
 or goes cold, each tier missing its case gets a crime staged in the part of the day just finished, opened in the same
 step. Its culprit is an offender of that tier; when nobody holds the tier, the offender below it who has got away with
-the most moves up. You're offered every open case at or below your standing as a tip, listed under the case title,
+the most moves up, as long as someone is left below. You're offered every open case at or below your standing as a tip, listed under the case title,
 and you work one at a time: the highest by default, or the one you pick. Interviews, records, searches, photos and
 episodes all go to the case you're working. Crimes come from the catalog in `sleuth/case.py`. Petty ones: a stolen
 bike, a vandalized car, sabotaged county-fair jam, a dog let out, salted sugar jars at the cafe, a moustache drawn on a
@@ -43,7 +43,7 @@ and any other is arrested, and any accomplice is exposed for covering for them.
 **Offenders.** Only a few residents commit crimes: `offenders` of them, picked at random and topped back up whenever
 the set runs short. Nobody can see who they are, not the page, not the people list, not the other residents. They
 don't make a case any easier or harder: the evidence still has to narrow to the culprit among everyone in town. An
-offender who gets away with it `escalate_after` times moves up to a bigger kind of crime, once the catalog has one.
+offender who gets away with it `escalate_after` times moves up to a bigger kind of crime, once the catalog has one, unless they are the last offender at their tier.
 
 **Moving in.** Nobody moves away by choice, but whenever someone leaves, say on an arrest, someone new moves in on
 the same street, as long as the town is under `population`, one at a time and tried again each part of the day
