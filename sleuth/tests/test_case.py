@@ -6,14 +6,16 @@ import pytest
 
 from sleuth.case import (
     CLIP_TRAITS,
+    CRIMES,
     ITEM_PLACES,
     PHASE_MINUTES,
     RECEIPT_BEFORE,
     WHEN,
-    WITNESS_ACTION,
     Crime,
     Record,
     camera_clip,
+    catalog_tiers,
+    crime_title,
     clock_at,
     discovery,
     found_it,
@@ -110,8 +112,9 @@ def test_grudge_naming_the_victim_is_a_motive():
 
 def test_returns_none_when_no_pair_fits():
     town = make_town()
-    routine = make_routine({vid: "dog park" for vid, *_ in RESIDENTS})
-    assert stage_crime(town, routine, Random(1), 1, "night", "case-1") is None
+    for v in town.villagers:
+        v.household = "h1"
+    assert stage_crime(town, make_routine(), Random(1), 1, "night", "case-1") is None
 
 
 def test_news_names_victim_place_and_time_not_culprit():
@@ -135,7 +138,7 @@ def test_dog_and_trailer_crimes_read_like_the_others(template, night, text):
     crime = next(c for seed in range(400)
                  if (c := stage_crime(town, routine, Random(seed), 1, "night", "case-1")).victim == "v1"
                  and c.template == template)
-    assert told(crime.text, crime, 2) == text and WITNESS_ACTION[template]
+    assert told(crime.text, crime, 2) == text and CRIMES[template].seen
 
 
 def test_every_item_is_only_ever_staged_at_its_places_and_no_line_uses_a_pronoun():
@@ -422,3 +425,29 @@ def test_make_solvable_narrows_on_the_crime_day_outfit():
     town.worn[1]["v5"] = "green raincoat"
     added = make_solvable(crime, [], town, routine, Random(1), Ids())
     assert added and added[0].traits.get("coat") == "green raincoat"
+
+
+def test_every_crime_kind_has_places_for_its_items():
+    assert all(item in ITEM_PLACES for k in CRIMES.values() for item in k.items)
+
+
+def test_the_catalog_is_all_petty_for_now():
+    assert catalog_tiers() == ("petty",)
+
+
+def test_the_goose_case_reads_well():
+    town, routine = make_town(), make_routine({"v1": "dog park"})
+    crime = next(c for seed in range(400)
+                 if (c := stage_crime(town, routine, Random(seed), 1, "night", "case-1")).victim == "v1"
+                 and c.template == "goose")
+    assert crime.text == f"Someone made off with Dana Reyes's goose at the dog park {WHEN}."
+    assert crime_title(crime, town) == "Dana Reyes's goose"
+
+
+def test_the_practice_crime_still_reads_as_today():
+    town = make_town()
+    crime = Crime("case-1", "steal", "tote bag", "v5", "v1", "library", 1, "morning", 590, "rival",
+                  f"Someone stole Dana Reyes's tote bag at the library {WHEN}.")
+    assert CRIMES["steal"].news.format(did="stole", victim="Dana Reyes", item="tote bag", at="at the library",
+                                       when=WHEN) == crime.text
+    assert crime_title(crime, town) == "Dana Reyes's tote bag"

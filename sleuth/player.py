@@ -8,7 +8,7 @@ from dataclasses import asdict, replace
 
 from sleuth.alibi import claim, household_word
 from sleuth.case import (
-    WHEN, TEMPLATES, Crime, Record, clock_at, motive_of, recall_more, record_json, retime, told, when,
+    WHEN, CRIMES, Crime, Record, clock_at, motive_of, recall_more, record_json, retime, told, when,
 )
 from sleuth.cases import CaseFile
 from sleuth.config import Config
@@ -713,7 +713,7 @@ class Player:
             self._graduate(file, self.id if held else None, line, handoff)
             return None
         everyone = [v.id for v in self.town.villagers]
-        named = f"{accused.name} {TEMPLATES[crime.template][0]} {victim.name}'s {crime.item}"
+        named = f"{accused.name} {CRIMES[crime.template].did} {victim.name}'s {crime.item}"
         if held:
             for rival in self.engine.players:
                 if rival is not self and any(r.case == crime.id for r in rival.notebook.values()):

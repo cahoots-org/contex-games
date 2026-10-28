@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from random import Random
 
 from sleuth.case import (
-    WHEN, Crime, Record, camera_clip, discovery, found_it, logs, make_solvable, scene_clues, stage_crime, told,
+    WHEN, Crime, Record, camera_clip, crime_title, discovery, found_it, logs, make_solvable, scene_clues, stage_crime, told,
     witness_memories,
 )
 from sleuth.config import Config
@@ -47,7 +47,7 @@ def case_json(case: CaseFile, town: Town, routine, today: float | None = None) -
     nearby = [v.id for v in town.villagers
               if v.id != c.victim and routine is not None and routine.place(v.id, c.phase) == c.place]
     return {"id": c.id, "text": told(c.text, c, today), "place": c.place, "phase": c.phase, "day": c.day, "state": case.state,
-            "private": c.owner is not None, "title": f"{town.name_of(c.victim)}'s {c.item}", "victim": c.victim,
+            "private": c.owner is not None, "title": crime_title(c, town), "victim": c.victim,
             "nearby": nearby}
 
 

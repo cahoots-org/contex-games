@@ -20,8 +20,10 @@ the feed doesn't show it, so you learn it only by interviewing someone.
 ## Playing
 
 **A case.** The town always has a case open. At startup, on each part of the day, and the moment a case is solved or
-goes cold, if none is open a crime is staged in the part of the day just finished and opened in the same step. The
-culprit comes from another household than the victim's, and one or two clues are left at the crime place. The game
+goes cold, if none is open a crime is staged in the part of the day just finished and opened in the same step. Crimes
+come from a petty catalog in `sleuth/case.py`: a stolen bike, a vandalized car, sabotaged county-fair jam, a dog let
+out, salted sugar jars at the cafe, a moustache drawn on a portrait at town hall, a goose made off with from the dog
+park, a kidnapped garden gnome. The culprit comes from another household than the victim's, and one or two clues are left at the crime place. The game
 checks that the evidence, with that part of the day's check-ins and receipts, narrows to the culprit alone, adding a
 witness if that helps and drawing another crime if nothing can. A solvable case opens: its witnesses are told what
 they saw, and the neighborhood app posts the news. The case shows at the top of the Hear panel and goes cold after

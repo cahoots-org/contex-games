@@ -9,16 +9,42 @@ from sleuth.lineage import Ids
 from sleuth.town import STREETS, Town, at, place_name
 from sleuth.traits import describe, figure
 
-TEMPLATES = {"steal": ("stole", ("bike", "tote bag", "thermos")), "vandalize": ("vandalized", ("car", "bike")),
-             "sabotage": ("sabotaged", ("county-fair pumpkin", "county-fair jam", "county-fair quilt")),
-             "dog": ("let out", ("dog",)), "trailer": ("drove off with", ("marching band trailer",))}
+TIERS = ("petty", "serious", "major")
+NEWS = "Someone {did} {victim}'s {item} {at} {when}."
+TITLE = "{victim}'s {item}"
+
+
+@dataclass(frozen=True)
+class Kind:
+    tier: str
+    did: str
+    items: tuple[str, ...]
+    found: str  # what the victim finds
+    seen: str  # what a witness saw the figure do
+    news: str = NEWS
+    title: str = TITLE
+
+
+CRIMES = {
+    "steal": Kind("petty", "stole", ("bike", "tote bag", "thermos"), "missing", "walked off with something"),
+    "vandalize": Kind("petty", "vandalized", ("car", "bike"), "damaged", "was bent over something"),
+    "sabotage": Kind("petty", "sabotaged", ("county-fair pumpkin", "county-fair jam", "county-fair quilt"), "spoiled",
+                     "was fiddling with something"),
+    "dog": Kind("petty", "let out", ("dog",), "loose", "was opening a gate"),
+    "trailer": Kind("petty", "drove off with", ("marching band trailer",), "missing", "was hauling something off"),
+    "salt": Kind("petty", "salted", ("sugar jars",), "salted", "was fiddling with the jars"),
+    "moustache": Kind("petty", "drew a moustache on", ("portrait",), "defaced", "was scribbling on something"),
+    "goose": Kind("petty", "made off with", ("goose",), "missing", "was carrying something that honked"),
+    "gnome": Kind("petty", "kidnapped", ("garden gnome",), "missing", "was carrying something small and pointy"),
+}
+TEMPLATES = CRIMES
 # Where each item plausibly is. Residents are on a street only at night, at home.
 FAIR_PLACES = (*STREETS, "town hall", "library")
 ITEM_PLACES = {"bike": (*STREETS, "gym", "school"), "tote bag": ("cafe", "gym", "library", "grocery"),
                "thermos": ("cafe", "gym", "school", "library"), "car": (*STREETS, "grocery", "hardware store", "gym", "bar"),
                "county-fair pumpkin": FAIR_PLACES, "county-fair jam": FAIR_PLACES, "county-fair quilt": FAIR_PLACES,
-               "dog": STREETS, "marching band trailer": ("school",)}
-FOUND = {"steal": "missing", "vandalize": "damaged", "sabotage": "spoiled", "dog": "loose", "trailer": "missing"}
+               "dog": STREETS, "marching band trailer": ("school",), "sugar jars": ("cafe", "grocery"),
+               "portrait": ("town hall", "library"), "goose": ("dog park", *STREETS), "garden gnome": STREETS}
 # How many minutes after the crime the victim finds it.
 NOTICED = (10, 45)
 PHASE_MINUTES = {"morning": (420, 720), "afternoon": (720, 1020), "evening": (1020, 1320), "night": (1320, 1740)}
@@ -30,9 +56,6 @@ LOG_PLACES = {"gym": "Gym check-in", "bar": "Bar tab closed", "grocery": "Grocer
 MAX_WITNESSES = 2
 WITNESS_TRAITS = 2
 CLIP_TRAITS = ("height", "coat")
-WITNESS_ACTION = {"steal": "walked off with something", "vandalize": "was bent over something",
-                  "sabotage": "was fiddling with something", "dog": "was opening a gate",
-                  "trailer": "was hauling something off"}
 WITNESS_DRIFT = 20
 # What the culprit can leave behind: a trace of one trait, or a store receipt whose log names who paid.
 TRACES = {"height": "A boot print {at}, left by {figure}.", "coat": "A thread {at}, snagged from {figure}.",
@@ -137,7 +160,7 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
     About REGULAR_CULPRIT of the time, when one fits, the culprit is expected at the scene too, otherwise elsewhere;
     None if no crime fits."""
     residents = [v for v in town.villagers if v.id not in exclude and routine.place(v.id, phase) is not None]
-    crimes = [(t, item) for t, (_, items) in TEMPLATES.items() for item in items]
+    crimes = [(t, item) for t, kind in CRIMES.items() for item in kind.items]
     for template, item in rng.sample(crimes, len(crimes)):
         pairs = [(c, w, motive_of(c, w)) for w in residents for c in residents
                  if c.household != w.household
@@ -152,8 +175,19 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
     culprit, victim, motive = rng.choices(pairs, [1 if m == "opportunity" else MOTIVE_WEIGHT for *_, m in pairs])[0]
     minute = rng.randrange(*PHASE_MINUTES[phase])
     place = routine.place(victim.id, phase)
-    return Crime(case_id, template, item, culprit.id, victim.id, place, day, phase, minute, motive,
-                 f"Someone {TEMPLATES[template][0]} {victim.name}'s {item} {at(place)} {WHEN}.")
+    kind = CRIMES[template]
+    text = kind.news.format(did=kind.did, victim=victim.name, item=item, at=at(place), when=WHEN)
+    return Crime(case_id, template, item, culprit.id, victim.id, place, day, phase, minute, motive, text)
+
+
+def crime_title(crime: Crime, town: Town) -> str:
+    """The case's title, like "Ada Reyes's bike"."""
+    return CRIMES[crime.template].title.format(victim=town.name_of(crime.victim), item=crime.item)
+
+
+def catalog_tiers() -> tuple[str, ...]:
+    """The tiers the catalog has a crime for, lowest first."""
+    return tuple(t for t in TIERS if any(k.tier == t for k in CRIMES.values()))
 
 
 def record_json(r: Record, town: Town, crime: Crime | None = None, today: float | None = None) -> dict:
@@ -164,7 +198,7 @@ def record_json(r: Record, town: Town, crime: Crime | None = None, today: float 
 
 
 def _memory_text(crime: Crime, clock: str, seen: dict[str, str]) -> str:
-    return f"Around {clock}, {at(crime.place)}, someone {describe(seen)} {WITNESS_ACTION[crime.template]}."
+    return f"Around {clock}, {at(crime.place)}, someone {describe(seen)} {CRIMES[crime.template].seen}."
 
 
 def _memory(crime: Crime, witness: str, seen: dict[str, str], rng: Random, ids: Ids) -> Record:
@@ -202,13 +236,13 @@ def witness_memories(crime: Crime, town: Town, routine, rng: Random, ids: Ids, a
 def discovery(crime: Crime, town: Town, rng: Random, ids: Ids) -> Record:
     """The victim finding the crime a little after it, which says nothing of who did it."""
     clock = clock_at(min(crime.minute + rng.randint(*NOTICED), PHASE_MINUTES[crime.phase][1] - 1))
-    text = f"Around {clock}, {town.get(crime.victim).name} found the {crime.item} {FOUND[crime.template]} {at(crime.place)}."
+    text = f"Around {clock}, {town.get(crime.victim).name} found the {crime.item} {CRIMES[crime.template].found} {at(crime.place)}."
     return Record(ids.next("r"), crime.id, "discovery", crime.place, clock, text, crime.victim, day=crime.day)
 
 
 def found_it(crime: Crime, clock: str) -> str:
     """The discovery in the victim's own words."""
-    return f"Around {clock}, I found my {crime.item} {FOUND[crime.template]} {at(crime.place)}."
+    return f"Around {clock}, I found my {crime.item} {CRIMES[crime.template].found} {at(crime.place)}."
 
 
 def camera_clip(crime: Crime, town: Town, ids: Ids) -> Record | None:
@@ -218,7 +252,7 @@ def camera_clip(crime: Crime, town: Town, ids: Ids) -> Record | None:
     culprit = town.looks(crime.culprit, crime.day)
     seen = {c: culprit[c] for c in CLIP_TRAITS}
     clock = clock_at(crime.minute)
-    text = f"{clock}, {place_name(crime.place)} camera: {figure(seen)} {WITNESS_ACTION[crime.template]}."
+    text = f"{clock}, {place_name(crime.place)} camera: {figure(seen)} {CRIMES[crime.template].seen}."
     return Record(ids.next("r"), crime.id, "clip", crime.place, clock, text, traits=seen, day=crime.day)
 
 
