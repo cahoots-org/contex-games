@@ -53,12 +53,12 @@ async def route(jev, file: CaseFile, villager: Villager, town: Town, question: s
     others = [v for v in town.villagers if v.id != villager.id][:MAX_OPTIONS]
     state = {"resident": {"name": villager.name, "occupation": villager.occupation,
                           "personality": villager.personality},
-             "case": case, "case_part_of_day": crime.phase,
+             "case": case, **({"case_window": crime.window} if crime.window else {"case_part_of_day": crime.phase}),
              "conversation": exchanges(thread), "podcaster_asks": question}
     questions = {"kind": Choice(instructions="What is the podcaster asking this resident about? Read the question "
                                              "with the conversation so far.", criteria=KINDS),
                  "when": Choice(instructions="Which part of the day is the question about? If it names none, the "
-                                             "case's.", criteria={p: None for p in PHASES})}
+                                             "case's, or for a death its whole window.", criteria={p: None for p in PHASES})}
     if others:
         questions["who"] = Choice(instructions="Whom else is the question about? Pick who is named, or meant from the "
                                                "conversation.",
@@ -70,6 +70,6 @@ async def route(jev, file: CaseFile, villager: Villager, town: Town, question: s
     pick = {k: c.choice for k, c in resp.choices.items()}
     kind = pick.get("kind") if pick.get("kind") in KINDS else "none"
     who = pick.get("who") if pick.get("who") in town and pick.get("who") != villager.id else None
-    when = pick.get("when") if pick.get("when") in PHASES else crime.phase
+    when = pick.get("when") if pick.get("when") in PHASES else (crime.window or [crime.phase])[0]
     words = {k.removeprefix("word:"): v for k, v in pick.items() if k.startswith("word:")}
     return Route(kind, who, when, words)

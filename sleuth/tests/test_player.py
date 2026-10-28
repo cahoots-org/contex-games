@@ -1618,3 +1618,16 @@ async def test_the_victim_of_a_death_is_described_as_having_died():
     a_death(player, file)
     await ask(player, "v2", "who_had_reason")
     assert "Dana Reyes, the clerk, who has died" in writer.calls[-1][5]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("true", ["afternoon", "evening"])
+async def test_a_death_s_routing_never_sees_the_true_part_and_a_timeless_question_means_the_window(true):
+    player, file, engine, _ = interviewing()
+    file.crime = replace(file.crime, phase=true, window=["afternoon", "evening"])
+    file.whereabouts = {"v2": ["bar"]}
+    engine.jev.answers = {"kind": "where_were_you"}
+    await player.interview("v2", "Where were you?")
+    assert engine.jev.state["case_window"] == ["afternoon", "evening"]
+    assert true not in [v for k, v in engine.jev.state.items() if k.startswith("case_part")]
+    assert [r.text for r in notebook(player)] == [f"Eli Reyes says they were at the bar {WHEN}."]
