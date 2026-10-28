@@ -64,6 +64,14 @@ async def test_a_post_cut_off_by_the_token_limit_keeps_only_its_whole_sentences(
 
 
 @pytest.mark.asyncio
+async def test_a_cut_off_post_does_not_end_at_an_abbreviation():
+    client = StubClient("Lost my dog Biscuit by the cafe. I heard rustling by the hedges on my 6 a.m. walk with Mr. Pe")
+    client.messages.stop_reason = "max_tokens"
+    assert (await chatter(Writer(client, "haiku-test"), town(), Random(1), Ids(), None)).text == (
+        "Lost my dog Biscuit by the cafe.")
+
+
+@pytest.mark.asyncio
 async def test_nobody_posts_without_quirks():
     t = town()
     t.get("v1").quirks = []

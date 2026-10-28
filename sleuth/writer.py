@@ -36,6 +36,8 @@ METHOD = re.compile(r"\b(?:bats?|crowbars?|hammers?|bricks?|rocks?|wrench(?:es)?
                     r"pried|pry(?:ing)?|jimm(?:y|ied|ying)|hot-?wir\w*|ignition|propped|picked the lock|lock ?pick\w*|"
                     r"broke in|broken into|break-?in|left (?:it )?unlocked|back door|ski mask|punch\w*|shov\w*|"
                     r"tackl\w*|snatch\w*)\b", re.IGNORECASE)
+# A sentence's end, not an abbreviation's like "6 a.m." or "Mr.".
+WHOLE_END = re.compile(r"(?<![ap]\.m)(?<!\bM[rs])(?<!\bMrs)(?<!\bDr)(?<!\bSt)[.!?][\"'\u201d)]*(?=\s|$)")
 SENTENCE_END = re.compile(r"(?<=[.!?;])\s+")
 
 
@@ -141,7 +143,7 @@ class Writer:
             self.usage.record("haiku", response.usage.input_tokens, response.usage.output_tokens, charged_to.get())
         text = "".join(b.text for b in response.content if b.type == "text").strip()
         if whole and getattr(response, "stop_reason", None) == "max_tokens":
-            ends = list(re.finditer(r"[.!?][\"'\u201d)]*(?=\s|$)", text))
+            ends = list(WHOLE_END.finditer(text))
             text = text[:ends[-1].end()] if ends else ""
         return text
 
