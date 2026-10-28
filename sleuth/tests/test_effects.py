@@ -248,11 +248,11 @@ async def test_case_talk_retold_days_later_says_when_from_today():
     s.hub.timing = ("day 4, morning", "two days ago, in the afternoon")
     told = Match("k", {"id": "u-0", "text": "Someone stole Bert's bike this afternoon."})
     s.writer.line = "Someone stole Bert's bike two days ago, in the afternoon."
-    await s.act("v1", Decision(RETELL, told, "v2", "faithful"))
+    await s.act("v3", Decision(RETELL, told, "v2", "faithful"))
     assert s.writer.say_calls == [(RETELL, "Someone stole Bert's bike two days ago, in the afternoon.", "Ada")]
     assert s.writer.timing == s.hub.timing and len(s.hub.delivered) == 1
     s.writer.line = "I saw Bert's bike go this afternoon."
-    await s.act("v1", Decision(RETELL, told, "v2", "faithful"))
+    await s.act("v3", Decision(RETELL, told, "v2", "faithful"))
     assert len(s.hub.delivered) == 1
 
 
@@ -283,7 +283,7 @@ async def test_case_talk_may_say_when_the_case_happened_as_the_writer_is_told():
     s.hub.case_roots.add("u-0")
     s.hub.timing = ("day 2, morning", "last night")
     s.writer.line = "Ada, Bert stole bread last night, and Bert's bread was his own."
-    await s.act("v1", Decision(RETELL, source("u-0"), "v2", "faithful"))
+    await s.act("v3", Decision(RETELL, source("u-0"), "v2", "faithful"))
     assert [u.text for u, _ in s.hub.delivered] == [s.writer.line]
 
 
@@ -353,3 +353,16 @@ async def test_cover_stories_and_warnings_stay_strict():
     await s.act("v1", Decision(WARN, None, "v2", "faithful"))
     assert [u.text for u, _ in s.hub.delivered] == [s.hub.facts[ALIBI], s.hub.warning]
     assert s.writer.retold == [False, False]
+
+
+@pytest.mark.asyncio
+async def test_retold_case_talk_never_speaks_of_its_teller_by_name():
+    s = Setup()
+    s.hub.case_roots.add("u-0")
+    told = Match("k", {"id": "u-0", "text": "Someone stole Bert's bike this afternoon."})
+    s.writer.line = "Oh, I'm so worried about Bert, someone took his bike!"
+    await s.act("v1", Decision(RETELL, told, "v2", "faithful"))
+    assert s.hub.delivered == []
+    s.writer.line = "Oh, someone took my bike this afternoon!"
+    await s.act("v1", Decision(RETELL, told, "v2", "faithful"))
+    assert len(s.hub.delivered) == 1

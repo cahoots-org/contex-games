@@ -92,13 +92,15 @@ async def act(
     async def words(facts_text: str | None, audience: str, case: bool, plain: str | None = None,
                     somber: bool = False, retold: bool = False) -> str | None:
         """The writer's line; plain or nothing when it is of faith or grisly, when retold on a case claims to have
-        seen it, or when otherwise on a case adds what facts_text and the people at hand don't."""
+        seen it or names its teller, or when otherwise on a case adds what facts_text and the people at hand don't."""
         text = await writer.say(villager, decision, facts_text, audience, case, *(timing or ("", "")), mood=mood,
                                 somber=somber, retold=case and retold)
         if FAITH.search(text) or GORE.search(text):
             return plain
         if case and retold:
-            return plain if FIRST_HAND.search(text) else text
+            # A victim retelling their own case's news would speak of themselves by name, as someone else.
+            first = re.escape(villager.name.split()[0])
+            return plain if FIRST_HAND.search(text) or re.search(rf"\b{first}\b", text) else text
         allowed = " ".join([villager.name, audience, facts_text or "", *(timing or ())])
         if case and invents_facts(text, allowed, {v.name.split()[0] for v in town.villagers}):
             return plain
