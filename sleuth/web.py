@@ -147,7 +147,8 @@ def create_app(
         if fresh:
             owner = new_owner_id()
             join(owner)
-        response = FileResponse(PAGE)
+        # Revalidated on every visit: a page from the browser cache sets no cookie, so a new visitor would get no run.
+        response = FileResponse(PAGE, headers={"Cache-Control": "no-cache"})
         if fresh:
             response.set_cookie(
                 COOKIE, owner, max_age=COOKIE_SECONDS, httponly=True, samesite="lax", secure=request.url.scheme == "https",
