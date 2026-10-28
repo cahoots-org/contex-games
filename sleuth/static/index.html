@@ -123,6 +123,7 @@ select, input[type="text"], input[type="search"] {
   border-right: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
 }
 .group ol { list-style: none; margin: 0; padding: 0; }
+.group-note { margin: .4rem 0 0 .75rem; font-size: .8rem; color: var(--muted); }
 .group li { padding: .35rem 0 .35rem .75rem; font-size: .9rem; }
 .group li + li { border-top: 1px dashed var(--rail); }
 .group label { display: flex; gap: .5rem; align-items: flex-start; }
@@ -457,6 +458,8 @@ const phone = matchMedia("(max-width: 600px)");
 const MAX_FEED = 300;
 // The notebook's groups, in order, and the group of each kind of record.
 const GROUPS = ["Seen", "Clip", "Logs", "Said", "Found", "Heard", "Photos"];
+// What a group's heading can't say on its own.
+const GROUP_NOTES = { Heard: "Retold. It may have changed along the way." };
 const GROUP_OF = { memory: "Seen", clip: "Clip", log: "Logs", statement: "Said", clue: "Found", discovery: "Found",
   photo: "Photos" };
 // A hearsay statement reads "<name> heard from <speaker>: ...".
@@ -652,7 +655,9 @@ function drawNotebook() {
   const newest = [...notebook.values()].reverse();
   const groups = GROUPS.map((g) => [g, newest.filter((r) => groupOf(r) === g)]).filter(([, rs]) => rs.length);
   $("notebook").replaceChildren(...groups.map(([g, rs]) => el("section", { className: "group" },
-    el("h3", { textContent: g }), el("ol", {}, ...rs.map((r) => entry(r, ticked.has(r.id)))))));
+    el("h3", { textContent: g }), el("div", {},
+      ...(GROUP_NOTES[g] ? [el("p", { className: "group-note", textContent: GROUP_NOTES[g] })] : []),
+      el("ol", {}, ...rs.map((r) => entry(r, ticked.has(r.id))))))));
   $("book-empty").hidden = notebook.size > 0;
   $("book").hidden = Boolean(caseNow && caseNow.private) && notebook.size === 0;
   countCited();

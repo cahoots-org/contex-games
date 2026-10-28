@@ -1535,3 +1535,67 @@ async def test_an_episode_on_a_death_names_it_soberly():
     ids = cite(player, file, memory_of(file, player.ids))
     assert await player.publish("v3", ids) is None
     assert engine.delivered[0][0].text == "Fay Okafor was behind the death of Dana Reyes, and the evidence holds up."
+
+
+def heard_as(player, engine, file, text):
+    """Ivy (v6) heard Kit say text, retold from Jo's (v7) memory of the case."""
+    memory = hearsay(player, engine, "memory", file)
+    engine.facts.record(Utterance("u-5", "v8", "Kit Tran", "oak street", text, "u-1"))
+    return memory
+
+
+@pytest.mark.asyncio
+async def test_faithful_hearsay_from_a_witness_is_sound():
+    player, file, engine, _ = interviewing()
+    for faithful in ("Jo says someone tall in a grey hoodie walked off with something around 11:40pm.",
+                     "Jo saw someone tall walk off with something last night, poor Dana."):
+        player.notebook.clear()
+        player._talked.clear()
+        heard_as(player, engine, file, faithful)
+        await ask(player, "v6", "who_told_you")
+        [said] = notebook(player)
+        assert said.sound is True, faithful
+
+
+@pytest.mark.asyncio
+async def test_hearsay_that_drifted_from_the_witness_is_unsound():
+    player, file, engine, _ = interviewing()
+    for drifted in ("Someone tall in a red coat took it around 9pm.", "Jo saw Hal sneaking off with it.",
+                    "Someone tall took it, and he was laughing."):
+        player.notebook.clear()
+        player._talked.clear()
+        heard_as(player, engine, file, drifted)
+        await ask(player, "v6", "who_told_you")
+        [said] = notebook(player)
+        assert said.sound is False, drifted
+
+
+@pytest.mark.asyncio
+async def test_hearsay_from_a_memory_no_longer_on_file_is_unsound():
+    player, file, engine, _ = interviewing()
+    memory = heard_as(player, engine, file, "Someone tall took a bike.")
+    del file.records[memory.id]
+    await ask(player, "v6", "who_told_you")
+    [said] = notebook(player)
+    assert said.sound is False
+
+
+@pytest.mark.asyncio
+async def test_citing_drifted_hearsay_sinks_the_episode():
+    player, file, engine, _ = interviewing()
+    memory = heard_as(player, engine, file, "Someone tall in a red coat took it around 9pm.")
+    await ask(player, "v6", "who_told_you")
+    [said] = notebook(player)
+    await player.publish("v3", [*cite(player, file, memory), said.id])
+    assert file.state == "open" and [e.data["held"] for e in player.feed.recent if e.kind == "episode"] == [False]
+
+
+@pytest.mark.asyncio
+async def test_first_hand_testimony_stays_exact():
+    player, file, engine, writer = interviewing()
+    memory = heard_as(player, engine, file, "Someone tall in a red coat took it around 9pm.")
+    writer.line = "A tall fella in a red coat, around 9pm, I saw it myself."
+    await ask(player, "v7", "what_did_you_see")
+    [seen] = notebook(player, "memory")
+    assert (seen.text, seen.traits, seen.sound) == (memory.text, memory.traits, True)
+    assert writer.calls[-1][4] == [memory.text] and replies(player) == [f"I saw it myself. {memory.text}"]

@@ -1070,3 +1070,10 @@ def test_the_case_header_shows_its_tier_except_on_the_first_case(game):
     assert 'id="case-tier"' in page
     assert '$("case-tier").hidden = !open || open.private;' in set_case
     assert '$("case-tier").textContent = open ? capital(open.tier) : "";' in set_case
+
+
+def test_heard_entries_are_marked_as_retold(game):
+    html = game.client.get("/").text
+    assert 'const GROUP_NOTES = { Heard: "Retold. It may have changed along the way." };' in html
+    draw = html[html.index("function drawNotebook()"):html.index("function entry(")]
+    assert 'el("p", { className: "group-note", textContent: GROUP_NOTES[g] })' in draw and "sound" not in draw

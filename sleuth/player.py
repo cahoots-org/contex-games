@@ -639,7 +639,9 @@ class Player:
         return records
 
     async def _hearsay(self, file: CaseFile, villager: Villager) -> tuple[list[Record], list[str]]:
-        """The best case hearsay the resident heard: a record when it traces to evidence, else news as talk."""
+        """The best case hearsay the resident heard: a record when it traces to evidence, else news as talk. Hearsay
+        is sound only when it traces to a memory still on file and adds no case fact that memory, its witness and the
+        case don't give."""
         crime, vid, name = file.crime, villager.id, villager.name
         talk = []
         for m in await self.engine.recall_heard(vid, self._told(crime.text, crime)):
@@ -650,9 +652,14 @@ class Player:
             if rooted is None or rooted[0] is not file:
                 continue
             if rooted[1] in EVIDENCE_ROOTS:
-                source = next((r.id for r in file.records.values() if r.utterance == root), None)
-                text = f"{name} heard from {heard.speaker_name}: {retime(heard.text, WHEN)}"
-                return [self._statement(file, vid, text, rooted[1] == "memory", source)], []
+                source = next((r for r in file.records.values() if r.utterance == root), None)
+                said = retime(heard.text, WHEN)
+                firsts = {v.name.split()[0] for v in self.town.villagers}
+                case = f"{self._told(crime.text, crime)} {when(crime, self._today())}"
+                allowed = f"{source.text} {self.town.name_of(source.holder)} {case}" if source else ""
+                sound = rooted[1] == "memory" and bool(allowed) and not invents_facts(self._told(said, crime), allowed, firsts)
+                text = f"{name} heard from {heard.speaker_name}: {said}"
+                return [self._statement(file, vid, text, sound, source.id if source else None)], []
             if rooted[1] == "news" and not talk:
                 talk.append(f"{heard.speaker_name} told me: {self._told(retime(heard.text, WHEN), crime)}")
         return [], talk
