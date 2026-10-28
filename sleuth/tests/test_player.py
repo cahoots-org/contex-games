@@ -1361,7 +1361,17 @@ async def test_the_victim_thanks_the_podcaster_on_the_app():
     player, file, engine, _ = interviewing()
     await expose_fay(player, file, engine)
     [thanks] = [e for e in player.feed.recent if e.kind == "post" and e.data["speaker"] == "Dana Reyes"]
-    assert thanks.data["text"] == "Got my bike back thanks to that podcast!" and thanks.data["case_id"] == file.crime.id
+    assert thanks.data["text"] == "Thanks to that podcast, everyone knows who stole my bike!"
+    assert thanks.data["case_id"] == file.crime.id
+
+
+@pytest.mark.asyncio
+async def test_the_victims_thanks_fit_a_crime_that_took_nothing():
+    player, file, engine, _ = interviewing()
+    file.crime.template, file.crime.item = "sabotage", "county-fair pumpkin"
+    await expose_fay(player, file, engine)
+    [thanks] = [e for e in player.feed.recent if e.kind == "post" and e.data["speaker"] == "Dana Reyes"]
+    assert thanks.data["text"] == "Thanks to that podcast, everyone knows who sabotaged my county-fair pumpkin!"
 
 
 @pytest.mark.asyncio

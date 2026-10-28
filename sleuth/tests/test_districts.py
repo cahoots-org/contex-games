@@ -295,7 +295,7 @@ async def test_a_first_held_case_changes_the_town_at_once():
     assert player.person("v3")["known_for"] == "stole Dana Reyes's bike"
     assert engine.reputation.get("v1", PID) > 0
     posts = [e.data["text"] for e in player.feed.recent if e.kind == "post"]
-    assert THANKS.format(item="bike") in posts and BREATHES.format(street="Elm Street", name="Fay Okafor") in posts
+    assert THANKS.format(did="stole", item="bike") in posts and BREATHES.format(street="Elm Street", name="Fay Okafor") in posts
     [after] = [d for d in [e for e in player.feed.recent if e.kind == "districts"][-1].data["districts"]
                if d["street"] == "elm street"]
     assert after["crime"] <= round(before * 3)

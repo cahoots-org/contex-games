@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 COLD = "The case went cold. It was {name}."
 COVERED = "covered for {name}"
-THANKS = "Got my {item} back thanks to that podcast!"
+THANKS = "Thanks to that podcast, everyone knows who {did} my {item}!"
 ARRESTED = "{name} was arrested and has left town."
 ON_EDGE = "{street} is on edge after {title}."
 BREATHES = "{street} breathes a little easier now {name}'s been found out."
@@ -255,7 +255,7 @@ class Cases:
         engine.reputation.nudge(crime.culprit, player_id, config.reputation_exposed)
         household = {victim.id, *(v.id for v in self.town.villagers if victim.household and v.household == victim.household)}
         engine.reputation.nudge_all(player_id, config.reputation_ally, household)
-        thanks = Utterance("", victim.id, victim.name, crime.place, THANKS.format(item=crime.item), None, "posted")
+        thanks = Utterance("", victim.id, victim.name, crime.place, THANKS.format(did=CRIMES[crime.template].did, item=crime.item), None, "posted")
         engine.feed.on_post(thanks, crime.id)
 
     async def rally(self, engine, street: str, victim: str | None) -> None:
