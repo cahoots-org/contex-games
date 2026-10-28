@@ -1,6 +1,7 @@
 """Staging a crime from where the town expects its residents to be, and the evidence it leaves."""
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from random import Random
 
@@ -165,9 +166,10 @@ def motive_of(culprit, victim) -> str:
 
 
 def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id: str, *,
-                exclude=frozenset(), culprits: set[str] | None = None, tier: str = "petty") -> Crime | None:
+                exclude=frozenset(), culprits: set[str] | None = None, tier: str = "petty",
+                weight: Callable[[str], float] | None = None) -> Crime | None:
     """Draw a crime of tier, then a culprit (one of culprits, when given) and a victim from different households, the
-    victim where the item plausibly is. With the tier's EVIDENCE chance, when one fits, the culprit is expected at the
+    victim where the item plausibly is, each place weighted by weight when given. With the tier's EVIDENCE chance, when one fits, the culprit is expected at the
     scene too, otherwise elsewhere; with none, never there. None if no crime fits."""
     residents = [v for v in town.villagers if v.id not in exclude and routine.place(v.id, phase) is not None]
     crimes = [(t, item) for t, kind in CRIMES.items() if kind.tier == tier for item in kind.items]
@@ -184,7 +186,9 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
     regular = [p for p in pairs if routine.place(p[0].id, phase) == routine.place(p[1].id, phase)]
     away = [p for p in pairs if p not in regular]
     pairs = regular if regular and (not away or rng.random() < chance) else away
-    culprit, victim, motive = rng.choices(pairs, [1 if m == "opportunity" else MOTIVE_WEIGHT for *_, m in pairs])[0]
+    weights = [(1 if m == "opportunity" else MOTIVE_WEIGHT) * (weight(routine.place(w.id, phase)) if weight else 1)
+               for _, w, m in pairs]
+    culprit, victim, motive = rng.choices(pairs, weights)[0]
     minute = rng.randrange(*PHASE_MINUTES[phase])
     place = routine.place(victim.id, phase)
     kind = CRIMES[template]

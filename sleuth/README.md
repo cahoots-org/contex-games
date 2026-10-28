@@ -59,6 +59,15 @@ keeps a crime level and a fear level between 0 and 1. A crime opened there raise
 petty, serious or major one; a held episode lowers crime by 0.15 and fear by 0.1. Each part of the day crime fades by
 `district_crime_decay` and fear by `district_fear_decay`.
 
+**Watches.** A district whose fear reaches `organize_fear` and that has seen at least one culprit exposed since it
+last organized starts a watch: the Elm Street Neighborhood Watch, Porch-Light Pact or Group Chat, the name picked by
+code. It is checked the moment an episode holds and on every part of the day. The founder is the district's latest
+victim if they live there, else a random resident, and up to five neighbors join, the ones the founder is warmest to,
+whoever they are, so being in a watch proves nothing. The app announces it and the founder tells the members, with no
+model calls. While a watch stands, a crime is `organized_crime_weight` times as likely at a place in its district, so
+crime moves elsewhere. It winds down, said on the app, once the district's crime and fear both fall below
+`disband_below`.
+
 **Your first case.** Before the page, a new podcaster sees three short cards on what the game is and a button to
 start; they come back on a reload only until the podcaster has asked anyone anything. The first case happens in a
 practice town of its own (`sleuth/tutorial.py`), fixed in the code: six residents in three households, their looks,
@@ -275,6 +284,9 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_ACCOMPLICE_CHANCE` | `0.5` | chance a serious culprit has an accomplice who vouches for them |
 | `SLEUTH_DISTRICT_CRIME_DECAY` | `0.02` | how far a district's crime fades each part of the day |
 | `SLEUTH_DISTRICT_FEAR_DECAY` | `0.015` | how far a district's fear fades each part of the day |
+| `SLEUTH_ORGANIZE_FEAR` | `0.4` | fear at which a district with an exposure starts a watch |
+| `SLEUTH_DISBAND_BELOW` | `0.05` | crime and fear below which a watch winds down |
+| `SLEUTH_ORGANIZED_CRIME_WEIGHT` | `0.25` | how much less likely a crime is in a district with a watch |
 
 ## Tests
 

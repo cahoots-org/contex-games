@@ -491,3 +491,13 @@ def test_the_practice_crime_still_reads_as_today():
     assert CRIMES["steal"].news.format(did="stole", victim="Dana Reyes", item="tote bag", at="at the library",
                                        when=WHEN) == crime.text
     assert crime_title(crime, town) == "Dana Reyes's tote bag"
+
+
+def test_crimes_move_away_from_organized_districts():
+    town, routine = make_town(), make_routine()
+
+    def elm_share(weight):
+        crimes = [stage_crime(town, routine, Random(seed), 1, "night", "case-1", weight=weight) for seed in range(300)]
+        return sum(c.place == "elm street" for c in crimes) / len(crimes)
+
+    assert elm_share(lambda place: 0.25 if place == "elm street" else 1.0) < elm_share(None) / 2

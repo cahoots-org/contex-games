@@ -3,6 +3,7 @@ import re
 from html.parser import HTMLParser
 from pathlib import Path
 
+from sleuth.districts import FORMED, TOLD, WATCH_NAMES, WOUND_DOWN
 from sleuth.faith import FAITH as WORDS
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -68,3 +69,8 @@ def test_no_talk_of_a_tutorial_in_copy():
     page.feed(re.sub(f'(id="(?:{"|".join(OVERLAY)})"[^>]*>)[^<]*', r"\1", html))
     found += page.found
     assert not [s for s in found if META.search(s)]
+
+
+def test_watch_names_are_secular():
+    copy = [*WATCH_NAMES, FORMED, TOLD, WOUND_DOWN]
+    assert not [s for s in copy if WORDS.search(s) or MEDIEVAL.search(s)]

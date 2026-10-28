@@ -13,13 +13,13 @@ from sleuth.case import (
 )
 from sleuth.config import Config
 from sleuth.decide import warmth_words
-from sleuth.districts import Districts
+from sleuth.districts import FORMED, TOLD, WOUND_DOWN, Districts, district_of
 from sleuth.feed import APP
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.models import Utterance, Villager
 from sleuth.offenders import Offenders
-from sleuth.town import STREETS, Town, at
+from sleuth.town import STREETS, Town, at, place_name
 
 log = logging.getLogger(__name__)
 
@@ -164,15 +164,16 @@ class Cases:
 
     async def on_held(self, engine, file: CaseFile, player_id: str) -> None:
         """A held episode closes the case and wins the town's regard; a petty culprit is exposed, any other arrested,
-        and the next case opens."""
+        its district eases and may organize a watch at once, and the next case opens."""
         crime = file.crime
         self.close(file, player_id)
         engine.feed.on_case_closed(crime.id, "")
-        if self.districts is not None:
-            self.districts.on_exposed(crime)
         town = [v.id for v in self.town.villagers if v.id != crime.culprit]
         engine.reputation.nudge_all(player_id, self.config.reputation_right, town)
         await self._unmask(engine, file, player_id)
+        if self.districts is not None:
+            self.districts.on_exposed(crime)
+            await self.rally(engine, district_of(crime.place), crime.victim)
         await self.ensure(engine)
 
     async def _unmask(self, engine, file: CaseFile, player_id: str | None = None) -> None:
@@ -235,6 +236,29 @@ class Cases:
         thanks = Utterance("", victim.id, victim.name, crime.place, THANKS.format(item=crime.item), None, "posted")
         engine.feed.on_post(thanks, crime.id)
 
+    async def rally(self, engine, street: str, victim: str | None) -> None:
+        """Let the street organize a watch; a new one is posted on the app and told by its founder to its members."""
+        watch = self.districts.organize(street, self.town, self.rng, self.now, victim)
+        if watch is None:
+            return
+        founder, name = self.town.get(watch.founder), place_name(street)
+        formed = FORMED.format(street=name, first=founder.name.split()[0])
+        engine.feed.on_post(Utterance("", "app", APP, street, formed, None, "posted"), None)
+        told_them = Utterance(self.ids.next("u"), founder.id, founder.name, street, TOLD.format(name=watch.name, street=name),
+                              None)
+        await engine.deliver(told_them, watch.members[1:])
+
+    async def _watch(self, engine) -> None:
+        """Wind down the watches no longer needed, and let every street organize, its latest victim the founder."""
+        names = {street: d.watch.name for street, d in self.districts.by_street.items() if d.watch}
+        for street in self.districts.wind_down():
+            text = WOUND_DOWN.format(name=names[street], street=place_name(street))
+            engine.feed.on_post(Utterance("", "app", APP, street, text, None, "posted"), None)
+        for street in STREETS:
+            here = [f for f in self.files.values() if district_of(f.crime.place) == street]
+            latest = max(here, key=lambda f: f.opened).crime.victim if here else None
+            await self.rally(engine, street, latest)
+
     def brief(self, feed, player_id: str, today: float | None, tier: str) -> None:
         """Tell a player just off the practice case every open case offered at tier and, unless the feed still
         replays it, its news."""
@@ -271,7 +295,8 @@ class Cases:
 
     async def on_tick(self, engine, day: int, phase: str, finished: dict[str, list[str]]) -> None:
         """Dress the town, let exposed offenders reform of a morning, try again to fill an empty home, let old cases go
-        cold, their culprits made known, and open a shared case for each wanted tier with none open."""
+        cold, their culprits made known, let watches form and wind down, and open a shared case for each wanted tier with
+        none open."""
         self.dress(day)
         if phase == "morning":
             self.offenders.new_day(day, self.rng)
@@ -288,6 +313,8 @@ class Cases:
                 cold = COLD.format(name=self.town.name_of(case.crime.culprit))
                 engine.feed.on_case_closed(case.crime.id, cold)
                 await self._unmask(engine, case)
+        if self.districts is not None:
+            await self._watch(engine)
         await self.ensure(engine)
 
     async def ensure(self, engine, now: float | None = None) -> None:
@@ -313,7 +340,8 @@ class Cases:
         culprits = self.offenders.ready(day, tier)
         for _ in range(DRAWS):
             crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"),
-                                exclude=self._involved() | pictured, culprits=culprits, tier=tier)
+                                exclude=self._involved() | pictured, culprits=culprits, tier=tier,
+                                weight=self._weight if self.districts is not None else None)
             if crime is None:
                 return
             try:
@@ -322,6 +350,10 @@ class Cases:
             except Exception:
                 log.exception("opening %s failed", crime.id)
                 self.files.pop(crime.id, None)
+
+    def _weight(self, place: str) -> float:
+        """How likely a crime is at place: less in a district with a watch."""
+        return self.config.organized_crime_weight if self.districts.organized(place) else 1.0
 
     def _involved(self) -> set[str]:
         """Whom every case not yet closed rests on: its culprit, victim, witnesses, and whoever paid for a receipt

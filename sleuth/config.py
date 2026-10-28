@@ -85,6 +85,11 @@ class Config:
     # How far each district's crime, and its fear, fade each part of the day.
     district_crime_decay: float = 0.02
     district_fear_decay: float = 0.015
+    # The fear at which a district with an exposure organizes a watch, and the crime and fear below which it winds down.
+    organize_fear: float = 0.4
+    disband_below: float = 0.05
+    # How much less likely a crime is at a place in a district with a watch.
+    organized_crime_weight: float = 0.25
     # Estimated list prices in dollars per million tokens.
     haiku_input_per_mtok: float = 0.1
     haiku_output_per_mtok: float = 0.5
