@@ -157,7 +157,7 @@ class Engine:
         """Publish the utterance to each listener's mind; raises only if every listener failed.
 
         An addressed utterance also wakes each listener and joins their next turn unmatched. Room talk rooted in a
-        case is shown in the feed, unless it is testimony.
+        case is shown in the feed as hearsay, unless it is testimony.
         """
         listeners = [i for i in listener_ids if i in self.town and i in self.minds]
         data = utterance.to_data()
@@ -174,7 +174,7 @@ class Engine:
             raise next(r for r in results if isinstance(r, Exception))
         if utterance.audience == "room" and self.cases is not None:
             if (rooted := self.cases.root_kind(self.lineage.root(utterance.id))) and rooted[1] != "memory":
-                self.feed.on_post(utterance, rooted[0].crime.id)
+                self.feed.on_post(utterance, rooted[0].crime.id, heard=True)
 
     async def recall_heard(self, vid: str, text: str) -> list[Match]:
         """Lines the villager heard earlier that the words match, best first."""

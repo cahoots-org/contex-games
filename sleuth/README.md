@@ -136,7 +136,7 @@ they heard something from, who'd have a reason (a feud or grudge with the victim
 or what someone looks like (only from someone who knows them).
 The game answers from what that resident knows and adds anything new to your notebook; Haiku only phrases the
 reply, in character: opinions, grudges, theories and quirks come through, but a reply that invents a case fact (a
-sighting, a time, a look) is swapped for the plain record. A question the game can't answer, or one the resident knows nothing about, gets "I wouldn't know about that."
+sighting, a time, a look, how it was done) is swapped for the plain record. A question the game can't answer, or one the resident knows nothing about, gets "I wouldn't know about that."
 You can ask each resident 4 questions a part of the day, then they'd rather talk later. Every question tells the
 culprit, at most once a part of the day, that a podcaster is asking around, and they may start covering their tracks. Once pressed, the culprit may also warn
 someone they're close to that the podcaster is stirring up trouble, at most once a part of the day per case: that
@@ -201,8 +201,8 @@ Logs, Said, Found, Heard, Photos), newest first; where you are, with Search here
 places you can go; and at the foot, a small Districts map: each street with its crime and fear as three pips, an
 arrow when either has risen or fallen since the morning, and any watch with who started it, never the numbers behind
 them (hidden in the first case). In the header, the neighborhood app: a link that counts what's new and opens one feed, newest
-first, as a panel on the right (a sheet from the bottom on a phone) of case news, what residents are saying, and their
-photo posts, each with who posted it, the faces in it, its caption and Save. On the right:
+first, as a panel on the right (a sheet from the bottom on a phone) of case news, what residents are saying (case talk
+passed on shows as hearsay, "Ada Reyes heard: ..."), and their photo posts, each with who posted it, the faces in it, its caption and Save. On the right:
 everyone in town with their job and street, searchable by name, job or known looks, marked victim or witness once you
 know and "usually nearby" when their routine puts them at the scene, and the conversation with
 whoever you pick. Someone's looks show only once you've learned them, how and when first, and until then their face
@@ -223,7 +223,8 @@ ordinary sentences that concern no one. Baselines are cached in `sleuth_baseline
 Contex's embedding model. Run Contex with authentication and `SYSTEM_ONE_ENABLED` off (the defaults).
 
 Residents' own app posts (a lost pet, a note to the neighbours, a gripe, a theory about the open case) skip Contex:
-they show on the page and never reach a mind. Each part of the day, while someone plays, one is posted with
+they show on the page and never reach a mind. A post that adds a case fact, how it was done included, is dropped.
+Each part of the day, while someone plays, one is posted with
 `chatter_chance`, at most one Haiku call.
 
 ## Setup

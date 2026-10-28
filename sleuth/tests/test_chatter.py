@@ -36,7 +36,8 @@ async def test_a_post_is_one_haiku_call_in_the_residents_voice():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("line", ["I saw Cal at the library at 9pm.", "Pray for our town.", ""])
+@pytest.mark.parametrize("line", ["I saw Cal at the library at 9pm.", "Pray for our town.", "",
+                                  "Somebody took a bat to Ada's bike on Elm Street last night."])
 async def test_a_post_that_adds_a_case_fact_or_faith_is_dropped(line):
     post = await chatter(Writer(StubClient(line), "haiku-test"), town(), Random(1), Ids(),
                          "Someone stole Ada Reyes's bike on Elm Street last night.")

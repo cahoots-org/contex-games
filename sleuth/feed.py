@@ -140,11 +140,13 @@ class Feed:
         """A case opened or changed in the neighborhood app."""
         self.emit("case", case["text"], player=player, case=case)
 
-    def on_post(self, utterance: Utterance, case_id: str | None, player: str | None = None) -> None:
-        """The neighborhood app's news of a case, room talk rooted in it, or a resident's post with no case."""
+    def on_post(self, utterance: Utterance, case_id: str | None, player: str | None = None, heard: bool = False) -> None:
+        """The neighborhood app's news of a case, room talk rooted in it, shown as what the speaker heard, or a
+        resident's post with no case."""
         u = utterance
-        self.emit("post", f'{u.speaker_name} posted: "{u.text}"', player=player, case_id=case_id, speaker=u.speaker_name,
-                  text=u.text, app=u.speaker == "app")
+        speaker = f"{u.speaker_name} heard" if heard else u.speaker_name
+        line = f'{speaker}: "{u.text}"' if heard else f'{speaker} posted: "{u.text}"'
+        self.emit("post", line, player=player, case_id=case_id, speaker=speaker, text=u.text, app=u.speaker == "app")
 
     def on_pulled(self, place: str, records: list[dict], *, case_id: str, player: str) -> None:
         """The footage and logs the podcaster pulled at place into their notebook."""

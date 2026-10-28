@@ -29,6 +29,12 @@ CLOCK = re.compile(r"\b(?:\d{1,2}(?::\d\d)?\s?(?:am|pm)|\d{1,2} o'clock|midnight
 PLACED = re.compile(r"\b(saw|seen|spotted|noticed|watched|caught|it was|was the one|did it|done it|took it|went|headed|"
                     r"hanging around|sneaking|was (?:at|on|in|by|near|outside|there|out|around)(?! it\b| a\b)|"
                     r"were (?:at|on|in|there))\b", re.IGNORECASE)
+# How a crime was done: tools, force, a way in.
+METHOD = re.compile(r"\b(?:bats?|crowbars?|hammers?|bricks?|rocks?|wrench(?:es)?|screwdrivers?|bolt cutters|"
+                    r"spray[- ]?paint\w*|key(?:ed|ing)|smash\w*|slash\w*|shatter\w*|kick\w* (?:in|down|open)|"
+                    r"pried|pry(?:ing)?|jimm(?:y|ied|ying)|hot-?wir\w*|ignition|propped|picked the lock|lock ?pick\w*|"
+                    r"broke in|broken into|break-?in|left (?:it )?unlocked|back door|ski mask|punch\w*|shov\w*|"
+                    r"tackl\w*|snatch\w*)\b", re.IGNORECASE)
 SENTENCE_END = re.compile(r"(?<=[.!?;])\s+")
 
 
@@ -69,14 +75,16 @@ def _clock(text: str) -> str:
 
 
 def invents_facts(line: str, allowed: str, firsts: set[str]) -> bool:
-    """Whether the line adds a case fact allowed lacks: a look, a time, a resident placed or sighted, or a gender for
-    an unknown someone. A pronoun may refer back to a resident the line names, when no unknown someone is in it."""
+    """Whether the line adds a case fact allowed lacks: a look, a time, how it was done, a resident placed or sighted,
+    or a gender for an unknown someone. A pronoun may refer back to a resident the line names, when no unknown someone
+    is in it."""
     clocks = {_clock(m.group()) for m in CLOCK.finditer(allowed)}
     looks = allowed + (" bicycle" if _has("bike", allowed) else "")
     named = [m.start() for f in firsts if (m := re.search(rf"\b{re.escape(f)}\b", line))]
     after = min(named) if named and not UNKNOWN.search(line) else len(line)
     return (
         any(not _has(m.group(), looks) for m in LOOK_WORDS.finditer(line))
+        or any(not _has(m.group(), allowed) for m in METHOD.finditer(line))
         or misdated(line, allowed)
         or any(_clock(m.group()) not in clocks for m in CLOCK.finditer(line))
         or any(PLACED.search(s) and any(_has(f, s) and not _has(f, allowed) for f in firsts)
