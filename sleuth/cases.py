@@ -331,12 +331,14 @@ class Cases:
         it narrows to the culprit, open the case: tell its witnesses and victim what they saw and found, and post the
         news. False if it cannot be made solvable."""
         away = pictured | {f.crime.culprit for f in self.files.values() if f.state == "open"}
-        accomplice = self._accomplice(crime, away) if crime.tier == "serious" else None
-        away |= {accomplice} - {None}
         self.dress(crime.day)
         whereabouts = dict(self.finished or {v.id: [p] for v in self.town.villagers
                                              if (p := self.routine.place(v.id, crime.phase))})
         whereabouts[crime.culprit] = [crime.place]
+        scene = {vid for vid, places in whereabouts.items() if crime.place in places}
+        scene |= {v.id for v in self.town.villagers if self.routine.place(v.id, crime.phase) == crime.place}
+        accomplice = self._accomplice(crime, away | scene) if crime.tier == "serious" else None
+        away |= {accomplice} - {None}
         clip = camera_clip(crime, self.town, self.ids)
         records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids, away),
                    *([victim_memory(crime, self.town, self.rng, self.ids)] if crime.template == "mug" else []),
@@ -361,12 +363,12 @@ class Cases:
         engine.feed.on_post(news, crime.id)
         return True
 
-    def _accomplice(self, crime: Crime, away: set[str]) -> str | None:
+    def _accomplice(self, crime: Crime, barred: set[str]) -> str | None:
         """With accomplice_chance, who covers for the culprit: their warmest close tie, else another active offender;
-        never the victim or anyone away."""
+        never the victim or anyone barred."""
         if self.rng.random() >= self.config.accomplice_chance:
             return None
-        barred = {crime.culprit, crime.victim, *away}
+        barred = {crime.culprit, crime.victim, *barred}
         culprit = self.town.get(crime.culprit)
         ties = [(w, t) for t, w in culprit.warmth.items() if t in self.town and t not in barred and warmth_words(w) == "close"]
         if ties:

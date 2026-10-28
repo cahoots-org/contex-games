@@ -33,7 +33,7 @@ from another household than the victim's, and one or two clues are left at the c
 two witnesses, and its culprit is sometimes a regular at the scene. A serious one has up to three, its culprit is
 never a regular there, so they always lie about where they were, and a mugging's victim remembers one thing about
 the mugger. With `accomplice_chance`, a serious culprit has an accomplice, their closest friend or another offender,
-who is never a witness to it and swears the culprit was with them. The game
+who is never a witness to it nor at the scene, and swears the culprit was with them. The game
 checks that the evidence, with that part of the day's check-ins and receipts, narrows to the culprit alone, adding a
 witness if that helps and drawing another crime if nothing can. A solvable case opens: its witnesses are told what
 they saw, and the neighborhood app posts the news. A case shows at the top of the page and goes cold after

@@ -731,3 +731,18 @@ async def test_a_case_gone_cold_exposes_the_accomplice_too():
     await tick(cases, engine, day=5)
     assert file.state == "closed" and "v3" not in town
     assert cases.offenders.exposed["v7"] == "covered for Fay Okafor" and engine.reputation.to_state() == {}
+
+
+@pytest.mark.asyncio
+async def test_no_one_usually_at_the_scene_is_the_accomplice():
+    opened = 0
+    for seed in range(20):
+        cases, engine, town = make_cases(accomplice_chance=1.0)
+        cases.rng = Random(seed)
+        town.get("v5").warmth.update({"v2": 0.9, "v7": 0.7})
+        crime = Crime(f"case-{seed}", "mug", "wallet", "v5", "v1", "elm street", 1, "night", 1400, "opportunity", "",
+                      tier="serious")
+        if await cases._open(engine, crime, set()):
+            opened += 1
+            assert cases.files[crime.id].accomplice == "v7"
+    assert opened
