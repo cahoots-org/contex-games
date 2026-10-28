@@ -1062,3 +1062,11 @@ def test_state_carries_the_districts_but_not_while_practising(game):
     assert [d["name"] for d in districts] == ["Elm Street", "Oak Street", "Maple Street"] and districts[1]["fear"] == 1
     game.player.begin_tutorial()
     assert game.client.get("/api/state").json()["districts"] == []
+
+
+def test_the_case_header_shows_its_tier_except_on_the_first_case(game):
+    page = game.client.get("/").text
+    set_case = page[page.index("function setCase(c)"):page.index("function setResting(on)")]
+    assert 'id="case-tier"' in page
+    assert '$("case-tier").hidden = !open || open.private;' in set_case
+    assert '$("case-tier").textContent = open ? capital(open.tier) : "";' in set_case

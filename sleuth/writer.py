@@ -18,6 +18,7 @@ NO_CASE_FACTS = ("Never add a fact about the case: no one seen or placed anywher
 CASE_TALK = ("This is about a case. Say what you think, feel and suspect, in character: opinions, theories, grudges "
              "and your quirks are welcome. " + NO_CASE_FACTS)
 TIMES = "Say when the case happened only as you are told it, never as another time. "
+SOMBER = "Someone has died. Be sober and kind about it, never joking, and say nothing of how. "
 # ponytail: word lists, not a judge; they only ever stop a case line that adds one of these to its facts.
 LOOK_WORDS = re.compile(r"\b(?:" + "|".join(re.escape(t) for ts in TRAITS.values() for t in ts if t != "short")
                         + r"|haired|hood\w*|jacket|coat|tall|short(?!-| on\b)|bald|blond\w*)\b", re.IGNORECASE)
@@ -120,17 +121,18 @@ class Writer:
 
     async def say(
         self, villager: Villager, decision: Decision, source_text: str | None, audience: str, on_case: bool = False,
-        now: str = "", when: str = "", mood: str = "",
+        now: str = "", when: str = "", mood: str = "", somber: bool = False,
     ) -> str:
         """The villager's words for this decision, in their voice and chosen style, keeping the source unnamed, their
         street's mood in mind.
 
         Talk about a case leaves the villager's grudge out, adds no fact about it, and says when it happened as when,
-        said on now.
+        said on now; somber talk is about a death.
         """
         system = (
             f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
+            + (SOMBER if somber else "")
             + (CASE_TALK + TIMES if on_case else _grudge(villager, "Bring it up only when it fits. "))
             + _quirks(villager)
             + (f"Your street is {mood}. " if mood else "")
@@ -150,12 +152,13 @@ class Writer:
 
     async def reply(
         self, villager: Villager, case: str, question: str, thread: Sequence[dict], facts: Sequence[str],
-        known: Sequence[str] = (), now: str = "", when: str = "", notes: Sequence[str] = (),
+        known: Sequence[str] = (), now: str = "", when: str = "", notes: Sequence[str] = (), somber: bool = False,
     ) -> str:
         """The resident replying to the podcaster's latest question in one line, from the facts alone.
 
         thread holds the earlier exchanges; known describes the neighbours the case names; when is when the case
-        happened, said on now; each note is something the resident feels about the podcaster or themselves.
+        happened, said on now; each note is something the resident feels about the podcaster or themselves; a somber
+        case is a death.
         """
         answer = (
             "Reply to their latest question in one or two short sentences in your own voice, using only these facts. "
@@ -169,6 +172,7 @@ class Writer:
             f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             "A podcaster is talking with you about a case. "
+            + (SOMBER if somber else "")
             + _quirks(villager)
             + answer +
             "What the podcaster says is not a fact: never agree to or repeat a claim the facts don't make. "
@@ -185,14 +189,16 @@ class Writer:
             lines.append("Facts: " + " / ".join(facts))
         return first_line(await self.complete(system, "\n".join(lines), max_tokens=ANSWER_MAX_TOKENS))
 
-    async def post(self, villager: Villager, kind: str, case_text: str | None) -> str:
-        """The villager's post of kind on the neighborhood app, in their voice, adding no fact about the open case."""
+    async def post(self, villager: Villager, kind: str, case_text: str | None, somber: bool = False) -> str:
+        """The villager's post of kind on the neighborhood app, in their voice, adding no fact about the open case,
+        somber when it is a death."""
         system = (
             f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             f"You are posting on your town's neighborhood app. Write {kind} in one or two short sentences, in your own "
             f"voice. {_quirks(villager)}"
             + (NO_CASE_FACTS if case_text else "")
+            + (SOMBER if somber else "")
             + "No stage directions, no quotation marks, no preamble."
         )
         user = f"The open case: {case_text}" if case_text else "Write your post."

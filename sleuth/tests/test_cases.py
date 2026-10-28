@@ -832,3 +832,13 @@ def test_window_and_motives_round_trip():
     fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
     fresh.restore(json.loads(json.dumps(cases.to_state())))
     assert fresh.files == cases.files and fresh.last_major == 1.5
+
+
+@pytest.mark.asyncio
+async def test_major_news_reaches_the_district_and_the_victim_s_ties_only():
+    cases, engine, town = deadly()
+    town.get("v7").relationships["v1"] = "friend"
+    await cases._stage(engine, "major", 1, "night", set())
+    [case] = cases.open_shared("major")
+    [(news, hearers)] = [(u, ids) for u, ids, _ in engine.delivered if case.roots.get(u.id) == "news"]
+    assert set(hearers) == {"v2", "v3", "v4", "v5", "v7"} and len(hearers) == 5

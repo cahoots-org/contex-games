@@ -7,7 +7,7 @@ import re
 from dataclasses import asdict
 
 from sleuth.models import Villager
-from sleuth.faith import FAITH
+from sleuth.faith import FAITH, GORE
 from sleuth.town import STREETS
 from sleuth.traits import assign_traits
 from sleuth.writer import Writer, extract_json
@@ -89,7 +89,7 @@ def _unwrap(parsed):
 
 
 def _valid(raw) -> bool:
-    """True for a dict with every required key, 3 or more string needs, a quirk or more, and no word of faith."""
+    """True for a dict with every required key, 3 or more string needs, a quirk or more, and nothing of faith or anything grisly."""
     return (
         isinstance(raw, dict)
         and all(k in raw for k in REQUIRED)
@@ -100,6 +100,7 @@ def _valid(raw) -> bool:
         and len(raw["quirks"]) >= 1
         and all(isinstance(q, str) and q.strip() for q in raw["quirks"])
         and not FAITH.search(json.dumps(raw))
+        and not GORE.search(json.dumps(raw))
     )
 
 

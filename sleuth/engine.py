@@ -326,6 +326,17 @@ class Engine:
             return None
         return self.game.now() if self.game is not None else "", when(rooted[0].crime, self._today())
 
+    def somber(self, uid: str | None = None, culprit: str | None = None) -> bool:
+        """Whether talk descending from uid, or else the culprit's own cover story or warning, is about a death."""
+        if self.cases is None:
+            return False
+        if uid:
+            rooted = self.cases.root_kind(self.lineage.root(uid))
+            case = rooted[0] if rooted else None
+        else:
+            case = self.cases.culprit_case(culprit)
+        return case is not None and case.crime.tier == "major"
+
     def warn(self, vid: str, target: str) -> str | None:
         """The pressed culprit's warning about the podcaster, told to someone close, at most once a part of the day.
 
@@ -419,7 +430,8 @@ class Engine:
             return
         shared = next(iter(self.cases.open_shared()), None)
         case_text = told(shared.crime.text, shared.crime, self._today()) if shared else None
-        if post := await chatter(self.writer, self.town, self.cases.rng, self.ids, case_text):
+        somber = shared is not None and shared.crime.tier == "major"
+        if post := await chatter(self.writer, self.town, self.cases.rng, self.ids, case_text, somber):
             self.feed.on_post(post, None)
 
     async def _walk(self, phase: str, spread: float) -> None:

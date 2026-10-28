@@ -219,6 +219,7 @@ select, input[type="text"], input[type="search"] {
 .role.witness { background: var(--mark); color: var(--ink); }
 .role.nearby { border: 1px solid var(--edge); color: var(--muted); font-weight: 400; }
 .role.known { border: 1px dashed var(--danger); color: var(--muted); font-weight: 400; }
+.role.tier { margin-right: auto; border: 1px solid var(--edge); color: var(--muted); }
 .face { display: inline-block; flex: none; line-height: 0; }
 .face canvas {
   width: 30px; height: 30px; border-radius: 6px; image-rendering: pixelated;
@@ -373,6 +374,7 @@ select, input[type="text"], input[type="search"] {
     <section class="case" id="case" aria-labelledby="case-title">
       <div class="case-top">
         <h2 class="case-title" id="case-title">Quiet day in town</h2>
+        <span class="role tier" id="case-tier" hidden></span>
         <span class="case-actions">
           <button type="button" class="primary" id="publish-open" aria-expanded="false" aria-controls="publish" hidden>Publish</button>
         </span>
@@ -543,6 +545,8 @@ function setCase(c) {
   caseNow = open;
   $("case-title").textContent = open ? open.title : "Quiet day in town";
   $("case-text").textContent = open ? open.text : "Something's bound to happen soon.";
+  $("case-tier").hidden = !open || open.private;
+  $("case-tier").textContent = open ? capital(open.tier) : "";
   $("publish-open").hidden = !open;
   $("replay").hidden = Boolean(open && open.private);
   showApp();

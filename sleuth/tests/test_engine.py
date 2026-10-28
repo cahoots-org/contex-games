@@ -676,7 +676,7 @@ class Posting:
     def __init__(self):
         self.calls = 0
 
-    async def post(self, villager, kind, case_text):
+    async def post(self, villager, kind, case_text, somber=False):
         self.calls += 1
         return "Has anyone seen my good spatula?"
 

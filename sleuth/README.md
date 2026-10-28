@@ -24,7 +24,8 @@ standing for it: one open case per tier at most. At startup, on each part of the
 or goes cold, each tier missing its case gets a crime staged in the part of the day just finished, opened in the same
 step. Its culprit is an offender of that tier; when nobody holds the tier, the offender below it who has got away with
 the most moves up, as long as someone is left below. You're offered every open case at or below your standing as a tip, listed under the case title,
-and you work one at a time: the highest by default, or the one you pick. Interviews, records, searches, photos and
+and you work one at a time: the highest by default, or the one you pick. The case title and each tip say its tier:
+Petty, Serious or Major. Interviews, records, searches, photos and
 episodes all go to the case you're working. Crimes come from the catalog in `sleuth/case.py`. Petty ones: a stolen
 bike, a vandalized car, sabotaged county-fair jam, a dog let out, salted sugar jars at the cafe, a moustache drawn on a
 portrait at town hall, a goose made off with from the dog park, a pinched garden gnome. Serious ones: a till or cash
@@ -37,7 +38,9 @@ the mugger. A death has up to two witnesses, who saw someone arguing; its victim
 besides the culprit were on cold terms with, and anyone who knew the victim names them all when asked who had a
 reason. Someone at the scene or at home with the victim found them, and the victim leaves town at once, so someone
 moves in. Its news gives only a window, the part of the day before and the one it happened in, but every record is
-from the one it happened in. With `accomplice_chance`, a serious culprit has an accomplice, their closest friend or another offender,
+from the one it happened in. Its news reaches everyone on the victim's street and everyone with a tie to them, and
+the town talks about it soberly: residents are told someone has died and to say nothing of how, and any line with a
+grisly word is never said or posted. With `accomplice_chance`, a serious culprit has an accomplice, their closest friend or another offender,
 who is never a witness to it nor at the scene, and swears the culprit was with them. The game
 checks that the evidence, with that part of the day's check-ins and receipts, narrows to the culprit alone, adding a
 witness if that helps and drawing another crime if nothing can. A solvable case opens: its witnesses are told what

@@ -18,10 +18,13 @@ class StubWriter:
         self.say_calls = []
 
         self.on_case = []
+        self.somber = []
 
-    async def say(self, villager, decision, source_text, audience, on_case=False, now="", when="", mood=""):
+    async def say(self, villager, decision, source_text, audience, on_case=False, now="", when="", mood="",
+                  somber=False):
         self.say_calls.append((decision.action, source_text, audience))
         self.on_case.append(on_case)
+        self.somber.append(somber)
         self.timing = (now, when)
         return self.line
 
@@ -36,10 +39,14 @@ class RecordingHub:
         self.warning = None
         self.warned = []
         self.case_roots = set()
+        self.deaths = set()
         self.timing = ("day 1, evening", "this afternoon")
 
     def on_case(self, uid):
         return self.timing if uid in self.case_roots else None
+
+    def somber(self, uid=None, culprit=None):
+        return uid in self.deaths if uid else culprit in self.deaths
 
     def warn(self, vid, target):
         self.warned.append((vid, target))
@@ -295,3 +302,16 @@ async def test_talk_off_any_case_is_not_checked():
     s.writer.line = "He had a little dog with him."
     await s.act("v1", Decision(SPEAK, source("u-9"), None, None))
     assert [u.text for u, _ in s.hub.delivered] == ["He had a little dog with him."]
+
+
+@pytest.mark.asyncio
+async def test_talk_about_a_death_is_written_soberly():
+    s = Setup()
+    s.hub.case_roots |= {"u-0", "u-1"}
+    s.hub.deaths |= {"u-0", "v1"}
+    s.hub.facts[ALIBI] = "I was at the gym."
+    await s.act("v1", Decision(RETELL, source("u-0"), "v2", "faithful"))
+    await s.act("v1", Decision(RETELL, source("u-1"), "v2", "faithful"))
+    await s.act("v1", Decision(ALIBI, None, "v2", "faithful"))
+    await s.act("v2", Decision(SPEAK, None, None, None))
+    assert s.writer.somber == [True, False, True, False]

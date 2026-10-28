@@ -1,4 +1,4 @@
-"""Words of faith and worship, which the town never has."""
+"""Words the town never has: faith and gore."""
 
 import re
 
@@ -9,4 +9,9 @@ FAITH = re.compile(
     r"monks?|nuns?|bibl\w*|gospel\w*|hymn\w*|worship\w*|congregation\w*|deacon\w*|holy|gods?|goddess\w*|sabbath|"
     r"missionar\w*|seminar(?:y|ies))\b",
     re.IGNORECASE,
+)
+GORE = re.compile(
+    r"\b(blood\w*|gor(e|y)|stab\w*|corpses?|knife|knives|guns?|shot|shoot\w*|strangl\w*|poison\w*|weapons?|"
+    r"slaughter\w*|butcher\w*)\b",
+    re.I,
 )

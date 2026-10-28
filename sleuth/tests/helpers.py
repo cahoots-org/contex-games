@@ -179,10 +179,12 @@ class StubWriter:
         self.line = line
         self.calls = []
         self.notes = []
+        self.somber = []
 
-    async def reply(self, villager, case, question, thread, facts, known=(), now="", when="", notes=()):
+    async def reply(self, villager, case, question, thread, facts, known=(), now="", when="", notes=(), somber=False):
         self.calls.append((villager.id, case, question, list(thread), list(facts), list(known), now, when))
         self.notes.append(list(notes))
+        self.somber.append(somber)
         return self.line
 
 

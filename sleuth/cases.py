@@ -405,7 +405,8 @@ class Cases:
     async def _open(self, engine, crime: Crime, pictured: set[str]) -> bool:
         """Leave the crime's evidence, witnessed by no one pictured elsewhere then nor any open case's culprit, and, if
         it narrows to the culprit, open the case: tell its witnesses and victim what they saw and found, and post the
-        news. A death's victim is found by someone nearby or at home with them, then leaves town, and someone moves in.
+        news, a death's to the victim's street and ties. A death's victim is found by someone nearby or at home with
+        them, then leaves town, and someone moves in.
         False if it cannot be made solvable or a death has no one to find it."""
         away = pictured | {f.crime.culprit for f in self.files.values() if f.state == "open"}
         self.dress(crime.day)
@@ -440,6 +441,8 @@ class Cases:
         hearers = [victim.id, *(v.id for v in self.town.villagers if v.household == victim.household),
                    *(v.id for v in self.town.present(crime.place))]
         if death:
+            hearers = [v.id for v in self.town.villagers if v.id != victim.id and (
+                v.home == victim.home or victim.id in v.relationships or v.id in victim.relationships)]
             self.last_major = self.now
             await self._depart(engine, victim.id)
         case.roots[news.id] = "news"

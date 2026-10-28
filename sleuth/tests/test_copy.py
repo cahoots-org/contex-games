@@ -4,10 +4,10 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 from sleuth.districts import FORMED, TOLD, WATCH_NAMES, WOUND_DOWN
-from sleuth.faith import FAITH as WORDS
+from sleuth.faith import FAITH as WORDS, GORE
 
 ROOT = Path(__file__).resolve().parent.parent
-# The word list itself, and the tests that feed it religious residents and posts.
+# The word lists themselves, and the tests that feed them religious or gory residents, posts and talk.
 LISTS = ("test_copy.py", "faith.py", "test_town_gen.py", "test_chatter.py")
 
 
@@ -15,6 +15,12 @@ def test_no_religion_in_code_or_copy():
     files = [f for f in ROOT.rglob("*.py") if f.name not in LISTS]
     files += [ROOT / "README.md", ROOT / "static" / "index.html"]
     assert not [f.name for f in files if WORDS.search(f.read_text())]
+
+
+def test_no_gore_in_code_or_copy():
+    files = [f for f in ROOT.rglob("*.py") if f.name not in LISTS]
+    files += [ROOT / "README.md", ROOT / "static" / "index.html"]
+    assert not [f.name for f in files if GORE.search(f.read_text().replace("GORE", ""))]
 
 
 MEDIEVAL = re.compile(r"\b(villages?|villagers?|lamps?|lamplit|newcomers?)\b", re.I)

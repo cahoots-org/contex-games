@@ -14,6 +14,7 @@ from sleuth.cases import CaseFile
 from sleuth.config import Config
 from sleuth.decide import warmth_words
 from sleuth.episode import MAX_CITED, holds
+from sleuth.faith import GORE
 from sleuth.game import Game
 from sleuth.interview import Route, exchanges, route
 from sleuth.lineage import Ids, Lineage
@@ -659,7 +660,7 @@ class Player:
     async def _phrase(self, villager: Villager, file: CaseFile, question: str, thread: list[dict],
                       records: list[Record], talk: list[str]) -> str:
         """The resident's reply from the writer, or a plain line from the records when it fails, doesn't convey them
-        all, or adds a case fact they and the case don't give; with nothing known, a shrug."""
+        all, is grisly, or adds a case fact they and the case don't give; with nothing known, a shrug."""
         crime = file.crime
         records = [replace(r, text=self._told(r.text, crime)) for r in records]
         texts = [r.text for r in records] + talk
@@ -671,10 +672,11 @@ class Player:
                 known = neighbours(self.town, villager, case, self._exposed())
                 now = self.game.now() if self.game else ""
                 line = await self.writer.reply(villager, case, question, exchanges(thread), texts, known, now,
-                                               when(crime, self._today()), self._notes(villager.id))
+                                               when(crime, self._today()), self._notes(villager.id),
+                                               somber=crime.tier == "major")
                 allowed = " ".join([villager.name, case, *texts, *known, *(t["line"] for t in thread)])
                 firsts = {v.name.split()[0] for v in self.town.villagers}
-                if (line and conveys(line, records) and first_hand(line, records, villager)
+                if (line and not GORE.search(line) and conveys(line, records) and first_hand(line, records, villager)
                         and not invents_facts(line, allowed, firsts)
                         and not (any(r.traits for r in records) and adds_looks(line, texts))):
                     return line
@@ -684,14 +686,15 @@ class Player:
                            for r in records), *talk])
 
     async def _shrug(self, villager: Villager, file: CaseFile, question: str, thread: list[dict]) -> str:
-        """The resident's reply when they know nothing for the question: the writer's, if it adds nothing, else a
-        stock line."""
+        """The resident's reply when they know nothing for the question: the writer's, if it adds nothing and has no
+        grisly word, else a stock line."""
         if self.writer is not None:
             try:
                 line = await self.writer.reply(villager, self._told(file.crime.text, file.crime), question,
-                                               exchanges(thread), [], notes=self._notes(villager.id))
+                                               exchanges(thread), [], notes=self._notes(villager.id),
+                                               somber=file.crime.tier == "major")
                 names = {w for v in self.town.villagers for w in v.name.split()}
-                if adds_nothing(line, names):
+                if adds_nothing(line, names) and not GORE.search(line):
                     return line
             except Exception:
                 log.exception("reply from %s failed", villager.id)

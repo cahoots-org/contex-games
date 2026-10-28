@@ -6,7 +6,7 @@ from sleuth.config import Config
 from sleuth.models import Villager
 from sleuth.usage import Usage
 from sleuth.tests.helpers import StubClient
-from sleuth.writer import ANSWER_MAX_TOKENS, Writer, first_line, invents_facts
+from sleuth.writer import ANSWER_MAX_TOKENS, SOMBER, Writer, first_line, invents_facts
 
 
 def villager():
@@ -231,3 +231,18 @@ async def test_say_is_told_the_street_s_mood():
     await writer.say(villager(), Decision("speak", None, None, None), "x", "all")
     first, second = (c["system"] for c in client.messages.calls)
     assert "Your street is on edge. " in first and "Your street is" not in second
+
+
+@pytest.mark.asyncio
+async def test_writer_is_told_to_be_sober_about_a_death():
+    client = StubClient(*["Hm."] * 6)
+    writer = Writer(client, "haiku-test")
+    case = "Dana Reyes was found dead on Elm Street."
+    await writer.say(villager(), Decision("speak", None, None, None), case, "all", on_case=True, somber=True)
+    await writer.reply(villager(), case, "Who?", [], [], somber=True)
+    await writer.post(villager(), "a gripe", case, somber=True)
+    await writer.say(villager(), Decision("speak", None, None, None), "x", "all", on_case=True)
+    await writer.reply(villager(), "Someone stole a bike.", "Who?", [], [])
+    await writer.post(villager(), "a gripe", "Someone stole a bike.")
+    calls = [c["system"] for c in client.messages.calls]
+    assert all(SOMBER in c for c in calls[:3]) and not any(SOMBER in c for c in calls[3:])

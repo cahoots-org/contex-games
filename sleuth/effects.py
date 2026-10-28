@@ -8,6 +8,7 @@ from sleuth.actions import (
 )
 from sleuth.decide import Decision
 from sleuth.facts import Facts
+from sleuth.faith import GORE
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
 from sleuth.town import Town
@@ -30,6 +31,8 @@ class Hub(Protocol):
 
     def on_case(self, uid: str) -> tuple[str, str] | None: ...
 
+    def somber(self, uid: str | None = None, culprit: str | None = None) -> bool: ...
+
 
 async def act(
     decision: Decision,
@@ -48,8 +51,8 @@ async def act(
 
     A villager who moves shares the news with someone where they arrive with share_chance. A line about a case that
     adds to what the villager heard or gives another time is dropped, and a cover story or warning is then told as
-    its plain fact. A case line heard days ago is retold with the case's time said today. Speech carries the mood of
-    the villager's street.
+    its plain fact. A case line heard days ago is retold with the case's time said today. Any grisly line is dropped
+    the same way. Talk about a death is sober. Speech carries the mood of the villager's street.
     """
     action = decision.action
     vid = villager.id
@@ -59,6 +62,7 @@ async def act(
     heard_from = facts.get(source_id) if source_id else None
     timing = hub.on_case(source_id) if source_id else None
     on_case = timing is not None
+    grave = on_case and hub.somber(source_id)
     if timing and source_text:
         source_text = retime(source_text, timing[1])
 
@@ -81,11 +85,14 @@ async def act(
         await hub.deliver(utterance, [i for i in listeners if i != vid], addressed=addressed)
         return uid
 
-    async def words(facts_text: str | None, audience: str, case: bool, plain: str | None = None) -> str | None:
-        """The writer's line; on a case, plain or nothing when it adds what facts_text and the people at hand don't."""
-        text = await writer.say(villager, decision, facts_text, audience, case, *(timing or ("", "")), mood=mood)
+    async def words(facts_text: str | None, audience: str, case: bool, plain: str | None = None,
+                    somber: bool = False) -> str | None:
+        """The writer's line; plain or nothing when it is grisly or, on a case, adds what facts_text and the people at
+        hand don't."""
+        text = await writer.say(villager, decision, facts_text, audience, case, *(timing or ("", "")), mood=mood,
+                                somber=somber)
         allowed = " ".join([villager.name, audience, facts_text or "", *(timing or ())])
-        if case and invents_facts(text, allowed, {v.name.split()[0] for v in town.villagers}):
+        if GORE.search(text) or case and invents_facts(text, allowed, {v.name.split()[0] for v in town.villagers}):
             return plain
         return text
 
@@ -104,16 +111,16 @@ async def act(
             )
     elif action in DIRECT:
         if decision.target in others():
-            if text := await words(source_text, town.get(decision.target).name, on_case):
+            if text := await words(source_text, town.get(decision.target).name, on_case, somber=grave):
                 await say(text, [decision.target], ONE)
     elif action in (ALIBI, BLAME):
         if decision.target in others() and (fact := hub.cover_story(vid, action)) is not None:
-            text = await words(fact, town.get(decision.target).name, True, fact)
+            text = await words(fact, town.get(decision.target).name, True, fact, hub.somber(culprit=vid))
             await say(text, [decision.target], ONE, root=True, cover=True)
     elif action == WARN:
         if decision.target in others() and (fact := hub.warn(vid, decision.target)) is not None:
-            text = await words(fact, town.get(decision.target).name, True, fact)
+            text = await words(fact, town.get(decision.target).name, True, fact, hub.somber(culprit=vid))
             await say(text, [decision.target], ONE, root=True)
     elif action == SPEAK:
-        if text := await words(source_text, place, on_case):
+        if text := await words(source_text, place, on_case, somber=grave):
             await say(text, others(), ROOM)

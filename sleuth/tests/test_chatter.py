@@ -2,10 +2,15 @@ from random import Random
 
 import pytest
 
+from sleuth.actions import ALIBI, RETELL, SPEAK
 from sleuth.chatter import chatter
+from sleuth.decide import Decision
 from sleuth.lineage import Ids
 from sleuth.models import Villager
+from sleuth.player import SHRUGS
 from sleuth.tests.helpers import StubClient
+from sleuth.tests.test_effects import Setup, source
+from sleuth.tests.test_player import ask, interviewing, memory_of, replies
 from sleuth.town import Town
 from sleuth.writer import SAY_MAX_TOKENS, Writer
 
@@ -60,3 +65,28 @@ async def test_theories_only_while_a_case_is_open():
     opened = client.messages.calls[50:]
     assert any("theory" in c["system"] for c in opened)
     assert all(f"The open case: {case}" in c["messages"][0]["content"] for c in opened)
+
+
+GORY = "There was blood everywhere, I heard."
+
+
+@pytest.mark.asyncio
+async def test_a_line_with_gore_is_never_said():
+    assert await chatter(Writer(StubClient(GORY), "haiku-test"), town(), Random(1), Ids(), None) is None
+    s = Setup()
+    s.writer.line = GORY
+    await s.act("v1", Decision(SPEAK, source("u-9"), None, None))
+    s.hub.case_roots.add("u-0")
+    await s.act("v1", Decision(RETELL, source("u-0"), "v2", "faithful"))
+    assert s.hub.delivered == []
+    s.hub.facts[ALIBI] = "I was at the gym."
+    await s.act("v1", Decision(ALIBI, None, "v2", "faithful"))
+    assert [u.text for u, _ in s.hub.delivered] == ["I was at the gym."]
+    player, file, engine, writer = interviewing()
+    memory_of(file, player.ids)
+    writer.line = "Someone tall in a grey hoodie, and a knife, I saw it."
+    await ask(player, "v2", "what_did_you_see")
+    assert "knife" not in replies(player)[0] and "tall" in replies(player)[0]
+    writer.line = "Poisoned, if you ask me."
+    await ask(player, "v4", "what_did_you_see")
+    assert replies(player)[1] in SHRUGS
