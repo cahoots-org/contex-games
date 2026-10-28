@@ -379,9 +379,9 @@ class Cases:
 
     async def _stage(self, engine, tier: str, day: int, phase: str, pictured: set[str]) -> None:
         """Open a case of tier, its culprit a ready offender of that tier, one promoted from the tier below when none
-        holds it. Up to DRAWS crimes are drawn for one that is solvable."""
-        if not any(o.tier == tier for o in self.offenders.active.values()):
-            self.offenders.promote(tier, self._involved() | pictured)
+        is ready. Up to DRAWS crimes are drawn for one that is solvable."""
+        if not self.offenders.ready(day, tier):
+            self.offenders.promote(tier, self._involved() | pictured, day)
         culprits = self.offenders.ready(day, tier)
         for _ in range(DRAWS):
             crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"),

@@ -65,15 +65,16 @@ class Offenders:
         if o.escaped >= self.config.escalate_after and o.tier in tiers[:-1] and self._held_by(o.tier) > 1:
             o.tier, o.escaped = tiers[tiers.index(o.tier) + 1], 0
 
-    def promote(self, tier: str, exclude=frozenset()) -> str | None:
-        """Move the offender one tier below, not in exclude, with the most escapes up to tier, unless the tier below
-        would be left with none."""
+    def promote(self, tier: str, exclude=frozenset(), day: int | None = None) -> str | None:
+        """Move the offender one tier below, not in exclude nor lying low on day, with the most escapes up to tier,
+        unless the tier below would be left with none."""
         if tier == TIERS[0]:
             return None
         below = TIERS[TIERS.index(tier) - 1]
         if self._held_by(below) < 2:
             return None
-        vid = max((vid for vid, o in self.active.items() if o.tier == below and vid not in exclude),
+        vid = max((vid for vid, o in self.active.items() if o.tier == below and vid not in exclude
+                   and (day is None or o.quiet_until <= day)),
                   key=lambda v: self.active[v].escaped, default=None)
         if vid is not None:
             self.active[vid].tier, self.active[vid].escaped = tier, 0

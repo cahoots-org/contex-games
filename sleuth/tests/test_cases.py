@@ -681,6 +681,19 @@ async def test_a_promoted_offender_fills_an_empty_serious_tier():
 
 
 @pytest.mark.asyncio
+async def test_an_offender_lying_low_is_not_promoted_and_does_not_block_the_tier():
+    cases, engine, _ = make_cases(offenders=4)
+    engine.players.add(podcaster("serious"))
+    tiered(cases, "petty", opened=2.0)
+    cases.offenders.active = {"v3": Offender(), "v6": Offender(escaped=2, quiet_until=9),
+                              "v7": Offender("serious", quiet_until=9), "v8": Offender(escaped=1)}
+    await tick(cases, engine)
+    assert cases.offenders.active["v6"].tier == "petty" and cases.offenders.active["v8"].tier == "serious"
+    [case] = cases.open_shared("serious")
+    assert case.crime.culprit == "v8"
+
+
+@pytest.mark.asyncio
 async def test_a_held_serious_episode_ends_in_an_arrest():
     cases, engine, town = make_cases(offenders=8)
     engine.players.add(podcaster("serious"))
