@@ -31,7 +31,7 @@ Petty, Serious or Major. Interviews, records, searches, photos and
 episodes all go to the case you're working. Crimes come from the catalog in `sleuth/case.py`. Petty ones: a stolen
 bike, a vandalized car, sabotaged county-fair jam, a dog let out, salted sugar jars at the cafe, a moustache drawn on a
 portrait at town hall, a goose made off with from the dog park, a pinched garden gnome. Serious ones: a till or cash
-box robbed at a shop or the bar, a mugging on the street, at the dog park or the bar, a stolen car. Major ones: a
+box robbed at a shop, the bar or the gym, a mugging on the street, at the dog park, the bar, the gym or the grocery, a stolen car. Major ones: a
 death in town, offstage, opened at most once every `major_every_days` and only one at a time. The culprit comes
 from another household than the victim's, and one or two clues are left at the crime place. A petty crime has up to
 two witnesses, and its culprit is sometimes a regular at the scene. A serious one has up to three, its culprit is

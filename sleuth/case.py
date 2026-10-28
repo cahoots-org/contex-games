@@ -50,8 +50,8 @@ CRIMES = {
 TEMPLATES = CRIMES
 # Where each item plausibly is. Residents are on a street only at night, at home.
 FAIR_PLACES = (*STREETS, "town hall", "library")
-TILL_PLACES = ("grocery", "hardware store", "cafe", "bar")
-MUG_PLACES = (*STREETS, "dog park", "bar")
+TILL_PLACES = ("grocery", "hardware store", "cafe", "bar", "gym")
+MUG_PLACES = (*STREETS, "dog park", "bar", "gym", "grocery")
 ITEM_PLACES = {"bike": (*STREETS, "gym", "school"), "tote bag": ("cafe", "gym", "library", "grocery"),
                "thermos": ("cafe", "gym", "school", "library"), "car": (*STREETS, "grocery", "hardware store", "gym", "bar"),
                "county-fair pumpkin": FAIR_PLACES, "county-fair jam": FAIR_PLACES, "county-fair quilt": FAIR_PLACES,

@@ -34,10 +34,11 @@ from sleuth.case import (
     victim_memory,
     witness_memories,
 )
+from sleuth.districts import district_of
 from sleuth.lineage import Ids
 from sleuth.models import Villager
 from sleuth.tests.helpers import StubRoutine
-from sleuth.town import PLACES, Town
+from sleuth.town import PLACES, STREETS, Town
 from sleuth.traits import assign_traits
 from sleuth.writer import CLOCK
 
@@ -569,3 +570,11 @@ def test_a_watch_also_steers_which_kind_of_crime_happens():
         return sum(c.place == "cafe" for c in crimes) / len(crimes)
 
     assert cafe_share(lambda place: 0.01 if place == "cafe" else 1.0) < 0.05 < cafe_share(None)
+
+
+def test_every_district_has_somewhere_by_day_for_each_serious_crime_but_a_car_theft():
+    """So a watch can push serious crime out of a district by day, not only at night."""
+    by_day = [p for p in PLACES if p not in STREETS]
+    for kind in ("rob", "mug"):
+        for item in CRIMES[kind].items:
+            assert {district_of(p) for p in ITEM_PLACES[item] if p in by_day} == set(STREETS), (kind, item)
