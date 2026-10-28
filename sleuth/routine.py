@@ -20,11 +20,11 @@ WORK_INSTRUCTIONS = "Where in town does this resident spend their working day, g
 LEISURE_INSTRUCTIONS = "Where in town does this resident go to unwind in the evening, given their personality?"
 
 ROUTINE_PLACES = PUBLIC_PLACES
-# Work done at home, or away on a night shift, so the resident is home by day.
+# Work done at home, at night or out of town, so the resident is home by day.
 HOME = "home"
 # Where an occupation that names it works; the first match wins, so a retired teacher is home.
 WORKPLACES = tuple((place, re.compile(words, re.IGNORECASE)) for place, words in (
-    (HOME, r"retired|night[- ]?shift|overnight|from home|remote|stay-at-home|homemaker|freelance"),
+    (HOME, r"retired|\bnight|overnight|out of town|from home|remote|stay-at-home|homemaker|freelance"),
     ("library", r"librar|archiv|book ?(?:seller|store|shop)"),
     ("school", r"school|teacher|principal|tutor|custodian|janitor|crossing guard|band director|coach"),
     ("hardware store", r"hardware|plumb|electrician|carpent|handyman|locksmith|mechanic|contractor"),

@@ -167,6 +167,7 @@ def test_routine_places_are_the_public_places():
     ("barista", "gym", "cafe"), ("town librarian", "bar", "library"), ("bartender at the bar", "cafe", "bar"),
     ("night-shift nurse", "gym", "oak street"), ("retired schoolteacher", "school", "oak street"),
     ("hairdresser", "grocery", "grocery"), ("hairdresser", "home", "oak street"),
+    ("schoolteacher, works out of town", "school", "oak street"), ("night attendant at the gym", "gym", "oak street"),
 ])
 async def test_the_work_place_fits_the_job(tmp_path, occupation, jev, work):
     routine = Routine(CountingJev(work=jev), str(tmp_path / "p.json"), CONFIG)
