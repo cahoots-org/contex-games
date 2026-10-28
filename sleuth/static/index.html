@@ -1186,6 +1186,8 @@ function render(e, fresh) {
     case "post":
       if (e.app) talk("plain", fresh, e.text);
       else talk("plain", fresh, el("b", { textContent: e.speaker }), `: ${e.text}`);
+      // The app's own posts outside a case say someone arrived or left, so the people list is fetched again.
+      if (fresh && e.app && !e.case_id) loadState().catch(() => {});
       break;
     case "place":
       here = e.place;
