@@ -304,7 +304,7 @@ def test_the_cutout_opens_on_the_conversation_and_the_composer_when_the_step_nee
     assert 'const talking = s?.person && $("convo").dataset.id === s.person && !$("ask").hidden;' in lit
     assert 'talking ? [$("convo")] : target === $("culprit") ? [$("publish")]' in lit
     assert 'target === $("publish-send") ? [$("publish"), $("send")]' in lit
-    assert 'target === $("here") ? [target, $("place-list")]' in lit
+    assert 'target === $("here") && $("places").open ? [target, $("places")]' in lit
     convo = page[page.index("function drawConvo("):page.index("function exchange(")]
     assert '$("ask").hidden = false;\n  light();\n}' in convo
 
@@ -781,7 +781,7 @@ def test_whisper_endpoint_is_gone(game):
 
 def test_page_is_built_around_the_case(game):
     html = game.client.get("/").text
-    order = ['id="case"', 'id="here"', 'id="notebook"', 'id="people"', 'id="convo"']
+    order = ['id="here"', 'id="case"', 'id="notebook"', 'id="people"', 'id="convo"']
     assert [html.index(n) for n in order] == sorted(html.index(n) for n in order)
     for needle in ('id="publish-open"', 'id="culprit"', "/api/publish", "/api/interview", "/api/walk", "/api/pull",
                    "/api/search", "/api/handoff", 'id="handoff"', 'case "interview"', 'case "pulled"', 'case "searched"', 'case "steps"', "const NEARBY = \"nearby\";", 'id="intro"',
@@ -833,21 +833,25 @@ def test_page_has_a_photo_feed(game):
         assert s in page
 
 
-def test_the_place_picker_is_a_listbox_with_the_scene_first_and_pinned(game):
+def test_the_place_picker_is_a_header_panel_with_a_listbox_the_scene_first_and_pinned(game):
     page = game.client.get("/").text
-    line = page[page.index('<div class="where-line">'):page.index('id="where-status"')]
-    assert 'id="here" aria-haspopup="listbox" aria-expanded="false" aria-controls="place-list"' in line
-    assert 'id="place-list" role="listbox"' in line and "<select" not in line
+    head = page[page.index("<header>"):page.index("</header>")]
+    assert 'id="here" aria-haspopup="dialog" aria-expanded="false" aria-controls="places"' in head
+    panel = page[page.index('<dialog class="pop" id="places"'):page.index("</dialog>", page.index('id="places"'))]
+    for part in ('id="search-here"', 'id="pull-here"', 'id="where-status"', 'id="place-list" role="listbox"'):
+        assert part in panel, part
+    assert "<select" not in panel and "where-line" not in page
     assert '<template id="pin"><svg class="pin"' in page
     where = page[page.index("function drawWhere()"):page.index("function setSteps")]
     assert "const order = scene ? [scene, ...places.filter((p) => p !== scene)] : places;" in where
     assert 'el("span", { className: "role scene", textContent: "scene" })' in where
     for gone in ("optgroup", "(the scene)", '$("here").value'):
         assert gone not in page, gone
-    for key in ("ArrowDown", "ArrowUp", "Home", "End", '"Enter"', '"Escape"', '"Tab"'):
+    for key in ("ArrowDown", "ArrowUp", "Home", "End", '"Enter"'):
         assert key in where, key
-    assert 'openPlaces(false, true);\n  if (option.dataset.place !== here) walkTo(option.dataset.place);' in where
-    assert "position: fixed; top: auto; left: 0; right: 0; bottom: 0;" in page[page.index("@media (max-width: 600px)"):]
+    assert "if (option.dataset.place !== here) walkTo(option.dataset.place);" in where
+    assert "openPlaces(false, true);" in page[page.index('if (ev.key !== "Escape"'):]
+    assert ".pop {\n    inset: auto 0 0 0;" in page[page.index("@media (max-width: 600px)"):]
 
 
 def test_the_notebook_groups_entries_by_kind(game):
@@ -962,8 +966,8 @@ def test_state_has_the_apps_photos_and_which_this_player_saved(game):
 def test_news_talk_and_photos_share_one_neighborhood_app_closed_behind_a_control(game):
     page = game.client.get("/").text
     head = page[page.index("<header>"):page.index("</header>")]
-    assert ('<button type="button" class="linkish" id="app-open" aria-haspopup="dialog" aria-controls="app-panel" '
-            'hidden>Neighborhood app</button>') in head
+    assert '<button type="button" class="tool" id="app-open" aria-haspopup="dialog" aria-controls="app-panel" hidden>' in head
+    assert '<span class="label">Neighborhood app</span><b class="count" id="app-count" hidden></b></button>' in head
     panel = page[page.index('<dialog class="sheet" id="app-panel"'):page.index('<div class="app" id="app">')]
     assert '<h2 id="app-title">Neighborhood app</h2>' in panel
     assert '<form method="dialog"><button class="linkish">Close</button></form>' in panel
@@ -974,7 +978,7 @@ def test_news_talk_and_photos_share_one_neighborhood_app_closed_behind_a_control
     assert 'if (fresh && !$("app-panel").open) unread++;' in feed
     assert "function talk(tone, fresh, ...children) {\n  addToFeed(" in feed
     assert 'addToFeed(el("li", { className: "post" },' in page
-    assert "`Neighborhood app · ${unread} new`" in page
+    assert "`Neighborhood app, ${unread} new`" in page
     opening = page[page.index("function openApp()"):page.index('$("app-open").addEventListener')]
     assert "unread = 0;" in opening and "rememberApp(true);" in opening
     assert '$("app-panel").addEventListener("close", () => rememberApp(false));' in page
@@ -1066,6 +1070,15 @@ def test_state_carries_the_districts_but_not_while_practising(game):
     assert [d["name"] for d in districts] == ["Elm Street", "Oak Street", "Maple Street"] and districts[1]["fear"] == 1
     game.player.begin_tutorial()
     assert game.client.get("/api/state").json()["districts"] == []
+
+
+def test_the_district_map_opens_from_the_header_once_there_are_districts(game):
+    page = game.client.get("/").text
+    head = page[page.index("<header>"):page.index("</header>")]
+    assert 'id="map-open" aria-haspopup="dialog" aria-controls="map-panel" hidden>' in head
+    panel = page[page.index('<dialog class="sheet" id="map-panel"'):page.index('<div class="app" id="app">')]
+    assert '<ol class="districts" id="district-rows"' in panel
+    assert '$("map-open").hidden = !list.length;' in page[page.index("function setDistricts("):page.index("function render(")]
 
 
 def test_the_case_header_shows_its_tier_except_on_the_first_case(game):
