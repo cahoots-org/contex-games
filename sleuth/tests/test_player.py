@@ -1599,3 +1599,14 @@ async def test_first_hand_testimony_stays_exact():
     [seen] = notebook(player, "memory")
     assert (seen.text, seen.traits, seen.sound) == (memory.text, memory.traits, True)
     assert writer.calls[-1][4] == [memory.text] and replies(player) == [f"I saw it myself. {memory.text}"]
+
+
+@pytest.mark.asyncio
+async def test_a_question_about_either_part_of_a_death_s_window_is_about_the_case():
+    player, file, *_ = interviewing()
+    file.crime.window = ["night", "morning"]
+    file.whereabouts = {"v2": ["elm street"]}
+    player.engine.routine = StubRoutine({"v2": {"night": "elm street", "morning": "cafe"}})
+    await ask(player, "v2", "where_were_you", when="morning")
+    await ask(player, "v2", "where_were_you", when="night")
+    assert [r.text for r in notebook(player)] == [f"Eli Reyes says they were on Elm Street {WHEN}."]

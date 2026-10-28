@@ -571,7 +571,7 @@ class Player:
         """What the resident knows for the routed question: records for evidence, and talk that is only phrased."""
         crime, vid, name, routine = file.crime, villager.id, villager.name, self.engine.routine
         kind, about = routed.kind, self.town.get(routed.who) if routed.who else None
-        if kind == "where_were_you" and routed.when == crime.phase:
+        if kind == "where_were_you" and (routed.when == crime.phase or routed.when in crime.window):
             places, sound = claim(file, vid, routine)
             text = f"{name} says they were {' then '.join(at(p) for p in places)} {WHEN}."
             return [self._statement(file, vid, text, sound)] if places else [], []

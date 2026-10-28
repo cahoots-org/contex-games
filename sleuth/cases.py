@@ -56,13 +56,18 @@ class CaseFile:
 
 def case_json(case: CaseFile, town: Town, routine, today: float | None = None) -> dict:
     """What a player sees of a case on today, titled like "Ada Reyes's bike", with who besides the victim is usually
-    at the scene in its part of the day: a lead from routine alone, never from where anyone actually was."""
+    at the scene in its part of the day, or either part of a death's window: a lead from routine alone, never from
+    where anyone actually was. A death's part of the day is left out."""
     c = case.crime
-    nearby = [v.id for v in town.villagers
-              if v.id != c.victim and routine is not None and routine.place(v.id, c.phase) == c.place]
-    return {"id": c.id, "text": told(c.text, c, today), "place": c.place, "phase": c.phase, "day": c.day, "state": case.state,
-            "private": c.owner is not None, "title": crime_title(c, town), "victim": c.victim,
+    phases = c.window or [c.phase]
+    nearby = [v.id for v in town.villagers if v.id != c.victim and routine is not None
+              and any(routine.place(v.id, p) == c.place for p in phases)]
+    body = {"id": c.id, "text": told(c.text, c, today), "place": c.place, "phase": c.phase, "day": c.day,
+            "state": case.state, "private": c.owner is not None, "title": crime_title(c, town), "victim": c.victim,
             "nearby": nearby, "tier": c.tier}
+    if c.window:
+        del body["phase"]
+    return body
 
 
 class Cases:
@@ -138,7 +143,8 @@ class Cases:
         return next((f for f in self.files.values() if f.state != "closed" and f.crime.culprit == vid), None)
 
     def alibi(self, vid: str) -> str | None:
-        """The culprit's claim to have been where the routine expects them during the crime, its time as WHEN."""
+        """The culprit's claim to have been where the routine expects them during the crime, its time as WHEN; a death's
+        claim names no part of the day."""
         case = self.culprit_case(vid)
         if case is None:
             return None
@@ -146,7 +152,7 @@ class Cases:
         place = self.routine.place(vid, phase)
         case.alibi = [place]
         where = f"at home {at(place)}" if place in STREETS else at(place)
-        return f"I was {where} {WHEN}, all {phase}."
+        return f"I was {where} {WHEN}." if case.crime.window else f"I was {where} {WHEN}, all {phase}."
 
     def blame(self, vid: str) -> str | None:
         """The culprit's hint at someone who dislikes the victim, else at the culprit's own coldest tie, its time as

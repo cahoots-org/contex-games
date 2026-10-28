@@ -107,7 +107,7 @@ class Crime:
     text: str  # public news line
     owner: str | None = None  # the practice case's player
     tier: str = "petty"
-    window: list[str] = field(default_factory=list)  # a death's public window: the phase before, then its own
+    window: list[str] = field(default_factory=list)  # a death's public window: two phases in order, one its own
 
 
 @dataclass
@@ -153,8 +153,10 @@ def when(crime: Crime, today: float | None = None) -> str:
     if not crime.window:
         return ago(crime.day, crime.phase, today)
     first, last = crime.window
-    before = crime.day - (PHASES.index(first) > PHASES.index(last))
-    return f"sometime between {ago(before, first, today)} and {ago(crime.day, last, today)}"
+    i = PHASES.index(crime.phase)
+    first_day = crime.day - (PHASES.index(first) > i)
+    last_day = crime.day + (PHASES.index(last) < i)
+    return f"sometime between {ago(first_day, first, today)} and {ago(last_day, last, today)}"
 
 
 def told(text: str, crime: Crime, today: float | None = None) -> str:
@@ -193,7 +195,8 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
     """Draw a crime of tier, then a culprit (one of culprits, when given) and a victim from different households, the
     victim where the item plausibly is, each place weighted by weight when given. With the tier's EVIDENCE chance, when one fits, the culprit is expected at the
     scene too, otherwise elsewhere; with none, never there. A death's victim is on cold terms with at least MOTIVES
-    others besides the culprit, and its window spans the part of the day before. None if no crime fits."""
+    others besides the culprit, and its window spans the part of the day before or after, either equally likely.
+    None if no crime fits."""
     residents = [v for v in town.villagers if v.id not in exclude and routine.place(v.id, phase) is not None]
     disliked = {v.id: set(motives(town, v.id)) for v in residents} if tier == "major" else {}
     crimes = [(t, item) for t, kind in CRIMES.items() if kind.tier == tier for item in kind.items]
@@ -218,7 +221,10 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
     place = routine.place(victim.id, phase)
     kind = CRIMES[template]
     text = kind.news.format(did=kind.did, victim=victim.name, item=item, at=at(place), when=WHEN, window=WINDOW)
-    window = [PHASES[PHASES.index(phase) - 1], phase] if kind.tier == "major" else []
+    i = PHASES.index(phase)
+    window = []
+    if kind.tier == "major":
+        window = [PHASES[i - 1], phase] if rng.random() < 0.5 else [phase, PHASES[(i + 1) % len(PHASES)]]
     return Crime(case_id, template, item, culprit.id, victim.id, place, day, phase, minute, motive, text,
                  tier=kind.tier, window=window)
 

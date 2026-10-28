@@ -459,16 +459,27 @@ def feuding(town):
 
 def test_the_news_gives_a_window_not_a_time():
     town, routine = feuding(make_town()), make_routine()
-    crime = stage_crime(town, routine, Random(3), 1, "night", "case-1", tier="major")
+    crime = next(c for seed in range(20)
+                 if (c := stage_crime(town, routine, Random(seed), 1, "night", "case-1", tier="major")).window[0] == "evening")
     assert crime.template == "death" and crime.window == ["evening", "night"]
     text = told(crime.text, crime, 2.0)
     assert text == (f"{town.get(crime.victim).name} was found dead on Elm Street. It happened sometime between "
                     "yesterday evening and last night. Police are treating it as suspicious.")
     assert not CLOCK.search(text)
+    first = replace(crime, window=["night", "morning"])
+    assert told(first.text, first, 2.0).endswith("sometime between last night and this morning. Police are treating "
+                                                 "it as suspicious.")
     morning = Crime("case-2", "death", "", "v5", "v1", "cafe", 2, "morning", 500, "rival", "It happened {span}.",
                     tier="major", window=["night", "morning"])
     assert told(morning.text, morning, 2.25) == "It happened sometime between last night and this morning."
     assert told(morning.text, morning, 3.0) == "It happened sometime between two days ago, at night and yesterday morning."
+
+
+def test_the_true_part_of_the_day_is_sometimes_first_in_the_window():
+    town, routine = feuding(make_town()), make_routine()
+    windows = {tuple(stage_crime(town, routine, Random(seed), 1, "night", "case-1", tier="major").window)
+               for seed in range(30)}
+    assert windows == {("evening", "night"), ("night", "morning")}
 
 
 def test_a_span_is_one_said_time():

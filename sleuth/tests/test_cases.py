@@ -262,6 +262,23 @@ def test_alibi_claim_is_the_culprits_expected_place():
     assert cases.alibi("v2") is None
 
 
+def test_a_death_s_alibi_names_no_part_of_the_day():
+    cases, _, town = make_cases()
+    cases.routine = make_routine(night={"v3": "gym"})
+    culprit_file(cases).crime.window = ["night", "morning"]
+    assert cases.alibi("v3") == f"I was at the gym {WHEN}."
+
+
+def test_a_death_s_case_gives_no_part_of_the_day_and_nearby_spans_the_window():
+    cases, _, town = make_cases()
+    cases.routine = StubRoutine({"v2": {"night": "elm street"}, "v4": {"evening": "elm street"},
+                                 "v6": {"afternoon": "elm street"}})
+    file = culprit_file(cases)
+    file.crime.window = ["evening", "night"]
+    body = case_json(file, town, cases.routine)
+    assert "phase" not in body and body["nearby"] == ["v2", "v4"]
+
+
 def test_blame_names_the_victims_rival_never_culprit_or_victim():
     cases, _, town = make_cases()
     culprit_file(cases)
@@ -803,15 +820,18 @@ async def test_a_major_case_has_several_people_with_motives():
 
 
 @pytest.mark.asyncio
-async def test_a_major_case_stays_solvable_across_seeds():
+@pytest.mark.parametrize("phase", ["night", "morning"])
+async def test_a_major_case_stays_solvable_across_seeds(phase):
     opened = 0
     for seed in range(30):
-        cases, engine, town, case = await open_death(seed)
-        if case is None:
+        cases, engine, town = deadly(seed)
+        cases.routine = StubRoutine({vid: {"night": street, "morning": street} for vid, _, _, street in RESIDENTS})
+        await cases._stage(engine, "major", 2, phase, set())
+        if (case := next(iter(cases.open_shared("major")), None)) is None:
             continue
         opened += 1
         assert suspects(case.crime, list(case.records.values()), town) == {case.crime.culprit}
-        assert case.crime.window == ["evening", "night"]
+        assert phase in case.crime.window and told("{span}", case.crime, 2.25).startswith("sometime between ")
     assert opened > 20
 
 
