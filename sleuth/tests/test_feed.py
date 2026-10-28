@@ -133,3 +133,15 @@ def test_learned_looks_reach_only_the_podcaster():
     feed.on_known(person, player=PID)
     event = feed.recent[-1]
     assert (event.kind, event.player, event.data) == ("known", PID, {"villager": person}) and lines == []
+
+
+def test_a_case_shows_one_retelling_each_part_of_the_day():
+    feed, lines = make()
+    for _ in range(3):
+        feed.on_post(utt("u-1"), "case-1", heard=True)
+    feed.on_post(utt("u-2"), "case-2", heard=True)
+    feed.on_post(utt("u-2"), "case-1")
+    feed.on_time(2, "afternoon")
+    feed.on_post(utt("u-1"), "case-1", heard=True)
+    assert [(e.data["case_id"], e.data["speaker"]) for e in feed.recent if e.kind == "post"] == [
+        ("case-1", "Bert heard"), ("case-2", "Bert heard"), ("case-1", "Bert"), ("case-1", "Bert heard")]

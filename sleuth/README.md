@@ -207,7 +207,7 @@ places you can go; and at the foot, a small Districts map: each street with its 
 arrow when either has risen or fallen since the morning, and any watch with who started it, never the numbers behind
 them (hidden in the first case). In the header, the neighborhood app: a link that counts what's new and opens one feed, newest
 first, as a panel on the right (a sheet from the bottom on a phone) of case news, what residents are saying (case talk
-passed on shows as hearsay, "Ada Reyes heard: ..."), and their photo posts, each with who posted it, the faces in it, its caption and Save. On the right:
+passed on shows as hearsay, "Ada Reyes heard: ...", one retelling per case each part of the day), and their photo posts, each with who posted it, the faces in it, its caption and Save. On the right:
 everyone in town with their job and street, searchable by name, job or known looks, marked victim or witness once you
 know and "usually nearby" when their routine puts them at the scene, and the conversation with
 whoever you pick. Someone's looks show only once you've learned them, how and when first, and until then their face

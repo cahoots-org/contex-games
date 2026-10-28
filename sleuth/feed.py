@@ -62,6 +62,8 @@ class Feed:
         self._last_id = 0
         # Players in the practice town, who see only their own events and the town's rest.
         self.practising: set[str] = set()
+        # Cases already shown retold this part of the day.
+        self.retold: set[str] = set()
 
     def to_state(self) -> dict:
         """Recent events and the last event id as plain JSON."""
@@ -141,8 +143,12 @@ class Feed:
         self.emit("case", case["text"], player=player, case=case)
 
     def on_post(self, utterance: Utterance, case_id: str | None, player: str | None = None, heard: bool = False) -> None:
-        """The neighborhood app's news of a case, room talk rooted in it, shown as what the speaker heard, or a
-        resident's post with no case."""
+        """The neighborhood app's news of a case, room talk rooted in it, shown as what the speaker heard once per
+        case each part of the day, or a resident's post with no case."""
+        if heard and case_id in self.retold:
+            return
+        if heard:
+            self.retold.add(case_id)
         u = utterance
         speaker = f"{u.speaker_name} heard" if heard else u.speaker_name
         line = f'{speaker}: "{u.text}"' if heard else f'{speaker} posted: "{u.text}"'
@@ -178,6 +184,7 @@ class Feed:
         self.emit("case_closed", line, player=player, case_id=case_id, text=line)
 
     def on_time(self, day: int, phase: str) -> None:
+        self.retold.clear()
         line = TIME_LINES[phase].format(day=day)
         self.emit("time", line, text=line, day=day, phase=phase)
 
