@@ -90,3 +90,15 @@ async def test_a_line_with_gore_is_never_said():
     writer.line = "Poisoned, if you ask me."
     await ask(player, "v4", "what_did_you_see")
     assert replies(player)[1] in SHRUGS
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("line", ["Pray for poor Bert.", "They say there was a knife."])
+async def test_retold_talk_with_faith_or_gore_is_dropped(line):
+    s = Setup()
+    s.hub.case_roots.add("u-0")
+    s.writer.line = line
+    await s.act("v1", Decision(RETELL, source("u-0"), "v2", "faithful"))
+    await s.act("v1", Decision(SPEAK, source("u-0"), None, "faithful"))
+    await s.act("v1", Decision(SPEAK, source("u-9"), None, "faithful"))
+    assert s.hub.delivered == []

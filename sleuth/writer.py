@@ -15,8 +15,10 @@ SAY_MAX_TOKENS = 80
 ANSWER_MAX_TOKENS = 120
 NO_CASE_FACTS = ("Never add a fact about the case: no one seen or placed anywhere, no time, no look or clothing, "
                  "no sighting. ")
-CASE_TALK = ("This is about a case. Say what you think, feel and suspect, in character: opinions, theories, grudges "
-             "and your quirks are welcome. " + NO_CASE_FACTS)
+CASE_OPINIONS = ("This is about a case. Say what you think, feel and suspect, in character: opinions, theories, "
+                 "grudges and your quirks are welcome. ")
+RETELL_TALK = ("Pass on what you heard, changed as your manner says; you may embellish. Never claim you saw it "
+               "yourself. ")
 TIMES = "Say when the case happened only as you are told it, never as another time. "
 SOMBER = "Someone has died. Be sober and kind about it, never joking, and say nothing of how. "
 # ponytail: word lists, not a judge; they only ever stop a case line that adds one of these to its facts.
@@ -121,24 +123,26 @@ class Writer:
 
     async def say(
         self, villager: Villager, decision: Decision, source_text: str | None, audience: str, on_case: bool = False,
-        now: str = "", when: str = "", mood: str = "", somber: bool = False,
+        now: str = "", when: str = "", mood: str = "", somber: bool = False, retold: bool = False,
     ) -> str:
         """The villager's words for this decision, in their voice and chosen style, keeping the source unnamed, their
         street's mood in mind.
 
         Talk about a case leaves the villager's grudge out, adds no fact about it, and says when it happened as when,
-        said on now; somber talk is about a death.
+        said on now; somber talk is about a death. A retold case line may embellish what was heard but never claims
+        to have seen it.
         """
+        case_talk = CASE_OPINIONS + (RETELL_TALK if retold else NO_CASE_FACTS) + TIMES
         system = (
             f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             + (SOMBER if somber else "")
-            + (CASE_TALK + TIMES if on_case else _grudge(villager, "Bring it up only when it fits. "))
+            + (case_talk if on_case else _grudge(villager, "Bring it up only when it fits. "))
             + _quirks(villager)
             + (f"Your street is {mood}. " if mood else "")
             + "Reply with one short sentence, under 20 words, in your own voice, said plainly, like neighbours chatting. "
-            "Keep to what you heard, changed only as your manner says. "
-            "If what you heard is about you, answer as yourself. "
+            + ("" if on_case and retold else "Keep to what you heard, changed only as your manner says. ")
+            + "If what you heard is about you, answer as yourself. "
             "No stage directions, no quotation marks around the reply, no preamble."
         )
         lines = [f"Action: {decision.action}.", f"Listening: {audience}."]

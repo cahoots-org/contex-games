@@ -15,7 +15,9 @@ also has one or two quirks, a harmless obsession or habit that shows in what the
 
 Residents still talk among themselves: what they hear is published into their minds in Contex, and a line that
 matches one of their needs wakes them to react. What a witness saw or a victim found passes only from mind to mind:
-the feed doesn't show it, so you learn it only by interviewing someone.
+the feed doesn't show it, so you learn it only by interviewing someone. What residents pass on can change in the retelling: they may
+embellish it however their manner says, but never claim they saw it themselves. A culprit's cover story or warning
+never adds to what it says.
 
 ## Playing
 

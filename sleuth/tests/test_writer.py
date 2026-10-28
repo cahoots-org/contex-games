@@ -6,7 +6,7 @@ from sleuth.config import Config
 from sleuth.models import Villager
 from sleuth.usage import Usage
 from sleuth.tests.helpers import StubClient
-from sleuth.writer import ANSWER_MAX_TOKENS, SOMBER, Writer, first_line, invents_facts
+from sleuth.writer import ANSWER_MAX_TOKENS, NO_CASE_FACTS, RETELL_TALK, SOMBER, Writer, first_line, invents_facts
 
 
 def villager():
@@ -246,3 +246,14 @@ async def test_writer_is_told_to_be_sober_about_a_death():
     await writer.post(villager(), "a gripe", "Someone stole a bike.")
     calls = [c["system"] for c in client.messages.calls]
     assert all(SOMBER in c for c in calls[:3]) and not any(SOMBER in c for c in calls[3:])
+
+
+@pytest.mark.asyncio
+async def test_a_retold_case_line_may_embellish_but_never_claim_sight():
+    client = StubClient("Hm.", "Hm.")
+    writer = Writer(client, "haiku-test")
+    await writer.say(villager(), Decision("retell", None, "v2", None), "x", "Bob", on_case=True, retold=True)
+    await writer.say(villager(), Decision("alibi", None, "v2", None), "x", "Bob", on_case=True)
+    retold, cover = (c["system"] for c in client.messages.calls)
+    assert RETELL_TALK in retold and NO_CASE_FACTS not in retold and "opinions, theories" in retold
+    assert NO_CASE_FACTS in cover and RETELL_TALK not in cover

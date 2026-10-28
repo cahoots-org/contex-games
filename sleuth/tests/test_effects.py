@@ -19,12 +19,14 @@ class StubWriter:
 
         self.on_case = []
         self.somber = []
+        self.retold = []
 
     async def say(self, villager, decision, source_text, audience, on_case=False, now="", when="", mood="",
-                  somber=False):
+                  somber=False, retold=False):
         self.say_calls.append((decision.action, source_text, audience))
         self.on_case.append(on_case)
         self.somber.append(somber)
+        self.retold.append(retold)
         self.timing = (now, when)
         return self.line
 
@@ -249,7 +251,7 @@ async def test_case_talk_retold_days_later_says_when_from_today():
     await s.act("v1", Decision(RETELL, told, "v2", "faithful"))
     assert s.writer.say_calls == [(RETELL, "Someone stole Bert's bike two days ago, in the afternoon.", "Ada")]
     assert s.writer.timing == s.hub.timing and len(s.hub.delivered) == 1
-    s.writer.line = "Someone stole Bert's bike this afternoon."
+    s.writer.line = "I saw Bert's bike go this afternoon."
     await s.act("v1", Decision(RETELL, told, "v2", "faithful"))
     assert len(s.hub.delivered) == 1
 
@@ -257,14 +259,13 @@ async def test_case_talk_retold_days_later_says_when_from_today():
 @pytest.mark.asyncio
 async def test_case_talk_that_invents_is_dropped():
     s = Setup()
-    s.hub.case_roots.add("u-0")
+    s.hub.facts[BLAME] = "Cy has never liked Bert."
     s.writer.line = "A hooded man stole it, and he had a little dog with him."
-    await s.act("v1", Decision(SPEAK, source("u-0"), None, "add_detail"))
-    await s.act("v1", Decision(RETELL, source("u-0"), "v2", "faithful"))
-    assert s.hub.delivered == []
-    s.writer.line = "Ada, did you hear Bert stole bread?"
-    await s.act("v1", Decision(RETELL, source("u-0"), "v2", "faithful"))
-    assert [u.text for u, _ in s.hub.delivered] == ["Ada, did you hear Bert stole bread?"]
+    await s.act("v1", Decision(BLAME, None, "v2", "faithful"))
+    assert [u.text for u, _ in s.hub.delivered] == ["Cy has never liked Bert."]
+    s.writer.line = "Ada, Cy has never liked Bert, you know."
+    await s.act("v1", Decision(BLAME, None, "v2", "faithful"))
+    assert s.hub.delivered[-1][0].text == "Ada, Cy has never liked Bert, you know."
 
 
 @pytest.mark.asyncio
@@ -315,3 +316,40 @@ async def test_talk_about_a_death_is_written_soberly():
     await s.act("v1", Decision(ALIBI, None, "v2", "faithful"))
     await s.act("v2", Decision(SPEAK, None, None, None))
     assert s.writer.somber == [True, False, True, False]
+
+
+@pytest.mark.asyncio
+async def test_retold_case_talk_may_embellish():
+    s = Setup()
+    s.hub.case_roots.add("u-0")
+    s.writer.line = "Heard it was a tall fella in a red coat, around nine!"
+    await s.act("v1", Decision(RETELL, source("u-0"), "v2", "exaggerated"))
+    await s.act("v1", Decision(SPEAK, source("u-0"), None, "add_detail"))
+    assert [u.text for u, _ in s.hub.delivered] == [s.writer.line] * 2
+    assert s.writer.retold == [True, True]
+
+
+@pytest.mark.asyncio
+async def test_retold_talk_never_claims_to_have_seen_it():
+    s = Setup()
+    s.hub.case_roots.add("u-0")
+    s.lineage.record("u-0", None)
+    for line in ("I saw a tall fella take it.", "Honestly, i spotted Cy near there."):
+        s.writer.line = line
+        await s.act("v1", Decision(RETELL, source("u-0"), "v2", "faithful"))
+        await s.act("v1", Decision(SPEAK, source("u-0"), None, "faithful"))
+    await s.act("v1", Decision(MOVE, source("u-0"), "cafe", "faithful"), share_chance=1.0)
+    assert s.hub.delivered == []
+
+
+@pytest.mark.asyncio
+async def test_cover_stories_and_warnings_stay_strict():
+    s = Setup()
+    s.hub.facts[ALIBI] = "I was at the gym last night, all night."
+    s.hub.warning = "That podcaster twists everything."
+    s.writer.line = "I was at the gym at 9pm, ask Cy."
+    await s.act("v1", Decision(ALIBI, None, "v2", "faithful"))
+    s.writer.line = "That podcaster was at the bar this morning, a tall fella."
+    await s.act("v1", Decision(WARN, None, "v2", "faithful"))
+    assert [u.text for u, _ in s.hub.delivered] == [s.hub.facts[ALIBI], s.hub.warning]
+    assert s.writer.retold == [False, False]

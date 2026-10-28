@@ -1,6 +1,7 @@
 """Turn a villager's decision into town changes and speech."""
 
 import random
+import re
 from typing import Protocol
 
 from sleuth.actions import (
@@ -8,7 +9,7 @@ from sleuth.actions import (
 )
 from sleuth.decide import Decision
 from sleuth.facts import Facts
-from sleuth.faith import GORE
+from sleuth.faith import FAITH, GORE
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
 from sleuth.town import Town
@@ -16,6 +17,8 @@ from sleuth.case import retime
 from sleuth.writer import Writer, invents_facts
 
 DIRECT = (RETELL, DENY, CONFRONT)
+# ponytail: a phrase list, not a judge; it only ever drops a retold line that claims to have seen it.
+FIRST_HAND = re.compile(r"\bI (?:saw|spotted|watched|noticed|caught)\b", re.I)
 ROOM = "room"
 ONE = "one"
 
@@ -49,10 +52,11 @@ async def act(
 ) -> None:
     """Apply the decision to the town and deliver any speech it produces.
 
-    A villager who moves shares the news with someone where they arrive with share_chance. A line about a case that
-    adds to what the villager heard or gives another time is dropped, and a cover story or warning is then told as
-    its plain fact. A case line heard days ago is retold with the case's time said today. Any grisly line is dropped
-    the same way. Talk about a death is sober. Speech carries the mood of the villager's street.
+    A villager who moves shares the news with someone where they arrive with share_chance. Talk passed on may drift
+    and embellish, but a retold case line that claims to have seen it is dropped. A cover story or warning that adds
+    to its fact or gives another time is told as its plain fact. A line of faith or anything grisly is dropped, or
+    told plainly. A case line heard days ago is retold with the case's time said today. Talk about a death is sober.
+    Speech carries the mood of the villager's street.
     """
     action = decision.action
     vid = villager.id
@@ -86,13 +90,17 @@ async def act(
         return uid
 
     async def words(facts_text: str | None, audience: str, case: bool, plain: str | None = None,
-                    somber: bool = False) -> str | None:
-        """The writer's line; plain or nothing when it is grisly or, on a case, adds what facts_text and the people at
-        hand don't."""
+                    somber: bool = False, retold: bool = False) -> str | None:
+        """The writer's line; plain or nothing when it is of faith or grisly, when retold on a case claims to have
+        seen it, or when otherwise on a case adds what facts_text and the people at hand don't."""
         text = await writer.say(villager, decision, facts_text, audience, case, *(timing or ("", "")), mood=mood,
-                                somber=somber)
+                                somber=somber, retold=case and retold)
+        if FAITH.search(text) or GORE.search(text):
+            return plain
+        if case and retold:
+            return plain if FIRST_HAND.search(text) else text
         allowed = " ".join([villager.name, audience, facts_text or "", *(timing or ())])
-        if GORE.search(text) or case and invents_facts(text, allowed, {v.name.split()[0] for v in town.villagers}):
+        if case and invents_facts(text, allowed, {v.name.split()[0] for v in town.villagers}):
             return plain
         return text
 
@@ -111,7 +119,7 @@ async def act(
             )
     elif action in DIRECT:
         if decision.target in others():
-            if text := await words(source_text, town.get(decision.target).name, on_case, somber=grave):
+            if text := await words(source_text, town.get(decision.target).name, on_case, somber=grave, retold=True):
                 await say(text, [decision.target], ONE)
     elif action in (ALIBI, BLAME):
         if decision.target in others() and (fact := hub.cover_story(vid, action)) is not None:
@@ -122,5 +130,5 @@ async def act(
             text = await words(fact, town.get(decision.target).name, True, fact, hub.somber(culprit=vid))
             await say(text, [decision.target], ONE, root=True)
     elif action == SPEAK:
-        if text := await words(source_text, place, on_case, somber=grave):
+        if text := await words(source_text, place, on_case, somber=grave, retold=True):
             await say(text, others(), ROOM)
