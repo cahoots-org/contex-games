@@ -74,3 +74,14 @@ def test_an_accomplice_vouches_falsely_for_the_culprit():
     fay, jo = town.get("v3"), town.get("v7")
     assert accomplice_word(file, jo, fay) == (f"Fay Okafor was with me at the bar {WHEN}.", False)
     assert accomplice_word(file, town.get("v8"), fay) is None and accomplice_word(file, jo, town.get("v4")) is None
+
+
+def test_a_death_window_that_includes_night_gets_a_household_word_whatever_its_own_part():
+    cases, _, town = make_cases()
+    file = culprit_file(cases, phase="evening")
+    file.crime.window = ["evening", "night"]
+    assert household_question(file, town.get("v4"), town.get("v3"))
+    assert household_word(file, town.get("v4"), town.get("v3"), "cover") == ("Fay Okafor was home with me all night.", False)
+    file = culprit_file(cases, phase="evening")
+    file.crime.window = ["afternoon", "evening"]
+    assert household_word(file, town.get("v4"), town.get("v3"), "cover") is None

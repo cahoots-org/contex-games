@@ -115,7 +115,7 @@ saved with the game and picks up where they left off.
 | clue | left at the crime place: a boot print, coat thread or tracks showing one of the culprit's traits, or a grocery receipt dropped by the culprit or someone who was there, showing only the store and the time |
 | statement | what a resident tells you in an interview: where they or someone else were, what they heard, who'd have a reason, how someone they know looks; what they heard may have drifted in the retelling, and then it's no good as evidence |
 
-Statements can be lies: a culprit expected elsewhere gives a false alibi, and a housemate may cover for them. About
+Statements can be lies: a culprit expected elsewhere gives a false alibi, and a housemate may cover for them on a night crime, or a death whose window takes in the night. About
 a third of the time the culprit is a regular at the scene, whose word on where they were is true; traits, clues and
 records catch them instead.
 

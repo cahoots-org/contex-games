@@ -22,8 +22,8 @@ def claim(file: CaseFile, vid: str, routine) -> tuple[list[str], bool]:
 
 
 def _vouches(file: CaseFile, speaker: Villager, about: Villager) -> bool:
-    """Whether speaker can vouch for about: housemates, on the night of a crime."""
-    return file.crime.phase == "night" and speaker.id != about.id and speaker.household == about.household
+    """Whether speaker can vouch for about: housemates, when the crime, or any part of a death's window, is at night."""
+    return "night" in (file.crime.window or [file.crime.phase]) and speaker.id != about.id and speaker.household == about.household
 
 
 def household_question(file: CaseFile, speaker: Villager, about: Villager) -> Choice | None:
