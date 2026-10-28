@@ -1374,7 +1374,7 @@ async def test_an_exposed_resident_is_touchy_with_other_podcasters():
     assert writer.notes[-1] == ["Everyone knows you stole Dana Reyes's bike. You're touchy about it."]
     engine.reputation.nudge("v3", PID, 1.0)
     await ask(player, "v3", "none")
-    assert writer.notes[-1] == ["This podcaster exposed you for stole Dana Reyes's bike. You're cold with them."]
+    assert writer.notes[-1] == ["This podcaster exposed you for stealing Dana Reyes's bike. You're cold with them."]
 
 
 @pytest.mark.asyncio
@@ -1401,8 +1401,8 @@ async def test_the_wrongly_accused_bring_it_up_when_interviewed():
     engine.cases.close(file, None)
     await engine.cases.ensure(engine)
     await ask(player, "v5", "none")
-    assert writer.notes[-1] == ["This podcaster publicly accused you of stole Dana Reyes's bike, and you didn't do it. "
-                                "You're hurt and short with them."]
+    assert writer.notes[-1] == ["This podcaster publicly accused you of stealing Dana Reyes's bike, and you didn't do "
+                                "it. You're hurt and short with them."]
     rival = run_of(player, "p-2")
     rival.writer = writer
     await ask(rival, "v5", "none")

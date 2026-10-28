@@ -298,6 +298,11 @@ def test_make_solvable_adds_a_pointing_record_when_only_logs_elsewhere_narrow_th
     assert added and any(points_at(crime, crime.culprit, culprit, r) for r in added)
 
 
+def test_every_crime_says_what_was_done_as_a_gerund():
+    assert all(kind.doing.split()[0].endswith("ing") for kind in CRIMES.values())
+    assert CRIMES["trailer"].doing == "driving off with"
+
+
 def test_notebook_entries_from_someone_who_left_still_show_their_name():
     town = make_town()
     said = Record("r-1", "case-1", "statement", "gym", "9:00pm", "Hal Burke says they were at the gym.", "v5")

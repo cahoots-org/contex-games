@@ -478,13 +478,18 @@ class Player:
 
     def _notes(self, vid: str) -> list[str]:
         """What the resident feels about this podcaster or about themselves, for the writer."""
-        notes = [f"This podcaster publicly accused you of {CRIMES[c.template].did} {self.town.name_of(c.victim)}'s "
-                 f"{c.item}, and you didn't do it. You're hurt and short with them." for c in self._wrongly_named(vid)]
+        notes = [f"This podcaster publicly accused you of {self._deed(c)}, and you didn't do it. You're hurt and short "
+                 "with them." for c in self._wrongly_named(vid)]
         if what := self._exposed().get(vid):
-            mine = any(f.crime.culprit == vid and f.solved_by == self.id for f in self.engine.cases.files.values())
-            notes.append(f"This podcaster exposed you for {what}. You're cold with them." if mine
+            mine = next((f.crime for f in self.engine.cases.files.values()
+                         if f.crime.culprit == vid and f.solved_by == self.id), None)
+            notes.append(f"This podcaster exposed you for {self._deed(mine)}. You're cold with them." if mine
                          else f"Everyone knows you {what}. You're touchy about it.")
         return notes
+
+    def _deed(self, crime: Crime) -> str:
+        """What was done in the crime, as a gerund, like "stealing Ada Reyes's bike"."""
+        return f"{CRIMES[crime.template].doing} {self.town.name_of(crime.victim)}'s {crime.item}"
 
     def known_json(self, vid: str) -> list[dict]:
         """Each time the player learned how the resident looks, oldest first."""

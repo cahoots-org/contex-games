@@ -18,6 +18,7 @@ TITLE = "{victim}'s {item}"
 class Kind:
     tier: str
     did: str
+    doing: str  # the same deed as a gerund
     items: tuple[str, ...]
     found: str  # what the victim finds
     seen: str  # what a witness saw the figure do
@@ -26,16 +27,16 @@ class Kind:
 
 
 CRIMES = {
-    "steal": Kind("petty", "stole", ("bike", "tote bag", "thermos"), "missing", "walked off with something"),
-    "vandalize": Kind("petty", "vandalized", ("car", "bike"), "damaged", "was bent over something"),
-    "sabotage": Kind("petty", "sabotaged", ("county-fair pumpkin", "county-fair jam", "county-fair quilt"), "spoiled",
+    "steal": Kind("petty", "stole", "stealing", ("bike", "tote bag", "thermos"), "missing", "walked off with something"),
+    "vandalize": Kind("petty", "vandalized", "vandalizing", ("car", "bike"), "damaged", "was bent over something"),
+    "sabotage": Kind("petty", "sabotaged", "sabotaging", ("county-fair pumpkin", "county-fair jam", "county-fair quilt"), "spoiled",
                      "was fiddling with something"),
-    "dog": Kind("petty", "let out", ("dog",), "loose", "was opening a gate"),
-    "trailer": Kind("petty", "drove off with", ("marching band trailer",), "missing", "was hauling something off"),
-    "salt": Kind("petty", "salted", ("sugar jars",), "salted", "was fiddling with the jars"),
-    "moustache": Kind("petty", "drew a moustache on", ("portrait",), "defaced", "was scribbling on something"),
-    "goose": Kind("petty", "made off with", ("goose",), "missing", "was carrying something that honked"),
-    "gnome": Kind("petty", "pinched", ("garden gnome",), "missing", "was carrying something small and pointy"),
+    "dog": Kind("petty", "let out", "letting out", ("dog",), "loose", "was opening a gate"),
+    "trailer": Kind("petty", "drove off with", "driving off with", ("marching band trailer",), "missing", "was hauling something off"),
+    "salt": Kind("petty", "salted", "salting", ("sugar jars",), "salted", "was fiddling with the jars"),
+    "moustache": Kind("petty", "drew a moustache on", "drawing a moustache on", ("portrait",), "defaced", "was scribbling on something"),
+    "goose": Kind("petty", "made off with", "making off with", ("goose",), "missing", "was carrying something that honked"),
+    "gnome": Kind("petty", "pinched", "pinching", ("garden gnome",), "missing", "was carrying something small and pointy"),
 }
 TEMPLATES = CRIMES
 # Where each item plausibly is. Residents are on a street only at night, at home.
