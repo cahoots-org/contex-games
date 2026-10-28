@@ -1396,6 +1396,11 @@ async def test_the_wrongly_accused_bring_it_up_when_interviewed():
     assert await player.publish("v5", cite(player, file, memory_of(file, player.ids))) is None
     engine.reputation.nudge("v5", PID, 1.0)
     await ask(player, "v5", "none")
+    assert writer.notes[-1] == []
+    engine.cases.now = 2.0
+    engine.cases.close(file, None)
+    await engine.cases.ensure(engine)
+    await ask(player, "v5", "none")
     assert writer.notes[-1] == ["This podcaster publicly accused you of stole Dana Reyes's bike, and you didn't do it. "
                                 "You're hurt and short with them."]
     rival = run_of(player, "p-2")

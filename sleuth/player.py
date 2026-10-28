@@ -471,9 +471,10 @@ class Player:
         return self.engine.cases.offenders.exposed if self.engine.cases else {}
 
     def _wrongly_named(self, vid: str) -> list[Crime]:
-        """The crimes this podcaster's episodes wrongly named the resident for."""
+        """The town's closed cases this podcaster's episodes wrongly named the resident for."""
         files = self.engine.cases.files.values() if self.engine.cases else []
-        return [f.crime for f in files if f.named.get(self.id) == vid != f.crime.culprit]
+        return [f.crime for f in files if f.state == "closed" and f.crime.owner is None
+                and f.named.get(self.id) == vid != f.crime.culprit]
 
     def _notes(self, vid: str) -> list[str]:
         """What the resident feels about this podcaster or about themselves, for the writer."""

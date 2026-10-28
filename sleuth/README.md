@@ -126,8 +126,8 @@ doesn't back it. One episode per podcaster per case.
   A culprit of anything worse than a petty crime is arrested instead and leaves town at once.
 - A wrong one leaves the case open for others. The town hears the accusation anyway, everyone thinks less of you
   (`reputation_wrong`), and the accused most of all (`reputation_accused`). Their household and anyone close to them
-  think less of you too (`reputation_accused_ties`). The accused remembers: they bring it up, hurt and short with
-  you, and the people list tags them "you named them".
+  think less of you too (`reputation_accused_ties`). Once the case is closed, the accused remembers: they bring it
+  up, hurt and short with you, and the people list tags them "you named them".
 
 **Reputation** is each resident's regard for you, in [-1, 1], drifting back toward 0 by `reputation_decay` each part
 of the day. A resident below `guarded_at` won't talk to you or share the records they keep. A witness at or above

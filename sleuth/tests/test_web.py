@@ -1017,5 +1017,8 @@ def test_the_people_list_marks_who_you_accused(game):
     other = game.join("o-2")
     file.named = {game.player.id: "v1", other.id: "v2"}
     rows = {v["id"]: v for v in game.client.get("/api/state").json()["villagers"]}
+    assert rows["v1"]["accused"] is False and rows["v2"]["accused"] is False
+    file.state = "closed"
+    rows = {v["id"]: v for v in game.client.get("/api/state").json()["villagers"]}
     assert rows["v1"]["accused"] is True and rows["v2"]["accused"] is False
     assert other.person("v1")["accused"] is False and other.person("v2")["accused"] is False
