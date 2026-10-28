@@ -61,6 +61,31 @@ def town_line(text: str) -> str:
     return "" if any(m.group().lower() not in STREETS for m in STREET.finditer(line)) else line
 
 
+NAME = r"([A-Z][a-z][\w'-]*?)(?:'s)?"
+# Ways of naming a person: "Mrs. Hollis", "that Halvorsen boy", or a first name with a surname, "Gordon Halvorsen".
+TITLED = re.compile(rf"\b(?:Mr|Mrs|Ms|Miss|Dr)\.? {NAME}\b")
+KIN = re.compile(rf"\b(?:[Tt]he|[Tt]hat|[Tt]hose|[Oo]ld|[Yy]oung) {NAME} (?:boys?|girls?|kids?|lads?|lass|man|woman|"
+                 r"fell(?:ow|a)s?|guy|lady|family|twins|brothers|sisters|couple|bloke)\b")
+FULL_NAME = re.compile(rf"\b([A-Z][a-z]+) {NAME}\b")
+# ponytail: a list of places a town might have but this one doesn't; only "the X" counts, so ordinary words pass.
+ELSEWHERE = re.compile(r"\bthe (?:\w+ )?(?:bakery|pharmacy|chemist'?s|post office|bank|diner|pub|deli|mall|"
+                       r"supermarket|laundromat|pizzeria|restaurant|hotel|motel|gas station|petrol station|salon|"
+                       r"barber'?s|barbershop|florist'?s|bookshop|bookstore|market|cinema|movie theater|theatre|"
+                       r"swimming pool|clinic|hospital|fire station|police station|train station|bus station|"
+                       r"corner shop|bowling alley|community center|rec center)\b", re.IGNORECASE)
+
+
+def invents_people(line: str, names: Sequence[str]) -> bool:
+    """Whether the line names a person by title, family or surname who isn't among names, or a place the town lacks."""
+    known = {w.lower() for n in names for w in n.split()}
+    firsts = {n.split()[0].lower() for n in names}
+    return (
+        bool(ELSEWHERE.search(line))
+        or any(m.group(1).lower() not in known for p in (TITLED, KIN) for m in p.finditer(line))
+        or any(m.group(1).lower() in firsts and m.group(2).lower() not in known for m in FULL_NAME.finditer(line))
+    )
+
+
 def extract_json(text: str):
     """Parse the first JSON array or object in text, ignoring fences and prose."""
     decoder = json.JSONDecoder()

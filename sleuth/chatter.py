@@ -8,7 +8,7 @@ from sleuth.faith import FAITH, GORE
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
 from sleuth.town import Town
-from sleuth.writer import Writer, invents_facts
+from sleuth.writer import Writer, invents_facts, invents_people
 
 POSTS = {"lost": "a lost-pet or lost-item post", "note": "a passive-aggressive note to the neighbours",
          "gripe": "a gripe about something in town, true to your quirks",
@@ -26,7 +26,8 @@ def swaps_item(line: str, case_text: str, firsts: set[str]) -> bool:
 async def chatter(writer: Writer, town: Town, rng: Random, ids: Ids, case_text: str | None,
                   somber: bool = False) -> Utterance | None:
     """A random resident's post of a random kind, a theory only while a case is open, somber when it is a death; None
-    when nobody has quirks or the line is empty, of faith, grisly, or adds or swaps a case fact."""
+    when nobody has quirks or the line is empty, of faith, grisly, names someone or somewhere the town lacks, or
+    adds or swaps a case fact."""
     quirky = [v for v in town.villagers if v.quirks]
     if not quirky:
         return None
@@ -35,6 +36,7 @@ async def chatter(writer: Writer, town: Town, rng: Random, ids: Ids, case_text: 
     line = await writer.post(v, POSTS[kind], case_text, somber)
     firsts = {o.name.split()[0] for o in town.villagers}
     if (not line or FAITH.search(line) or GORE.search(line) or invents_facts(line, case_text or "", firsts)
-            or swaps_item(line, case_text or "", firsts)):
+            or swaps_item(line, case_text or "", firsts)
+            or invents_people(line, [o.name for o in (*town.villagers, *town.departed)])):
         return None
     return Utterance(ids.next("u"), v.id, v.name, v.home, line, None, "posted")

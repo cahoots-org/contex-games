@@ -149,3 +149,9 @@ def test_grisly_words_are_caught(line):
                                   "Got my flu shot.", "Worth a shot.", "I'll take a shot at the pie contest."])
 def test_everyday_words_are_not_grisly(line):
     assert not GORE.search(line)
+
+
+@pytest.mark.asyncio
+async def test_a_post_naming_someone_or_somewhere_the_town_lacks_is_dropped():
+    for line in ("That Halvorsen boy is at it again.", "Lost my keys near the bakery."):
+        assert await chatter(Writer(StubClient(line), "haiku-test"), town(), Random(1), Ids(), None) is None

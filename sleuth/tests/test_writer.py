@@ -6,7 +6,9 @@ from sleuth.config import Config
 from sleuth.models import Villager
 from sleuth.usage import Usage
 from sleuth.tests.helpers import StubClient
-from sleuth.writer import ANSWER_MAX_TOKENS, NO_CASE_FACTS, RETELL_TALK, SOMBER, Writer, first_line, invents_facts
+from sleuth.writer import (
+    ANSWER_MAX_TOKENS, NO_CASE_FACTS, RETELL_TALK, SOMBER, Writer, first_line, invents_facts, invents_people,
+)
 
 
 def villager():
@@ -296,3 +298,32 @@ async def test_a_retold_case_line_may_embellish_but_never_claim_sight():
     retold, cover = (c["system"] for c in client.messages.calls)
     assert RETELL_TALK in retold and NO_CASE_FACTS not in retold and "opinions, theories" in retold
     assert NO_CASE_FACTS in cover and RETELL_TALK not in cover
+
+
+NAMES = ["Gordon Pike", "Dolores Finch", "Lorna Vance"]
+
+
+@pytest.mark.parametrize("line", [
+    "That Halvorsen boy who always buys energy drinks was out late again.",
+    "The Hollis kid was hanging about, poor thing.",
+    "Mrs. Abernathy says it's a disgrace.",
+    "Gordon Halvorsen should be ashamed.",
+    "Heard it from the girl at the bakery.",
+    "They say it happened behind the old pharmacy.",
+])
+def test_a_line_naming_a_person_or_place_the_town_lacks_invents_people(line):
+    assert invents_people(line, NAMES)
+
+
+@pytest.mark.parametrize("line", [
+    "That Pike boy always was trouble.",
+    "Mr. Pike, of all people!",
+    "Poor Dolores Finch, and on a Tuesday too.",
+    "Has anyone seen my dog Biscuit? Last seen by the library.",
+    "Oh, Lorna, I'm so worried, love, poor thing.",
+    "I blame the town council, and the gym, and the bar.",
+    "The Maple Street Group Chat is at it again.",
+    "Someone needs to bake bread like a proper bakery would.",
+])
+def test_ordinary_talk_about_the_town_does_not_invent_people(line):
+    assert not invents_people(line, NAMES)

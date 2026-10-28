@@ -366,3 +366,17 @@ async def test_retold_case_talk_never_speaks_of_its_teller_by_name():
     s.writer.line = "Oh, someone took my bike this afternoon!"
     await s.act("v1", Decision(RETELL, told, "v2", "faithful"))
     assert len(s.hub.delivered) == 1
+
+
+@pytest.mark.asyncio
+async def test_talk_naming_someone_or_somewhere_the_town_lacks_is_dropped():
+    s = Setup()
+    s.hub.case_roots.add("u-0")
+    for line in ("Heard the Hollis kid from the bakery took it!", "Mrs. Halvorsen says it's a disgrace."):
+        s.writer.line = line
+        await s.act("v1", Decision(RETELL, source("u-0"), "v2", "exaggerated"))
+        await s.act("v1", Decision(SPEAK, None, None, None))
+    assert s.hub.delivered == []
+    s.writer.line = "Heard Cy's lad took it, the cheek!"
+    await s.act("v1", Decision(RETELL, source("u-0"), "v2", "exaggerated"))
+    assert len(s.hub.delivered) == 1

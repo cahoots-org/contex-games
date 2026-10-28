@@ -14,7 +14,7 @@ from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance, Villager
 from sleuth.town import Town
 from sleuth.case import retime
-from sleuth.writer import Writer, invents_facts
+from sleuth.writer import Writer, invents_facts, invents_people
 
 DIRECT = (RETELL, DENY, CONFRONT)
 # ponytail: a phrase list, not a judge; it only ever drops a retold line that claims to have seen it.
@@ -91,11 +91,13 @@ async def act(
 
     async def words(facts_text: str | None, audience: str, case: bool, plain: str | None = None,
                     somber: bool = False, retold: bool = False) -> str | None:
-        """The writer's line; plain or nothing when it is of faith or grisly, when retold on a case claims to have
-        seen it or names its teller, or when otherwise on a case adds what facts_text and the people at hand don't."""
+        """The writer's line; plain or nothing when it is of faith or grisly or names someone or somewhere the town
+        lacks, when retold on a case claims to have seen it or names its teller, or when otherwise on a case adds what
+        facts_text and the people at hand don't."""
         text = await writer.say(villager, decision, facts_text, audience, case, *(timing or ("", "")), mood=mood,
                                 somber=somber, retold=case and retold)
-        if FAITH.search(text) or GORE.search(text):
+        names = [v.name for v in (*town.villagers, *town.departed)]
+        if FAITH.search(text) or GORE.search(text) or invents_people(text, names):
             return plain
         if case and retold:
             # A victim retelling their own case's news would speak of themselves by name, as someone else.
