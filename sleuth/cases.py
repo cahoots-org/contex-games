@@ -119,9 +119,10 @@ class Cases:
         return next((f for f in offered if f.crime.id == chosen), offered[0] if offered else None)
 
     def wanted(self, engine) -> list[str]:
-        """The tiers that should have a case open: petty, and every tier an active podcaster has reached."""
-        tiers = {"petty", *(p.tier for p in engine.players if p.active())}
-        return [t for t in catalog_tiers() if t in tiers]
+        """The tiers that should have a case open: every catalog tier up to the highest an active podcaster has
+        reached, petty always."""
+        top = max((TIERS.index(p.tier) for p in engine.players if p.active()), default=0)
+        return [t for t in catalog_tiers() if TIERS.index(t) <= top]
 
     def culprit_case(self, vid: str) -> CaseFile | None:
         return next((f for f in self.files.values() if f.state != "closed" and f.crime.culprit == vid), None)

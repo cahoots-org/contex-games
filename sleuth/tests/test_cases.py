@@ -713,3 +713,10 @@ async def test_a_held_episode_exposes_the_accomplice_too():
     assert "v3" not in town and "v7" in town
     assert cases.offenders.exposed == {"v7": "covered for Fay Okafor"}
     assert engine.reputation.get("v7", "p-1") == pytest.approx(cases.config.reputation_right + cases.config.reputation_exposed)
+
+
+def test_every_tier_up_to_the_highest_reached_is_wanted():
+    cases, engine, _ = make_cases()
+    assert cases.wanted(engine) == ["petty"]
+    engine.players.add(podcaster("major"))
+    assert cases.wanted(engine) == ["petty", "serious"]
