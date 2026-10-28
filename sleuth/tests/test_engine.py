@@ -676,9 +676,11 @@ async def test_a_pressed_culprit_may_warn_someone_close_once_a_phase(turns):
 class Posting:
     def __init__(self):
         self.calls = 0
+        self.case_text = None
 
     async def post(self, villager, kind, case_text, somber=False):
         self.calls += 1
+        self.case_text = case_text
         return "Has anyone seen my good spatula?"
 
 
@@ -696,4 +698,21 @@ async def test_the_clock_posts_chatter_only_while_someone_plays(turns):
     [post] = [e.data for e in feed.recent if e.kind == "post"]
     assert engine.writer.calls == 1
     assert post == {"case_id": None, "speaker": "V1", "text": "Has anyone seen my good spatula?", "app": False}
+    await engine.stop()
+
+
+@pytest.mark.asyncio
+async def test_chatter_knows_every_open_shared_case(turns):
+    engine, _, _ = await setup("v1", config=Config(chatter_chance=1.0))
+    engine.town.get("v1").quirks = ["counts every duck"]
+    engine.cases = Cases(engine.config, engine.town, None, random.Random(1), engine.ids)
+    bike = case_file("open")
+    quilt = CaseFile(Crime("case-2", "sabotage", "quilt", "v2", "v1", "cafe", 1, "night", 1422, "rival",
+                           "Someone sabotaged V1's quilt."), {}, "open")
+    engine.cases.files = {"case-1": bike, "case-2": quilt}
+    engine.writer = Posting()
+    engine.players = Players()
+    engine.players.add(stub_player())
+    await engine._chatter()
+    assert "bike" in engine.writer.case_text and "quilt" in engine.writer.case_text
     await engine.stop()

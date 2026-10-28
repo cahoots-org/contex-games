@@ -424,13 +424,13 @@ class Engine:
             self.feed.on_photo(photo_json(photo, self.town))
 
     async def _chatter(self) -> None:
-        """With chatter_chance while someone plays, a resident posts on the neighborhood app, perhaps about the open
+        """With chatter_chance while someone plays, a resident posts on the neighborhood app, perhaps about an open
         shared case."""
         if self.cases is None or not self.players.any_playing() or self.cases.rng.random() >= self.config.chatter_chance:
             return
-        shared = next(iter(self.cases.open_shared()), None)
-        case_text = told(shared.crime.text, shared.crime, self._today()) if shared else None
-        somber = shared is not None and shared.crime.tier == "major"
+        shared = self.cases.open_shared()
+        case_text = " ".join(told(f.crime.text, f.crime, self._today()) for f in shared) or None
+        somber = any(f.crime.tier == "major" for f in shared)
         if post := await chatter(self.writer, self.town, self.cases.rng, self.ids, case_text, somber):
             self.feed.on_post(post, None)
 
