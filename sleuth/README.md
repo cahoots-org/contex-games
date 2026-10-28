@@ -56,11 +56,12 @@ with it, and notebook entries from someone who left still show their name.
 **Districts.** Each street is a district with the public places nearest it: Elm Street has the cafe, bar and dog
 park, Oak Street the gym, school and library, Maple Street the hardware store, grocery and town hall. Each district
 keeps a crime level and a fear level between 0 and 1. A crime opened there raises both, by 0.25, 0.45 or 0.7 for a
-petty, serious or major one; a held episode lowers crime by 0.15 and fear by 0.1. Each part of the day crime fades by
-`district_crime_decay` and fear by `district_fear_decay`.
+petty, serious or major one; a culprit made known, by a held episode or a case gone cold, lowers crime by 0.15 and
+fear by 0.1. Each part of the day crime fades by `district_crime_decay` and fear by `district_fear_decay`.
 
-**Watches.** A district whose fear reaches `organize_fear` and that has seen at least one culprit exposed since it
-last organized starts a watch: the Elm Street Neighborhood Watch, Porch-Light Pact or Group Chat, the name picked by
+**Watches.** A district whose fear reaches `organize_fear` and that has seen at least one culprit exposed by a held
+episode since it last organized starts a watch; a case gone cold eases the district but never earns it one. It is the
+Elm Street Neighborhood Watch, Porch-Light Pact or Group Chat, the name picked by
 code. It is checked the moment an episode holds and on every part of the day. The founder is the district's latest
 victim if they live there, else a random resident, and up to five neighbors join, the ones the founder is warmest to,
 whoever they are, so being in a watch proves nothing. The app announces it and the founder tells the members, with no

@@ -300,3 +300,32 @@ async def test_a_first_held_case_changes_the_town_at_once():
                if d["street"] == "elm street"]
     assert after["crime"] <= round(before * 3)
     assert elm.watch is not None and after["watch"] == elm.watch.name
+
+
+@pytest.mark.asyncio
+async def test_a_case_gone_cold_eases_its_district_but_never_earns_a_watch(monkeypatch):
+    cases, engine, _ = make_cases()
+    cases.districts = Districts(cases.config)
+    await tick(cases, engine)
+    case = shared(cases)
+    district = cases.districts.by_street[district_of(case.crime.place)]
+    district.crime, district.fear, district.exposures = 0.6, 0.9, 0
+
+    async def nothing(engine, now=None):
+        pass
+
+    monkeypatch.setattr(cases, "ensure", nothing)
+    shown = len(district_events(engine))
+    await tick(cases, engine, day=5, phase="afternoon")
+    assert case.state == "closed"
+    assert district.crime == pytest.approx(0.6 - RELIEF[0]) and district.fear == pytest.approx(0.9 - RELIEF[1])
+    assert district.exposures == 0 and district.watch is None
+    assert not [e for e in kinds(engine, "post") if "starting a watch" in e.data["text"]]
+    assert len(district_events(engine)) == shown + 1
+
+
+def test_only_an_earned_exposure_counts_toward_a_watch():
+    districts = Districts(Config())
+    districts.on_exposed(crime("cafe"), earned=False)
+    districts.on_exposed(crime("cafe"))
+    assert districts.by_street["elm street"].exposures == 1

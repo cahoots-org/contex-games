@@ -31,7 +31,8 @@ def components(engine) -> dict:
         "town": engine.town, "ids": engine.ids, "lineage": engine.lineage, "facts": engine.facts, "feed": engine.feed,
         "game": engine.game, "usage": engine.players.usage,
         "engine": engine, "players": engine.players,
-        "cases": engine.cases, "districts": engine.districts, "reputation": engine.reputation, "album": engine.album,
+        "cases": engine.cases, "reputation": engine.reputation, "album": engine.album,
+        **({"districts": engine.districts} if engine.districts is not None else {}),
     }
 
 
