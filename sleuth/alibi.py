@@ -2,9 +2,11 @@
 
 from typesafe_sdk import Choice
 
+from sleuth.case import WHEN
 from sleuth.cases import CaseFile
 from sleuth.decide import warmth_words
 from sleuth.models import Villager
+from sleuth.town import at
 
 ANSWERS = {"honest": "Say honestly you were asleep and can't vouch for them.",
            "cover": "Say they were home with you all night."}
@@ -52,3 +54,12 @@ def household_word(file: CaseFile, speaker: Villager, about: Villager, answer: s
         word = f"I was asleep. I can't say where {about.name} was.", True
     file.words[key] = list(word)
     return word
+
+
+def accomplice_word(file: CaseFile, speaker: Villager, about: Villager) -> tuple[str, bool] | None:
+    """The accomplice's false word that the culprit was with them, its time as WHEN; None from anyone else, or about
+    anyone else."""
+    if speaker.id != file.accomplice or about.id != file.crime.culprit:
+        return None
+    place = (file.whereabouts.get(speaker.id) or [speaker.home])[0]
+    return f"{about.name} was with me {at(place)} {WHEN}.", False

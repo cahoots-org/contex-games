@@ -23,6 +23,7 @@ from sleuth.town import STREETS, Town, at
 log = logging.getLogger(__name__)
 
 COLD = "The case went cold. It was {name}."
+COVERED = "covered for {name}"
 THANKS = "Got my {item} back thanks to that podcast!"
 ARRESTED = "{name} was arrested and has left town."
 # How many crimes are drawn in one go for a solvable one.
@@ -45,6 +46,7 @@ class CaseFile:
     warned: str = ""  # "day:phase" the culprit last warned someone
     words: dict[str, list] = field(default_factory=dict)  # "speaker:about" → [household word, sound]
     named: dict[str, str] = field(default_factory=dict)  # player → the resident their episode named
+    accomplice: str | None = None  # who covers for the culprit
 
 
 def case_json(case: CaseFile, town: Town, routine, today: float | None = None) -> dict:
@@ -158,12 +160,15 @@ class Cases:
 
     async def on_held(self, engine, file: CaseFile, player_id: str) -> None:
         """A held episode closes the case and wins the town's regard; a petty culprit is exposed, any other arrested,
-        and the next case opens."""
+        any accomplice exposed too, and the next case opens."""
         crime = file.crime
         self.close(file, player_id)
         engine.feed.on_case_closed(crime.id, "")
         town = [v.id for v in self.town.villagers if v.id != crime.culprit]
         engine.reputation.nudge_all(player_id, self.config.reputation_right, town)
+        if file.accomplice in self.town:
+            self.offenders.exposed[file.accomplice] = COVERED.format(name=self.town.name_of(crime.culprit))
+            engine.reputation.nudge(file.accomplice, player_id, self.config.reputation_exposed)
         await self._unmask(engine, file, player_id)
         await self.ensure(engine)
 
@@ -324,6 +329,8 @@ class Cases:
         it narrows to the culprit, open the case: tell its witnesses and victim what they saw and found, and post the
         news. False if it cannot be made solvable."""
         away = pictured | {f.crime.culprit for f in self.files.values() if f.state == "open"}
+        accomplice = self._accomplice(crime, away) if crime.tier == "serious" else None
+        away |= {accomplice} - {None}
         self.dress(crime.day)
         whereabouts = dict(self.finished or {v.id: [p] for v in self.town.villagers
                                              if (p := self.routine.place(v.id, crime.phase))})
@@ -338,7 +345,7 @@ class Cases:
             return False
         records += [*added, discovery(crime, self.town, self.rng, self.ids)]
         case = self.files[crime.id] = CaseFile(crime, {r.id: r for r in records}, "open", opened=self.now,
-                                               whereabouts=whereabouts)
+                                               whereabouts=whereabouts, accomplice=accomplice)
         for m in records:
             if m.kind in ("memory", "discovery"):
                 await self._remember(engine, case, m)
@@ -351,6 +358,19 @@ class Cases:
         engine.feed.on_case(case_json(case, self.town, self.routine, self.now))
         engine.feed.on_post(news, crime.id)
         return True
+
+    def _accomplice(self, crime: Crime, away: set[str]) -> str | None:
+        """With accomplice_chance, who covers for the culprit: their warmest close tie, else another active offender;
+        never the victim or anyone away."""
+        if self.rng.random() >= self.config.accomplice_chance:
+            return None
+        barred = {crime.culprit, crime.victim, *away}
+        culprit = self.town.get(crime.culprit)
+        ties = [(w, t) for t, w in culprit.warmth.items() if t in self.town and t not in barred and warmth_words(w) == "close"]
+        if ties:
+            return max(ties)[1]
+        others = sorted(vid for vid in self.offenders.active if vid in self.town and vid not in barred)
+        return self.rng.choice(others) if others else None
 
     async def _remember(self, engine, case: CaseFile, m: Record) -> None:
         """Tell the witness what they saw, or the victim in their own words what they found, rooted in the case."""

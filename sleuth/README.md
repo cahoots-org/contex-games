@@ -32,7 +32,8 @@ box robbed at a shop or the bar, a mugging on the street, at the dog park or the
 from another household than the victim's, and one or two clues are left at the crime place. A petty crime has up to
 two witnesses, and its culprit is sometimes a regular at the scene. A serious one has up to three, its culprit is
 never a regular there, so they always lie about where they were, and a mugging's victim remembers one thing about
-the mugger. The game
+the mugger. With `accomplice_chance`, a serious culprit has an accomplice, their closest friend or another offender,
+who is never a witness to it and swears the culprit was with them. The game
 checks that the evidence, with that part of the day's check-ins and receipts, narrows to the culprit alone, adding a
 witness if that helps and drawing another crime if nothing can. A solvable case opens: its witnesses are told what
 they saw, and the neighborhood app posts the news. A case shows at the top of the page and goes cold after
@@ -134,7 +135,9 @@ doesn't back it. One episode per podcaster per case.
   they're named. They won't talk to you (`reputation_exposed`) and are touchy with every podcaster. They lie low for
   `exposed_quiet_days`, then each morning either reform (`reform_chance`) or stay free to reoffend. The victim's
   household warms to you (`reputation_ally`), and the victim thanks the podcast on the app.
-  A culprit of anything worse than a petty crime is arrested instead and leaves town at once.
+  A culprit of anything worse than a petty crime is arrested instead and leaves town at once. Their accomplice, if
+  they had one, is exposed for covering for them, stays in town and won't talk to you either. An episode that cites
+  the accomplice's word doesn't hold up.
 - A wrong one leaves the case open for others. The town hears the accusation anyway, everyone thinks less of you
   (`reputation_wrong`), and the accused most of all (`reputation_accused`). Their household and anyone close to them
   think less of you too (`reputation_accused_ties`). Once the case is closed, the accused remembers: they bring it
@@ -263,6 +266,7 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_MAX_OFFENDERS` | `6` | most offenders that moving in can bring the set to |
 | `SLEUTH_SERIOUS_AT` | `3` | standing at which a podcaster is offered serious cases |
 | `SLEUTH_MAJOR_AT` | `6` | standing at which a podcaster is offered major cases |
+| `SLEUTH_ACCOMPLICE_CHANCE` | `0.5` | chance a serious culprit has an accomplice who vouches for them |
 
 ## Tests
 

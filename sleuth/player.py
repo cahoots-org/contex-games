@@ -6,7 +6,7 @@ import re
 import time
 from dataclasses import asdict, replace
 
-from sleuth.alibi import claim, household_word
+from sleuth.alibi import accomplice_word, claim, household_word
 from sleuth.case import (
     WHEN, CRIMES, Crime, Record, clock_at, motive_of, recall_more, record_json, retime, told, when,
 )
@@ -577,7 +577,8 @@ class Player:
             text = f"{name} says they're usually {at(usual)} in the {routed.when}."
             return [self._statement(file, vid, text, True)] if usual else [], []
         if kind == "where_was" and about:
-            if word := household_word(file, villager, about, routed.words.get(about.id)):
+            if word := accomplice_word(file, villager, about) or household_word(file, villager, about,
+                                                                                 routed.words.get(about.id)):
                 return [self._statement(file, vid, f"{name}: {word[0]}", word[1], who=about.id)], []
             theirs = file.whereabouts.get(about.id, [])
             met = [p for p in file.whereabouts.get(vid, []) if p in theirs and p != crime.place]

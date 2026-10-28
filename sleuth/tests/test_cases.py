@@ -675,3 +675,41 @@ async def test_a_held_serious_episode_ends_in_an_arrest():
     await cases.on_held(engine, case, "p-1")
     assert culprit not in town and culprit not in cases.offenders.active and culprit not in cases.offenders.exposed
     assert f"{town.name_of(culprit)} was arrested and has left town." in [e.data.get("text") for e in engine.feed.recent]
+
+
+@pytest.mark.asyncio
+async def test_an_accomplice_is_never_a_witness_of_the_same_case():
+    covered = 0
+    for seed in range(30):
+        cases, engine, _ = make_cases(offenders=8, accomplice_chance=1.0)
+        cases.rng = Random(seed)
+        engine.players.add(podcaster("serious"))
+        tiered(cases, "petty", opened=2.0)
+        await tick(cases, engine)
+        for f in cases.open_shared("serious"):
+            if f.accomplice is None:
+                continue
+            covered += 1
+            holders = {r.holder for r in f.records.values()} | {r.who for r in f.records.values() if r.trail}
+            assert f.accomplice not in holders | {f.crime.culprit, f.crime.victim}
+    assert covered > 15
+
+
+def test_accomplice_round_trips_with_the_case():
+    cases, _, town = make_cases()
+    culprit_file(cases).accomplice = "v7"
+    fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
+    fresh.restore(json.loads(json.dumps(cases.to_state())))
+    assert fresh.files["case-1"].accomplice == "v7"
+
+
+@pytest.mark.asyncio
+async def test_a_held_episode_exposes_the_accomplice_too():
+    cases, engine, town = make_cases()
+    file = tiered(cases, "serious")
+    file.accomplice = "v7"
+    cases.offenders.active["v3"] = Offender("serious")
+    await cases.on_held(engine, file, "p-1")
+    assert "v3" not in town and "v7" in town
+    assert cases.offenders.exposed == {"v7": "covered for Fay Okafor"}
+    assert engine.reputation.get("v7", "p-1") == pytest.approx(cases.config.reputation_right + cases.config.reputation_exposed)

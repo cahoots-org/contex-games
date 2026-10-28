@@ -77,6 +77,8 @@ class Config:
     # The chance someone who moves in is an offender, while there are fewer than max_offenders.
     newcomer_offender_chance: float = 0.3
     max_offenders: int = 6
+    # The chance a serious culprit has an accomplice who vouches for them.
+    accomplice_chance: float = 0.5
     # The standing at which a podcaster is offered serious cases, and major ones.
     serious_at: int = 3
     major_at: int = 6

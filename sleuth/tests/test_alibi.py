@@ -1,4 +1,5 @@
-from sleuth.alibi import claim, household_question, household_word
+from sleuth.alibi import accomplice_word, claim, household_question, household_word
+from sleuth.case import WHEN
 from sleuth.tests.test_case import make_routine
 from sleuth.tests.test_cases import culprit_file, make_cases
 
@@ -64,3 +65,12 @@ def test_a_household_word_is_asked_once_per_case_speaker_and_housemate():
     first = household_word(file, gus, fay, "cover")
     assert household_word(file, gus, fay, "honest") == first and household_question(file, gus, fay) is None
     assert household_word(file, fay, gus, "honest")[0].startswith("I was asleep")
+
+
+def test_an_accomplice_vouches_falsely_for_the_culprit():
+    cases, _, town = make_cases()
+    file = culprit_file(cases)
+    file.accomplice, file.whereabouts = "v7", {"v7": ["bar"]}
+    fay, jo = town.get("v3"), town.get("v7")
+    assert accomplice_word(file, jo, fay) == (f"Fay Okafor was with me at the bar {WHEN}.", False)
+    assert accomplice_word(file, town.get("v8"), fay) is None and accomplice_word(file, jo, town.get("v4")) is None

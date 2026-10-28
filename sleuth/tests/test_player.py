@@ -1493,3 +1493,15 @@ def test_the_chosen_case_round_trips_with_the_run():
     back = Player(engine, player.town, player.lineage, Ids(), player.feed, player.config, player_id=PID)
     back.restore(json.loads(json.dumps(player.to_state())))
     assert back.case_id == file.crime.id and back.current() is file
+
+
+@pytest.mark.asyncio
+async def test_citing_the_accomplice_s_word_sinks_the_episode():
+    player, file, engine, _ = interviewing()
+    file.accomplice = "v7"
+    await ask(player, "v7", "where_was", who="v3")
+    [word] = notebook(player)
+    assert word.text == f"Jo Tran: Fay Okafor was with me on Oak Street {WHEN}." and not word.sound
+    ids = cite(player, file, memory_of(file, player.ids)) + [word.id]
+    assert await player.publish("v3", ids) is None
+    assert file.state == "open" and player.standing == 0
