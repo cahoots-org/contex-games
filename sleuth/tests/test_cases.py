@@ -516,3 +516,17 @@ async def test_a_serious_case_gone_cold_has_its_culprit_arrested():
     await tick(cases, engine, day=5)
     assert file.state == "closed" and "v3" not in town and "v3" not in cases.offenders.active
     assert "Fay Okafor was arrested and has left town." in [e.data.get("text") for e in engine.feed.recent]
+
+
+@pytest.mark.asyncio
+async def test_no_one_an_open_case_needs_is_drawn_into_another():
+    for seed in range(30):
+        cases, engine, _ = make_cases(offenders=8)
+        cases.rng = Random(seed)
+        other = culprit_file(cases, culprit="v7", victim="v2")
+        other.crime.owner = "p-1"
+        other.records = {"r-1": Record("r-1", other.crime.id, "memory", "elm street", "", "", "v4"),
+                         "r-2": Record("r-2", other.crime.id, "log", "gym", "", "", who="v6")}
+        await tick(cases, engine)
+        if case := cases.shared():
+            assert not {case.crime.culprit, case.crime.victim} & {"v4", "v6"}
