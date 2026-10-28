@@ -201,16 +201,22 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
     disliked = {v.id: set(motives(town, v.id)) for v in residents} if tier == "major" else {}
     crimes = [(t, item) for t, kind in CRIMES.items() if kind.tier == tier for item in kind.items]
     chance = EVIDENCE[tier][1]
-    for template, item in rng.sample(crimes, len(crimes)):
+    fits = {}
+    for template, item in crimes:
         pairs = [(c, w, motive_of(c, w)) for w in residents for c in residents
                  if c.household != w.household and (culprits is None or c.id in culprits)
                  and routine.place(w.id, phase) in ITEM_PLACES[item]
                  and (chance or routine.place(c.id, phase) != routine.place(w.id, phase))
                  and (not disliked or len(disliked[w.id] - {c.id}) >= MOTIVES)]
         if pairs:
-            break
-    else:
+            fits[template, item] = pairs
+    if not fits:
         return None
+    # A kind of crime is drawn as often as its victims' places allow, so a watch steers the kind as well as the place.
+    shares = [sum(weight(routine.place(w.id, phase)) for _, w, _ in pairs) / len(pairs) if weight else 1
+              for pairs in fits.values()]
+    template, item = rng.choices(list(fits), shares)[0]
+    pairs = fits[template, item]
     regular = [p for p in pairs if routine.place(p[0].id, phase) == routine.place(p[1].id, phase)]
     away = [p for p in pairs if p not in regular]
     pairs = regular if regular and (not away or rng.random() < chance) else away

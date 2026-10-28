@@ -86,7 +86,9 @@ async def test_opening_a_case_and_holding_it_move_its_district():
     district = cases.districts.by_street[district_of(case.crime.place)]
     assert district.crime == HIT["petty"]
     await cases.on_held(engine, case, "p-1")
-    assert district.crime == pytest.approx(HIT["petty"] - RELIEF[0]) and district.exposures == 1
+    # Holding it opens the next case, which may land on the same street.
+    again = sum(HIT[f.crime.tier] for f in cases.open_shared() if district_of(f.crime.place) == district_of(case.crime.place))
+    assert district.crime == pytest.approx(HIT["petty"] - RELIEF[0] + again) and district.exposures == 1
 
 
 class NoModels:

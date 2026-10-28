@@ -556,3 +556,16 @@ def test_crimes_move_away_from_organized_districts():
         return sum(c.place == "elm street" for c in crimes) / len(crimes)
 
     assert elm_share(lambda place: 0.25 if place == "elm street" else 1.0) < elm_share(None) / 2
+
+
+def test_a_watch_also_steers_which_kind_of_crime_happens():
+    """A crime that could only happen in the watched district is drawn less, not just placed elsewhere within it."""
+    town = make_town()
+    routine = StubRoutine({vid: {"morning": "cafe" if street == "elm street" else "gym"}
+                           for vid, _, _, street in RESIDENTS})
+
+    def cafe_share(weight):
+        crimes = [stage_crime(town, routine, Random(seed), 1, "morning", "case-1", weight=weight) for seed in range(300)]
+        return sum(c.place == "cafe" for c in crimes) / len(crimes)
+
+    assert cafe_share(lambda place: 0.01 if place == "cafe" else 1.0) < 0.05 < cafe_share(None)
