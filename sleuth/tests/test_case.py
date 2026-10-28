@@ -169,7 +169,7 @@ def test_a_time_is_said_from_the_day_it_is_told(today, said):
 
 def test_a_night_is_tonight_then_last_night():
     assert [ago(2, "night", today) for today in (2, 3, 4, 9)] == [
-        "tonight", "last night", "two days ago, at night", "7 days ago, at night"]
+        "tonight", "last night", "the night before last", "7 days ago, at night"]
 
 
 def test_an_evening_read_after_midnight_is_last_night():
@@ -184,8 +184,8 @@ def test_told_says_the_crime_time_from_today_or_its_own_day():
 
 
 def test_retime_swaps_any_said_time_for_the_given_one():
-    said = "I was at the gym this afternoon. Tonight? Yesterday evening, two days ago, at night, last night."
-    assert retime(said, WHEN) == "I was at the gym {when}. {when}? {when}, {when}, {when}."
+    said = "I was at the gym this afternoon. Tonight? Yesterday evening, two days ago, at night, last night, the night before last."
+    assert retime(said, WHEN) == "I was at the gym {when}. {when}? {when}, {when}, {when}, {when}."
     assert retime("I was home all night, in the afternoon.", WHEN) == "I was home all night, in the afternoon."
 
 
@@ -474,7 +474,7 @@ def test_the_news_gives_a_window_not_a_time():
     morning = Crime("case-2", "death", "", "v5", "v1", "cafe", 2, "morning", 500, "rival", "It happened {span}.",
                     tier="major", window=["night", "morning"])
     assert told(morning.text, morning, 2.25) == "It happened sometime between last night and this morning."
-    assert told(morning.text, morning, 3.0) == "It happened sometime between two days ago, at night and yesterday morning."
+    assert told(morning.text, morning, 3.0) == "It happened sometime between the night before last and yesterday morning."
 
 
 def test_the_true_part_of_the_day_is_sometimes_first_in_the_window():

@@ -89,7 +89,8 @@ WHEN = "{when}"
 WINDOW = "{span}"
 DAYS_AGO = ("two", "three", "four", "five", "six")
 # A time as ago() or a resident says it, or a window between two such times.
-_TIME = (r"(?:this (?:morning|afternoon|evening)|tonight|last night|yesterday (?:morning|afternoon|evening)|"
+_TIME = (r"(?:this (?:morning|afternoon|evening)|tonight|last night|the night before last|"
+         r"yesterday (?:morning|afternoon|evening)|"
          r"\w+ days ago, (?:in the (?:morning|afternoon|evening)|at night))")
 SAID_TIME = re.compile(rf"\b(?:sometime between {_TIME} and {_TIME}|{_TIME})\b", re.IGNORECASE)
 # How people say an evening too.
@@ -139,7 +140,7 @@ def clock_at(minute: int) -> str:
 
 def ago(day: int, phase: str, today: float) -> str:
     """When day's phase was, said on today (a day, plus how far into it by part, as Game.time gives): "this
-    afternoon", "last night", "two days ago, in the evening". An evening read in the small hours was last night."""
+    afternoon", "last night", "the night before last", "two days ago, in the evening". An evening read in the small hours was last night."""
     days = int(today) - day
     if days <= 0 and phase == "evening" and PHASES[int(today % 1 * len(PHASES))] == "night":
         return "last night"
@@ -147,6 +148,8 @@ def ago(day: int, phase: str, today: float) -> str:
         return "tonight" if phase == "night" else f"this {phase}"
     if days == 1:
         return "last night" if phase == "night" else f"yesterday {phase}"
+    if days == 2 and phase == "night":
+        return "the night before last"
     count = DAYS_AGO[days - 2] if days - 2 < len(DAYS_AGO) else str(days)
     return f"{count} days ago, " + ("at night" if phase == "night" else f"in the {phase}")
 
