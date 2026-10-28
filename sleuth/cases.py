@@ -310,7 +310,7 @@ class Cases:
 
     async def on_tick(self, engine, day: int, phase: str, finished: dict[str, list[str]]) -> None:
         """Dress the town, let exposed offenders reform of a morning, try again to fill an empty home, let old cases go
-        cold, their culprits made known and their districts eased, let watches form and wind down, and open a shared case for each wanted tier with
+        cold, their culprits made known, let watches form and wind down, and open a shared case for each wanted tier with
         none open."""
         self.dress(day)
         if phase == "morning":
@@ -322,7 +322,6 @@ class Cases:
             self._fill(engine, self.vacant[0])
         now = self.now = day + PHASES.index(phase) / len(PHASES)
         self.finished = finished
-        eased = False
         for case in [f for f in self.files.values() if f.state == "open"]:
             if now - case.opened >= self.config.case_days:
                 self.close(case, None)
@@ -330,10 +329,7 @@ class Cases:
                 cold = COLD.format(name=self.town.name_of(case.crime.culprit))
                 engine.feed.on_case_closed(case.crime.id, cold)
                 await self._unmask(engine, case)
-                if self.districts is not None:
-                    self.districts.on_exposed(case.crime, earned=False)
-                    eased = True
-        if self.districts is not None and (await self._watch(engine) or phase == "morning" or eased):
+        if self.districts is not None and (await self._watch(engine) or phase == "morning"):
             self._show_districts(engine)
         await self.ensure(engine)
 

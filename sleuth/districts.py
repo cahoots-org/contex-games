@@ -78,11 +78,11 @@ class Districts:
         d = self.by_street[district_of(crime.place)]
         d.crime, d.fear = _clamp(d.crime + HIT[crime.tier]), _clamp(d.fear + HIT[crime.tier])
 
-    def on_exposed(self, crime: Crime, earned: bool = True) -> None:
-        """Ease the crime's district; only an exposure a podcaster earned counts toward a watch."""
+    def on_exposed(self, crime: Crime) -> None:
+        """Ease the district of a crime a podcaster solved, counting toward a watch."""
         d = self.by_street[district_of(crime.place)]
         d.crime, d.fear = _clamp(d.crime - RELIEF[0]), _clamp(d.fear - RELIEF[1])
-        d.exposures += earned
+        d.exposures += 1
 
     def tick(self, morning: bool) -> None:
         """Let crime and fear fade for a part of the day; of a morning, remember them for the day's trends."""
