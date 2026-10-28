@@ -7,9 +7,12 @@ from sleuth.config import Config
 from sleuth.districts import (
     FORMED, HIT, PLACE_DISTRICT, RELIEF, TOLD, WATCH_SIZE, WOUND_DOWN, Districts, Watch, district_of,
 )
+from sleuth.engine import Engine
+from sleuth.lineage import Ids, Lineage
 from sleuth.models import Villager
+from sleuth.offenders import Offender
 from sleuth.tests.test_cases import kinds, make_cases, shared, tick
-from sleuth.town import PLACES, STREETS
+from sleuth.town import PLACES, STREETS, Town
 
 
 def crime(place="cafe", tier="petty"):
@@ -161,3 +164,73 @@ async def test_a_watch_winds_down_once_crime_and_fear_fade():
     await tick(cases, engine)
     assert elm.watch is None and not cases.districts.organized("cafe")
     assert any(e.data["text"] == WOUND_DOWN.format(name=name, street="Elm Street") for e in kinds(engine, "post"))
+
+
+def test_a_district_s_mood_follows_its_fear_and_its_watch():
+    districts = Districts(Config())
+    elm = districts.by_street["elm street"]
+    assert districts.mood("elm street") is None
+    elm.fear = 0.3
+    assert districts.mood("elm street") == "on edge"
+    elm.fear, elm.watch = 0.6, Watch("Elm Street Group Chat", "v1", ["v1"], 1.0)
+    assert districts.mood("elm street") == "rattled, but the Elm Street Group Chat is on it"
+
+
+def test_only_districts_without_a_watch_are_neglected():
+    districts = Districts(Config())
+    for d in districts.by_street.values():
+        d.crime = d.fear = 0.5
+    districts.by_street["oak street"].fear = 0.3
+    districts.by_street["maple street"].watch = Watch("Maple Street Group Chat", "v1", ["v1"], 1.0)
+    assert districts.neglected() == ["elm street"]
+
+
+def neglected(**config):
+    cases, engine, town = make_cases(**config)
+    cases.districts = Districts(cases.config)
+    elm = cases.districts.by_street["elm street"]
+    elm.crime = elm.fear = 0.9
+    return cases, engine, town, elm
+
+
+ELM = {"v1", "v2", "v3", "v4"}
+
+
+@pytest.mark.asyncio
+async def test_a_neglected_district_can_turn_a_resident_into_an_offender():
+    cases, engine, _, _ = neglected(turn_chance=1.0, min_offenders=0)
+    cases.offenders.exposed["v5"] = "stole Dana Reyes's bike"
+    await cases.on_tick(engine, 2, "morning", {})
+    assert len(cases.offenders.active) == 1 and set(cases.offenders.active) <= ELM
+    await cases.on_tick(engine, 2, "afternoon", {})
+    assert len(cases.offenders.active) == 1
+
+
+@pytest.mark.asyncio
+async def test_organized_districts_never_produce_offenders():
+    cases, engine, _, elm = neglected(turn_chance=1.0)
+    elm.watch = Watch("Elm Street Group Chat", "v1", ["v1"], 1.0)
+    cases.offenders.active["v5"] = Offender()
+    for day in range(2, 202):
+        await cases.on_tick(engine, day, "morning", {})
+        elm.crime = elm.fear = 0.9
+        assert not set(cases.offenders.active) & ELM
+
+
+@pytest.mark.asyncio
+async def test_the_floor_refills_from_unorganized_districts_only():
+    cases, engine, _, elm = neglected(min_offenders=3, turn_chance=0.0)
+    elm.watch = Watch("Elm Street Group Chat", "v1", ["v1"], 1.0)
+    cases.offenders.exposed["v8"] = "stole Dana Reyes's bike"
+    await cases.on_tick(engine, 2, "morning", {})
+    assert set(cases.offenders.active) == {"v5", "v6", "v7"}
+
+
+def test_the_engine_gives_each_resident_their_own_street_s_mood():
+    districts = Districts(Config())
+    districts.by_street["elm street"].fear = 0.3
+    engine = Engine(Config(), Town(), None, None, None, Lineage(), Ids(), None, districts=districts)
+    elm = Villager("v1", "Ada", "baker", "calm", "", [], {}, home="elm street")
+    oak = Villager("v2", "Bo", "baker", "calm", "", [], {}, home="oak street")
+    assert engine.mood(elm) == "on edge" and engine.mood(oak) is None
+    assert Engine(Config(), Town(), None, None, None, Lineage(), Ids(), None).mood(elm) is None

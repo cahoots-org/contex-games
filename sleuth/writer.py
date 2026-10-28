@@ -120,9 +120,10 @@ class Writer:
 
     async def say(
         self, villager: Villager, decision: Decision, source_text: str | None, audience: str, on_case: bool = False,
-        now: str = "", when: str = "",
+        now: str = "", when: str = "", mood: str = "",
     ) -> str:
-        """The villager's words for this decision, in their voice and chosen style, keeping the source unnamed.
+        """The villager's words for this decision, in their voice and chosen style, keeping the source unnamed, their
+        street's mood in mind.
 
         Talk about a case leaves the villager's grudge out, adds no fact about it, and says when it happened as when,
         said on now.
@@ -132,6 +133,7 @@ class Writer:
             f"Your personality: {villager.personality}. "
             + (CASE_TALK + TIMES if on_case else _grudge(villager, "Bring it up only when it fits. "))
             + _quirks(villager)
+            + (f"Your street is {mood}. " if mood else "")
             + "Reply with one short sentence, under 20 words, in your own voice, said plainly, like neighbours chatting. "
             "Keep to what you heard, changed only as your manner says. "
             "If what you heard is about you, answer as yourself. "

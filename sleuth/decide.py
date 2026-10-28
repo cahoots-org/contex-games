@@ -12,7 +12,7 @@ from sleuth.actions import (
 )
 from sleuth.contex_client import Match
 from sleuth.models import Villager
-from sleuth.town import PLACES
+from sleuth.town import PLACES, place_name
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +50,8 @@ class TurnView:
     night: bool = False
     # Whether the culprit, pressed by a podcaster, may warn someone about them now.
     warn: bool = False
+    # How the villager's street feels, like "on edge".
+    mood: str | None = None
 
 
 @dataclass(frozen=True)
@@ -98,6 +100,8 @@ def _state(view: TurnView) -> dict:
         "just_heard": [_text(m) for m in view.new],
         "recent_memories": [_text(m) for m in view.recent[:MAX_RECENT]],
     }
+    if view.mood:
+        state["neighborhood_mood"] = f"{place_name(v.home)} is {view.mood}"
     if view.case:
         state["your_secret"] = f"You did this, and people are talking about it: {view.case}"
     return state

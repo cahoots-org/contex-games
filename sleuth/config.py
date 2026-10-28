@@ -90,6 +90,11 @@ class Config:
     disband_below: float = 0.05
     # How much less likely a crime is at a place in a district with a watch.
     organized_crime_weight: float = 0.25
+    # The crime and fear at which a district without a watch is neglected, its chance each morning of turning a
+    # resident into an offender, and the fewest offenders before the set is refilled from districts without a watch.
+    neglect_at: float = 0.4
+    turn_chance: float = 0.5
+    min_offenders: int = 3
     # Estimated list prices in dollars per million tokens.
     haiku_input_per_mtok: float = 0.1
     haiku_output_per_mtok: float = 0.5

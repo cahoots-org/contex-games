@@ -221,3 +221,13 @@ async def test_a_resident_without_quirks_gets_no_quirk_line():
     await writer.say(villager(), Decision("speak", None, None, None), "x", "all")
     await writer.reply(villager(), "Someone stole a bike.", "Who?", [], [])
     assert not any("Your quirks" in c["system"] for c in client.messages.calls)
+
+
+@pytest.mark.asyncio
+async def test_say_is_told_the_street_s_mood():
+    client = StubClient("Hm.", "Hm.")
+    writer = Writer(client, "haiku-test")
+    await writer.say(villager(), Decision("speak", None, None, None), "x", "all", mood="on edge")
+    await writer.say(villager(), Decision("speak", None, None, None), "x", "all")
+    first, second = (c["system"] for c in client.messages.calls)
+    assert "Your street is on edge. " in first and "Your street is" not in second

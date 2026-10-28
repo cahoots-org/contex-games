@@ -300,6 +300,7 @@ class Cases:
         self.dress(day)
         if phase == "morning":
             self.offenders.new_day(day, self.rng)
+            self._breed()
         if self.town.alive_count >= self.config.population:
             self.vacant.clear()
         elif self.vacant and not self._moving:
@@ -317,6 +318,19 @@ class Cases:
             await self._watch(engine)
         await self.ensure(engine)
 
+    def _breed(self) -> None:
+        """Let each neglected district turn a resident into an offender with turn_chance."""
+        for street in self.districts.neglected() if self.districts is not None else []:
+            if self.rng.random() < self.config.turn_chance:
+                self.offenders.turn([v.id for v in self.town.villagers if v.home == street], self.rng)
+
+    def _refill(self) -> None:
+        """Refill a set below min_offenders up to offenders from districts without a watch."""
+        if len(self.offenders.active) >= self.config.min_offenders:
+            return
+        calm = [s for s in STREETS if self.districts is None or not self.districts.organized(s)]
+        self.offenders.top_up(self.town, self.rng, [v.id for v in self.town.villagers if v.home in calm])
+
     async def ensure(self, engine, now: float | None = None) -> None:
         """Open a shared case, set in the part of the day just finished, for each wanted tier with none open; now is
         the game time, else the last tick's."""
@@ -328,7 +342,7 @@ class Cases:
         before = self.now - 1 / len(PHASES)
         day, phase = math.floor(before), PHASES[int(before % 1 * len(PHASES))]
         pictured = {vid for p in engine.album.photos if (p.day, p.phase) == (day, phase) for vid in p.people}
-        self.offenders.top_up(self.town, self.rng)
+        self._refill()
         for tier in missing:
             await self._stage(engine, tier, day, phase, pictured)
 

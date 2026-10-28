@@ -19,7 +19,7 @@ class StubWriter:
 
         self.on_case = []
 
-    async def say(self, villager, decision, source_text, audience, on_case=False, now="", when=""):
+    async def say(self, villager, decision, source_text, audience, on_case=False, now="", when="", mood=""):
         self.say_calls.append((decision.action, source_text, audience))
         self.on_case.append(on_case)
         self.timing = (now, when)

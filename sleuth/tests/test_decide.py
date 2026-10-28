@@ -236,3 +236,14 @@ async def test_warning_is_offered_only_to_a_pressed_culprit_with_someone_nearby(
     assert WARN not in jev.questions["action"].criteria
     await decide(jev, view(case="x", warn=True))
     assert WARN in jev.questions["action"].criteria
+
+
+@pytest.mark.asyncio
+async def test_residents_feel_their_district_s_mood():
+    jev = StubJev({"action": IGNORE})
+    ada = villager()
+    ada.home = "elm street"
+    await decide(jev, view(villager=ada, mood="rattled, but the Elm Street Group Chat is on it"))
+    assert jev.state["neighborhood_mood"] == "Elm Street is rattled, but the Elm Street Group Chat is on it"
+    await decide(jev, view(villager=ada))
+    assert "neighborhood_mood" not in jev.state

@@ -39,6 +39,15 @@ class Offenders:
         self.active.update({vid: Offender() for vid in joined})
         return joined
 
+    def turn(self, street_residents: list[str], rng: Random) -> str | None:
+        """Make one resident not active and never exposed a petty offender, unless active is at max_offenders."""
+        pool = [vid for vid in street_residents if vid not in self.active and vid not in self.exposed]
+        if len(self.active) >= self.config.max_offenders or not pool:
+            return None
+        vid = rng.choice(pool)
+        self.active[vid] = Offender()
+        return vid
+
     def ready(self, day: int, tier: str) -> set[str]:
         """Active offenders at tier whose quiet_until <= day."""
         return {vid for vid, o in self.active.items() if o.tier == tier and o.quiet_until <= day}

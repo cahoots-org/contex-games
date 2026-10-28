@@ -78,3 +78,12 @@ def test_the_last_offender_of_a_tier_never_moves_up(monkeypatch):
     offenders.escaped_with("v2")
     assert offenders.active["v1"].tier == "serious" and offenders.active["v2"].tier == "petty"
     assert offenders.promote("major") is None and offenders.active["v1"].tier == "serious"
+
+
+def test_turning_stops_at_max_offenders():
+    offenders = Offenders(Config(max_offenders=2))
+    offenders.exposed["v2"] = "stole Dana Reyes's bike"
+    assert offenders.turn(["v1", "v2"], Random(0)) == "v1" and offenders.active["v1"].tier == "petty"
+    assert offenders.turn(["v1", "v2"], Random(0)) is None
+    offenders.active["v3"] = Offender()
+    assert offenders.turn(["v4"], Random(0)) is None and "v4" not in offenders.active

@@ -100,3 +100,14 @@ class Districts:
         for s in ended:
             self.by_street[s].watch = None
         return ended
+
+    def neglected(self) -> list[str]:
+        """Streets with no watch whose crime and fear are both at least neglect_at."""
+        at_ = self.config.neglect_at
+        return [s for s, d in self.by_street.items() if not d.watch and min(d.crime, d.fear) >= at_]
+
+    def mood(self, street: str) -> str | None:
+        """How the street feels, like "on edge, but the Elm Street Group Chat is on it", or None when calm."""
+        d = self.by_street[street]
+        mood = "rattled" if d.fear >= 0.6 else "on edge" if d.fear >= 0.3 else None
+        return f"{mood}, but the {d.watch.name} is on it" if mood and d.watch else mood

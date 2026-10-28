@@ -42,12 +42,14 @@ async def act(
     ids: Ids,
     facts: Facts,
     share_chance: float = 0.0,
+    mood: str = "",
 ) -> None:
     """Apply the decision to the town and deliver any speech it produces.
 
     A villager who moves shares the news with someone where they arrive with share_chance. A line about a case that
     adds to what the villager heard or gives another time is dropped, and a cover story or warning is then told as
-    its plain fact. A case line heard days ago is retold with the case's time said today.
+    its plain fact. A case line heard days ago is retold with the case's time said today. Speech carries the mood of
+    the villager's street.
     """
     action = decision.action
     vid = villager.id
@@ -81,7 +83,7 @@ async def act(
 
     async def words(facts_text: str | None, audience: str, case: bool, plain: str | None = None) -> str | None:
         """The writer's line; on a case, plain or nothing when it adds what facts_text and the people at hand don't."""
-        text = await writer.say(villager, decision, facts_text, audience, case, *(timing or ()))
+        text = await writer.say(villager, decision, facts_text, audience, case, *(timing or ("", "")), mood=mood)
         allowed = " ".join([villager.name, audience, facts_text or "", *(timing or ())])
         if case and invents_facts(text, allowed, {v.name.split()[0] for v in town.villagers}):
             return plain
@@ -98,7 +100,7 @@ async def act(
         if decision.source and arrived and random.random() < share_chance:
             shared = Decision(RETELL, decision.source, random.choice(arrived), decision.style)
             await act(
-                shared, villager, town=town, writer=writer, hub=hub, lineage=lineage, ids=ids, facts=facts,
+                shared, villager, town=town, writer=writer, hub=hub, lineage=lineage, ids=ids, facts=facts, mood=mood,
             )
     elif action in DIRECT:
         if decision.target in others():

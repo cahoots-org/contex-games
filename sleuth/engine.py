@@ -26,7 +26,7 @@ from sleuth.models import Utterance, Villager
 from sleuth.players import Players
 from sleuth.reputation import Reputation
 from sleuth.routine import Routine
-from sleuth.town import START_PLACE, Town
+from sleuth.town import START_PLACE, STREETS, Town
 from sleuth.writer import Writer
 
 log = logging.getLogger(__name__)
@@ -286,6 +286,7 @@ class Engine:
             case=told(own_case.crime.text, own_case.crime, self._today()) if own_case else None,
             night=self.game is not None and self.game.phase == "night",
             warn=own_case is not None and bool(own_case.pressed_by) and own_case.warned != self._part(),
+            mood=self.mood(v),
         )
         phase = self.game.phase if self.game is not None else None
         async with self._turns:
@@ -296,10 +297,15 @@ class Engine:
                 decision, v, town=self.town, writer=self.writer, hub=self,
                 lineage=self.lineage, ids=self.ids, facts=self.facts,
                 share_chance=self.share_chance(v.id, decision.source) if decision.action == MOVE else 0.0,
+                mood=view.mood or "",
             )
             if decision.action == MOVE and (self.game.phase if self.game is not None else None) == phase:
                 self._chose_move.add(v.id)
         return True
+
+    def mood(self, v: Villager) -> str | None:
+        """How the villager's street feels, or None when calm or the town has no districts."""
+        return self.districts.mood(v.home) if self.districts is not None and v.home in STREETS else None
 
     def cover_story(self, vid: str, action: str) -> str | None:
         """The culprit's alibi or blame line, from the case, its time said today."""
@@ -457,7 +463,7 @@ class Engine:
             await act(
                 Decision(MOVE, latest, place, None), self.town.get(vid), town=self.town, writer=self.writer,
                 hub=self, lineage=self.lineage, ids=self.ids, facts=self.facts,
-                share_chance=self.share_chance(vid, latest) if latest else 0.0,
+                share_chance=self.share_chance(vid, latest) if latest else 0.0, mood=self.mood(self.town.get(vid)) or "",
             )
         except Exception:
             log.exception("routine move failed for %s", vid)
