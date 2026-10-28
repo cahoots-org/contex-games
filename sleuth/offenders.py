@@ -54,6 +54,8 @@ class Offenders:
 
     def promote(self, tier: str) -> str | None:
         """Move the offender one tier below with the most escapes up to tier."""
+        if tier == TIERS[0]:
+            return None
         below = TIERS[TIERS.index(tier) - 1]
         vid = max((vid for vid, o in self.active.items() if o.tier == below), key=lambda v: self.active[v].escaped,
                   default=None)

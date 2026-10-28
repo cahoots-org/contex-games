@@ -55,3 +55,9 @@ def test_an_exposed_offender_rests_then_reforms_or_may_reoffend():
         assert offenders.new_day(3, Random(0)) == reformed
         assert ("v1" in offenders.active) == (not reformed) and "v2" in offenders.active
     assert offenders.ready(3, "petty") == {"v1", "v2"}
+
+
+def test_nobody_is_promoted_to_the_lowest_tier():
+    offenders = Offenders(Config())
+    offenders.active["v1"] = Offender("major")
+    assert offenders.promote("petty") is None and offenders.active["v1"].tier == "major"
