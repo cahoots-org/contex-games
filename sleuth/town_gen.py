@@ -57,6 +57,9 @@ SOUR = (
     "personality shows it"
 )
 MIX = f"Most residents are {GOOD}; vary their temperaments. Roughly one resident in five is {SOUR}. "
+SOUR_SHARE = 0.2
+# How many replies are asked for one new resident with a first name no one has.
+RESIDENT_TRIES = 3
 
 
 BULLET = re.compile(r"^\s*(?:[-*\u2022]|\d+[.)])\s*")
@@ -161,6 +164,35 @@ async def generate_villagers(writer: Writer, count: int, rng: random.Random) -> 
             f"got {len(villagers)} of {count} residents after {MAX_FAILED_BATCHES} failed batches"
         )
     return villagers
+
+
+async def generate_resident(writer: Writer, taken: list[Villager], rng: random.Random) -> Villager:
+    """One new resident whose first name and id no one in taken has, with no ties; ValueError when every try fails."""
+    temper = f"Make this resident {SOUR if rng.random() < SOUR_SHARE else GOOD}. "
+    used = {_first(v.name) for v in taken}
+    for _ in range(RESIDENT_TRIES):
+        text = await writer.complete(SYSTEM, PROMPT.format(n=1, temper=temper, taken=_first_names_taken(taken)),
+                                     max_tokens=800)
+        try:
+            parsed = extract_json(text)
+        except ValueError:
+            continue
+        raw = _prepare(parsed[0] if isinstance(parsed, list) and parsed else parsed)
+        if _valid(raw) and _first(raw["name"]) not in used:
+            last = max((int(v.id[1:]) for v in taken if v.id[1:].isdigit()), default=0)
+            return _villager(f"v{last + 1:03d}", raw)
+    raise ValueError(f"no new resident in {RESIDENT_TRIES} tries")
+
+
+def settle(v: Villager, villagers: list[Villager], home: str, rng: random.Random) -> None:
+    """Give the resident a household of their own on home, a neighbor there, and one drawn tie."""
+    last = max((int(o.household[1:]) for o in villagers if o.household[1:].isdigit()), default=0)
+    v.household, v.home = f"h{last + 1:02d}", home
+    street = [o for o in villagers if o.home == home and o.id != v.id]
+    if street:
+        _tie(v, rng.choice(street), "neighbor", rng)
+    if other := _partner(v, villagers, rng):
+        _link(v, other, rng)
 
 
 def _tie(a: Villager, b: Villager, kind: str, rng: random.Random) -> None:

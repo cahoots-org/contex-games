@@ -72,6 +72,9 @@ class Config:
     # How many game days an exposed offender lies low, and their chance each morning after of giving it up.
     exposed_quiet_days: int = 2
     reform_chance: float = 0.3
+    # The chance someone who moves in is an offender, while there are fewer than max_offenders.
+    newcomer_offender_chance: float = 0.3
+    max_offenders: int = 6
     # Estimated list prices in dollars per million tokens.
     haiku_input_per_mtok: float = 0.1
     haiku_output_per_mtok: float = 0.5

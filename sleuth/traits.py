@@ -2,6 +2,7 @@
 
 import random
 from collections import Counter
+from itertools import product
 
 from sleuth.models import Villager
 
@@ -55,6 +56,14 @@ def assign_traits(villagers: list[Villager], rng: random.Random) -> None:
             a.traits[cat], b.traits[cat] = b.traits[cat], a.traits[cat]
             counts.update((_look(a), _look(b)))
             swaps -= 1
+
+
+def assign_look(v: Villager, others: list[Villager], rng: random.Random) -> None:
+    """Give one resident fixed traits no one else's fixed look has, when one is left, and a wardrobe."""
+    taken = {tuple(o.traits.get(c) for c in FIXED) for o in others}
+    looks = list(product(*(TRAITS[c] for c in FIXED)))
+    v.traits = dict(zip(FIXED, rng.choice([look for look in looks if look not in taken] or looks)))
+    v.wardrobe = rng.sample(TRAITS["coat"], WARDROBE)
 
 
 def describe(traits: dict[str, str]) -> str:

@@ -34,6 +34,13 @@ the set runs short. Nobody can see who they are, not the page, not the people li
 don't make a case any easier or harder: the evidence still has to narrow to the culprit among everyone in town. An
 offender who gets away with it `escalate_after` times moves up to a bigger kind of crime, once the catalog has one.
 
+**Moving in.** Nobody moves away by choice, but whenever someone leaves, say on an arrest, someone new moves in on
+the same street, as long as the town is under `population`: a household of their own, a neighbor and one other tie,
+a look nobody else has, three outfits and a routine. It costs one Haiku call and one Jev call, and the app says who
+moved in. They may or may not be an offender (`newcomer_offender_chance`, while there are fewer than
+`max_offenders`). Witnesses are never drawn from another open case's culprits, so an arrest never takes testimony
+with it, and notebook entries from someone who left still show their name.
+
 **Your first case.** Before the page, a new podcaster sees three short cards on what the game is and a button to
 start; they come back on a reload only until the podcaster has asked anyone anything. The first case happens in a
 practice town of its own (`sleuth/tutorial.py`), fixed in the code: six residents in three households, their looks,
@@ -116,6 +123,7 @@ doesn't back it. One episode per podcaster per case.
   they're named. They won't talk to you (`reputation_exposed`) and are touchy with every podcaster. They lie low for
   `exposed_quiet_days`, then each morning either reform (`reform_chance`) or stay free to reoffend. The victim's
   household warms to you (`reputation_ally`), and the victim thanks the podcast on the app.
+  A culprit of anything worse than a petty crime is arrested instead and leaves town at once.
 - A wrong one leaves the case open for others. The town hears the accusation anyway, everyone thinks less of you
   (`reputation_wrong`), and the accused most of all (`reputation_accused`).
 
@@ -170,9 +178,10 @@ a new town and saves it as `sleuth_worlds/<session>.json`; set `SLEUTH_SEED_PATH
 ## What it costs
 
 The game counts the tokens it sends to Haiku and Jev and multiplies them by list prices you can change; the page shows
-your share in the menu. Haiku writes each new town, phrases what residents say and each interview reply, and writes at most one app post per
-part of the day. Jev decides
-what a woken resident does, plans routines, and routes each interview question. A question costs at most one call to
+your share in the menu. Haiku writes each new town and each resident who moves in, phrases what residents say and each interview reply, and
+writes at most one app post per part of the day. Jev decides
+what a woken resident does, plans routines (once more for each resident who moves in), and routes each interview
+question. A question costs at most one call to
 each.
 
 Once the day's estimated spend reaches `SLEUTH_DAILY_SPEND_CAP` the town rests until midnight UTC: residents stop
@@ -231,6 +240,8 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_ESCALATE_AFTER` | `2` | cases an offender gets away with before moving up a tier |
 | `SLEUTH_EXPOSED_QUIET_DAYS` | `2` | game days an exposed offender lies low |
 | `SLEUTH_REFORM_CHANCE` | `0.3` | chance each morning after that an exposed offender reforms |
+| `SLEUTH_NEWCOMER_OFFENDER_CHANCE` | `0.3` | chance someone who moves in is an offender |
+| `SLEUTH_MAX_OFFENDERS` | `6` | most offenders that moving in can bring the set to |
 
 ## Tests
 

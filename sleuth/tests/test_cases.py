@@ -16,6 +16,7 @@ from sleuth.models import Utterance
 from sleuth.offenders import Offender
 from sleuth.photos import Album, Photo
 from sleuth.players import Players
+from sleuth.reputation import Reputation
 from sleuth.tests.helpers import StubRoutine
 from sleuth.tests.test_case import RESIDENTS, make_routine, make_town
 from sleuth.traits import assign_traits
@@ -23,6 +24,9 @@ from sleuth.traits import assign_traits
 
 class FakeEngine:
     def __init__(self, town):
+        self.town = town
+        self.config = Config(population=0)
+        self.reputation = Reputation(Config())
         self.lines = []
         self.feed = Feed(Lineage(), town, out=self.lines.append)
         self.delivered = []
@@ -31,6 +35,9 @@ class FakeEngine:
 
     async def deliver(self, utterance, listener_ids, addressed=False):
         self.delivered.append((utterance, listener_ids, addressed))
+
+    async def remove_villager(self, vid):
+        self.town.remove(vid)
 
 
 def make_cases(**config):
@@ -450,3 +457,32 @@ async def test_an_exposed_offender_may_reform_only_on_a_morning():
     assert "v3" in cases.offenders.active
     await tick(cases, engine, day=3)
     assert "v3" not in cases.offenders.active
+
+
+@pytest.mark.asyncio
+async def test_a_held_serious_episode_arrests_the_culprit_who_leaves_town():
+    cases, engine, town = make_cases()
+    file = culprit_file(cases)
+    file.crime.tier = "serious"
+    cases.offenders.active["v3"] = Offender("serious")
+    await cases.on_held(engine, file, "p-1")
+    assert "v3" not in town and "v3" in {v.id for v in town.departed} and "v3" not in cases.offenders.active
+    assert "v3" not in cases.offenders.exposed
+    assert any(e.kind == "post" and e.data["text"] == "Fay Okafor was arrested and has left town." for e in engine.feed.recent)
+
+
+@pytest.mark.asyncio
+async def test_no_open_case_s_witness_is_another_open_case_s_culprit():
+    for seed in range(30):
+        cases, engine, town = make_cases(offenders=8)
+        cases.rng = Random(seed)
+        cases.routine = StubRoutine({vid: {"night": "elm street"} for vid, *_ in RESIDENTS})
+        other = culprit_file(cases, culprit="v7", victim="v2")
+        other.crime.owner = "p-1"
+        await tick(cases, engine)
+        case = cases.shared()
+        if case is None:
+            continue
+        holders = {r.holder for r in case.records.values() if r.kind == "memory"}
+        dropped = {r.who for r in case.records.values() if r.trail}
+        assert "v7" not in holders | dropped

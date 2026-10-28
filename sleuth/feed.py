@@ -10,6 +10,7 @@ from sleuth.models import Utterance
 from sleuth.town import STREETS, Town, at, place_name
 
 REPLAY_EVENTS = 500
+APP = "The neighborhood app"
 TIME_LINES = {
     "morning": "Day {day}: morning in town.",
     "afternoon": "It's the afternoon.",

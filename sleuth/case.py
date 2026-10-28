@@ -196,7 +196,7 @@ def record_json(r: Record, town: Town, crime: Crime | None = None, today: float 
     """What the player sees of a record, its case's time said on today."""
     text = told(r.text, crime, today) if crime else r.text
     return {"id": r.id, "kind": r.kind, "place": r.place, "day": r.day, "clock": r.clock, "text": text,
-            "from": town.get(r.holder).name if r.holder else "", "holder": r.holder}
+            "from": town.name_of(r.holder) or "" if r.holder else "", "holder": r.holder}
 
 
 def _memory_text(crime: Crime, clock: str, seen: dict[str, str]) -> str:
@@ -258,15 +258,15 @@ def camera_clip(crime: Crime, town: Town, ids: Ids) -> Record | None:
     return Record(ids.next("r"), crime.id, "clip", crime.place, clock, text, traits=seen, day=crime.day)
 
 
-def scene_clues(crime: Crime, town: Town, routine, rng: Random, ids: Ids) -> list[Record]:
+def scene_clues(crime: Crime, town: Town, routine, rng: Random, ids: Ids, away=frozenset()) -> list[Record]:
     """One or two things left at the scene: a trace of one of the culprit's traits, or a receipt dropped by the
-    culprit or someone expected there. A receipt names no one; the grocery's log for its time, returned with it,
-    names who paid."""
+    culprit or someone expected there and not away. A receipt names no one; the grocery's log for its time, returned
+    with it, names who paid."""
     culprit = town.looks(crime.culprit, crime.day)
     clues: list[Record] = []
     for kind in rng.sample([*TRACES, "receipt"], rng.randint(1, 2)):
         if kind == "receipt":
-            who = rng.choice([crime.culprit, *_bystanders(crime, town, routine)])
+            who = rng.choice([crime.culprit, *_bystanders(crime, town, routine, away)])
             clock = clock_at(max(crime.minute - rng.randint(*RECEIPT_BEFORE), PHASE_MINUTES[crime.phase][0]))
             text = RECEIPT.format(at=at(crime.place), clock=clock)
             clues.append(Record(ids.next("r"), crime.id, "clue", crime.place, clock, text, day=crime.day))

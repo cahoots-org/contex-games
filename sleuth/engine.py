@@ -9,13 +9,14 @@ from contextlib import aclosing, suppress
 from sleuth.actions import ALIBI, MOVE
 from sleuth.calibration import Baselines
 from sleuth.case import told, when
-from sleuth.cases import APP, CaseFile, Cases
+from sleuth.cases import CaseFile, Cases
 from sleuth.chatter import chatter
 from sleuth.config import Config
 from sleuth.contex_client import ContexClient, Match
 from sleuth.decide import Decision, TurnView, decide, warmth_words
 from sleuth.effects import act
 from sleuth.facts import Facts
+from sleuth.feed import APP
 from sleuth.game import PHASES, Game
 from sleuth.lineage import Ids, Lineage
 from sleuth.mind import Mind, mind_project

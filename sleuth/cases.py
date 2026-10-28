@@ -1,15 +1,18 @@
 """The town's cases as they happen: staged, checked for solvability, opened in the neighborhood app, gone cold."""
 
+import asyncio
 import logging
 import math
 from dataclasses import asdict, dataclass, field
 from random import Random
 
+from sleuth.arrivals import move_in
 from sleuth.case import (
     CRIMES, WHEN, Crime, Record, camera_clip, crime_title, discovery, found_it, logs, make_solvable, scene_clues, stage_crime, told,
     witness_memories,
 )
 from sleuth.config import Config
+from sleuth.feed import APP
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
@@ -18,9 +21,9 @@ from sleuth.town import STREETS, Town, at
 
 log = logging.getLogger(__name__)
 
-APP = "The neighborhood app"
 COLD = "The case went cold. It was {name}."
 THANKS = "Got my {item} back thanks to that podcast!"
+ARRESTED = "{name} was arrested and has left town."
 # How many crimes are drawn in one go for a solvable one.
 DRAWS = 10
 
@@ -62,6 +65,8 @@ class Cases:
         self.ids = ids
         self.files: dict[str, CaseFile] = {}
         self.offenders = Offenders(config)
+        # Residents moving in, kept until they have.
+        self._moving: set[asyncio.Task] = set()
         # Game time (day + phase index / 4) of the last tick.
         self.now = 0.0
         # Everyone's whereabouts through the part of the day the last tick finished.
@@ -129,8 +134,8 @@ class Cases:
         file.state, file.solved_by = "closed", solved_by
 
     async def on_held(self, engine, file: CaseFile, player_id: str) -> None:
-        """A held episode closes the case and wins the town's regard; a petty culprit is exposed, and the next case
-        opens."""
+        """A held episode closes the case and wins the town's regard; a petty culprit is exposed, any other arrested,
+        and the next case opens."""
         crime = file.crime
         self.close(file, player_id)
         engine.feed.on_case_closed(crime.id, "")
@@ -138,7 +143,20 @@ class Cases:
         engine.reputation.nudge_all(player_id, self.config.reputation_right, town)
         if crime.tier == "petty":
             self._expose(engine, file, player_id)
+        else:
+            await self.arrest(engine, crime.culprit)
         await self.ensure(engine)
+
+    async def arrest(self, engine, vid: str) -> asyncio.Task:
+        """The resident is arrested and leaves town at once; returns the task of someone moving in on their street."""
+        v = self.town.get(vid)
+        self.offenders.drop(vid)
+        engine.feed.on_post(Utterance("", "app", APP, v.home, ARRESTED.format(name=v.name), None, "posted"), None)
+        await engine.remove_villager(vid)
+        task = asyncio.create_task(move_in(engine, v.home))
+        self._moving.add(task)
+        task.add_done_callback(self._moving.discard)
+        return task
 
     def on_wrong(self, engine, file: CaseFile, player_id: str, accused: str) -> None:
         """A wrong episode costs the town's regard, and the accused's most of all."""
@@ -240,18 +258,19 @@ class Cases:
         return {vid for f in self.files.values() if f.state != "closed" for vid in (f.crime.culprit, f.crime.victim)}
 
     async def _open(self, engine, crime: Crime, pictured: set[str]) -> bool:
-        """Leave the crime's evidence, witnessed by no one pictured elsewhere then, and, if it narrows to the culprit,
-        open the case: tell its witnesses and victim what they saw and found, and post the news. False if it cannot be
-        made solvable."""
+        """Leave the crime's evidence, witnessed by no one pictured elsewhere then nor any open case's culprit, and, if
+        it narrows to the culprit, open the case: tell its witnesses and victim what they saw and found, and post the
+        news. False if it cannot be made solvable."""
+        away = pictured | {f.crime.culprit for f in self.files.values() if f.state == "open"}
         self.dress(crime.day)
         whereabouts = dict(self.finished or {v.id: [p] for v in self.town.villagers
                                              if (p := self.routine.place(v.id, crime.phase))})
         whereabouts[crime.culprit] = [crime.place]
         clip = camera_clip(crime, self.town, self.ids)
-        records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids, pictured),
-                   *scene_clues(crime, self.town, self.routine, self.rng, self.ids), *([clip] if clip else []),
+        records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids, away),
+                   *scene_clues(crime, self.town, self.routine, self.rng, self.ids, away), *([clip] if clip else []),
                    *logs(crime, whereabouts, self.town, self.rng, self.ids)]
-        added = make_solvable(crime, records, self.town, self.routine, self.rng, self.ids, pictured)
+        added = make_solvable(crime, records, self.town, self.routine, self.rng, self.ids, away)
         if added is None:
             return False
         records += [*added, discovery(crime, self.town, self.rng, self.ids)]
