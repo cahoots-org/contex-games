@@ -11,7 +11,10 @@ from sleuth.traits import assign_look
 
 log = logging.getLogger(__name__)
 
-MOVED_IN = "{name}, a {occupation}, moved in on {street}."
+
+def moved_in(name: str, occupation: str, street: str) -> str:
+    """The app's post on a newcomer; the job stands as its own line, so it reads whatever its case or article."""
+    return f"{name} moved in on {street}. {occupation[:1].upper()}{occupation[1:]}."
 
 
 async def move_in(engine, home: str) -> Villager | None:
@@ -33,7 +36,7 @@ async def move_in(engine, home: str) -> Villager | None:
         settle(v, town.villagers, home, rng)
         if len(offenders.active) < config.max_offenders and rng.random() < config.newcomer_offender_chance:
             offenders.active[v.id] = Offender()
-        text = MOVED_IN.format(name=v.name, occupation=v.occupation, street=place_name(home))
+        text = moved_in(v.name, v.occupation, place_name(home))
         engine.feed.on_post(Utterance("", "app", APP, home, text, None, "posted"), None)
         return v
     except Exception:

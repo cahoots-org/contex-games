@@ -5,7 +5,7 @@ from random import Random
 
 import pytest
 
-from sleuth.arrivals import move_in
+from sleuth.arrivals import move_in, moved_in
 from sleuth.case import Record, suspects
 from sleuth.config import Config
 from sleuth.game import Game
@@ -78,7 +78,7 @@ async def test_someone_moves_in_on_the_arrested_resident_s_street(tmp_path):
     assert engine.added == [("v009", "library")] and engine.routine.place("v009", "night") == "oak street"
     arrested, moved = [e for e in engine.feed.recent if e.kind == "post"]
     assert arrested.data["text"] == "Hal Burke was arrested and has left town."
-    assert moved.data["text"] == "Wren Abara, a locksmith, moved in on Oak Street." and moved.data["app"]
+    assert moved.data["text"] == "Wren Abara moved in on Oak Street. Locksmith." and moved.data["app"]
 
 
 @pytest.mark.asyncio
@@ -187,4 +187,11 @@ async def test_a_held_major_episode_arrests_the_culprit_and_someone_moves_in(tmp
     assert file.state == "closed" and "v5" not in town and "v5" not in engine.cases.offenders.exposed
     posts = [e.data["text"] for e in engine.feed.recent if e.kind == "post"]
     assert "Hal Burke was arrested and has left town." in posts
-    assert "Wren Abara, a locksmith, moved in on Oak Street." in posts
+    assert "Wren Abara moved in on Oak Street. Locksmith." in posts
+
+
+def test_the_moved_in_post_reads_well_whatever_the_job_is_called():
+    assert moved_in("Mavis Oakhurst", "Night-shift pharmacy technician", "Oak Street") == \
+        "Mavis Oakhurst moved in on Oak Street. Night-shift pharmacy technician."
+    assert moved_in("Ada Reyes", "owner of the Pet Parlor", "Elm Street") == \
+        "Ada Reyes moved in on Elm Street. Owner of the Pet Parlor."
