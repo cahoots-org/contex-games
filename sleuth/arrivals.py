@@ -23,7 +23,9 @@ async def move_in(engine, home: str) -> Villager | None:
     try:
         rng = engine.cases.rng
         v = await generate_resident(engine.writer, [*town.villagers, *town.departed], rng)
-        assign_look(v, town.villagers, rng)
+        seen = [r.traits for f in engine.cases.files.values() if f.state == "open" for r in f.records.values()
+                if r.kind in ("memory", "clip", "clue")]
+        assign_look(v, town.villagers, rng, seen)
         settle(v, town.villagers, home, rng)
         await engine.baselines.load(v.needs)
         await engine.routine.add(v)

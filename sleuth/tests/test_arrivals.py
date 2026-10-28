@@ -5,12 +5,13 @@ from random import Random
 import pytest
 
 from sleuth.arrivals import move_in
+from sleuth.case import Record, suspects
 from sleuth.config import Config
 from sleuth.game import Game
 from sleuth.models import Villager
 from sleuth.routine import Routine
 from sleuth.tests.helpers import StubBaselines, StubJev
-from sleuth.tests.test_cases import make_cases
+from sleuth.tests.test_cases import culprit_file, make_cases
 from sleuth.traits import FIXED, TRAITS, assign_look
 
 RESIDENT = {"name": "Wren Abara", "occupation": "locksmith", "personality": "dry and patient", "grudge": "",
@@ -107,3 +108,16 @@ def test_a_resident_who_moved_in_has_unique_looks_and_three_outfits():
     assign_look(v, others, Random(0))
     assert tuple(v.traits[c] for c in FIXED) == looks[0]
     assert len(set(v.wardrobe)) == 3 and set(v.wardrobe) <= set(TRAITS["coat"])
+
+
+@pytest.mark.asyncio
+async def test_someone_who_moved_in_never_fits_an_open_case(tmp_path):
+    for seed in range(20):
+        engine, town = arriving(tmp_path)
+        engine.cases.rng = Random(seed)
+        file = culprit_file(engine.cases)
+        hair = town.get("v3").traits["hair"]
+        file.records["r-1"] = Record("r-1", file.crime.id, "clue", "elm street", "", "", traits={"hair": hair})
+        before = suspects(file.crime, list(file.records.values()), town)
+        v = await move_in(engine, "oak street")
+        assert v.traits["hair"] != hair and suspects(file.crime, list(file.records.values()), town) == before

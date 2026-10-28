@@ -58,11 +58,15 @@ def assign_traits(villagers: list[Villager], rng: random.Random) -> None:
             swaps -= 1
 
 
-def assign_look(v: Villager, others: list[Villager], rng: random.Random) -> None:
-    """Give one resident fixed traits no one else's fixed look has, when one is left, and a wardrobe."""
+def assign_look(v: Villager, others: list[Villager], rng: random.Random, avoid: list[dict[str, str]] = ()) -> None:
+    """Give one resident fixed traits no one else's fixed look has and fitting none of the sightings to avoid, as far
+    as one is left, and a wardrobe."""
     taken = {tuple(o.traits.get(c) for c in FIXED) for o in others}
-    looks = list(product(*(TRAITS[c] for c in FIXED)))
-    v.traits = dict(zip(FIXED, rng.choice([look for look in looks if look not in taken] or looks)))
+    sightings = [{c: s[c] for c in FIXED if c in s} for s in avoid]
+    looks = [dict(zip(FIXED, look)) for look in product(*(TRAITS[c] for c in FIXED))]
+    free = [look for look in looks if tuple(look.values()) not in taken]
+    clear = [look for look in free if not any(s and s.items() <= look.items() for s in sightings)]
+    v.traits = rng.choice(clear or free or looks)
     v.wardrobe = rng.sample(TRAITS["coat"], WARDROBE)
 
 
