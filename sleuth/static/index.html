@@ -834,13 +834,10 @@ $("place-list").addEventListener("click", (ev) => {
   const option = ev.target.closest("li");
   if (option) pickPlace(option);
 });
-// A click outside closes the panel and goes no further.
+// A click outside closes the panel, and still does what it was for.
 document.addEventListener("click", (ev) => {
-  if (!$("places").open || ev.target.closest("#places, #here")) return;
-  ev.preventDefault();
-  ev.stopPropagation();
-  openPlaces(false);
-}, true);
+  if ($("places").open && !ev.target.closest("#places, #here, .coach, .mask")) openPlaces(false);
+});
 
 function setSteps(list) {
   if (!list) beat = null;
@@ -1043,8 +1040,8 @@ function placeCoach() {
   const w = innerWidth, h = innerHeight;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
   const meets = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
-  // On a phone the page shrinks above the card, so the card never covers what the step needs.
-  if (phone.matches) $("app").style.setProperty("--dock", `${c.height + 40}px`);
+  // On a phone the page shrinks above the card while the step needs the conversation, so the card never covers it.
+  if (phone.matches && hole.some((n) => n.closest("#dialogue"))) $("app").style.setProperty("--dock", `${c.height + 40}px`);
   else $("app").style.removeProperty("--dock");
   // On a phone the open place list is a sheet over the page, so the card points at the sheet alone.
   const sheet = hole.includes($("places")) && $("places").getBoundingClientRect();
