@@ -720,3 +720,14 @@ def test_every_tier_up_to_the_highest_reached_is_wanted():
     assert cases.wanted(engine) == ["petty"]
     engine.players.add(podcaster("major"))
     assert cases.wanted(engine) == ["petty", "serious"]
+
+
+@pytest.mark.asyncio
+async def test_a_case_gone_cold_exposes_the_accomplice_too():
+    cases, engine, town = make_cases()
+    file = tiered(cases, "serious")
+    file.accomplice = "v7"
+    cases.offenders.active["v3"] = Offender("serious")
+    await tick(cases, engine, day=5)
+    assert file.state == "closed" and "v3" not in town
+    assert cases.offenders.exposed["v7"] == "covered for Fay Okafor" and engine.reputation.to_state() == {}

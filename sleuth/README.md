@@ -38,7 +38,7 @@ checks that the evidence, with that part of the day's check-ins and receipts, na
 witness if that helps and drawing another crime if nothing can. A solvable case opens: its witnesses are told what
 they saw, and the neighborhood app posts the news. A case shows at the top of the page and goes cold after
 `case_days`, when the town learns who did it: a petty culprit is exposed just as a right episode would expose them,
-and any other is arrested.
+and any other is arrested, and any accomplice is exposed for covering for them.
 
 **Offenders.** Only a few residents commit crimes: `offenders` of them, picked at random and topped back up whenever
 the set runs short. Nobody can see who they are, not the page, not the people list, not the other residents. They

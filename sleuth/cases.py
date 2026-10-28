@@ -161,21 +161,22 @@ class Cases:
 
     async def on_held(self, engine, file: CaseFile, player_id: str) -> None:
         """A held episode closes the case and wins the town's regard; a petty culprit is exposed, any other arrested,
-        any accomplice exposed too, and the next case opens."""
+        and the next case opens."""
         crime = file.crime
         self.close(file, player_id)
         engine.feed.on_case_closed(crime.id, "")
         town = [v.id for v in self.town.villagers if v.id != crime.culprit]
         engine.reputation.nudge_all(player_id, self.config.reputation_right, town)
-        if file.accomplice in self.town:
-            self.offenders.exposed[file.accomplice] = COVERED.format(name=self.town.name_of(crime.culprit))
-            engine.reputation.nudge(file.accomplice, player_id, self.config.reputation_exposed)
         await self._unmask(engine, file, player_id)
         await self.ensure(engine)
 
     async def _unmask(self, engine, file: CaseFile, player_id: str | None = None) -> None:
-        """The town learns who did it, from a podcaster's episode or a case gone cold: a petty culprit is exposed, any
-        other arrested."""
+        """The town learns who did it, from a podcaster's episode or a case gone cold: any accomplice is exposed, cold
+        to the podcaster; a petty culprit is exposed, any other arrested."""
+        if file.accomplice in self.town:
+            self.offenders.exposed[file.accomplice] = COVERED.format(name=self.town.name_of(file.crime.culprit))
+            if player_id:
+                engine.reputation.nudge(file.accomplice, player_id, self.config.reputation_exposed)
         if file.crime.tier == "petty":
             self._expose(engine, file, player_id)
         else:
