@@ -255,3 +255,34 @@ C $0.0032, D $0.0031. The rest was resident turns and chatter.
    dark-haired was grabbing at someone." The victim is the "someone".
 7. **Invented place names in replies.** Examples: "half the people on Main Street", "the Ferris Street bulletin
    board". They aren't case facts, but the town has three streets.
+
+## Fixes after playtest 1
+
+Each fix was test-first, with its own commit, and passed the full suite (843 passed, 9 skipped at the end), `ruff
+check .` and `node --check` before committing. None needs a new save version. The fixes are not playtested yet.
+
+| Commit | Open issue | Fix |
+|---|---|---|
+| `d01096a` | 1. Major cases rarely can open. | Town generation turns warm ties rival until one resident in five has two people on bad terms with them, and someone moving in is a rival while too few do. A death's motives count grudges either way as well as cold ties. With no major offender free, a serious one commits the major case and moves up, one promoted from petty first when none is free. A test runs five generated 24-person towns at the playtest's pacing with a major-tier podcaster: each opens a major case within two game days. |
+| `f4c833b` | 2. Occupations don't match routines. | Town generation asks for jobs at the town's own places or from home, and draws again for one that names nowhere in town. A job that names its place sets the work place: a barista works at the cafe, a librarian at the library, and a night-shift or home-based job is home by day. Jev picks only the rest, and a saved routine that contradicts the job is asked again. A till is robbed only from someone who works where it is. |
+| `70ccdb6` | 3. Offender churn. | Once crime has begun, the set is refilled only to `min_offenders`, plus one when no petty offender is free. At most `offender_share` (new, 0.25) of the town are or were offenders. Past it, the refill draws exposed residents who gave it up, and nobody new moves in as one or is turned. A standing watch's founder is never drawn. |
+| `6a4c744` | 4. Chatter can still invent a method. 5. Retold speech embellishes freely. | A case line that names a tool, force or a way in that the facts lack ("took a bat to", "smashed", "keys in the ignition") now counts as an invented fact. The post is dropped, and an interview reply falls back to its plain record. Retold room talk still reaches the app embellished, but as hearsay: "Ada Reyes heard: ...". |
+| `2c727bb` | 6. A mugging victim's own memory reads oddly. | "Around 9:01am, at the dog park, someone short, dark-haired grabbed at me and took my wallet." It stays that way when the victim recalls one more trait. |
+| `b1d7074` | 7. Invented place names in replies. | A line, reply or post that names a street other than Elm, Oak or Maple Street comes back empty. It is never said, and an interview reply falls back to its plain record. |
+
+### Offender rate
+
+The test was a simulation of 40 towns for 11 game days with the real `Cases`, `Offenders` and `Districts`. Each town
+had two podcasters, one at the serious tier. Each open case was solved with a chance of 1 in 4 each part of the day,
+and anyone who moved in was a stand-in with no model calls.
+
+| Settings | When | Distinct offenders | Residents left who ever offended | Towns where a watch founder turned | Cases opened |
+|---|---|---|---|---|---|
+| Defaults (50 residents) | before | 17.9 | 20% (34% at worst) | 12 of 40 | 22.8 |
+| Defaults (50 residents) | after | 16.8 | 18% (24% at worst) | 0 | 21.8 |
+| Playtest pacing (24) | before | 22.6 | 56% (71% at worst) | 30 of 40 | 24.8 |
+| Playtest pacing (24) | after | 16.2 | 24% (29% at worst) | 0 | 23.9 |
+
+Each case still needs a culprit, and every serious culprit is arrested and leaves town. So the count of distinct
+offenders mostly follows how many cases open. The cap bounds what a player sees: how much of the town they live
+beside has offended.
