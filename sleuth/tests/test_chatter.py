@@ -44,6 +44,15 @@ async def test_a_post_that_adds_a_case_fact_or_faith_is_dropped(line):
 
 
 @pytest.mark.asyncio
+async def test_a_post_that_swaps_the_victims_item_is_dropped_but_a_lost_pet_is_not():
+    case = "Someone robbed Ada Reyes's till at the bar yesterday morning."
+    swapped = "Has anyone seen Ada Reyes's cash box? It went missing from the bar."
+    assert await chatter(Writer(StubClient(swapped), "haiku-test"), town(), Random(1), Ids(), case) is None
+    lost = "Has anyone seen my dog Biscuit? Slipped the collar again, typical council fences."
+    assert (await chatter(Writer(StubClient(lost), "haiku-test"), town(), Random(1), Ids(), case)).text == lost
+
+
+@pytest.mark.asyncio
 async def test_nobody_posts_without_quirks():
     t = town()
     t.get("v1").quirks = []
