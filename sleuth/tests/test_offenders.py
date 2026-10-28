@@ -1,0 +1,46 @@
+from random import Random
+
+from sleuth import offenders as offenders_mod
+from sleuth.config import Config
+from sleuth.offenders import Offender, Offenders
+from sleuth.tests.test_case import make_town
+
+
+def test_the_set_is_topped_up_to_the_configured_size_from_non_offenders():
+    town = make_town()
+    offenders = Offenders(Config(offenders=3))
+    offenders.exposed["v2"] = "stole Dana Reyes's bike"
+    joined = offenders.top_up(town, Random(0))
+    assert len(offenders.active) == 3 and set(joined) == set(offenders.active) and "v2" not in offenders.active
+    assert offenders.top_up(town, Random(0)) == []
+    assert offenders.top_up(town, Random(0), candidates=["v7"]) == []
+
+
+def test_an_offender_who_gets_away_twice_moves_up_a_tier_only_when_the_catalog_has_one(monkeypatch):
+    offenders = Offenders(Config(escalate_after=2))
+    offenders.active["v1"] = Offender()
+    offenders.escaped_with("v1")
+    offenders.escaped_with("v1")
+    assert offenders.active["v1"].tier == "petty"
+    monkeypatch.setattr(offenders_mod, "catalog_tiers", lambda: ("petty", "serious"))
+    offenders.escaped_with("v1")
+    assert (offenders.active["v1"].tier, offenders.active["v1"].escaped) == ("serious", 0)
+    offenders.escaped_with("v9")
+    assert "v9" not in offenders.active
+
+
+def test_a_quiet_offender_is_not_ready():
+    offenders = Offenders(Config())
+    offenders.active["v1"] = Offender(quiet_until=5)
+    offenders.active["v2"] = Offender(tier="serious")
+    assert offenders.ready(4, "petty") == set() and offenders.ready(5, "petty") == {"v1"}
+    assert offenders.ready(4, "serious") == {"v2"}
+
+
+def test_a_tier_nobody_holds_takes_the_offender_below_with_the_most_escapes():
+    offenders = Offenders(Config())
+    offenders.active.update({"v1": Offender(escaped=1), "v2": Offender(escaped=0)})
+    assert offenders.promote("serious") == "v1" and offenders.active["v1"].tier == "serious"
+    assert offenders.promote("major") == "v1" and offenders.promote("major") is None
+    offenders.drop("v1")
+    assert "v1" not in offenders.active

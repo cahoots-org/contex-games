@@ -13,6 +13,7 @@ from sleuth.config import Config
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
+from sleuth.offenders import Offenders
 from sleuth.town import STREETS, Town, at
 
 log = logging.getLogger(__name__)
@@ -59,17 +60,19 @@ class Cases:
         self.rng = rng
         self.ids = ids
         self.files: dict[str, CaseFile] = {}
+        self.offenders = Offenders(config)
         # Game time (day + phase index / 4) of the last tick.
         self.now = 0.0
         # Everyone's whereabouts through the part of the day the last tick finished.
         self.finished: dict[str, list[str]] | None = None
 
     def to_state(self) -> dict:
-        """Every case file as plain JSON."""
-        return {"files": [asdict(f) for f in self.files.values()]}
+        """Every case file and the offenders as plain JSON."""
+        return {"files": [asdict(f) for f in self.files.values()], "offenders": self.offenders.to_state()}
 
     def restore(self, state: dict) -> None:
-        """Replace the case files with a saved state, leaving out cases saved before they opened."""
+        """Replace the case files and offenders with a saved state, leaving out cases saved before they opened."""
+        self.offenders.restore(state["offenders"])
         self.files = {}
         for f in state["files"]:
             if f["state"] == "setup":
@@ -168,13 +171,14 @@ class Cases:
         for case in [f for f in self.files.values() if f.state == "open"]:
             if now - case.opened >= self.config.case_days:
                 self.close(case, None)
+                self.offenders.escaped_with(case.crime.culprit)
                 cold = COLD.format(name=self.town.name_of(case.crime.culprit))
                 engine.feed.on_case_closed(case.crime.id, cold)
         await self.ensure(engine)
 
     async def ensure(self, engine, now: float | None = None) -> None:
-        """Open a shared case set in the part of the day just finished, unless one is open; now is the game time, else
-        the last tick's. Up to DRAWS crimes are drawn for one that is solvable."""
+        """Open a shared case set in the part of the day just finished, unless one is open, its culprit a ready petty
+        offender; now is the game time, else the last tick's. Up to DRAWS crimes are drawn for one that is solvable."""
         if now is not None:
             self.now = now
         if self.shared() is not None:
@@ -182,9 +186,11 @@ class Cases:
         before = self.now - 1 / len(PHASES)
         day, phase = math.floor(before), PHASES[int(before % 1 * len(PHASES))]
         pictured = {vid for p in engine.album.photos if (p.day, p.phase) == (day, phase) for vid in p.people}
+        self.offenders.top_up(self.town, self.rng)
+        culprits = self.offenders.ready(day, "petty")
         for _ in range(DRAWS):
             crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"),
-                                exclude=self._involved() | pictured)
+                                exclude=self._involved() | pictured, culprits=culprits)
             if crime is None:
                 return
             try:

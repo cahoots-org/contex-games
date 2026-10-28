@@ -788,6 +788,7 @@ async def test_publish_rejects_ids_not_in_the_notebook():
 @pytest.mark.asyncio
 async def test_publish_on_a_case_a_rival_solved_is_refused():
     player, file, engine, _ = interviewing()
+    engine.cases.now = 2.0
     rival = Player(engine, player.town, player.lineage, player.ids, player.feed, player.config, player_id="p-2")
     memory = memory_of(file, player.ids)
     assert await rival.publish("v3", cite(rival, file, memory)) is None

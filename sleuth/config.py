@@ -63,6 +63,9 @@ class Config:
     max_idle_runs: int = 200
     # The chance, each part of the day while someone plays, that a resident posts on the neighborhood app.
     chatter_chance: float = 0.5
+    # How many hidden offenders commit the town's crimes, and how many cases one gets away with before moving up a tier.
+    offenders: int = 5
+    escalate_after: int = 2
     # Estimated list prices in dollars per million tokens.
     haiku_input_per_mtok: float = 0.1
     haiku_output_per_mtok: float = 0.5

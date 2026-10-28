@@ -6,13 +6,14 @@ import pytest
 
 from sleuth import cases as cases_mod
 from sleuth.alibi import claim
-from sleuth.case import WHEN, Crime, points_at, suspects, told
+from sleuth.case import CLIP_TRAITS, WHEN, Crime, Record, points_at, suspects, told
 from sleuth.cases import CaseFile, Cases, case_json
 from sleuth.config import Config
 from sleuth.feed import Feed
 from sleuth.game import PHASES
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Utterance
+from sleuth.offenders import Offender
 from sleuth.photos import Album, Photo
 from sleuth.players import Players
 from sleuth.tests.helpers import StubRoutine
@@ -382,3 +383,59 @@ def test_cases_dress_today_with_the_culprits_caution():
         assert town.outfit("v3", day) != "green raincoat"
     cases.close(file, None)
     assert cases.cautious(21) == {}
+
+
+@pytest.mark.asyncio
+async def test_only_offenders_commit_crimes():
+    opened = 0
+    for seed in range(40):
+        cases, engine, _ = make_cases(offenders=3)
+        cases.rng = Random(seed)
+        await tick(cases, engine)
+        if case := cases.shared():
+            opened += 1
+            assert case.crime.culprit in cases.offenders.active and len(cases.offenders.active) == 3
+    assert opened > 30
+
+
+@pytest.mark.asyncio
+async def test_no_case_opens_while_every_offender_is_quiet():
+    cases, engine, _ = make_cases()
+    cases.offenders.top_up(cases.town, cases.rng)
+    for o in cases.offenders.active.values():
+        o.quiet_until = 9
+    await tick(cases, engine)
+    assert not cases.files
+
+
+def test_solvability_still_narrows_among_everyone_not_just_offenders():
+    cases, _, town = make_cases()
+    file = culprit_file(cases)
+    cases.offenders.active = {"v3": Offender()}
+    looks = town.looks("v3", 1)
+    twin = next(v for v in town.villagers if v.id not in ("v1", "v3"))
+    twin.traits = dict(town.get("v3").traits)
+    town.worn[1][twin.id] = looks["coat"]
+    clip = Record("r-1", file.crime.id, "clip", "elm street", "11:20pm", "", traits={c: looks[c] for c in CLIP_TRAITS})
+    assert {"v3", twin.id} <= suspects(file.crime, [clip], town)
+
+
+@pytest.mark.asyncio
+async def test_a_case_gone_cold_counts_as_an_escape():
+    cases, engine, _ = make_cases()
+    await tick(cases, engine)
+    culprit = cases.shared().crime.culprit
+    await tick(cases, engine, day=5)
+    assert cases.offenders.active[culprit].escaped == 1
+
+
+@pytest.mark.asyncio
+async def test_offenders_round_trip_with_the_cases():
+    cases, engine, town = make_cases()
+    await tick(cases, engine)
+    vid = next(iter(cases.offenders.active))
+    cases.offenders.active[vid] = Offender("serious", 1, 4)
+    cases.offenders.exposed["v8"] = "stole Dana Reyes's bike"
+    fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
+    fresh.restore(json.loads(json.dumps(cases.to_state())))
+    assert fresh.offenders.active == cases.offenders.active and fresh.offenders.exposed == cases.offenders.exposed

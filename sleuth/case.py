@@ -87,6 +87,7 @@ class Crime:
     motive: str  # "rival" | "grudge" | "opportunity"
     text: str  # public news line
     owner: str | None = None  # the practice case's player
+    tier: str = "petty"
 
 
 @dataclass
@@ -155,15 +156,15 @@ def motive_of(culprit, victim) -> str:
 
 
 def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id: str, *,
-                exclude=frozenset()) -> Crime | None:
-    """Draw a crime, then a culprit and a victim from different households, the victim where the item plausibly is.
-    About REGULAR_CULPRIT of the time, when one fits, the culprit is expected at the scene too, otherwise elsewhere;
-    None if no crime fits."""
+                exclude=frozenset(), culprits: set[str] | None = None) -> Crime | None:
+    """Draw a crime, then a culprit (one of culprits, when given) and a victim from different households, the victim
+    where the item plausibly is. About REGULAR_CULPRIT of the time, when one fits, the culprit is expected at the scene
+    too, otherwise elsewhere; None if no crime fits."""
     residents = [v for v in town.villagers if v.id not in exclude and routine.place(v.id, phase) is not None]
     crimes = [(t, item) for t, kind in CRIMES.items() for item in kind.items]
     for template, item in rng.sample(crimes, len(crimes)):
         pairs = [(c, w, motive_of(c, w)) for w in residents for c in residents
-                 if c.household != w.household
+                 if c.household != w.household and (culprits is None or c.id in culprits)
                  and routine.place(w.id, phase) in ITEM_PLACES[item]]
         if pairs:
             break
@@ -177,7 +178,8 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
     place = routine.place(victim.id, phase)
     kind = CRIMES[template]
     text = kind.news.format(did=kind.did, victim=victim.name, item=item, at=at(place), when=WHEN)
-    return Crime(case_id, template, item, culprit.id, victim.id, place, day, phase, minute, motive, text)
+    return Crime(case_id, template, item, culprit.id, victim.id, place, day, phase, minute, motive, text,
+                 tier=kind.tier)
 
 
 def crime_title(crime: Crime, town: Town) -> str:

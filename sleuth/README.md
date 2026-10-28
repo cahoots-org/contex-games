@@ -29,6 +29,11 @@ witness if that helps and drawing another crime if nothing can. A solvable case 
 they saw, and the neighborhood app posts the news. The case shows at the top of the Hear panel and goes cold after
 `case_days`, when the town learns who did it.
 
+**Offenders.** Only a few residents commit crimes: `offenders` of them, picked at random and topped back up whenever
+the set runs short. Nobody can see who they are, not the page, not the people list, not the other residents. They
+don't make a case any easier or harder: the evidence still has to narrow to the culprit among everyone in town. An
+offender who gets away with it `escalate_after` times moves up to a bigger kind of crime, once the catalog has one.
+
 **Your first case.** Before the page, a new podcaster sees three short cards on what the game is and a button to
 start; they come back on a reload only until the podcaster has asked anyone anything. The first case happens in a
 practice town of its own (`sleuth/tutorial.py`), fixed in the code: six residents in three households, their looks,
@@ -216,6 +221,8 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_MAX_IDLE_RUNS` | `200` | most runs kept that never played |
 | `SLEUTH_DAILY_SPEND_CAP` | `5.0` | estimated dollars per UTC day before the town rests; `0` for no cap |
 | `SLEUTH_CHATTER_CHANCE` | `0.5` | chance each part of the day, while someone plays, that a resident posts on the app |
+| `SLEUTH_OFFENDERS` | `5` | how many hidden offenders commit the town's crimes |
+| `SLEUTH_ESCALATE_AFTER` | `2` | cases an offender gets away with before moving up a tier |
 
 ## Tests
 

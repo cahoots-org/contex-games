@@ -18,6 +18,7 @@ from sleuth.feed import Feed
 from sleuth.game import Game
 from sleuth.lineage import Ids, Lineage
 from sleuth.models import Villager
+from sleuth.offenders import Offender
 from sleuth.photos import Photo, photo_json
 from sleuth.player import SHRUGS, Player
 from sleuth.players import Players, new_player_id
@@ -989,3 +990,17 @@ def test_a_question_waits_for_the_picked_residents_conversation_to_open(game):
     page = game.client.get("/").text
     ask = page[page.index('$("ask").addEventListener("submit"'):page.index("function answered(")]
     assert 'if (id !== selected) return say("ask-status", "Opening the conversation…");' in ask
+
+
+def test_state_is_the_same_whoever_the_offenders_are(game):
+    open_case(game)
+
+    def seen():
+        get = game.client.get
+        return [get("/api/state").json(), get("/api/case").json(), get("/api/villagers/v1").json(),
+                get("/api/villagers/v2").json()]
+
+    game.cases.offenders.active = {"v1": Offender()}
+    first = seen()
+    game.cases.offenders.active = {"v2": Offender("serious", 1, 3)}
+    assert seen() == first
