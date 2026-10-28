@@ -1258,7 +1258,11 @@ function render(e, fresh) {
       talk("plain", fresh, e.text);
       break;
     case "standing":
-      if (fresh) setStanding(e);
+      // Standing decides which cases are offered and worked, so the case is fetched again.
+      if (fresh) {
+        setStanding(e);
+        retell().catch(() => {});
+      }
       if (e.text) talk("loud", fresh, e.text);
       break;
   }
