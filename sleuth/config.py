@@ -22,6 +22,9 @@ class Config:
     reputation_right: float = 0.3
     reputation_wrong: float = -0.4
     reputation_accused: float = -0.4
+    # How an exposed culprit's regard for the podcaster who exposed them moves, and their victim's household's.
+    reputation_exposed: float = -0.6
+    reputation_ally: float = 0.3
     # How a resident's regard moves when the culprit warns them about the podcaster.
     reputation_warned: float = -0.2
     # How far every regard drifts back toward 0 each part of the day.
@@ -66,6 +69,9 @@ class Config:
     # How many hidden offenders commit the town's crimes, and how many cases one gets away with before moving up a tier.
     offenders: int = 5
     escalate_after: int = 2
+    # How many game days an exposed offender lies low, and their chance each morning after of giving it up.
+    exposed_quiet_days: int = 2
+    reform_chance: float = 0.3
     # Estimated list prices in dollars per million tokens.
     haiku_input_per_mtok: float = 0.1
     haiku_output_per_mtok: float = 0.5

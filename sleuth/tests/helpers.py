@@ -175,9 +175,11 @@ class StubWriter:
     def __init__(self, line="Can't say I know much."):
         self.line = line
         self.calls = []
+        self.notes = []
 
-    async def reply(self, villager, case, question, thread, facts, known=(), now="", when=""):
+    async def reply(self, villager, case, question, thread, facts, known=(), now="", when="", notes=()):
         self.calls.append((villager.id, case, question, list(thread), list(facts), list(known), now, when))
+        self.notes.append(list(notes))
         return self.line
 
 

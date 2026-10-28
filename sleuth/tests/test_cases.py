@@ -439,3 +439,14 @@ async def test_offenders_round_trip_with_the_cases():
     fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
     fresh.restore(json.loads(json.dumps(cases.to_state())))
     assert fresh.offenders.active == cases.offenders.active and fresh.offenders.exposed == cases.offenders.exposed
+
+
+@pytest.mark.asyncio
+async def test_an_exposed_offender_may_reform_only_on_a_morning():
+    cases, engine, _ = make_cases(reform_chance=1.0)
+    cases.offenders.active["v3"] = Offender()
+    cases.offenders.exposed["v3"] = "stole Dana Reyes's bike"
+    await tick(cases, engine, phase="afternoon")
+    assert "v3" in cases.offenders.active
+    await tick(cases, engine, day=3)
+    assert "v3" not in cases.offenders.active

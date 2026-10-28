@@ -111,7 +111,11 @@ or trace whose traits all fit them as they looked that day, or a log that puts t
 doesn't back it. One episode per podcaster per case.
 
 - A right episode closes the case for everyone, and every resident thinks better of you (`reputation_right`). Any
-  other podcaster with evidence from that case is told another podcaster cracked it first.
+  other podcaster with evidence from that case is told another podcaster cracked it first. A petty culprit stays in
+  town, but now everyone knows what they did: the people list tags them "exposed", and residents bring it up when
+  they're named. They won't talk to you (`reputation_exposed`) and are touchy with every podcaster. They lie low for
+  `exposed_quiet_days`, then each morning either reform (`reform_chance`) or stay free to reoffend. The victim's
+  household warms to you (`reputation_ally`), and the victim thanks the podcast on the app.
 - A wrong one leaves the case open for others. The town hears the accusation anyway, everyone thinks less of you
   (`reputation_wrong`), and the accused most of all (`reputation_accused`).
 
@@ -204,6 +208,8 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_REPUTATION_RIGHT` | `0.3` | regard every resident gains for a right episode |
 | `SLEUTH_REPUTATION_WRONG` | `-0.4` | regard every resident loses for a wrong episode |
 | `SLEUTH_REPUTATION_ACCUSED` | `-0.4` | further regard the wrongly accused loses |
+| `SLEUTH_REPUTATION_EXPOSED` | `-0.6` | regard an exposed culprit has for the podcaster who exposed them |
+| `SLEUTH_REPUTATION_ALLY` | `0.3` | further regard the victim's household gains for a right episode |
 | `SLEUTH_REPUTATION_WARNED` | `-0.2` | regard a resident loses when the culprit warns them about you |
 | `SLEUTH_REPUTATION_DECAY` | `0.02` | how far regard drifts back toward 0 each part of the day |
 | `SLEUTH_GUARDED_AT` | `-0.3` | below this regard a resident won't talk to you or share records |
@@ -223,6 +229,8 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_CHATTER_CHANCE` | `0.5` | chance each part of the day, while someone plays, that a resident posts on the app |
 | `SLEUTH_OFFENDERS` | `5` | how many hidden offenders commit the town's crimes |
 | `SLEUTH_ESCALATE_AFTER` | `2` | cases an offender gets away with before moving up a tier |
+| `SLEUTH_EXPOSED_QUIET_DAYS` | `2` | game days an exposed offender lies low |
+| `SLEUTH_REFORM_CHANCE` | `0.3` | chance each morning after that an exposed offender reforms |
 
 ## Tests
 

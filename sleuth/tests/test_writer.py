@@ -93,6 +93,14 @@ async def test_reply_answers_the_latest_question_from_the_facts_with_the_thread_
 
 
 @pytest.mark.asyncio
+async def test_each_note_is_a_line_of_the_reply_prompt():
+    client = StubClient("Hmph.")
+    await Writer(client, "haiku-test").reply(villager(), "Someone stole a bike.", "Hi?", [], [],
+                                             notes=["Everyone knows you stole a bike.", "You're touchy."])
+    assert "\nEveryone knows you stole a bike.\nYou're touchy.\n" in client.messages.calls[0]["messages"][0]["content"]
+
+
+@pytest.mark.asyncio
 async def test_reply_with_no_facts_answers_briefly_and_adds_nothing():
     client = StubClient("Oh, I couldn't tell you.")
     line = await Writer(client, "haiku-test").reply(villager(), "Someone stole a bike.", "Who did it?", [], [])

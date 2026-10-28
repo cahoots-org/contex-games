@@ -109,7 +109,7 @@ def test_nothing_sent_shows_unlearned_looks(game):
     state = game.client.get("/api/state").json()
     rows = state["villagers"]
     assert all(r["looks"] == "" and r["face"] is None for r in rows)
-    assert set(rows[0]) == {"id", "name", "occupation", "looks", "face"}
+    assert set(rows[0]) == {"id", "name", "occupation", "looks", "face", "known_for"}
     card = game.client.get("/api/villagers/v2").json()
     assert "traits" not in card and "traits_text" not in card and card["known"] == []
     sent = json.dumps([state, game.client.get("/api/case").json(), card])
@@ -1004,3 +1004,9 @@ def test_state_is_the_same_whoever_the_offenders_are(game):
     first = seen()
     game.cases.offenders.active = {"v2": Offender("serious", 1, 3)}
     assert seen() == first
+
+
+def test_everyone_sees_who_was_exposed_for_what_in_the_people_list(game):
+    game.cases.offenders.exposed["v2"] = "stole Marta Hale's bike"
+    rows = {v["id"]: v for v in game.client.get("/api/state").json()["villagers"]}
+    assert rows["v2"]["known_for"] == "stole Marta Hale's bike" and rows["v1"]["known_for"] == ""

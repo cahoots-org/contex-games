@@ -463,7 +463,21 @@ class Player:
         v, newest = self.town.get(vid), (self.known.get(vid) or [None])[-1]
         return {"id": v.id, "name": v.name, "occupation": v.occupation,
                 "looks": describe(newest["looks"]) if newest else "",
-                "face": face(newest["looks"]) if newest else None}
+                "face": face(newest["looks"]) if newest else None,
+                "known_for": self._exposed().get(vid, "")}
+
+    def _exposed(self) -> dict[str, str]:
+        """What the town knows each exposed resident did."""
+        return self.engine.cases.offenders.exposed if self.engine.cases else {}
+
+    def _notes(self, vid: str) -> list[str]:
+        """What the resident feels about this podcaster or about themselves, for the writer."""
+        what = self._exposed().get(vid)
+        if not what:
+            return []
+        if any(f.crime.culprit == vid and f.solved_by == self.id for f in self.engine.cases.files.values()):
+            return [f"This podcaster exposed you for {what}. You're cold with them."]
+        return [f"Everyone knows you {what}. You're touchy about it."]
 
     def known_json(self, vid: str) -> list[dict]:
         """Each time the player learned how the resident looks, oldest first."""
@@ -592,10 +606,10 @@ class Player:
         if self.writer is not None:
             try:
                 case = self._told(crime.text, crime)
-                known = neighbours(self.town, villager, case)
+                known = neighbours(self.town, villager, case, self._exposed())
                 now = self.game.now() if self.game else ""
                 line = await self.writer.reply(villager, case, question, exchanges(thread), texts, known, now,
-                                               when(crime, self._today()))
+                                               when(crime, self._today()), self._notes(villager.id))
                 allowed = " ".join([villager.name, case, *texts, *known, *(t["line"] for t in thread)])
                 firsts = {v.name.split()[0] for v in self.town.villagers}
                 if (line and conveys(line, records) and first_hand(line, records, villager)
@@ -613,7 +627,7 @@ class Player:
         if self.writer is not None:
             try:
                 line = await self.writer.reply(villager, self._told(file.crime.text, file.crime), question,
-                                               exchanges(thread), [])
+                                               exchanges(thread), [], notes=self._notes(villager.id))
                 names = {w for v in self.town.villagers for w in v.name.split()}
                 if adds_nothing(line, names):
                     return line
@@ -692,7 +706,7 @@ class Player:
         if culprit_id not in self.town:
             return "No one in town has that id."
         file.published.append(self.id)
-        crime, reputation = file.crime, self.engine.reputation
+        crime = file.crime
         accused, victim = self.town.get(culprit_id), self.town.get(crime.victim)
         held = holds(crime, culprit_id, self.town.looks(culprit_id, crime.day), [self.notebook[i] for i in record_ids])
         if crime.owner:
@@ -711,7 +725,6 @@ class Player:
                 handoff = {"head": head, "line": payoff}
             self._graduate(file, self.id if held else None, line, handoff)
             return None
-        everyone = [v.id for v in self.town.villagers]
         named = f"{accused.name} {CRIMES[crime.template].did} {victim.name}'s {crime.item}"
         if held:
             for rival in self.engine.players:
@@ -720,14 +733,10 @@ class Player:
         self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids),
                              verdict=HELD if held else WRONG)
         if held:
-            self.engine.cases.close(file, self.id)
-            self.feed.on_case_closed(crime.id, "")
-            reputation.nudge_all(self.id, self.config.reputation_right, everyone)
-            text = f"{named}, and the evidence holds up."
+            await self.engine.cases.on_held(self.engine, file, self.id)
         else:
-            reputation.nudge_all(self.id, self.config.reputation_wrong, everyone)
-            reputation.nudge(culprit_id, self.id, self.config.reputation_accused)
-            text = f"{named}."
+            self.engine.cases.on_wrong(self.engine, file, self.id, culprit_id)
+        text = f"{named}, and the evidence holds up." if held else f"{named}."
         u = Utterance(self.ids.next("u"), "podcast", PODCAST, self.place, text, None, "reported")
         file.roots[u.id] = "episode"
         household = [v.id for v in self.town.villagers if accused.household and v.household == accused.household]
@@ -736,8 +745,6 @@ class Player:
             await self.engine.deliver(u, list(dict.fromkeys(listeners)))
         except Exception:
             log.exception("delivering the episode on %s failed", crime.id)
-        if held:
-            await self.engine.cases.ensure(self.engine)
         return None
 
     def _case(self) -> CaseFile | None:

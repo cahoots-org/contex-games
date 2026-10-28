@@ -4,7 +4,7 @@ from random import Random
 import pytest
 
 from sleuth.models import Utterance, Villager
-from sleuth.town import PLACES, STREETS, Town
+from sleuth.town import PLACES, STREETS, Town, neighbours
 
 
 def v(vid, name):
@@ -140,3 +140,13 @@ def test_adding_a_restored_resident_again_keeps_what_they_wore():
     for seed in range(20):
         town.add(v, rng=Random(seed))
         assert town.outfit("v1", 4) == worn
+
+
+def test_residents_bring_up_an_exposure_when_the_person_is_named():
+    town = Town()
+    ada, bo = Villager("v1", "Ada Reyes", "clerk", "calm", "", [], {}), Villager("v2", "Bo Hale", "baker", "calm", "", [], {})
+    town.add(ada)
+    town.add(bo)
+    assert neighbours(town, ada, "Bo again", {"v2": "stole Ada Reyes's bike"}) == [
+        "Bo Hale, the baker, who everyone knows stole Ada Reyes's bike"]
+    assert neighbours(town, ada, "Bo again") == ["Bo Hale, the baker"]

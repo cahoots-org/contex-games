@@ -61,5 +61,13 @@ class Offenders:
             self.active[vid].tier, self.active[vid].escaped = tier, 0
         return vid
 
+    def new_day(self, day: int, rng: Random) -> list[str]:
+        """Each exposed offender done lying low reforms, and stops offending, with reform_chance; returns who did."""
+        reformed = [vid for vid, o in self.active.items()
+                    if vid in self.exposed and o.quiet_until <= day and rng.random() < self.config.reform_chance]
+        for vid in reformed:
+            self.drop(vid)
+        return reformed
+
     def drop(self, vid: str) -> None:
         self.active.pop(vid, None)

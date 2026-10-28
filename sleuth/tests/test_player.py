@@ -18,6 +18,7 @@ from sleuth.cases import CaseFile
 from sleuth.feed import Feed
 from sleuth.game import Game
 from sleuth.lineage import Lineage
+from sleuth.offenders import Offender
 from sleuth.photos import Album, posted
 from sleuth.tests.helpers import PID, FakeEngine, StubJev, StubRoutine, StubWriter
 from sleuth.tests.test_cases import culprit_file, make_cases
@@ -723,7 +724,10 @@ async def test_publish_right_closes_the_case_and_raises_reputation():
     ids = cite(player, file, memory_of(file, player.ids))
     assert await player.publish("v3", ids) is None
     assert (file.state, file.solved_by, file.published) == ("closed", PID, [PID])
-    assert all(regard(engine, v.id) == pytest.approx(player.config.reputation_right) for v in player.town.villagers)
+    config = player.config
+    assert regard(engine, "v1") == pytest.approx(config.reputation_right + config.reputation_ally)
+    assert regard(engine, "v3") == pytest.approx(config.reputation_exposed)
+    assert all(regard(engine, v) == pytest.approx(config.reputation_right) for v in ("v4", "v5", "v6", "v7", "v8"))
     u, listeners, _ = engine.delivered[0]
     assert (u.speaker, u.speaker_name, u.verb) == ("podcast", "A true-crime podcast", "reported")
     assert u.text == "Fay Okafor stole Dana Reyes's bike, and the evidence holds up."
@@ -1316,3 +1320,58 @@ def test_a_photo_saved_with_no_case_open_only_teaches_looks():
     photo = player.engine.album.take(player.town, 1, "evening", {"v1": ["bar"], "v2": ["bar"]}, player.ids)
     assert player.save_photo(photo.id) is None
     assert player.notebook == {} and set(player.known) == {"v1", "v2"}
+
+
+async def expose_fay(player, file, engine):
+    """Publish a held episode naming Fay (v3), an active offender, on day 2."""
+    engine.cases.now = 2.0
+    engine.cases.offenders.active["v3"] = Offender()
+    assert await player.publish("v3", cite(player, file, memory_of(file, player.ids))) is None
+
+
+@pytest.mark.asyncio
+async def test_a_held_petty_episode_exposes_the_culprit_who_stays_in_town():
+    player, file, engine, _ = interviewing()
+    await expose_fay(player, file, engine)
+    offenders = engine.cases.offenders
+    assert "v3" in player.town and offenders.exposed == {"v3": "stole Dana Reyes's bike"}
+    assert offenders.active["v3"].quiet_until == 2 + player.config.exposed_quiet_days
+
+
+@pytest.mark.asyncio
+async def test_the_exposed_culprit_refuses_the_podcaster_who_exposed_them():
+    player, file, engine, writer = interviewing()
+    await expose_fay(player, file, engine)
+    assert regard(engine, "v3") == pytest.approx(player.config.reputation_exposed)
+    refused = await ask(player, "v3", "what_did_you_see")
+    assert isinstance(refused, Refusal) and refused == "Fay Okafor won't talk to you."
+
+
+@pytest.mark.asyncio
+async def test_the_victim_and_household_warm_to_the_podcaster():
+    player, file, engine, _ = interviewing()
+    await expose_fay(player, file, engine)
+    config = player.config
+    assert regard(engine, "v1") == regard(engine, "v2") == pytest.approx(config.reputation_right + config.reputation_ally)
+    assert regard(engine, "v5") == pytest.approx(config.reputation_right)
+
+
+@pytest.mark.asyncio
+async def test_the_victim_thanks_the_podcaster_on_the_app():
+    player, file, engine, _ = interviewing()
+    await expose_fay(player, file, engine)
+    [thanks] = [e for e in player.feed.recent if e.kind == "post" and e.data["speaker"] == "Dana Reyes"]
+    assert thanks.data["text"] == "Got my bike back thanks to that podcast!" and thanks.data["case_id"] == file.crime.id
+
+
+@pytest.mark.asyncio
+async def test_an_exposed_resident_is_touchy_with_other_podcasters():
+    player, file, engine, writer = interviewing()
+    await expose_fay(player, file, engine)
+    rival = run_of(player, "p-2")
+    rival.writer, rival.place = writer, "elm street"
+    await ask(rival, "v3", "none")
+    assert writer.notes[-1] == ["Everyone knows you stole Dana Reyes's bike. You're touchy about it."]
+    engine.reputation.nudge("v3", PID, 1.0)
+    await ask(player, "v3", "none")
+    assert writer.notes[-1] == ["This podcaster exposed you for stole Dana Reyes's bike. You're cold with them."]

@@ -144,13 +144,15 @@ class Town:
         return [v for v in self._villagers.values() if needle in v.name.lower()]
 
 
-def neighbours(town: Town, villager: Villager, text: str) -> list[str]:
-    """Who the text names among the villager's neighbours, by trade and how the villager knows them."""
+def neighbours(town: Town, villager: Villager, text: str, exposed: dict[str, str] = {}) -> list[str]:
+    """Who the text names among the villager's neighbours, by trade, how the villager knows them and what everyone knows
+    they did."""
     named = []
     for v, gone in [*((v, False) for v in town.villagers), *((v, True) for v in town.departed)]:
         if v.id == villager.id or not re.search(rf"\b{re.escape(v.name.split()[0])}\b", text, re.IGNORECASE):
             continue
         tie = villager.relationships.get(v.id)
         named.append(f"{v.name}, the {v.occupation}" + (f" (your {tie})" if tie else "")
-                     + (", who has left town" if gone else ""))
+                     + (", who has left town" if gone else "")
+                     + (f", who everyone knows {exposed[v.id]}" if v.id in exposed else ""))
     return named

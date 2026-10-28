@@ -44,3 +44,14 @@ def test_a_tier_nobody_holds_takes_the_offender_below_with_the_most_escapes():
     assert offenders.promote("major") == "v1" and offenders.promote("major") is None
     offenders.drop("v1")
     assert "v1" not in offenders.active
+
+
+def test_an_exposed_offender_rests_then_reforms_or_may_reoffend():
+    for chance, reformed in ((1.0, ["v1"]), (0.0, [])):
+        offenders = Offenders(Config(reform_chance=chance))
+        offenders.active.update({"v1": Offender(quiet_until=3), "v2": Offender()})
+        offenders.exposed["v1"] = "stole Dana Reyes's bike"
+        assert offenders.new_day(2, Random(0)) == []
+        assert offenders.new_day(3, Random(0)) == reformed
+        assert ("v1" in offenders.active) == (not reformed) and "v2" in offenders.active
+    assert offenders.ready(3, "petty") == {"v1", "v2"}

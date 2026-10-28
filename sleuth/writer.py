@@ -148,12 +148,12 @@ class Writer:
 
     async def reply(
         self, villager: Villager, case: str, question: str, thread: Sequence[dict], facts: Sequence[str],
-        known: Sequence[str] = (), now: str = "", when: str = "",
+        known: Sequence[str] = (), now: str = "", when: str = "", notes: Sequence[str] = (),
     ) -> str:
         """The resident replying to the podcaster's latest question in one line, from the facts alone.
 
         thread holds the earlier exchanges; known describes the neighbours the case names; when is when the case
-        happened, said on now.
+        happened, said on now; each note is something the resident feels about the podcaster or themselves.
         """
         answer = (
             "Reply to their latest question in one or two short sentences in your own voice, using only these facts. "
@@ -176,6 +176,7 @@ class Writer:
         lines = [f"The case: {case}", *_timing(now, when)]
         if known:
             lines.append("Neighbours you know: " + "; ".join(known))
+        lines += notes
         lines += [f"Podcaster: {t['podcaster']}\nYou: {t['resident']}" for t in thread]
         lines.append(f"Podcaster: {question}")
         if facts:

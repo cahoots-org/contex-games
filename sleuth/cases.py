@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from random import Random
 
 from sleuth.case import (
-    WHEN, Crime, Record, camera_clip, crime_title, discovery, found_it, logs, make_solvable, scene_clues, stage_crime, told,
+    CRIMES, WHEN, Crime, Record, camera_clip, crime_title, discovery, found_it, logs, make_solvable, scene_clues, stage_crime, told,
     witness_memories,
 )
 from sleuth.config import Config
@@ -20,6 +20,7 @@ log = logging.getLogger(__name__)
 
 APP = "The neighborhood app"
 COLD = "The case went cold. It was {name}."
+THANKS = "Got my {item} back thanks to that podcast!"
 # How many crimes are drawn in one go for a solvable one.
 DRAWS = 10
 
@@ -127,6 +128,37 @@ class Cases:
         """Close a case, solved or not."""
         file.state, file.solved_by = "closed", solved_by
 
+    async def on_held(self, engine, file: CaseFile, player_id: str) -> None:
+        """A held episode closes the case and wins the town's regard; a petty culprit is exposed, and the next case
+        opens."""
+        crime = file.crime
+        self.close(file, player_id)
+        engine.feed.on_case_closed(crime.id, "")
+        town = [v.id for v in self.town.villagers if v.id != crime.culprit]
+        engine.reputation.nudge_all(player_id, self.config.reputation_right, town)
+        if crime.tier == "petty":
+            self._expose(engine, file, player_id)
+        await self.ensure(engine)
+
+    def on_wrong(self, engine, file: CaseFile, player_id: str, accused: str) -> None:
+        """A wrong episode costs the town's regard, and the accused's most of all."""
+        engine.reputation.nudge_all(player_id, self.config.reputation_wrong, [v.id for v in self.town.villagers])
+        engine.reputation.nudge(accused, player_id, self.config.reputation_accused)
+
+    def _expose(self, engine, file: CaseFile, player_id: str) -> None:
+        """The town learns what the culprit did, and they lie low, cold to the podcaster; the victim's household warms
+        to the podcaster, and the victim says thanks on the app."""
+        crime, config = file.crime, self.config
+        victim = self.town.get(crime.victim)
+        self.offenders.exposed[crime.culprit] = f"{CRIMES[crime.template].did} {victim.name}'s {crime.item}"
+        if offender := self.offenders.active.get(crime.culprit):
+            offender.quiet_until = int(self.now) + config.exposed_quiet_days
+        engine.reputation.nudge(crime.culprit, player_id, config.reputation_exposed)
+        household = {victim.id, *(v.id for v in self.town.villagers if victim.household and v.household == victim.household)}
+        engine.reputation.nudge_all(player_id, config.reputation_ally, household)
+        thanks = Utterance("", victim.id, victim.name, crime.place, THANKS.format(item=crime.item), None, "posted")
+        engine.feed.on_post(thanks, crime.id)
+
     def brief(self, feed, player_id: str, today: float | None) -> None:
         """Tell a player just off the practice case the town's open case and, unless the feed still replays it, its
         news."""
@@ -164,8 +196,11 @@ class Cases:
         self.town.dress(day, self.rng, self.cautious(day), math.ceil(self.config.case_days) + 2)
 
     async def on_tick(self, engine, day: int, phase: str, finished: dict[str, list[str]]) -> None:
-        """Dress the town, let old cases go cold, and open a new shared case when none is open."""
+        """Dress the town, let exposed offenders reform of a morning, let old cases go cold, and open a new shared case
+        when none is open."""
         self.dress(day)
+        if phase == "morning":
+            self.offenders.new_day(day, self.rng)
         now = self.now = day + PHASES.index(phase) / len(PHASES)
         self.finished = finished
         for case in [f for f in self.files.values() if f.state == "open"]:

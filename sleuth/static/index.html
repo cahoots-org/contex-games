@@ -201,6 +201,7 @@ select, input[type="text"], input[type="search"] {
 .role.victim { border: 1px solid var(--danger); color: var(--danger); }
 .role.witness { background: var(--mark); color: var(--ink); }
 .role.nearby { border: 1px solid var(--edge); color: var(--muted); font-weight: 400; }
+.role.known { border: 1px dashed var(--danger); color: var(--muted); font-weight: 400; }
 .face { display: inline-block; flex: none; line-height: 0; }
 .face canvas {
   width: 30px; height: 30px; border-radius: 6px; image-rendering: pixelated;
@@ -1016,6 +1017,8 @@ function person(v, role, nearby) {
   }, faceWith(v), el("span", { className: "who" }, el("b", { textContent: v.name }),
     tag ? el("span", { className: `role ${tag}`, textContent: tag,
       title: tag === NEARBY ? "Usually at the scene at that time of day" : "" }) : null,
+    v.known_for ? el("span", { className: "role known", textContent: "exposed",
+      title: `Everyone knows they ${v.known_for}` }) : null,
     el("small", { textContent: v.looks || v.occupation }))));
 }
 
@@ -1031,7 +1034,7 @@ $("find").addEventListener("keydown", (ev) => {
 
 // The residents' list changes only when someone arrives or leaves or their looks are learned, not when they move.
 function setResidents(list) {
-  const key = list.map((v) => `${v.id}:${v.name}:${v.looks}`).join("|");
+  const key = list.map((v) => `${v.id}:${v.name}:${v.looks}:${v.known_for}`).join("|");
   if (key === residentsKey) return;
   residents = list;
   residentsKey = key;
@@ -1076,6 +1079,7 @@ function drawConvo(body) {
     el("dt", { textContent: "Looks" }),
     ...(body.known.length ? body.known.map((k) => el("dd", { textContent: `${k.looks} (${k.how})` }))
       : [el("dd", { textContent: "Unknown. Talk to them, ask someone who knows them, or save a photo they're in." })]),
+    ...(v.known_for ? [el("dt", { textContent: "Known for" }), el("dd", { textContent: capital(v.known_for) })] : []),
     el("dt", { textContent: "Personality" }), el("dd", { textContent: body.personality }),
     ...(body.grudge ? [el("dt", { textContent: "Grudge" }), el("dd", { textContent: body.grudge })] : []),
     ...(body.household.length ? [el("dt", { textContent: "Household" }), el("dd", {}, ...list(body.household))] : []),
