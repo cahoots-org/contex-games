@@ -1,0 +1,1766 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<title>Sleuth</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,500;1,400&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+:root {
+  --limewash: #eef0ea;
+  --plaster: #e2e6dd;
+  --slate: #23302e;
+  --lichen: #55654f;
+  --woad: #2f5d8a;
+  --weld: #f0d873;
+  --rail: #b9c3b5;
+  --edge: #76836f;
+  --danger: #9b2c2c;
+  --bg: var(--limewash);
+  --panel: var(--plaster);
+  --ink: var(--slate);
+  --muted: var(--lichen);
+  --accent: var(--woad);
+  --mark: var(--weld);
+  --on-accent: #ffffff;
+  --face-edge: rgb(35 48 46 / .3);
+  --on-mark: #fff;
+  --serif: "Alegreya", Georgia, "Times New Roman", serif;
+  --ui: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a2226;
+    --panel: #222c31;
+    --ink: #dce3dc;
+    --muted: #9aab99;
+    --accent: #8fb4de;
+    --mark: #6a5714;
+    --rail: #3f4d50;
+    --edge: #6b7a7c;
+    --danger: #f19a9a;
+    --on-accent: #10202f;
+    --face-edge: rgb(255 255 255 / .3);
+    --on-mark: #1a2226;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.5 var(--ui); }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+h2 { font: 500 1.2rem/1.2 var(--serif); margin: 0; }
+
+/* Three columns under the header: the case and notebook, quiet on the left; the conversation, the stage, in the
+   middle; people to pick from on the right. */
+.app {
+  display: grid;
+  --desk: 17rem;
+  grid-template-columns: var(--desk) minmax(0, 1fr) 16rem;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100dvh;
+}
+header {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: .5rem 1rem; min-width: 0;
+  padding: .35rem 1rem .35rem 1.1rem; border-bottom: 1px solid var(--rail);
+}
+/* The name fills the case rail's column, so the title's rule continues the rail's edge. */
+h1 { flex: none; width: calc(var(--desk) - 2.1rem - 1px); font: 500 1.5rem/1.2 var(--serif); margin: 0; }
+.headline { display: flex; align-items: baseline; gap: .6rem; min-width: 0; margin: 0; padding-left: 1rem; border-left: 1px solid var(--rail); }
+.case-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 500 1.2rem/1.3 var(--serif); }
+.when { flex: none; color: var(--muted); font-size: .9rem; white-space: nowrap; }
+.clock { margin: 0 0 0 auto; font-size: .9rem; white-space: nowrap; color: var(--muted); }
+/* The connection says something only when it is lost. */
+.conn { font-size: .875rem; color: var(--danger); }
+.conn:not([data-state="down"]) { display: none; }
+
+/* The rails: narrow, on the panel color, each scrolling on its own. */
+.rail { overflow-y: auto; min-height: 0; background: var(--panel); }
+.desk { display: flex; flex-direction: column; gap: 1.5rem; padding: 1.1rem 1.1rem 0; border-right: 1px solid var(--rail); }
+.rail-foot {
+  position: sticky; bottom: 0; margin: auto -1.1rem 0; padding: .75rem 1.1rem 1rem;
+  background: var(--panel); border-top: 1px solid var(--rail);
+}
+.rail-foot .plain-button { width: 100%; min-height: 40px; }
+.standing { margin: .5rem 0 0; font-size: .8rem; color: var(--muted); }
+.tips { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: 0 0 .6rem; font-size: .8rem; }
+.tips [aria-pressed="true"] { font-weight: 600; }
+.case-text { margin: 0; font: .95rem/1.5 var(--serif); }
+.resting { margin: .75rem 0 0; padding: .45rem .75rem; border-radius: 4px; font-size: .85rem; border: 1px solid var(--edge); color: var(--muted); }
+.primary {
+  background: var(--accent); color: var(--on-accent); border: 0; border-radius: 6px;
+  padding: .45rem 1.1rem; font-weight: 700; cursor: pointer;
+}
+.primary:disabled { opacity: .6; cursor: progress; }
+.plain-button {
+  background: none; color: var(--accent); border: 1px solid var(--accent); border-radius: 6px;
+  padding: .35rem .85rem; font-weight: 700; cursor: pointer;
+}
+.linkish { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; }
+/* Publishing: the case rail takes over the stage as one composer, the culprit on top, the notebook to cite, then send
+   or cancel. */
+.citing .stage, .citing .rail-foot { display: none; }
+.citing .desk { grid-column: 1 / 3; align-items: center; padding-top: 1.75rem; background: var(--bg); }
+.citing .desk > * { width: min(100%, 40rem); }
+.publish, .send { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
+.publish { margin: 1.25rem 0 0; }
+.publish label { flex-basis: 100%; font: 500 1.6rem/1.2 var(--serif); }
+.publish select { font-size: 1.05rem; }
+.send { position: sticky; bottom: 0; margin-top: auto; padding: .75rem 0 1rem; background: var(--bg); border-top: 1px solid var(--rail); }
+.send p { flex-basis: 100%; margin: 0; font-size: .9rem; color: var(--muted); }
+.send p.error { color: var(--danger); }
+select, input[type="text"], input[type="search"] {
+  background: var(--bg); border: 1px solid var(--edge); border-radius: 6px; padding: .4rem .6rem; min-width: 0;
+}
+.status { margin: .3rem 0 0; min-height: 1.25rem; font-size: .85rem; color: var(--muted); }
+.status.error { color: var(--danger); }
+.status:empty { min-height: 0; margin: 0; }
+
+/* The notebook: each kind over its entries, ruled down the margin, newest entry first. */
+.book h2 { font-size: 1.05rem; }
+.group { margin-top: .7rem; }
+.group h3 { margin: 0; font: italic 400 .95rem/1.3 var(--serif); color: var(--muted); }
+.group ol { list-style: none; margin: .2rem 0 0; padding: 0 0 0 .6rem; border-left: 1px solid color-mix(in srgb, var(--danger) 45%, transparent); }
+.group-note { margin: .1rem 0 0; font-size: .75rem; color: var(--muted); }
+.group li { padding: .3rem 0; font-size: .85rem; line-height: 1.4; }
+.group li + li { border-top: 1px dashed var(--rail); }
+.group label { display: flex; gap: .5rem; align-items: flex-start; }
+.group input { display: none; margin-top: .2rem; flex: none; }
+.citing .group input { display: block; }
+.citing .group label { cursor: pointer; }
+.by { color: var(--muted); }
+.empty { margin: .5rem 0 0; color: var(--muted); font-size: .9rem; }
+
+/* The header's tools: where you are, the app and the district map, each opening its own panel. */
+.tools { display: flex; align-items: center; gap: .25rem; margin-left: .5rem; }
+.tool {
+  position: relative; display: inline-flex; align-items: center; gap: .4rem; min-height: 40px; max-width: 16rem;
+  padding: .3rem .65rem; background: none; border: 1px solid transparent; border-radius: 8px; cursor: pointer;
+}
+.tool:hover, .tool[aria-expanded="true"] { background: var(--panel); border-color: var(--rail); }
+.tool svg { flex: none; width: 1.15rem; height: 1.15rem; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linejoin: round; }
+.tool .pin { fill: var(--danger); stroke: none; }
+.tool .label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: .9rem; }
+.tool .count { min-width: 1.2rem; padding: 0 .3rem; border-radius: 1rem; background: var(--danger); color: var(--bg); font-size: .72rem; text-align: center; }
+.tool.can-act::after { content: ""; position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+#replay { margin-left: .5rem; font-size: .85rem; }
+
+/* The place panel: a card under the header's place button, what can be done here first. */
+.pop {
+  position: fixed; inset: 3.4rem 1rem auto auto; z-index: 3; width: min(20rem, calc(100% - 2rem)); margin: 0;
+  padding: .9rem 0 .4rem; background: var(--bg); color: var(--ink);
+  border: 1px solid var(--edge); border-radius: 10px; box-shadow: 0 10px 28px rgb(20 28 30 / .22);
+}
+.pop h2 { margin: 0 1rem; font-size: 1.05rem; }
+.pop .acts { display: flex; gap: .5rem; margin: .6rem 1rem 0; }
+.pop .acts:not(:has(:not([hidden]))) { display: none; }
+.pop .status { margin: .4rem 1rem 0; }
+.place-list { max-height: min(26rem, 60vh); overflow-y: auto; margin: .5rem 0 0; padding: .3rem 0 0; list-style: none; border-top: 1px solid var(--rail); }
+.place-list:focus { outline: none; }
+.place-list:focus-visible li.active { outline: 2px solid var(--accent); outline-offset: -2px; }
+.place-list li { display: flex; align-items: center; gap: .4rem; padding: .4rem 1rem .4rem 2rem; white-space: nowrap; cursor: pointer; }
+.place-list li:hover, .place-list li.active { background: var(--panel); }
+.place-list li.active { box-shadow: inset 3px 0 var(--accent); }
+.place-list [aria-selected="true"] { font-weight: 700; }
+.place-list .scene { margin-bottom: .3rem; border-bottom: 1px solid var(--rail); }
+.place-list .pin { margin-left: -1.4rem; }
+.pin { width: 1rem; height: 1rem; flex: none; fill: var(--danger); }
+.role.scene { margin-left: .1rem; background: var(--danger); color: var(--bg); }
+
+/* The district map: crime and fear as three pips each. */
+.districts { list-style: none; margin: .75rem 0 0; padding: 0; font-size: .9rem; color: var(--muted); }
+.districts li { display: grid; grid-template-columns: minmax(0, 1fr) 4rem 4rem; gap: 0 .75rem; padding: .5rem 0; border-top: 1px solid var(--rail); }
+.districts .head { border-top: 0; padding: 0 0 .2rem; font-size: .8rem; }
+.districts small { display: block; font-style: italic; }
+.d-name { color: var(--ink); }
+.pips { display: inline-flex; align-items: center; gap: 3px; }
+.pips i { width: .55rem; height: .55rem; border-radius: 50%; border: 1px solid var(--edge); }
+.pips.crime i.on { background: var(--danger); border-color: var(--danger); }
+.pips.fear i.on { background: var(--accent); border-color: var(--accent); }
+.pips b { font-weight: 400; margin-left: .2rem; }
+
+/* The neighborhood app: closed behind one control, opened as a panel on the right, or a sheet from the bottom on a
+   phone; one feed, newest first, of news, what residents say, and their photo posts with faces, caption and Save. */
+.sheet {
+  margin: 0 0 0 auto; width: min(28rem, 100%); height: 100%; max-width: none; max-height: none; padding: 1rem 1.25rem;
+  background: var(--bg); color: var(--ink); border: solid var(--edge); border-width: 0 0 0 1px;
+}
+.sheet::backdrop { background: rgb(20 28 30 / .4); }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; }
+.sheet-head button { min-height: 44px; }
+.feed { list-style: none; margin: .5rem 0 0; padding: 0; font-size: .9rem; }
+.feed li { padding: .5rem 0; border-top: 1px solid var(--rail); overflow-wrap: anywhere; }
+.feed .quiet { color: var(--muted); }
+.feed .loud { font-weight: 700; }
+.feed .post { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .25rem .75rem; }
+.feed .post > b { grid-column: 1 / -1; font-weight: 400; }
+.feed .faces { display: flex; gap: .25rem; grid-row: span 2; align-self: start; }
+.feed .status { margin-top: .2rem; }
+.feed p { margin: 0; }
+.feed .plain-button { justify-self: start; padding: .2rem .7rem; font-size: .85rem; }
+.feed .plain-button:disabled { color: var(--muted); border-color: var(--edge); cursor: default; }
+.face.big canvas { width: 44px; height: 44px; }
+
+/* The right rail: people to pick from. */
+.side { display: flex; flex-direction: column; border-left: 1px solid var(--rail); }
+.people { display: flex; flex-direction: column; min-height: 0; flex: 1; padding: 1rem 0 0; }
+.people > h2, .people > input, .people > .status { margin-left: .9rem; margin-right: .9rem; }
+.people h2 { font-size: 1.05rem; }
+.people input { margin-top: .5rem; }
+.people .status { margin-top: .15rem; min-height: 0; }
+.list { list-style: none; margin: .5rem 0 0; padding: 0; flex: 1; }
+.person {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .6rem;
+  width: 100%; padding: .4rem .9rem; text-align: left;
+  background: none; border: 0; border-top: 1px solid var(--rail); cursor: pointer;
+}
+.person:hover { background: var(--bg); }
+.person[aria-current="true"] { background: var(--bg); box-shadow: inset 3px 0 var(--accent); }
+.who { min-width: 0; line-height: 1.3; font-size: .9rem; }
+.who small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-size: .78rem; }
+.role { margin-left: .4rem; padding: 0 .35rem; border-radius: 3px; font-size: .7rem; font-weight: 700; vertical-align: .1rem; }
+.role.victim { border: 1px solid var(--danger); color: var(--danger); }
+.role.witness { background: var(--mark); color: var(--ink); }
+.role.nearby { border: 1px solid var(--edge); color: var(--muted); font-weight: 400; }
+.role.known { border: 1px dashed var(--danger); color: var(--muted); font-weight: 400; }
+.role.tier { flex: none; border: 1px solid var(--edge); color: var(--muted); }
+.face { display: inline-block; flex: none; line-height: 0; }
+.face canvas, .portrait canvas {
+  width: 30px; height: 30px; border-radius: 6px; image-rendering: pixelated;
+  outline: 1px solid var(--face-edge); outline-offset: -1px;
+}
+
+/* The stage: whoever you are talking to, large, their words the loudest thing on the page. */
+.stage { display: flex; justify-content: center; min-height: 0; padding: 0 2rem; }
+.pick, .talk { display: flex; flex-direction: column; width: 100%; max-width: 40rem; min-height: 0; }
+.who-head { display: flex; align-items: flex-end; gap: 1.25rem; padding: 1.75rem 0 1rem; border-bottom: 1px solid var(--rail); }
+.portrait canvas { display: block; width: 132px; height: 132px; border-radius: 12px; }
+.talk h2 { font-size: 2.1rem; line-height: 1.1; }
+.talk .meta { margin: .3rem 0 0; color: var(--muted); }
+.talk .meta:empty { display: none; }
+.about { font-size: .85rem; }
+.about summary { color: var(--accent); cursor: pointer; margin-top: .3rem; }
+.about dl { margin: .25rem 0 0; max-height: 12rem; overflow-y: auto; }
+.about dt { color: var(--muted); font-size: .8rem; }
+.about dd { margin: 0 0 .3rem; }
+/* Earlier exchanges small and quiet above; the latest reply large, just over the question box. */
+.thread { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; list-style: none; margin: 0; padding: 1rem 0 .5rem; }
+.thread li:first-child { margin-top: auto; }
+.thread li { padding: .45rem 0; color: var(--muted); }
+.thread p { margin: 0; }
+.you { font-size: .85rem; color: var(--muted); }
+.said { margin-top: .1rem; font: 1.05rem/1.5 var(--serif); }
+.thread li:last-child { padding-top: 1rem; color: var(--ink); }
+.thread li:last-child .said { margin-top: .35rem; font-size: 1.75rem; line-height: 1.35; }
+.thread [data-none] { font: italic 1.2rem/1.4 var(--serif); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* "Noted" on a reply that added to the notebook; what it added shows while the marker is hovered or focused. */
+.noted { margin-top: .3rem; font-size: .8rem; color: var(--muted); }
+.noted span { cursor: help; color: var(--accent); font-weight: 700; }
+.noted span + span {
+  display: block; margin-top: .15rem; padding-left: .6rem; border-left: 2px solid var(--accent);
+  color: var(--muted); font-weight: 400; white-space: pre-line; cursor: auto;
+}
+/* Hidden from sight, not from screen readers, until shown. */
+.noted:not(:hover) span:not(:focus) + span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.ask { display: flex; gap: .5rem; margin: .5rem 0 0; padding: .4rem; border: 2px solid var(--accent); border-radius: 12px; background: var(--bg); }
+.ask input { flex: 1; border: 0; background: none; font-size: 1.1rem; padding: .45rem .6rem; }
+.ask input:focus-visible { outline: none; }
+.ask:focus-within { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.talk > .status { margin-bottom: 1.25rem; }
+.talk > .status:empty { min-height: 1.25rem; margin: 0 0 1rem; }
+
+/* With nobody picked, the stage asks who to start with. */
+.pick { justify-content: center; padding-bottom: 4rem; }
+.pick h2 { font-size: 2.1rem; line-height: 1.15; }
+.pick > p { margin: .5rem 0 0; color: var(--muted); }
+.leads { list-style: none; margin: 1.5rem 0 0; padding: 0; display: grid; gap: .6rem; }
+.lead {
+  display: flex; align-items: center; gap: 1rem; width: 100%; padding: .75rem 1rem; text-align: left;
+  background: var(--panel); border: 1px solid var(--rail); border-radius: 12px; cursor: pointer;
+}
+.lead:hover { border-color: var(--accent); }
+.lead .face canvas { width: 60px; height: 60px; border-radius: 8px; }
+.lead .who { font-size: 1.1rem; }
+.lead .who small { font-size: .85rem; }
+
+/* The tutorial layer: its own raised cards over the game, never part of it, and a ring on what the current step needs. */
+.tut {
+  --tut-bg: #1d2725; --tut-ink: #f3f1e4; --tut-mark: #f0c45a;
+  background: var(--tut-bg); color: var(--tut-ink); border: 2px solid var(--tut-mark); border-radius: 10px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / .35);
+}
+.tut-tag { margin: 0; color: var(--tut-mark); font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.tut .tut-skip { background: none; border: 0; padding: 0; color: var(--tut-ink); text-decoration: underline; font-size: .85rem; cursor: pointer; }
+.tut .tut-go { background: var(--tut-mark); color: var(--tut-bg); border: 0; border-radius: 6px; padding: .55rem 1.3rem; font-weight: 700; cursor: pointer; }
+.tut :focus-visible { outline-color: var(--tut-mark); }
+/* The intro and the handoff: a tutorial card in the middle of the dimmed page. */
+.tut-modal { width: min(34rem, calc(100% - 2rem)); padding: 1.25rem 1.4rem 1.4rem; }
+.tut-modal::backdrop { background: rgb(20 28 30 / .78); }
+.tut-modal h2 { margin: .35rem 0 .75rem; font-size: 1.7rem; color: var(--tut-ink); }
+.tut-modal ol { margin: 0 0 1.25rem; padding-left: 1.3rem; font: 1.1rem/1.45 var(--serif); }
+.tut-modal li + li { margin-top: .5rem; }
+.tut-modal li::marker { color: var(--tut-mark); font: 700 .9rem var(--ui); }
+#handoff ol { list-style: none; padding-left: 0; }
+.coach { position: fixed; top: 0; left: 0; z-index: 5; width: 19rem; padding: .7rem .9rem .75rem; }
+.coach b { display: block; margin-top: .3rem; font: 500 1.1rem/1.3 var(--serif); }
+.coach p#coach-why { margin: .25rem 0 .6rem; font-size: .85rem; opacity: .85; }
+.coach #coach-next { margin-right: .9rem; }
+.coach .tut-back {
+  margin-right: .5rem; background: none; color: var(--tut-ink); border: 1px solid var(--tut-mark); border-radius: 6px;
+  padding: calc(.55rem - 1px) 1rem; font-weight: 700; cursor: pointer;
+}
+.coach:focus { outline: none; }
+.coach::before {
+  content: ""; position: absolute; width: 12px; height: 12px; background: var(--tut-mark); transform: rotate(45deg);
+}
+.coach[data-side="below"]::before { top: -7px; left: calc(var(--arrow) - 6px); }
+.coach[data-side="above"]::before { bottom: -7px; left: calc(var(--arrow) - 6px); }
+.coach[data-side="left"]::before { right: -7px; top: calc(var(--arrow) - 6px); }
+.coach[data-side="right"]::before { left: -7px; top: calc(var(--arrow) - 6px); }
+.coach[data-side="bottom"], .coach[data-side="top"] { top: auto; left: auto; right: 1rem; bottom: 1rem; }
+.coach[data-side="top"] { top: 1rem; bottom: auto; }
+.coach[data-side="bottom"]::before, .coach[data-side="top"]::before { display: none; }
+/* The page under a step card is dimmed and closed, apart from a cutout around what the step needs. */
+.mask { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100lvh; z-index: 4; pointer-events: none; }
+.mask svg { display: block; width: 100%; height: 100%; }
+.mask path { fill: rgb(20 28 30 / .78); fill-rule: evenodd; pointer-events: auto; }
+.lit { outline: 3px solid #f0c45a; outline-offset: 2px; box-shadow: 0 0 0 6px rgb(240 196 90 / .3); }
+.person.lit { outline-offset: -3px; box-shadow: inset 0 0 0 6px rgb(240 196 90 / .3); }
+@media (prefers-reduced-motion: no-preference) {
+  .lit { animation: beckon 1.6s ease-in-out infinite; }
+  @keyframes beckon { 50% { outline-color: rgb(240 196 90 / .45); } }
+}
+
+/* Narrower: the stage is the whole page, and the case and people slide in as drawers from header buttons. */
+.drawer-open { display: none; }
+@media (max-width: 900px) {
+  .app { grid-template-columns: minmax(0, 1fr); height: calc(100dvh - var(--dock, 0px)); }
+  .drawer-open { display: inline-flex; }
+  h1 { width: auto; }
+  .headline { margin-left: .75rem; }
+  .rail {
+    position: fixed; top: 0; bottom: 0; z-index: 3; width: min(20rem, 86vw); visibility: hidden;
+    box-shadow: 0 0 0 100vmax rgb(20 28 30 / 0); transition: transform .2s ease-out, box-shadow .2s, visibility 0s .2s;
+  }
+  .rail:focus { outline: none; }
+  .desk { left: 0; transform: translateX(-100%); }
+  .side { right: 0; transform: translateX(100%); }
+  .rail.open { visibility: visible; transform: none; box-shadow: 0 0 0 100vmax rgb(20 28 30 / .45); transition: transform .2s ease-out, box-shadow .2s; }
+  .citing .desk { width: 100%; padding: 1rem 16px 0; }
+  .stage { grid-column: 1; padding: 0 1.25rem; }
+}
+@media (max-width: 900px) and (prefers-reduced-motion: reduce) {
+  .rail, .rail.open { transition: none; }
+}
+/* A phone: the header on two rows, the case and people buttons either side of the case's title. */
+@media (max-width: 600px) {
+  header { flex-wrap: wrap; gap: 0 .25rem; padding: .25rem .5rem .35rem; }
+  h1 { display: none; }
+  .headline { order: 1; flex: 1 1 calc(100% - 7rem); flex-wrap: wrap; gap: 0 .5rem; margin: 0; padding: 0 .25rem; border: 0; }
+  .case-title { font-size: 1.1rem; }
+  #case-open { order: 0; }
+  #people-open { order: 2; }
+  .clock { order: 3; flex: 1; margin: 0; padding-left: .6rem; font-size: .85rem; }
+  .tools { order: 4; margin: 0; }
+  .conn { order: 5; flex-basis: 100%; padding-left: .6rem; }
+  .tool { min-height: 44px; min-width: 44px; justify-content: center; }
+  .tool .label { display: none; }
+  .stage { padding: 0 16px; }
+  .who-head { gap: 1rem; padding: 1rem 0 .75rem; }
+  .portrait canvas { width: 96px; height: 96px; }
+  .talk h2, .pick h2 { font-size: 1.6rem; }
+  .thread li:last-child .said { font-size: 1.4rem; }
+  .pick { padding-bottom: 2rem; }
+  .ask input { font-size: 1rem; }
+  .person { min-height: 48px; }
+  .pop {
+    inset: auto 0 0 0; z-index: 3; width: 100%; max-height: 75dvh; flex-direction: column;
+    padding-bottom: max(.5rem, env(safe-area-inset-bottom)); border-radius: 14px 14px 0 0; border-width: 1px 0 0;
+    box-shadow: 0 0 0 100vmax rgb(20 28 30 / .5);
+  }
+  .pop[open] { display: flex; }
+  .place-list { flex: 1; min-height: 0; max-height: none; }
+  .place-list li { min-height: 48px; padding-left: 2.5rem; }
+  .coach { z-index: 8; width: calc(100% - 32px); }
+  .sheet {
+    margin: auto 0 0; width: 100%; height: auto; max-height: 80dvh;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom)); border-width: 1px 0 0; border-radius: 14px 14px 0 0;
+  }
+}
+</style>
+</head>
+<body>
+<dialog class="tut tut-modal" id="intro" aria-labelledby="intro-title">
+  <p class="tut-tag" id="intro-tag">Tutorial</p>
+  <h2 id="intro-title">Sleuth</h2>
+  <ol>
+    <li>You're a true-crime podcaster in a small town.</li>
+    <li>Something just happened. Talk to people and gather evidence.</li>
+    <li>When you know who did it, publish an episode naming them.</li>
+  </ol>
+  <form method="dialog"><button class="tut-go" autofocus>Start your first case</button></form>
+</dialog>
+<dialog class="tut tut-modal" id="handoff" aria-label="Your next case">
+  <p class="tut-tag" id="handoff-tag">Tutorial complete</p>
+  <h2 id="handoff-head"></h2>
+  <ol id="handoff-cards"></ol>
+  <form method="dialog"><button class="tut-go" autofocus>Take the case</button></form>
+</dialog>
+<dialog class="sheet" id="app-panel" aria-labelledby="app-title">
+  <div class="sheet-head">
+    <h2 id="app-title">Neighborhood app</h2>
+    <form method="dialog"><button class="linkish">Close</button></form>
+  </div>
+  <ol class="feed" id="feed" aria-label="Neighborhood app, newest first"></ol>
+</dialog>
+<dialog class="sheet" id="map-panel" aria-labelledby="districts-title">
+  <div class="sheet-head">
+    <h2 id="districts-title">Districts</h2>
+    <form method="dialog"><button class="linkish">Close</button></form>
+  </div>
+  <ol class="districts" id="district-rows" aria-label="Crime and fear by district"></ol>
+</dialog>
+<div class="app" id="app">
+  <header>
+    <button type="button" class="tool drawer-open" id="case-open" aria-controls="desk" aria-expanded="false" aria-label="Case and notebook"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg></button>
+    <h1>Sleuth</h1>
+    <p class="headline"><b class="case-title" id="case-title">Quiet day in town</b><span class="when" id="case-when"></span><span class="role tier" id="case-tier" hidden></span></p>
+    <p class="clock" id="clock"></p>
+    <span class="conn" id="conn" data-state="connecting" role="status">Connecting</span>
+    <nav class="tools" aria-label="Town">
+      <button type="button" class="tool" id="here" aria-haspopup="dialog" aria-expanded="false" aria-controls="places"></button>
+      <button type="button" class="tool" id="app-open" aria-haspopup="dialog" aria-controls="app-panel" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg><span class="label">Neighborhood app</span><b class="count" id="app-count" hidden></b></button>
+      <button type="button" class="tool" id="map-open" aria-haspopup="dialog" aria-controls="map-panel" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg><span class="label">Districts</span></button>
+      <button type="button" class="linkish" id="replay">Tutorial</button>
+    </nav>
+    <button type="button" class="tool drawer-open" id="people-open" aria-controls="side" aria-expanded="false" aria-label="People"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20c.5-4 3-6 6.5-6s6 2 6.5 6M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14c2 .7 3.2 2.6 3.5 6"/></svg></button>
+  </header>
+  <dialog class="pop" id="places" aria-labelledby="places-title">
+    <h2 id="places-title">Where you are</h2>
+    <div class="acts">
+      <button type="button" class="plain-button" id="search-here" hidden>Search here</button>
+      <button type="button" class="plain-button" id="pull-here" hidden>Pull records</button>
+    </div>
+    <p class="status" id="where-status" role="status"></p>
+    <ul class="place-list" id="place-list" role="listbox" aria-label="Where to go" tabindex="-1"></ul>
+  </dialog>
+
+  <aside class="rail desk" id="desk" aria-label="Your case" data-opener="case-open" tabindex="-1">
+    <section class="case" id="case" aria-label="The case">
+      <div class="tips" id="tips" role="group" aria-label="Your tips" hidden></div>
+      <p class="case-text" id="case-text">Something's bound to happen soon.</p>
+      <p class="resting" id="resting" role="status" hidden></p>
+      <form class="publish" id="publish" hidden>
+        <label for="culprit">Who did it</label>
+        <select id="culprit"><option value="">Choose a resident</option></select>
+      </form>
+      <p class="status" id="case-status" role="status"></p>
+    </section>
+
+    <section class="book" id="book" aria-labelledby="book-title">
+      <h2 id="book-title">Notebook</h2>
+      <div id="notebook"></div>
+      <p class="empty" id="book-empty">Nothing yet. Ask people what they saw, search the scene and pull records.</p>
+    </section>
+
+    <div class="send" id="send" hidden>
+      <p id="cited" role="status"></p>
+      <button type="submit" form="publish" class="primary" id="publish-send">Publish episode</button>
+      <button type="button" class="plain-button" id="publish-cancel">Cancel</button>
+    </div>
+
+    <div class="rail-foot">
+      <button type="button" class="plain-button" id="publish-open" aria-expanded="false" aria-controls="publish" hidden>Publish an episode</button>
+      <p class="standing" id="standing"></p>
+    </div>
+  </aside>
+
+  <main class="stage" id="convo" aria-label="Conversation">
+    <section class="pick" id="pick" aria-labelledby="pick-title">
+      <h2 id="pick-title">Who do you want to talk to?</h2>
+      <p id="pick-why"></p>
+      <ul class="leads" id="leads"></ul>
+    </section>
+    <section class="talk" id="dialogue" aria-labelledby="convo-title" hidden>
+      <div class="who-head">
+        <span class="portrait" id="portrait" aria-hidden="true"></span>
+        <div>
+          <h2 id="convo-title"></h2>
+          <p class="meta" id="convo-meta"></p>
+          <details class="about" id="about" hidden><summary>About them</summary><dl id="about-list"></dl></details>
+        </div>
+      </div>
+      <ol class="thread" id="thread" aria-live="polite"></ol>
+      <form class="ask" id="ask" hidden>
+        <input type="text" id="ask-text" maxlength="300" autocomplete="off" aria-label="Your question" placeholder="Where were you last night?">
+        <button type="submit" class="primary">Ask</button>
+      </form>
+      <p class="status" id="ask-status" role="status"></p>
+    </section>
+  </main>
+
+  <aside class="rail side" id="side" aria-label="People" data-opener="people-open" tabindex="-1">
+    <section class="people" aria-labelledby="people-title">
+      <h2 id="people-title">People</h2>
+      <input type="search" id="find" placeholder="Name, job, looks or nearby" aria-label="Find someone by name, job, known looks, or nearby" autocomplete="off">
+      <p class="status" id="find-status" role="status"></p>
+      <ul class="list" id="people"></ul>
+    </section>
+  </aside>
+</div>
+
+<template id="pin"><svg class="pin" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.6a2.6 2.6 0 1 1 0-5.2 2.6 2.6 0 0 1 0 5.2z"/></svg></template>
+<div class="mask" id="mask" hidden><svg aria-hidden="true"><path id="mask-path"/></svg></div>
+<section class="tut coach" id="coach" aria-labelledby="coach-tag" tabindex="-1" hidden>
+  <p class="tut-tag"><span id="coach-tag">Tutorial</span> · <span id="coach-count"></span></p>
+  <div aria-live="polite"><b id="coach-step"></b><p id="coach-why"></p></div>
+  <button type="button" class="tut-back" id="coach-back" hidden>Back</button>
+  <button type="button" class="tut-go" id="coach-next" hidden>Next</button>
+  <button type="button" class="tut-skip" id="coach-skip">Skip tutorial</button>
+</section>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const RESTING = "The town is resting for today. Come back after midnight UTC.";
+const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)");
+const phone = matchMedia("(max-width: 600px)");
+// Narrow enough that the case and people are drawers.
+const drawers = matchMedia("(max-width: 900px)");
+const MAX_FEED = 300;
+// The notebook's groups, in order, and the group of each kind of record.
+const GROUPS = ["Seen", "Clip", "Logs", "Said", "Found", "Heard", "Photos"];
+// What a group's heading can't say on its own.
+const GROUP_NOTES = { Heard: "Retold. It may have changed along the way." };
+const GROUP_OF = { memory: "Seen", clip: "Clip", log: "Logs", statement: "Said", clue: "Found", discovery: "Found",
+  photo: "Photos" };
+// When the case's news says it happened, like "last night" or "sometime between last night and this morning".
+const SAID_WHEN = /(sometime .+|this \w+|tonight|last night|the night before last|yesterday \w+|\w+ days ago, .+)(?=\.$)/;
+// A hearsay statement reads "<name> heard from <speaker>: ...".
+const HEARSAY = / heard from [^:]+: /;
+
+let residents = [];
+let residentsKey = "";
+let places = [];
+let recordsAt = [];
+let here = null;
+let boot = null;
+let lastId = 0;
+// The open case the page shows, and how many questions the player has asked each resident.
+let caseNow = null;
+// The podcaster's standing: score, tier and what they are known as.
+let standing = { score: 0, tier: "petty", label: "" };
+const TIERS = ["petty", "serious", "major"];
+let talked = {};
+let selected = null;
+// How many feed items came in while the app was closed.
+let unread = 0;
+// Whether this page has shown the intro; the server says whether the player still needs it.
+let introShown = false;
+// The cases whose scene the player has searched.
+let searched = new Set();
+// The practice case's checklist from the server; null off it.
+let steps = null;
+// The step a conversation just ticked, with a line on the reply, until the player reads it and moves on.
+let beat = null;
+// The tutorial's pages so far, each a step's index and the beat after it if any, and how far back from the live page
+// the card is.
+let pages = [];
+let back = 0;
+// The notebook by record id, in the order the player got each entry.
+const notebook = new Map();
+// The photos this player has saved, and the app's photos by id as the last load had them.
+const savedPhotos = new Set();
+let album = new Map();
+
+function el(tag, { dataset, ...props } = {}, ...children) {
+  const node = Object.assign(document.createElement(tag), props);
+  Object.assign(node.dataset, dataset);
+  node.append(...children.filter((c) => c != null));
+  return node;
+}
+
+function plural(n, word, many = `${word}s`) {
+  return `${n} ${n === 1 ? word : many}`;
+}
+
+function capital(words) {
+  return words.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Where someone is, like "at the cafe" or "on Elm Street".
+function atPlace(place) {
+  return place.endsWith(" street") ? `on ${capital(place)}` : `at the ${place}`;
+}
+
+function say(id, text, error = false) {
+  $(id).textContent = text;
+  $(id).classList.toggle("error", error);
+}
+
+async function post(path, body) {
+  try {
+    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (res.ok) return { ok: true, error: null };
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, error: data.error || "That didn't go through. Try again." };
+  } catch {
+    return { ok: false, error: "Can't reach the game. Check that it is still running, then try again." };
+  }
+}
+
+// The case header: its title and news, and Publish while it is open.
+function setCase(c) {
+  const open = c && c.state === "open" ? c : null;
+  if ((open && open.id) !== (caseNow && caseNow.id)) {
+    notebook.clear();
+    openPublish(false);
+    // A verdict or error belongs to the case it came with; it stays only while no other case is open.
+    if (open) say("case-status", "");
+    say("where-status", "");
+  }
+  caseNow = open;
+  $("case-title").textContent = open ? open.title : "Quiet day in town";
+  $("case-when").textContent = open?.text.match(SAID_WHEN)?.[0] || "";
+  $("case-text").textContent = open ? open.text : "Something's bound to happen soon.";
+  $("case-tier").hidden = !open || open.private;
+  $("case-tier").textContent = open ? capital(open.tier) : "";
+  $("publish-open").hidden = !open;
+  $("replay").hidden = Boolean(open && open.private);
+  showApp();
+  drawNotebook();
+  drawWhere();
+}
+
+// One button per case offered, the one being worked marked; a single tip needs no choosing.
+function setTips(cases) {
+  $("tips").hidden = cases.length < 2;
+  $("tips").replaceChildren(...cases.map((c) => {
+    const button = el("button", { type: "button", className: "plain-button", textContent: `${c.title} · ${capital(c.tier)}` });
+    button.setAttribute("aria-pressed", String(Boolean(caseNow && caseNow.id === c.id)));
+    button.addEventListener("click", async () => {
+      const { error } = await post("/api/case/choose", { case_id: c.id });
+      if (error) say("case-status", error, true);
+      else await retell();
+    });
+    return button;
+  }));
+}
+
+function setResting(on) {
+  $("resting").hidden = !on;
+  $("resting").textContent = on ? RESTING : "";
+}
+
+// A status line belongs to the view it was said in, so changing view clears them.
+function openPublish(on) {
+  $("app").classList.toggle("citing", on);
+  say("where-status", "");
+  if (on) say("case-status", "");
+  $("publish").hidden = $("send").hidden = !on;
+  $("publish-open").ariaExpanded = String(on);
+  if (on) {
+    if (drawers.matches) openDrawer($("desk"));
+    setCulprits();
+    $("culprit").focus();
+  }
+  countCited();
+  light();
+}
+
+$("publish-open").addEventListener("click", () => openPublish(true));
+$("publish-cancel").addEventListener("click", () => {
+  openPublish(false);
+  $("publish-open").focus();
+});
+$("culprit").addEventListener("change", () => {
+  countCited();
+  light();
+});
+$("coach-skip").addEventListener("click", () => act("coach-skip", "/api/skip"));
+$("replay").addEventListener("click", async () => {
+  const { ok, error } = await post("/api/replay", {});
+  if (ok) loadState().catch(() => {});
+  else say("case-status", error, true);
+});
+
+function cited() {
+  return [...$("notebook").querySelectorAll("input:checked")].map((box) => box.value);
+}
+
+function countCited() {
+  const n = cited().length;
+  say("cited", n ? `${plural(n, "entry", "entries")} ticked.` : "Tick the notebook entries that back it up, up to 5.");
+}
+
+$("publish").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const button = $("publish-send");
+  button.disabled = true;
+  const { ok, error } = await post("/api/publish", { culprit_id: $("culprit").value, record_ids: cited() });
+  button.disabled = false;
+  if (ok) openPublish(false);
+  else say("cited", error, true);
+});
+
+// The culprit choices: every resident by name, redrawn only when the residents change.
+let culpritsKey = "";
+function setCulprits() {
+  if (residentsKey === culpritsKey) return;
+  culpritsKey = residentsKey;
+  const select = $("culprit");
+  const kept = select.value;
+  select.replaceChildren(el("option", { value: "", textContent: "Choose a resident" }),
+    ...residents.map((v) => el("option", { value: v.id, textContent: v.name })));
+  select.value = kept;
+}
+
+// New or retold records; an entry already there keeps its place and takes the new text.
+function note(records) {
+  for (const r of records) notebook.set(r.id, r);
+  drawNotebook();
+}
+
+function groupOf(r) {
+  return r.kind === "statement" && HEARSAY.test(r.text) ? "Heard" : GROUP_OF[r.kind] || "Said";
+}
+
+// The notebook by kind, newest entry first in each, keeping what is ticked.
+function drawNotebook() {
+  const ticked = new Set(cited());
+  const newest = [...notebook.values()].reverse();
+  const groups = GROUPS.map((g) => [g, newest.filter((r) => groupOf(r) === g)]).filter(([, rs]) => rs.length);
+  $("notebook").replaceChildren(...groups.map(([g, rs]) => el("section", { className: "group" },
+    el("h3", { textContent: g }), el("div", {},
+      ...(GROUP_NOTES[g] ? [el("p", { className: "group-note", textContent: GROUP_NOTES[g] })] : []),
+      el("ol", {}, ...rs.map((r) => entry(r, ticked.has(r.id))))))));
+  $("book-empty").hidden = notebook.size > 0;
+  $("book").hidden = Boolean(caseNow && caseNow.private) && notebook.size === 0;
+  countCited();
+  drawPeople();
+}
+
+// One entry: its text, who it came from when the text doesn't say, and a box to cite it.
+function entry(r, ticked) {
+  const by = r.from && !r.text.includes(r.from) ? el("span", { className: "by", textContent: ` (${r.from})` }) : null;
+  return el("li", {}, el("label", {},
+    el("input", { type: "checkbox", value: r.id, checked: ticked, onchange: countCited }),
+    el("span", {}, r.text, by)));
+}
+
+// Where the player is, as a list of every place with the scene first and pinned, and what they can do there.
+let whereKey = "";
+let active = 0;
+function drawWhere() {
+  if (!here) return;
+  $("search-here").hidden = !(caseNow && caseNow.place === here && !searched.has(caseNow.id));
+  $("pull-here").hidden = !(caseNow && recordsAt.includes(here));
+  // A dot on the place button while there is something to do here.
+  $("here").classList.toggle("can-act", !($("search-here").hidden && $("pull-here").hidden));
+  const scene = caseNow && places.includes(caseNow.place) ? caseNow.place : null;
+  const key = [here, scene, ...places].join("|");
+  if (key !== whereKey) {
+    whereKey = key;
+    const order = scene ? [scene, ...places.filter((p) => p !== scene)] : places;
+    $("here").replaceChildren(pin(), el("span", { className: "label", textContent: placeName(here) }));
+    $("place-list").replaceChildren(...order.map((p, i) => el("li", { id: `place-${i}`, role: "option",
+      ariaSelected: String(p === here), className: p === scene ? "scene" : "", dataset: { place: p } },
+      ...placeLabel(p, scene))));
+  }
+  light();
+}
+
+function placeName(place) {
+  return atPlace(place).replace(/^./, (c) => c.toUpperCase());
+}
+
+function pin() {
+  return $("pin").content.firstElementChild.cloneNode(true);
+}
+
+// A place's name, with a pin and a scene tag when it is the scene.
+function placeLabel(place, scene) {
+  const name = el("span", { textContent: placeName(place) });
+  if (place !== scene) return [name];
+  return [pin(), name, el("span", { className: "role scene", textContent: "scene" })];
+}
+
+// The place panel under its header button: what can be done here, and every place to go.
+function openPlaces(open, refocus = false) {
+  if (open === $("places").open) return;
+  if (open) $("places").show();
+  else $("places").close();
+  $("here").ariaExpanded = String(open);
+  if (open) {
+    activate(Math.max(0, [...$("place-list").children].findIndex((o) => o.dataset.place === here)));
+    $("place-list").focus();
+  } else if (refocus) {
+    $("here").focus();
+  }
+  light();
+}
+
+function activate(i) {
+  const options = [...$("place-list").children];
+  active = Math.max(0, Math.min(i, options.length - 1));
+  options.forEach((o, j) => o.classList.toggle("active", j === active));
+  $("place-list").setAttribute("aria-activedescendant", options[active].id);
+  options[active].scrollIntoView({ block: "nearest" });
+}
+
+// Going somewhere keeps the panel open, so what can be done there shows at once.
+function pickPlace(option) {
+  activate([...$("place-list").children].indexOf(option));
+  if (option.dataset.place !== here) walkTo(option.dataset.place);
+}
+
+$("here").addEventListener("click", () => openPlaces(!$("places").open));
+$("here").addEventListener("keydown", (ev) => {
+  if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp") return;
+  ev.preventDefault();
+  openPlaces(true);
+});
+$("place-list").addEventListener("keydown", (ev) => {
+  const to = { ArrowDown: active + 1, ArrowUp: active - 1, Home: 0, End: Infinity }[ev.key];
+  if (to !== undefined) activate(to);
+  else if (ev.key === "Enter") pickPlace($("place-list").children[active]);
+  else return;
+  ev.preventDefault();
+});
+$("place-list").addEventListener("click", (ev) => {
+  const option = ev.target.closest("li");
+  if (option) pickPlace(option);
+});
+// A click outside closes the panel, and still does what it was for.
+document.addEventListener("click", (ev) => {
+  if ($("places").open && !ev.target.closest("#places, #here, .coach, .mask")) openPlaces(false);
+});
+
+function setSteps(list) {
+  if (!list) beat = null;
+  steps = list;
+  drawPeople();
+  drawWhere();
+}
+
+// A step this checklist ticks, as its beat on what it turned up: the reply to a conversation, the row of someone just
+// named, the notebook after a search.
+function beatFrom(list) {
+  const i = list.findIndex((n, i) => n.beat && n.done && steps && !steps[i]?.done);
+  if (i < 0) return;
+  const s = list[i];
+  beat = { i, person: s.person, about: s.about, book: s.action === "search", text: s.beat };
+}
+
+// Back and Next turn through the pages seen, never undoing anything; Next on a live beat moves on to the next step.
+function turn(by) {
+  if (!back) liveConvo = $("convo").dataset.id || null;
+  if (by < 0 && back < pages.length - 1) back++;
+  else if (by > 0 && back) back--;
+  else if (by > 0 && beat) beat = null;
+  else return;
+  const went = document.activeElement;
+  light();
+  if (went?.hidden) $("coach").focus({ preventScroll: true });
+  showConvo(back ? pages[pages.length - 1 - back] : null);
+}
+$("coach-back").addEventListener("click", () => turn(-1));
+$("coach-next").addEventListener("click", () => turn(1));
+// A click on the dimmed page while the card shows a page to read, like the case or a reply, moves on to the live step
+// and goes through to what that step rings if it landed there.
+$("mask-path").addEventListener("click", async (ev) => {
+  if ($("coach-next").hidden) return;
+  const turned = back;
+  back = 0;
+  beat = null;
+  light();
+  if (turned) await showConvo(null);
+  await new Promise(requestAnimationFrame);
+  const under = document.elementFromPoint(ev.clientX, ev.clientY);
+  if (under && under !== $("mask-path")) under.click();
+});
+
+// The conversation open on the live page, put back when Next returns to it; a past reply page opens its own.
+let liveConvo = null;
+async function showConvo(page) {
+  const want = page ? page.beat?.person : liveConvo;
+  if (!want || $("convo").dataset.id === want) return;
+  await choose(want, true);
+  light();
+}
+
+// Arrows turn the card's pages whenever it shows, unless the player is typing.
+document.addEventListener("keydown", (ev) => {
+  if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+  if ($("coach").hidden || ev.target.closest?.("input, textarea, select, [role=listbox]")) return;
+  ev.preventDefault();
+  turn(ev.key === "ArrowLeft" ? -1 : 1);
+});
+
+// Before the first step, a page on the case itself.
+const CASE_PAGE = { i: -1, beat: {
+  text: "This is your case: what was taken, from whom, where and when. Everything you do is about solving it." } };
+
+// Keep the pages up with the live one: rebuilt from the done steps after a load, and a new live page added and shown;
+// a new case opens on its case page.
+function addPage(live) {
+  if (!steps) {
+    pages = [];
+    back = 0;
+    return;
+  }
+  if (!pages.length) pages = steps.flatMap((n, i) => n.done ? [{ i }] : []);
+  if (!pages.length) pages = [CASE_PAGE];
+  const last = pages.at(-1);
+  if (!live || (last && last.i === live.i && !last.beat === !live.beat)) return;
+  pages.push(live);
+  back = pages.length === 2 && pages[0] === CASE_PAGE ? 1 : 0;
+}
+
+// A page already passed: the case's title, its beat's reply or the notebook, else its step's person or button, else
+// what holds them.
+function pastTarget(page) {
+  if (page === CASE_PAGE) return $("case-title");
+  const s = steps[page.i];
+  const row = (id) => $("people").querySelector(`[data-id="${CSS.escape(id)}"]`);
+  const t = page.beat?.book ? $("book")
+    : page.beat?.about ? row(page.beat.about)
+    : page.beat && $("convo").dataset.id === page.beat.person ? $("thread").lastElementChild
+    : s.person ? row(s.person) : s.action === "publish" || $("places").open ? $(ACTION_BUTTON[s.action]) : $("here");
+  return t && !t.hidden ? t : t?.parentElement || $("people");
+}
+
+// The checklist's current step: the first not yet done.
+function step() {
+  return steps && steps.find((s) => !s.done);
+}
+
+// Ring what the current step needs: its person, then the question box once they are picked, else its button here, else
+// the way to its place; the tutorial card points at it. The cutout is the ring's, with the open place list, or the whole
+// conversation or composer.
+const ACTION_BUTTON = { pull: "pull-here", search: "search-here", publish: "publish-open" };
+let hole = [];
+function light() {
+  for (const node of document.querySelectorAll(".lit")) node.classList.remove("lit");
+  const s = step();
+  const live = beat ? { i: beat.i, beat } : s ? { i: steps.indexOf(s) } : null;
+  addPage(live);
+  const past = back ? pages[pages.length - 1 - back] : null;
+  const talking = s?.person && $("convo").dataset.id === s.person && !$("ask").hidden;
+  const reply = beat?.book ? $("book")
+    : beat?.about ? $("people").querySelector(`[data-id="${CSS.escape(beat.about)}"]`) || $("people")
+    : beat && $("convo").dataset.id === beat.person ? $("thread").lastElementChild : null;
+  let target = past ? pastTarget(past) : beat ? reply : !s ? null : talking ? $("ask")
+    : s.person ? !$("pick").hidden && $("leads").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
+      || $("people").querySelector(`[data-id="${CSS.escape(s.person)}"]`)
+    : s.place && s.place !== here ? $("here")
+    : s.action === "publish" && !$("publish").hidden ? publishNext()
+    : s.action !== "publish" && !$("places").open ? $("here")
+    : $(ACTION_BUTTON[s.action]);
+  target = reach(target);
+  hole = !target ? [] : past === CASE_PAGE ? [target, $("case-text")] : past || beat ? [target] : talking ? [$("dialogue")] : target === $("culprit") ? [$("publish")]
+    : target === $("publish-send") ? [$("publish"), $("send")]
+    : target === $("here") && $("places").open ? [target, $("places")] : [target];
+  hole = [...new Set(hole.map(reach))];
+  watch.disconnect();
+  for (const node of [document.body, ...hole]) watch.observe(node);
+  $("coach").hidden = !(s || beat) || $("intro").open || $("handoff").open;
+  $("mask").hidden = $("coach").hidden;
+  if (!$("coach").hidden && !beat && !past) target?.classList.add("lit");
+  if (!s && !beat) {
+    $("app").style.removeProperty("--dock");
+    return;
+  }
+  const page = past || live;
+  const text = page.beat ? page.beat.text : steps[page.i].text;
+  $("coach-next").hidden = !(past || beat);
+  $("coach-back").hidden = back >= pages.length - 1;
+  if ($("coach-step").textContent !== text) {
+    $("coach-count").textContent = page === CASE_PAGE ? "Your case" : `Step ${page.i + 1} of ${steps.length}`;
+    $("coach-step").textContent = text;
+    $("coach-why").textContent = page.beat ? "" : steps[page.i].why;
+  }
+  if (!$("coach").hidden && target && `${text} ${target.id || target.dataset.id}` !== shown) {
+    shown = `${text} ${target.id || target.dataset.id}`;
+    bringIntoView(target);
+  }
+  placeSoon();
+}
+
+// A node in a closed drawer is reached through the button that opens it.
+function reach(node) {
+  const rail = node?.closest?.(".rail");
+  return rail && drawers.matches && !rail.classList.contains("open") ? $(rail.dataset.opener) : node;
+}
+
+// Open one drawer, or none, focusing the drawer opened or the button of the one closed.
+function openDrawer(rail, refocus = false) {
+  for (const r of document.querySelectorAll(".rail")) {
+    const open = r === rail;
+    if (!open && refocus && r.classList.contains("open")) $(r.dataset.opener).focus();
+    r.classList.toggle("open", open);
+    $(r.dataset.opener).ariaExpanded = String(open);
+  }
+  rail?.focus({ preventScroll: true });
+  light();
+}
+
+for (const rail of document.querySelectorAll(".rail")) {
+  $(rail.dataset.opener).addEventListener("click", () => openDrawer(rail.classList.contains("open") ? null : rail));
+  // A sliding drawer moves the cutout without resizing anything, so the card is placed again once it lands.
+  rail.addEventListener("transitionend", placeSoon);
+}
+// A tap outside an open drawer closes it.
+document.addEventListener("click", (ev) => {
+  const open = document.querySelector(".rail.open");
+  if (open && !ev.target.closest(".rail, .drawer-open, .coach, .mask")) openDrawer(null);
+});
+drawers.addEventListener("change", () => openDrawer(null));
+
+// Scroll a new target into view; on a phone, clear of the header with room for the card below it.
+let shown = "";
+function bringIntoView(target) {
+  const r = target.getBoundingClientRect();
+  if (phone.matches && r.top >= 60 && r.bottom <= innerHeight - $("coach").offsetHeight - 16) return;
+  target.scrollIntoView({ block: phone.matches ? "center" : "nearest", behavior: REDUCED_MOTION.matches ? "auto" : "smooth" });
+}
+
+// The tutorial card beside the cutout on the first side with room, else docked at the bottom or top clear of the
+// cutout, else clear of the ring; on a phone, below or above the cutout, held on screen pointing at it.
+const GAP = 14;
+function placeCoach() {
+  const card = $("coach");
+  const target = document.querySelector(".lit");
+  if (card.hidden) return;
+  const t = cutout(hole);
+  const c = card.getBoundingClientRect();
+  const w = innerWidth, h = innerHeight;
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
+  const meets = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+  // On a phone the page shrinks above the card while the step needs the conversation, so the card never covers it.
+  if (phone.matches && hole.some((n) => n.closest("#dialogue"))) $("app").style.setProperty("--dock", `${c.height + 40}px`);
+  else $("app").style.removeProperty("--dock");
+  // On a phone the open place list is a sheet over the page, so the card points at the sheet alone.
+  const sheet = hole.includes($("places")) && $("places").getBoundingClientRect();
+  if (phone.matches && t) return anchor(card, c, sheet || t);
+  const at = (side) => {
+    const across = side === "below" || side === "above";
+    const left = across ? clamp(t.left + t.width / 2 - c.width / 2, 8, w - c.width - 8)
+      : side === "left" ? t.left - GAP - c.width : t.right + GAP;
+    const top = !across ? clamp(t.top + t.height / 2 - c.height / 2, 8, h - c.height - 8)
+      : side === "below" ? t.bottom + GAP : t.top - GAP - c.height;
+    const box = { left, top, right: left + c.width, bottom: top + c.height };
+    const fits = left >= 8 && top >= 8 && box.right <= w - 8 && box.bottom <= h - 8;
+    const arrow = across ? t.left + t.width / 2 - left : t.top + t.height / 2 - top;
+    return { side, left, top, fits, arrow: clamp(arrow, 16, (across ? c.width : c.height) - 16) };
+  };
+  const dock = (side) => {
+    const top = side === "bottom" ? h - 8 - c.height : 16;
+    const left = w - 16 - c.width;
+    return { side, box: { left, top, right: w - 16, bottom: top + c.height } };
+  };
+  const ring = target?.getBoundingClientRect();
+  const docks = ["bottom", "top"].map(dock);
+  const best = (t && ["right", "below", "left", "above"].map(at).find((o) => o.fits))
+    || docks.find((o) => t && !meets(t, o.box)) || docks.find((o) => ring && !meets(ring, o.box)) || docks[0];
+  card.dataset.side = best.side;
+  if (best.left === undefined) {
+    card.style.left = card.style.top = "";
+    return;
+  }
+  card.style.left = `${best.left}px`;
+  card.style.top = `${best.top}px`;
+  card.style.setProperty("--arrow", `${best.arrow}px`);
+}
+
+// On a phone: the card below the cutout, else above it, held on screen at the edge nearest a cutout scrolled away; a
+// cutout too tall for either gets the card on its roomier side. The arrow points at the cutout.
+const GUTTER = 16;
+function anchor(card, c, t) {
+  const view = visualViewport || { offsetLeft: 0, offsetTop: 0, width: innerWidth, height: innerHeight };
+  const lo = view.offsetTop + GUTTER, hi = view.offsetTop + view.height - GUTTER - c.height;
+  const below = t.bottom + GAP, above = t.top - GAP - c.height;
+  const top = below <= hi ? Math.max(below, lo) : above >= lo ? Math.min(above, hi)
+    : t.top - lo > hi + c.height - t.bottom ? lo : hi;
+  const left = view.offsetLeft + GUTTER;
+  card.dataset.side = top + c.height / 2 > t.top + t.height / 2 ? "below" : "above";
+  card.style.left = `${left}px`;
+  card.style.top = `${top}px`;
+  card.style.setProperty("--arrow", `${Math.max(16, Math.min(t.left + t.width / 2 - left, c.width - 16))}px`);
+}
+
+// The box around the step's nodes, padded, as a hole in the mask; the mask blocks clicks everywhere else.
+const PAD = 6;
+const ROUND = 10;
+// Wider than any screen, so the dim fills the layer however the browser's toolbars resize it.
+const COVER = "M-1 -1H99999V99999H-1Z";
+function cutout(nodes) {
+  const rs = nodes.map((n) => n.getBoundingClientRect()).filter((r) => r.width);
+  const edge = (side, pick, out) => pick(...rs.map((r) => r[side])) + out;
+  const t = rs.length ? { left: edge("left", Math.min, -PAD), top: edge("top", Math.min, -PAD),
+    right: edge("right", Math.max, PAD), bottom: edge("bottom", Math.max, PAD) } : null;
+  if (t) Object.assign(t, { width: t.right - t.left, height: t.bottom - t.top });
+  $("mask").hidden = !t;
+  $("mask-path").setAttribute("d", `${COVER}${t ? rounded(t) : ""}`);
+  return t;
+}
+
+function rounded({ left, top, right, bottom, width, height }) {
+  const r = Math.min(ROUND, width / 2, height / 2);
+  const arc = (x, y) => `A${r} ${r} 0 0 1 ${x} ${y}`;
+  return `M${left + r} ${top}H${right - r}${arc(right, top + r)}V${bottom - r}${arc(right - r, bottom)}`
+    + `H${left + r}${arc(left, bottom - r)}V${top + r}${arc(left + r, top)}Z`;
+}
+
+let placing = 0;
+const watch = new ResizeObserver(() => placeSoon());
+function placeSoon() {
+  cancelAnimationFrame(placing);
+  placing = requestAnimationFrame(placeCoach);
+}
+addEventListener("scroll", placeSoon, true);
+addEventListener("resize", placeSoon);
+visualViewport?.addEventListener("resize", placeSoon);
+visualViewport?.addEventListener("scroll", placeSoon);
+
+// With the publish form open: the culprit choice until one is picked, then the publish button.
+function publishNext() {
+  return $("culprit").value ? $("publish-send") : $("culprit");
+}
+
+async function walkTo(place) {
+  say("where-status", "");
+  const { ok, error } = await post("/api/walk", { place });
+  if (!ok) say("where-status", error, true);
+}
+
+// Search or pull here, the button off until the game answers.
+async function act(button, path) {
+  say("where-status", "");
+  $(button).disabled = true;
+  const { ok, error } = await post(path, {});
+  $(button).disabled = false;
+  if (!ok) say("where-status", error, true);
+}
+
+$("search-here").addEventListener("click", () => act("search-here", "/api/search"));
+$("pull-here").addEventListener("click", () => act("pull-here", "/api/pull"));
+
+function gained(text, records, none) {
+  say("where-status", `${text} ${records.length ? `${plural(records.length, "new notebook entry", "new notebook entries")}.` : none}`);
+}
+
+// People: the victim, then witnesses the player has heard from, then those usually at the scene when it happened, then
+// whoever they've talked to, then everyone else.
+function roles() {
+  const role = {};
+  for (const r of notebook.values()) if (r.kind === "memory" && r.holder) role[r.holder] = "witness";
+  if (caseNow) role[caseNow.victim] = "victim";
+  return role;
+}
+
+function drawPeople() {
+  const q = $("find").value.trim().toLowerCase();
+  const role = roles();
+  const wanted = step()?.person;
+  const nearby = new Set(caseNow?.nearby);
+  const rank = (v) => v.id === wanted ? -1 : { victim: 0, witness: 1 }[role[v.id]]
+    ?? (nearby.has(v.id) ? 2 : talked[v.id] ? 3 : 4);
+  const shown = residents.filter((v) => !q || v.name.toLowerCase().includes(q) || v.looks.toLowerCase().includes(q)
+    || v.occupation.toLowerCase().includes(q) || (nearby.has(v.id) && NEARBY.includes(q)));
+  shown.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+  const focused = document.activeElement?.closest?.(".person")?.dataset.id;
+  $("people").replaceChildren(...shown.map((v) => person(v, role[v.id], nearby.has(v.id))));
+  if (focused) $("people").querySelector(`[data-id="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
+  $("find-status").textContent = !q ? "" : shown.length ? `${plural(shown.length, "match", "matches")}.`
+    : "No one matches. Try part of a name or a look like red-haired.";
+  const ranked = [...residents].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+  const close = ranked.filter((v) => v.id === wanted || role[v.id] || nearby.has(v.id));
+  drawLeads((close.length ? close : ranked).slice(0, 3), role, nearby);
+  light();
+}
+
+// With nobody picked, the stage suggests who to start with, closest to the case first.
+const LEAD_WHY = { victim: "The victim", witness: "Saw something", nearby: "Usually at the scene then" };
+function drawLeads(leads, role, nearby) {
+  $("pick-why").textContent = caseNow ? `Start with someone close to ${caseNow.title}, or pick anyone from People.`
+    : "Nothing's happened yet. Get to know people: pick anyone from People.";
+  $("leads").replaceChildren(...leads.map((v) => el("li", {}, el("button", {
+    type: "button", className: "lead", dataset: { id: v.id }, onclick: () => choose(v.id),
+  }, faceWith(v), el("span", { className: "who" }, el("b", { textContent: v.name }),
+    el("small", { textContent: LEAD_WHY[role[v.id] || (nearby.has(v.id) ? NEARBY : "")] || capital(v.occupation) }))))));
+}
+
+// A row: the name with one tag, then the looks once learned, else the job.
+const NEARBY = "nearby";
+function person(v, role, nearby) {
+  const tag = role || (nearby ? NEARBY : null);
+  return el("li", {}, el("button", {
+    type: "button", className: "person", dataset: { id: v.id }, ariaCurrent: String(v.id === selected),
+    onclick: () => choose(v.id),
+  }, faceWith(v), el("span", { className: "who" }, el("b", { textContent: v.name }),
+    tag ? el("span", { className: `role ${tag}`, textContent: tag,
+      title: tag === NEARBY ? "Usually at the scene at that time of day" : "" }) : null,
+    v.known_for ? el("span", { className: "role known", textContent: "exposed",
+      title: `Everyone knows they ${v.known_for}` }) : null,
+    v.accused ? el("span", { className: "role known", textContent: "you named them",
+      title: "Your episode named them, and it didn't hold up" }) : null,
+    el("small", { textContent: v.looks || v.occupation }))));
+}
+
+$("find").addEventListener("input", drawPeople);
+$("find").addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && $("find").value) {
+    $("find").value = "";
+    drawPeople();
+  } else if (ev.key === "Enter") {
+    $("people").querySelector(".person")?.click();
+  }
+});
+
+// The residents' list changes only when someone arrives or leaves or their looks are learned, not when they move.
+function setResidents(list) {
+  const key = list.map((v) => `${v.id}:${v.name}:${v.looks}:${v.known_for}:${v.accused}`).join("|");
+  if (key === residentsKey) return;
+  residents = list;
+  residentsKey = key;
+  drawPeople();
+}
+
+// The conversation with a resident: who they are, what was said, and a box to ask more.
+let convoRequest = 0;
+async function choose(id, quiet = false) {
+  selected = id;
+  drawPeople();
+  const request = ++convoRequest;
+  const res = await fetch(`/api/villagers/${encodeURIComponent(id)}`).catch(() => null);
+  const body = res ? await res.json().catch(() => ({})) : {};
+  if (request !== convoRequest) return;
+  say("ask-status", "");
+  $("pick").hidden = true;
+  $("dialogue").hidden = false;
+  if (!res || !res.ok) {
+    $("convo-title").textContent = "Can't open that conversation";
+    $("convo-meta").textContent = body.error || "Try again.";
+    $("about").hidden = $("ask").hidden = true;
+    $("portrait").replaceChildren();
+    $("thread").replaceChildren();
+    return;
+  }
+  drawConvo(body);
+  if (quiet) return;
+  if (drawers.matches) openDrawer(null);
+  if (!phone.matches) $("ask-text").focus({ preventScroll: true });
+}
+
+function drawConvo(body) {
+  const v = residents.find((r) => r.id === body.id) || body;
+  $("convo").dataset.id = body.id;
+  $("convo").dataset.name = body.name;
+  $("portrait").replaceChildren(faceFor(v));
+  $("convo-title").textContent = body.name;
+  $("convo-meta").textContent = body.occupation.replace(/^./, (c) => c.toUpperCase());
+  const link = (r) => el("button", { type: "button", className: "linkish", textContent: r.name, onclick: () => choose(r.id) });
+  const list = (rs) => rs.flatMap((r, i) => [i ? ", " : "", link(r), ` (${r.kind})`]);
+  $("about-list").replaceChildren(
+    el("dt", { textContent: "Job" }), el("dd", { textContent: capital(body.occupation) }),
+    ...(body.home ? [el("dt", { textContent: "Lives on" }), el("dd", { textContent: capital(body.home) })] : []),
+    el("dt", { textContent: "Talked" }), el("dd", { id: "about-talked", textContent: timesTalked(body.id) }),
+    el("dt", { textContent: "Looks" }),
+    ...(body.known.length ? body.known.map((k) => el("dd", { textContent: `${k.looks} (${k.how})` }))
+      : [el("dd", { textContent: "Unknown. Talk to them, ask someone who knows them, or save a photo they're in." })]),
+    ...(v.known_for ? [el("dt", { textContent: "Known for" }), el("dd", { textContent: capital(v.known_for) })] : []),
+    el("dt", { textContent: "Personality" }), el("dd", { textContent: body.personality }),
+    ...(body.grudge ? [el("dt", { textContent: "Grudge" }), el("dd", { textContent: body.grudge })] : []),
+    ...(body.household.length ? [el("dt", { textContent: "Household" }), el("dd", {}, ...list(body.household))] : []),
+    ...(body.relationships.length ? [el("dt", { textContent: "Knows" }), el("dd", {}, ...list(body.relationships))] : []));
+  $("about").hidden = false;
+  $("thread").replaceChildren(...(body.thread.length ? body.thread.map((t) => exchange(t, body.name))
+    : [el("li", { className: "you", dataset: { none: "true" }, textContent: "Ask anything in your own words." })]));
+  $("thread").scrollTop = $("thread").scrollHeight;
+  $("ask").hidden = false;
+  light();
+}
+
+function timesTalked(id) {
+  return talked[id] ? plural(talked[id], "time") : "Not yet";
+}
+
+// One question and reply, marked noted when it added to the notebook.
+function exchange(t, name) {
+  const added = t.records.map((r) => r.text).join("\n");
+  return el("li", {}, el("p", { className: "you", textContent: `You: ${t.question}` }),
+    el("p", { className: "said" }, el("b", { className: "sr", textContent: `${name}: ` }), `“${t.line}”`),
+    added ? el("p", { className: "noted" }, el("span", { tabIndex: 0, textContent: "✓ noted" }),
+      el("span", { textContent: added })) : null);
+}
+
+$("ask").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const { id, name } = $("convo").dataset;
+  // Until a newly picked resident's conversation opens, the one on screen is still the last one's.
+  if (id !== selected) return say("ask-status", "Opening the conversation…");
+  const text = $("ask-text").value.trim();
+  if (!text) return say("ask-status", "Type a question.", true);
+  const button = $("ask").querySelector("button");
+  button.disabled = true;
+  say("ask-status", `Asking ${name}…`);
+  const { ok, error } = await post("/api/interview", { villager_id: id, text });
+  button.disabled = false;
+  if (!ok) return say("ask-status", error, true);
+  if ($("convo").dataset.id === id) $("ask-text").value = "";
+  say("ask-status", "");
+});
+
+// A reply joins the conversation when it is with the resident on screen.
+function answered(e) {
+  talked[e.villager_id] = (talked[e.villager_id] || 0) + 1;
+  drawPeople();
+  if ($("convo").dataset.id !== e.villager_id) return;
+  $("about-talked").textContent = timesTalked(e.villager_id);
+  $("thread").querySelector("[data-none]")?.remove();
+  $("thread").append(exchange(e, e.name));
+  $("thread").scrollTop = $("thread").scrollHeight;
+}
+
+// One item at the top of the app's feed; a new one while the app is closed counts as unread.
+function addToFeed(item, fresh) {
+  const feed = $("feed");
+  feed.prepend(item);
+  while (feed.children.length > MAX_FEED) feed.lastElementChild.remove();
+  if (fresh && !$("app-panel").open) unread++;
+  showApp();
+}
+
+function talk(tone, fresh, ...children) {
+  addToFeed(el("li", { className: tone }, ...children), fresh);
+}
+
+// Each district's crime and fear, 0 to 3, rising or falling since the morning, and any watch.
+const TREND = { 1: ["↑", "rising"], "-1": ["↓", "falling"], 0: ["", "steady"] };
+
+function pips(kind, level, trend) {
+  const [arrow, word] = TREND[trend];
+  return el("span", { className: `pips ${kind}`, ariaLabel: `${kind} ${level} of 3, ${word}` },
+    ...[1, 2, 3].map((n) => el("i", { className: n <= level ? "on" : "" })), el("b", { ariaHidden: "true" }, arrow));
+}
+
+function setDistricts(list) {
+  const head = el("li", { className: "head", ariaHidden: "true" }, el("span"), el("span", {}, "Crime"), el("span", {}, "Fear"));
+  $("district-rows").replaceChildren(head, ...list.map((d) => el("li", {},
+    el("span", { className: "d-name" }, d.name, d.watch ? el("small", {}, `${d.watch}, started by ${d.founder}`) : null),
+    pips("crime", d.crime, d.crime_trend), pips("fear", d.fear, d.fear_trend))));
+  $("map-open").hidden = !list.length;
+  if (!list.length && $("map-panel").open) $("map-panel").close();
+}
+
+$("map-open").addEventListener("click", () => $("map-panel").showModal());
+
+function render(e, fresh) {
+  switch (e.kind) {
+    case "districts":
+      if (fresh) setDistricts(e.districts);
+      break;
+    case "case":
+      // A tip above the podcaster's standing isn't theirs; any other may change which cases they have.
+      if (TIERS.indexOf(e.case.tier) > TIERS.indexOf(standing.tier)) break;
+      if (fresh) retell().catch(() => {});
+      break;
+    case "case_closed":
+      if (caseNow && caseNow.id === e.case_id) {
+        // Off the first case the page moves into the town, and the closing line goes to the app.
+        setCase(null);
+        setSteps(null);
+        if (fresh) loadState().catch(() => {});
+      } else if (fresh) {
+        retell().catch(() => {});
+      }
+      if (e.text) talk("quiet", fresh, e.text);
+      break;
+    case "pulled":
+      note(e.records);
+      if (fresh) gained(e.text, e.records, "Nothing new there.");
+      break;
+    case "searched":
+      searched.add(e.case_id);
+      note(e.records);
+      if (fresh) gained(e.text, e.records, "You found nothing.");
+      break;
+    case "interview":
+      note(e.records);
+      if (fresh) answered(e);
+      break;
+    case "episode":
+      if (e.mine) {
+        talk("loud", fresh, `You named ${e.name}, citing ${plural(e.cited, "record")}. ${e.verdict}`);
+        if (fresh) say("case-status", `You named ${e.name}. ${e.verdict}`);
+      } else {
+        talk("loud", fresh, e.text);
+      }
+      break;
+    case "post":
+      if (e.app) talk("plain", fresh, e.text);
+      else talk("plain", fresh, el("b", { textContent: e.speaker }), `: ${e.text}`);
+      // The app's own posts outside a case say someone arrived or left, so the people list is fetched again.
+      if (fresh && e.app && !e.case_id) loadState().catch(() => {});
+      break;
+    case "place":
+      here = e.place;
+      drawWhere();
+      break;
+    case "time":
+      // A replayed tick would wind the clock back to the start of its part of the day.
+      if (fresh) {
+        setClock(e);
+        retell();
+      }
+      break;
+    case "known":
+      if (fresh) {
+        residents = residents.map((v) => v.id === e.villager.id ? e.villager : v);
+        drawPeople();
+        if (selected === e.villager.id) choose(selected, true);
+      }
+      break;
+    case "photo": {
+      // A load draws a photo as the state has it now, and skips one gone from the app.
+      const p = fresh ? e.photo : album.get(e.photo.id);
+      if (p) photo(p, fresh);
+      break;
+    }
+    case "photo_saved":
+      note(e.records);
+      savedPhotos.add(e.photo_id);
+      markSaved(e.photo_id);
+      break;
+    case "steps":
+      if (fresh) beatFrom(e.steps);
+      setSteps(e.steps);
+      if (beat && !$("coach").hidden) $("coach-next").focus({ preventScroll: true });
+      break;
+    case "rest":
+      setResting(e.resting);
+      talk("quiet", fresh, e.text);
+      break;
+    case "system":
+      talk("plain", fresh, e.text);
+      break;
+    case "standing":
+      // Standing decides which cases are offered and worked, so the case is fetched again.
+      if (fresh) {
+        setStanding(e);
+        retell().catch(() => {});
+      }
+      if (e.text) talk("loud", fresh, e.text);
+      break;
+  }
+}
+
+function addEvents(events, fresh) {
+  for (const e of events) {
+    if (e.id <= lastId) continue;
+    lastId = e.id;
+    render(e, fresh);
+  }
+}
+
+// A resident's photo post: who posted it, the faces in it, its caption and Save.
+function photo(p, fresh = false) {
+  if ($("feed").querySelector(`[data-photo="${CSS.escape(p.id)}"]`)) return;
+  const kept = savedPhotos.has(p.id) || notebook.has(p.id);
+  const status = el("p", { className: "status", role: "status" });
+  const save = el("button", { type: "button", className: "plain-button", dataset: { photo: p.id },
+    textContent: kept ? "Saved" : "Save", disabled: kept });
+  save.addEventListener("click", async () => {
+    save.disabled = true;
+    const { ok, error } = await post("/api/photos/save", { photo_id: p.id });
+    status.textContent = error || "";
+    status.classList.toggle("error", !ok);
+    if (!ok) save.disabled = false;
+  });
+  addToFeed(el("li", { className: "post" },
+    el("b", { textContent: `${p.poster} posted:` }),
+    el("span", { className: "faces" }, ...p.people.map((v) => faceWith({ id: v.id, face: v.face }, true))),
+    el("p", { textContent: p.caption }),
+    el("div", {}, save, status)), fresh);
+}
+
+// The app's control, with how many items came in unread; shown once there is something, never on the first case.
+function showApp() {
+  $("app-open").hidden = !$("feed").children.length || Boolean(caseNow && caseNow.private);
+  $("app-count").hidden = !unread;
+  $("app-count").textContent = unread;
+  $("app-open").ariaLabel = unread ? `Neighborhood app, ${unread} new` : "Neighborhood app";
+}
+
+// Whether this browser left the app open, so a reload opens it again.
+const APP_OPEN = "sleuth-app-open";
+function rememberApp(open) {
+  try {
+    if (open) localStorage.setItem(APP_OPEN, "1");
+    else localStorage.removeItem(APP_OPEN);
+  } catch {}
+}
+
+function appWasOpen() {
+  try {
+    return localStorage.getItem(APP_OPEN) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function openApp() {
+  if ($("app-open").hidden || $("app-panel").open) return;
+  unread = 0;
+  showApp();
+  $("app-panel").showModal();
+  $("feed").scrollTop = 0;
+  rememberApp(true);
+}
+
+$("app-open").addEventListener("click", openApp);
+$("app-panel").addEventListener("close", () => rememberApp(false));
+
+function markSaved(id) {
+  const button = $("feed").querySelector(`[data-photo="${CSS.escape(id)}"]`);
+  if (!button) return;
+  button.textContent = "Saved";
+  button.disabled = true;
+}
+
+// Pixel faces: a 12x12 head and shoulders, with hair, coat and height from the looks the player has learned.
+const SKIN = ["#f1d3b3", "#e2b48f", "#c98f63", "#9c6644", "#6e4630", "#f3dcc8"];
+const TINT = ["#dfe6d6", "#e6dfd2", "#d9e0e8", "#e8dcdc", "#dde4df"];
+const faces = new Map();
+
+function seeded(seed) {
+  let h = 2166136261;
+  for (const ch of seed) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 10000) / 10000; };
+}
+
+function drawFace(v) {
+  const canvas = el("canvas", { width: 12, height: 12 });
+  const g = canvas.getContext("2d");
+  const r = seeded(v.id);
+  const pick = (list) => list[Math.floor(r() * list.length)];
+  g.fillStyle = pick(TINT);
+  g.fillRect(0, 0, 12, 12);
+  if (!v.face) {
+    silhouette(g);
+    return canvas;
+  }
+  const { hair, coat, height = 1 } = v.face || {};
+  const clothes = coat || "#6b5b4a";
+  const dy = 2 * (1 - height);
+  const px = (i, j, color) => { g.fillStyle = color; g.fillRect(i, j + dy, 1, 1); };
+  const rect = (i0, i1, j0, j1, color) => { for (let i = i0; i < i1; i++) for (let j = j0; j < j1; j++) px(i, j, color); };
+  const skin = pick(SKIN);
+  rect(2, 10, 9, 12 - dy, clothes);
+  rect(1, 11, 11, 12 - dy, clothes);
+  rect(4, 8, 8, 9, skin);
+  rect(3, 9, 3, 8, skin);
+  const style = Math.floor(r() * 4);
+  if (hair) {
+    rect(3, 9, 2, 3, hair);
+    rect(2, 10, 3, 4, hair);
+    if (style >= 1) { px(2, 4, hair); px(9, 4, hair); }
+    if (style >= 2) { rect(2, 3, 5, 7, hair); rect(9, 10, 5, 7, hair); }
+    if (style === 3) rect(4, 8, 1, 2, hair);
+  }
+  px(4, 5, "#2a2a2a");
+  px(7, 5, "#2a2a2a");
+  if (hair && r() < 0.35) { rect(4, 8, 7, 8, hair); px(3, 6, hair); px(8, 6, hair); }
+  else { px(5, 7, "#a5584a"); px(6, 7, "#a5584a"); }
+  return canvas;
+}
+
+// Someone whose looks the player hasn't learned: a head and shoulders in one grey.
+function silhouette(g) {
+  g.fillStyle = "#9a9a96";
+  g.fillRect(2, 9, 8, 3);
+  g.fillRect(1, 11, 10, 1);
+  g.fillRect(4, 8, 4, 1);
+  g.fillRect(3, 3, 6, 5);
+  g.fillRect(4, 2, 4, 1);
+}
+
+// A copy of the resident's face as last learned; each is drawn once and then copied.
+function faceFor(v) {
+  const key = `${v.id}:${JSON.stringify(v.face)}`;
+  if (!faces.has(key)) faces.set(key, drawFace(v));
+  const canvas = el("canvas", { width: 12, height: 12, ariaHidden: "true" });
+  canvas.getContext("2d").drawImage(faces.get(key), 0, 0);
+  return canvas;
+}
+
+function faceWith(v, big = false) {
+  return el("span", { className: big ? "face big" : "face", ariaHidden: "true" }, faceFor(v));
+}
+
+document.addEventListener("keydown", (ev) => {
+  if (ev.key !== "Escape" || ev.defaultPrevented) return;
+  if ($("places").open) {
+    openPlaces(false, true);
+  } else if (!$("publish").hidden) {
+    openPublish(false);
+    $("publish-open").focus();
+  } else if (document.querySelector(".rail.open")) {
+    openDrawer(null, true);
+  }
+});
+
+// The day and its part, like "Day 3 · Evening".
+function setClock(t) {
+  $("clock").textContent = `Day ${t.day} · ${capital(t.phase)}`;
+}
+
+function setStanding(s) {
+  standing = { score: s.score, tier: s.tier, label: s.label };
+  $("standing").textContent = `${s.label} · ${plural(s.score, "point")}`;
+}
+
+function setConn(state, text) {
+  $("conn").dataset.state = state;
+  $("conn").textContent = text;
+}
+
+// A new boot means the game restarted and numbers its events from 1 again.
+function reset() {
+  say("case-status", "");
+  say("where-status", "");
+  $("feed").replaceChildren();
+  $("app-open").hidden = true;
+  openPlaces(false);
+  savedPhotos.clear();
+  album = new Map();
+  faces.clear();
+  notebook.clear();
+  talked = {};
+  unread = 0;
+  lastId = 0;
+  caseNow = null;
+  steps = null;
+  beat = null;
+  pages = [];
+  back = 0;
+  selected = null;
+  liveConvo = null;
+  delete $("convo").dataset.id;
+  $("pick").hidden = false;
+  $("dialogue").hidden = true;
+  $("about").hidden = $("ask").hidden = true;
+  $("thread").replaceChildren();
+}
+
+// The case and notebook again, so their times read from the new part of the day.
+async function retell() {
+  const res = await fetch("/api/case");
+  if (!res.ok) return;
+  const now = await res.json();
+  searched = new Set(now.searched);
+  setCase(now.case);
+  setTips(now.cases);
+  note(now.notebook);
+  setSteps(now.steps);
+}
+
+async function loadState() {
+  const res = await fetch("/api/state");
+  if (res.status === 401) unknown = true;
+  if (!res.ok) throw new Error(String(res.status));
+  const state = await res.json();
+  if (boot !== null && state.boot !== boot) reset();
+  boot = state.boot;
+  places = state.places;
+  recordsAt = state.records_at;
+  talked = state.talked;
+  here = state.place;
+  setClock(state.time);
+  setStanding(state.standing);
+  setDistricts(state.districts);
+  setResidents(state.villagers);
+  // Photos older than the events replayed go below them; the rest land where their event is.
+  album = new Map(state.photos.map((p) => [p.id, p]));
+  for (const p of state.photos) if (p.saved) savedPhotos.add(p.id);
+  const replayed = new Set(state.events.filter((e) => e.kind === "photo").map((e) => e.photo.id));
+  for (const p of state.photos) if (!replayed.has(p.id)) photo(p);
+  addEvents(state.events, false);
+  for (const id of savedPhotos) markSaved(id);
+  setResting(state.resting);
+  searched = new Set(state.searched);
+  setCase(state.case);
+  setTips(state.cases);
+  notebook.clear();
+  note(state.notebook);
+  setSteps(state.steps);
+  if (state.intro && !introShown) {
+    introShown = true;
+    $("intro").showModal();
+    light();
+  }
+  if (state.handoff && !$("handoff").open) handoff(state.handoff);
+  else if (!state.intro && appWasOpen()) openApp();
+  if (selected) choose(selected);
+}
+
+// How the first case ended, then the town's case and what is different about it.
+function handoff(h) {
+  $("handoff-head").textContent = h.head || "";
+  $("handoff-head").hidden = !h.head;
+  const tip = !caseNow ? "" : h.back ? `Back to the case of ${caseNow.title}.` : `A new tip comes in: ${caseNow.text}`;
+  $("handoff-cards").replaceChildren(...[h.line, tip,
+    h.back ? "" : "Other podcasters are chasing this one too, and you get one episode per case. Get it right first."]
+    .filter(Boolean).map((text) => el("li", { textContent: text })));
+  $("handoff").showModal();
+}
+
+$("handoff").addEventListener("close", () => post("/api/handoff", {}));
+$("intro").addEventListener("close", light);
+
+// Open the socket first and hold its messages until the state has loaded, so nothing falls in between.
+let retry = 1000;
+// Set when the game no longer knows this browser, so only a reload brings it back.
+let unknown = false;
+function connect() {
+  setConn("connecting", "Connecting");
+  const socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
+  let held = [];
+  socket.onmessage = (msg) => {
+    const e = JSON.parse(msg.data);
+    if (held) held.push(e); else addEvents([e], true);
+  };
+  socket.onopen = async () => {
+    try {
+      await loadState();
+    } catch {
+      socket.close();
+      return;
+    }
+    addEvents(held, true);
+    held = null;
+    retry = 1000;
+    setConn("live", "");
+  };
+  socket.onclose = (ev) => {
+    if (ev.code === 1008 || unknown) {
+      setConn("down", "Reload the page to rejoin the town.");
+      return;
+    }
+    setConn("down", "Can't reach the game; retrying");
+    setTimeout(connect, retry);
+    retry = Math.min(retry * 2, 8000);
+  };
+}
+connect();
+</script>
+</body>
+</html>

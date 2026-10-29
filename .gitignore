@@ -11,3 +11,8 @@ whispers_worlds/
 whispers_baselines.json
 whispers_seed.json*
 .DS_Store
+sleuth_worlds/
+sleuth_baselines.json
+sleuth_seed.json*
+.superpowers/
+.play/

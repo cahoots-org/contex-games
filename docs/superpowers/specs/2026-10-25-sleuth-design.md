@@ -198,3 +198,118 @@ These answer a builder's questions. They are my calls, made without Rob, and mar
   - the solvability check, including a forced failure that adds a witness;
   - the judge accepting supported evidence and rejecting evidence from the cover story;
   - household alibi judgments with stubbed Jev answers.
+
+## Addendum, 2026-10-26: conversations and searching the scene
+
+From the owner's first play: interviews couldn't be steered, and there was no real way to gather clues.
+
+### Interviews are conversations
+- **Threads.** Interviewing a resident opens a conversation thread with them, kept per player and per resident, like Whispers' conversations. The player can leave and come back to it later; the thread shows everything said so far.
+- **Free-text questions.** The player types what they want to ask. Jev reads the question, with the thread so far, and routes it to one of a few kinds the game can answer, filling in who and when it's about:
+  - where the resident was at a part of the day;
+  - where someone else was;
+  - what they saw;
+  - who they heard something from;
+  - who'd have a reason (a grudge or rival tie with the victim);
+  - what they think of someone;
+  - none of these.
+- **Answers come from records.** Code looks up what that resident actually knows for the routed kind. Haiku phrases the reply in their voice, with the thread as context, and never adds a fact. "None of these", or nothing known, gets an honest "I wouldn't know about that." Anything new goes into the notebook as a record, as interviews do today.
+- **Limits.** A handful of messages per resident per part of the day, then "Let's talk later." Each message costs at most one Jev and one Haiku call.
+
+### Searching the scene
+- At the crime place, a player can search once per case. They find one or two physical clues, held in code when the crime is staged:
+  - a trace that narrows a trait, like a boot print for height or a thread of the culprit's coat;
+  - or an item that ties someone to a place and time, like a dropped receipt.
+- Clues are records like any other, so they can be cited, and the solvability check counts them.
+
+## Addendum, 2026-10-27: knowing people, outfits and photos
+
+From the owner: the puzzle was a lookup, because everyone's looks were on screen from the start, so the only unknown was the crime. Identifying people becomes something the player investigates.
+
+### Looks are learned, not given
+- **Public:** the people list starts with name, job, street and household.
+- **Learned:** a person's looks are known only once the player has:
+  - talked to them, which shows how they look now, including today's outfit;
+  - been told by someone who describes them (hearsay, which can be wrong);
+  - or seen them in a photo or camera clip.
+- **Recorded:** each learned look records how and when it was learned ("you talked, day 3", "Bev described, day 3", "in a photo, day 2"). The people list and cards show what's known and how.
+- **No knowledge by presence:** being at a place doesn't reveal anyone.
+
+### Outfits
+- **Wardrobe:** every resident owns three outfits, coat or top colour and style, assigned by code from the trait vocabulary. Height and hair stay fixed.
+- **Daily choice:** code picks the outfit each resident wears each day. It is recorded, so "what did Cal wear on day 2?" has one true answer.
+- **Culprit's caution:** a culprit may avoid the outfit they wore for the crime on later days.
+- **Trait checks:** witnesses and camera clips report the outfit worn at that moment, not a fixed coat. Trait matching, the judge's pointing rule and the solvability check work against what each resident wore at the time.
+
+### Photos on the neighborhood app
+- **Sparing posts:** a few posts per game day at public places, such as trivia night at the bar or the dog park in the morning. Each shows two or three residents, with the place, the day and part of day, and what each wore.
+- **Code-held records:** photos are true, and appear in the notebook when the player saves one.
+- **Photo feed:** the page gets a scrollable photo feed, newest first, so players can browse what was posted. A photo is drawn from the residents' portraits in that day's outfits, with a one-line caption.
+- **Solvability doesn't need photos:** a case is still made solvable by witnesses, clips, logs and clues, which now include what was worn. Photos are a second route, not the only one.
+
+## Addendum, 2026-10-28: a living town, rising stakes and consequences
+
+From the owner, after playing:
+- "This game isn't fun. It lacks whimsy."
+- "Crimes in the world start off small/petty. As you solve more of them, you take on bigger, more serious crimes."
+- "Specific neighborhoods/districts banding together to put a stop to crime and that actually making fewer crimes happen."
+- "Feeling involved in the world needs to happen sooner and it needs to be more visceral."
+- "It doesn't make sense for every citizen to be a potential criminal."
+- "It would feel weird to accuse someone of a crime then later talk to them like a witness with no repercussions."
+- "The state of a district should affect its residents. People who aren't criminals can turn criminal due to being a product of their environment. It should all be connected."
+
+### Tone: cozy mystery, facts versus flavor
+- **Code still owns the facts:** who, what, where and when, what was seen, records and the judge. Residents may never invent a fact about a case.
+- **Residents own the flavor:** opinions, grudges, theories, melodrama, running jokes, tangents about their own lives. Reply guards check only for invented case facts (people placed somewhere, times, traits, sightings) and stop policing tone and personality.
+- **A fixed cast with memorable quirks:** generated residents get one or two strong, consistent quirks, such as the person obsessed with the goose, the would-be true-crime expert, or the one who blames the council for everything. Quirks recur in what they say and post.
+- **Neighborhood-app posts with character:** passive-aggressive notes, lost-pet posts, theories, alongside case news and photos.
+
+### Crimes in tiers
+| Tier | Examples | What the case has |
+|---|---|---|
+| **Petty** | the bakery's sugar swapped for salt, a moustache on the mayor's portrait, the goose missing, a prize pumpkin sabotaged, a bike taken | one witness or a clear clue; the culprit doesn't lie much |
+| **Serious** | a shop or bank robbery, a mugging, a car stolen | more evidence; cover stories; possibly an accomplice; a victim who is a scared, partial witness (a mugging) |
+| **Major** | a murder, occasionally | the victim can't be questioned; a window for time of death; several people with motives; the whole town talking; runs longer |
+
+- **Still off limits:** no religion; nothing involving children; no sexual violence; no gore; deaths happen offstage, and cruelty is never played for laughs.
+
+### Your standing, your cases
+- **Standing grows per podcaster** with each held episode and falls with wrong ones.
+- **Tips match your standing:** a new podcaster gets petty tips, and a veteran in the same town gets serious and then major ones. Several cases can be open at once in the shared town, each offered to the podcasters whose standing fits. The first correct episode on a case closes it for everyone working it.
+- **First case:** the tutorial stays as it is, in its own town.
+
+### Offenders, not everyone
+- **A small hidden set:** only a few residents are offenders at any time (about 4 to 6 of 50). Crimes are committed by offenders; everyone else is a witness, a victim or a red herring.
+- **Offenders escalate:** an offender who keeps getting away with things moves up a tier.
+- **Exposure has consequences:**
+  - **Petty culprits** stay in town, publicly known. Residents bring it up, the culprit is cold or refuses to talk, and they may reform over time or reoffend.
+  - **Serious and major culprits** are arrested and leave town.
+- **The wrongly accused remember:** naming an innocent person turns them, their household and their close ties against you.
+- **New arrivals:** when people leave (arrested, or moving away), newcomers move in, written by Haiku like the original town. A newcomer may or may not be an offender; you can't tell.
+
+### Districts, and how everything connects
+- **Districts:** the town has three districts, one per street (Elm, Oak, Maple), each with the public places nearest it. Every resident and place belongs to one.
+- **District state:**
+  - **crime:** recent crimes there, decaying over time;
+  - **fear:** how shaken residents are;
+  - **organization:** whether residents have banded together, such as a neighborhood watch, porch-light pacts or a group chat.
+- **The loop:**
+  - **Crime feeds fear.** Crimes raise crime and fear in their district.
+  - **Fear and solved cases feed organization.** When fear is high and episodes have exposed culprits there, residents organize. A watch forms (a resident group, through Contex, like Whispers' groups but secular), announced on the app.
+  - **Organization cuts crime.** Crimes are staged less often in organized districts, so bold offenders move to districts that aren't organized.
+  - **Neglect breeds offenders.** In a district with high crime and fear and no organization, an ordinary resident may become an offender over time (a product of their environment). Organized districts don't produce new offenders.
+  - **Exposure ripples out.** Exposing an offender lowers crime in their district and changes how their household and ties treat you.
+- **Felt quickly:** your first solved town case visibly changes the town within minutes. The culprit is known, the victim becomes an ally who trusts you more, and the district reacts on the app ("Elm Street residents are starting a watch. Bev's making flyers.").
+- **District map:** a small view shows each district's crime, fear and organization, and how they change.
+
+### Talk that drifts, groups that form
+- **Hearsay may drift:** what residents say to each other can drift and embellish as it's retold, since hearsay is unreliable evidence anyway. The strict guards apply only to first-hand testimony and records.
+- **Groups come back, secular only:** neighborhood watches, committees, a book club with a theory. The no-religion copy and generation checks apply.
+
+### Stages
+1. **Facts versus flavor, and quirks:** looser reply guards; resident quirks in generation and talk; posts with character; a crime catalog of petty crimes worth caring about.
+2. **Offenders and consequences:** the offender set; petty exposure (known, cold, reforming or reoffending); arrests that remove serious and major culprits; newcomers; the wrongly accused remember.
+3. **Standing and tiers:** standing per podcaster; tips matched to standing; serious crimes (robbery, mugging, car theft) with their extra evidence and accomplices; several open cases.
+4. **Districts and the loop:** district state; watches forming (groups); crime displacement; offenders arising from neglect; the district map; district reactions on the app.
+5. **Major cases:** an occasional murder as a town event, with the time-of-death window, several motives and a longer case.
+6. **Drifting hearsay:** looser drift for resident-to-resident talk.

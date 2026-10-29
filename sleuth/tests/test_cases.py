@@ -1,0 +1,1020 @@
+import json
+from dataclasses import asdict, replace
+from types import SimpleNamespace
+from random import Random
+
+import pytest
+
+from sleuth import cases as cases_mod
+from sleuth.alibi import claim
+from sleuth.case import CLIP_TRAITS, CRIMES, WHEN, Crime, Record, points_at, suspects, told
+from sleuth.cases import CaseFile, Cases, case_json
+from sleuth.config import Config
+from sleuth.districts import Districts
+from sleuth.feed import Feed
+from sleuth.game import PHASES
+from sleuth.lineage import Ids, Lineage
+from sleuth.models import Utterance, Villager
+from sleuth.offenders import Offender
+from sleuth.photos import Album, Photo
+from sleuth.players import Players
+from sleuth.reputation import Reputation
+from sleuth.tests.helpers import StubRoutine, stub_player
+from sleuth.tests.test_case import RESIDENTS, feuding, make_routine, make_town
+from sleuth.town import PUBLIC_PLACES, Town
+from sleuth.town_gen import form_households, wire_relationships
+from sleuth.traits import assign_traits
+
+
+class FakeEngine:
+    def __init__(self, town):
+        self.town = town
+        self.config = Config(population=0)
+        self.reputation = Reputation(Config())
+        self.lines = []
+        self.feed = Feed(Lineage(), town, out=self.lines.append)
+        self.delivered = []
+        self.players = Players()
+        self.album = Album()
+
+    async def deliver(self, utterance, listener_ids, addressed=False):
+        self.delivered.append((utterance, listener_ids, addressed))
+
+    async def remove_villager(self, vid):
+        self.town.remove(vid)
+
+
+def make_cases(**config):
+    town = make_town()
+    assign_traits(town.villagers, Random(0))
+    town.dress(1, Random(0))
+    # Eight residents are too few for a share of them to cap who offends.
+    cases = Cases(Config(**{"offender_share": 1.0, **config}), town, make_routine(), Random(1), Ids())
+    return cases, FakeEngine(town), town
+
+
+async def tick(cases, engine, day=2, phase="morning", finished=None):
+    await cases.on_tick(engine, day, phase, finished or {})
+
+
+def shared(cases):
+    """The first open shared case."""
+    return next(iter(cases.open_shared()), None)
+
+
+def kinds(engine, kind):
+    return [e for e in engine.feed.recent if e.kind == kind]
+
+
+@pytest.mark.asyncio
+async def test_a_tick_with_no_shared_case_opens_one_at_once():
+    cases, engine, _ = make_cases()
+    await tick(cases, engine)
+    [case] = cases.files.values()
+    assert case.state == "open" and shared(cases) is case and case.opened == 2.0
+    assert kinds(engine, "case") and kinds(engine, "post")
+    await tick(cases, engine, day=3)
+    assert list(cases.files.values()) == [case]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("now, part, said", [(2.0, (1, "night"), "last night"),
+                                             (2.25, (2, "morning"), "this morning"),
+                                             (2.5, (2, "afternoon"), "this afternoon")])
+async def test_the_crime_is_set_in_the_part_of_the_day_just_finished(now, part, said):
+    cases, engine, _ = make_cases()
+    cases.routine = StubRoutine({vid: {p: street for p in PHASES} for vid, _, _, street in RESIDENTS})
+    await cases.ensure(engine, now)
+    case = shared(cases)
+    assert (case.crime.day, case.crime.phase) == part and case.opened == now
+    [post] = kinds(engine, "post")
+    assert post.data["text"].endswith(f"{said}.")
+
+
+@pytest.mark.asyncio
+async def test_no_one_in_a_photo_of_the_crime_s_part_of_the_day_is_its_culprit_victim_or_witness():
+    pictured = {"v1", "v3", "v5", "v7"}
+    seen = set()
+    for seed in range(30):
+        cases, engine, _ = make_cases()
+        cases.rng = Random(seed)
+        cases.routine = StubRoutine({vid: {p: street for p in PHASES} for vid, _, _, street in RESIDENTS})
+        engine.album.photos += [Photo("r-90", "gym", 2, "morning", {vid: {} for vid in pictured}, "", "v1"),
+                                Photo("r-91", "gym", 2, "afternoon", {"v2": {}, "v4": {}}, "", "v2")]
+        await cases.ensure(engine, 2.25)
+        case = shared(cases)
+        if case is None:
+            continue
+        witnesses = {r.holder for r in case.records.values() if r.kind == "memory"}
+        assert not {case.crime.culprit, case.crime.victim} & pictured and not witnesses & pictured
+        seen |= {case.crime.culprit, case.crime.victim}
+    assert {"v2", "v4"} <= seen
+
+
+@pytest.mark.asyncio
+async def test_witness_memory_is_delivered_to_the_witness_alone_and_rooted():
+    cases, engine, _ = make_cases()
+    await tick(cases, engine)
+    [case] = cases.files.values()
+    memory = next(r for r in case.records.values() if r.kind == "memory")
+    witness = memory.holder
+    u, ids, addressed = engine.delivered[0]
+    assert ids == [witness] and addressed and cases.root_kind(u.id)[1] == "memory"
+    assert u.id == memory.utterance and u.text == memory.text and u.verb == "saw" and u.place == case.crime.place
+
+
+@pytest.mark.asyncio
+async def test_the_news_breaks_as_the_case_opens():
+    cases, engine, town = make_cases()
+    await tick(cases, engine)
+    [event] = kinds(engine, "case")
+    [case] = cases.files.values()
+    said = told(case.crime.text, case.crime, 2)
+    assert said.endswith("last night.")
+    assert event.data["case"] == {"id": case.crime.id, "text": said, "place": case.crime.place,
+                                  "phase": "night", "day": 1, "state": "open", "private": False,
+                                  "title": f"{town.name_of(case.crime.victim)}'s {case.crime.item}",
+                                  "victim": case.crime.victim,
+                                  "nearby": [v.id for v in town.villagers
+                                             if v.id != case.crime.victim and v.home == case.crime.place],
+                                  "tier": "petty"}
+    assert cases.for_player("p-1") is case
+    news, listeners, _ = next(d for d in engine.delivered if cases.root_kind(d[0].id)[1] == "news")
+    victim = town.get(case.crime.victim)
+    assert news.speaker_name == "The neighborhood app" and news.text == said and news.verb == "posted"
+    assert victim.id in listeners and {v.id for v in town.villagers if v.household == victim.household} <= set(listeners)
+    assert {v.id for v in town.present(case.crime.place)} <= set(listeners)
+    [post] = kinds(engine, "post")
+    assert post.data == {"case_id": case.crime.id, "speaker": "The neighborhood app", "text": said,
+                         "app": True}
+
+
+@pytest.mark.asyncio
+async def test_unsolvable_draws_are_retried_at_once(monkeypatch):
+    real, calls = cases_mod.make_solvable, []
+
+    def twice_none(*a, **k):
+        calls.append(a[0].id)
+        return None if len(calls) <= 2 else real(*a, **k)
+
+    monkeypatch.setattr(cases_mod, "make_solvable", twice_none)
+    cases, engine, _ = make_cases()
+    await tick(cases, engine)
+    [case] = cases.files.values()
+    assert len(calls) == 3 and case.crime.id == calls[-1] and case.state == "open"
+    assert len(kinds(engine, "case")) == 1
+
+
+@pytest.mark.asyncio
+async def test_no_case_opens_when_every_draw_is_unsolvable_and_the_next_tick_tries_again(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cases_mod, "make_solvable", lambda *a, **k: calls.append(1))
+    cases, engine, _ = make_cases()
+    await tick(cases, engine)
+    assert len(calls) == cases_mod.DRAWS and not cases.files and not kinds(engine, "case") and not engine.delivered
+    monkeypatch.undo()
+    await tick(cases, engine, day=3)
+    assert shared(cases).state == "open"
+
+
+@pytest.mark.asyncio
+async def test_a_draw_that_fails_is_dropped_and_the_next_opens(monkeypatch, caplog):
+    real = cases_mod.make_solvable
+    calls = []
+
+    def broken_once(*a, **k):
+        calls.append(a[0].id)
+        if len(calls) == 1:
+            raise KeyError("v1")
+        return real(*a, **k)
+
+    monkeypatch.setattr(cases_mod, "make_solvable", broken_once)
+    cases, engine, _ = make_cases()
+    await tick(cases, engine)
+    [case] = cases.files.values()
+    assert calls[0] in caplog.text and case.crime.id == calls[1] and case.state == "open"
+
+
+@pytest.mark.asyncio
+async def test_a_case_gone_cold_is_followed_by_the_next_in_the_same_tick():
+    cases, engine, _ = make_cases()
+    await tick(cases, engine)
+    [case] = cases.files.values()
+    await tick(cases, engine, day=4, phase="night")
+    assert case.state == "open"
+    await tick(cases, engine, day=5)
+    assert case.state == "closed"
+    [closed] = kinds(engine, "case_closed")
+    assert closed.data["case_id"] == case.crime.id
+    assert f"The case went cold. It was {town_name(cases, case.crime.culprit)}." in engine.lines
+    following = shared(cases)
+    assert following.state == "open" and following is not case and following.opened == 5.0
+
+
+def town_name(cases, vid):
+    return cases.town.get(vid).name
+
+
+@pytest.mark.asyncio
+async def test_cases_round_trip_through_state():
+    cases, engine, town = make_cases()
+    await tick(cases, engine)
+    await tick(cases, engine, day=5)
+    fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
+    fresh.restore(json.loads(json.dumps(cases.to_state())))
+    assert fresh.files == cases.files and fresh.to_state() == cases.to_state()
+
+
+@pytest.mark.asyncio
+async def test_a_restore_with_no_open_case_opens_one():
+    cases, engine, town = make_cases()
+    culprit_file(cases).state = "closed"
+    stale = CaseFile(replace(cases.files["case-1"].crime, id="case-2"), {}, "setup")
+    state = {**json.loads(json.dumps(cases.to_state())), "last_closed": 1.0}
+    state["files"].append(json.loads(json.dumps(asdict(stale))))
+    fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
+    fresh.restore(state)
+    assert list(fresh.files) == ["case-1"] and shared(fresh) is None
+    await fresh.ensure(engine, 3.0)
+    assert shared(fresh).state == "open"
+
+
+def culprit_file(cases, culprit="v3", victim="v1", phase="night"):
+    crime = Crime(cases.ids.next("case"), "steal", "bike", culprit, victim, "elm street", 1, phase, 1400, "opportunity",
+                  "Someone stole Dana Reyes's bike on Elm Street last night.")
+    cases.files[crime.id] = CaseFile(crime, {}, "open")
+    return cases.files[crime.id]
+
+
+def test_case_lists_who_is_usually_at_the_scene_from_routine_alone():
+    cases, _, town = make_cases()
+    cases.routine = make_routine(night={"v4": "gym"})
+    file = culprit_file(cases, culprit="v5")
+    town.move("v5", "elm street")
+    town.move("v2", "gym")
+    file.whereabouts = {"v5": ["elm street"], "v3": ["gym"]}
+    assert case_json(file, town, cases.routine)["nearby"] == ["v2", "v3"]
+    assert case_json(file, town, None)["nearby"] == []
+
+
+def test_alibi_claim_is_the_culprits_expected_place():
+    cases, _, town = make_cases()
+    cases.routine = make_routine(night={"v3": "gym"})
+    file = culprit_file(cases)
+    assert cases.alibi("v3") == f"I was at the gym {WHEN}, all night."
+    assert file.alibi == ["gym"]
+    assert cases.alibi("v2") is None
+
+
+def test_a_death_s_alibi_names_no_part_of_the_day():
+    cases, _, town = make_cases()
+    cases.routine = make_routine(night={"v3": "gym"})
+    culprit_file(cases).crime.window = ["night", "morning"]
+    assert cases.alibi("v3") == f"I was at the gym {WHEN}."
+
+
+def test_a_death_s_case_gives_no_part_of_the_day_and_nearby_spans_the_window():
+    cases, _, town = make_cases()
+    cases.routine = StubRoutine({"v2": {"night": "elm street"}, "v4": {"evening": "elm street"},
+                                 "v6": {"afternoon": "elm street"}})
+    file = culprit_file(cases)
+    file.crime.window = ["evening", "night"]
+    body = case_json(file, town, cases.routine)
+    assert "phase" not in body and body["nearby"] == ["v2", "v4"]
+
+
+def test_blame_names_the_victims_rival_never_culprit_or_victim():
+    cases, _, town = make_cases()
+    culprit_file(cases)
+    assert cases.blame("v3") == f"Hal Burke has never liked Dana. I'd ask where they were {WHEN}."
+
+
+def test_blame_falls_back_to_the_culprits_coldest_tie_other_than_the_victim():
+    cases, _, town = make_cases()
+    culprit_file(cases, culprit="v5")
+    assert cases.blame("v5") is None
+    town.get("v5").warmth.update({"v7": 0.3, "v8": 0.5})
+    assert cases.blame("v5") == f"Jo Tran has never liked Dana. I'd ask where they were {WHEN}."
+
+
+def test_mark_cover_roots_the_line_in_the_culprits_case():
+    cases, _, _ = make_cases()
+    file = culprit_file(cases)
+    cases.mark_cover("v3", "u-9")
+    assert cases.root_kind("u-9") == (file, "cover")
+
+
+def test_alibi_on_a_street_is_being_at_home():
+    cases, _, _ = make_cases()
+    culprit_file(cases)
+    assert cases.alibi("v3") == f"I was at home on Elm Street {WHEN}, all night."
+
+
+@pytest.mark.asyncio
+async def test_the_crime_phase_log_is_kept_as_whereabouts_with_the_culprit_at_the_scene():
+    cases, engine, _ = make_cases()
+    log = {"v2": ["elm street", "bar"], "v4": ["gym"]}
+    await tick(cases, engine, finished=log)
+    [case] = cases.files.values()
+    crime = case.crime
+    assert case.whereabouts == {**log, crime.culprit: [crime.place]}
+
+
+@pytest.mark.asyncio
+async def test_without_a_finished_log_the_routine_gives_the_whereabouts():
+    cases, engine, _ = make_cases()
+    await cases.ensure(engine, 2.0)
+    crime = shared(cases).crime
+    assert shared(cases).whereabouts == {**{vid: [street] for vid, _, _, street in RESIDENTS},
+                                          crime.culprit: [crime.place]}
+
+
+@pytest.mark.asyncio
+async def test_a_player_off_the_practice_case_is_told_the_town_s_open_case():
+    cases, engine, _ = make_cases()
+    shared = culprit_file(cases)
+    shared.crime.text = "Someone stole Dana Reyes's bike on Elm Street {when}."
+    engine.feed.recent.clear()
+    cases.brief(engine.feed, "p-1", 2, "petty")
+    case, post = engine.feed.recent
+    assert (case.kind, case.player, case.data["case"]["id"]) == ("case", "p-1", shared.crime.id)
+    assert (post.kind, post.player, post.data["app"]) == ("post", "p-1", True)
+    assert post.data["text"] == "Someone stole Dana Reyes's bike on Elm Street last night."
+    shared.state = "closed"
+    cases.brief(engine.feed, "p-1", 2, "petty")
+    assert len(engine.feed.recent) == 2
+
+
+@pytest.mark.asyncio
+async def test_the_brief_leaves_out_news_the_feed_still_replays():
+    cases, engine, _ = make_cases()
+    shared = culprit_file(cases)
+    engine.feed.on_post(Utterance("u-9", "app", "The neighborhood app", "elm street", "news", None), shared.crime.id)
+    cases.brief(engine.feed, "p-1", 2, "petty")
+    assert [e.kind for e in engine.feed.recent] == ["post", "case"]
+
+
+def test_for_player_prefers_the_private_case():
+    cases, _, _ = make_cases()
+    shared = culprit_file(cases)
+    private = CaseFile(replace(shared.crime, id="case-2", owner="p-1"), {}, "open")
+    cases.files[private.crime.id] = private
+    assert cases.for_player("p-1") is private and cases.for_player("p-2") is shared
+    assert cases.private("p-1") is private and cases.private("p-2") is None
+    assert cases.open_shared() == [shared]
+
+
+@pytest.mark.asyncio
+async def test_the_victim_is_told_what_they_found_when_the_case_opens():
+    cases, engine, town = make_cases()
+    await tick(cases, engine)
+    [case] = cases.files.values()
+    [found] = [r for r in case.records.values() if r.kind == "discovery"]
+    assert found.holder == case.crime.victim
+    u, ids, addressed = next(d for d in engine.delivered if d[0].id == found.utterance)
+    assert ids == [case.crime.victim] and addressed and cases.root_kind(u.id)[1] == "memory"
+    assert u.text.startswith(f"Around {found.clock}, I found my {case.crime.item} ")
+    assert town.name_of(case.crime.victim) not in u.text
+
+
+@pytest.mark.asyncio
+async def test_staged_cases_hold_clues_at_the_crime_place():
+    cases, engine, _ = make_cases()
+    await tick(cases, engine)
+    case = shared(cases)
+    clues = [r for r in case.records.values() if r.kind == "clue"]
+    assert 1 <= len(clues) <= 2 and {r.place for r in clues} == {case.crime.place}
+
+
+@pytest.mark.asyncio
+async def test_cases_with_a_regular_culprit_still_open_solvable():
+    regulars = 0
+    for seed in range(40):
+        cases, engine, town = make_cases()
+        cases.rng = Random(seed)
+        await tick(cases, engine)
+        case = shared(cases)
+        if case is None or cases.routine.place(case.crime.culprit, case.crime.phase) != case.crime.place:
+            continue
+        crime = case.crime
+        regulars += 1
+        records = list(case.records.values())
+        traits = town.looks(crime.culprit, crime.day)
+        assert case.state == "open" and suspects(crime, records, town) == {crime.culprit}
+        assert any(r.sound and points_at(crime, crime.culprit, traits, r) for r in records)
+        assert claim(case, crime.culprit, cases.routine) == ([crime.place], True)
+    assert regulars
+
+
+def test_cases_dress_today_with_the_culprits_caution():
+    cases, _, town = make_cases(case_days=20)
+    for v in town.villagers:
+        v.wardrobe = ["green raincoat", "plaid flannel", "grey hoodie"]
+    file = culprit_file(cases)
+    town.worn = {1: {"v3": "green raincoat"}}
+    assert cases.cautious(2) == {"v3": "green raincoat"} and cases.cautious(1) == {}
+    for day in range(2, 21):
+        cases.dress(day)
+        assert town.outfit("v3", day) != "green raincoat"
+    cases.close(file, None)
+    assert cases.cautious(21) == {}
+
+
+@pytest.mark.asyncio
+async def test_only_offenders_commit_crimes():
+    opened = 0
+    for seed in range(40):
+        cases, engine, _ = make_cases(offenders=3)
+        cases.rng = Random(seed)
+        await tick(cases, engine)
+        if case := shared(cases):
+            opened += 1
+            assert case.crime.culprit in cases.offenders.active and len(cases.offenders.active) == 3
+    assert opened > 30
+
+
+@pytest.mark.asyncio
+async def test_while_every_offender_is_lying_low_a_petty_case_still_opens_with_one_of_them():
+    cases, engine, _ = make_cases()
+    cases.offenders.top_up(cases.town, cases.rng)
+    for o in cases.offenders.active.values():
+        o.quiet_until = 9
+    await tick(cases, engine)
+    [case] = cases.files.values()
+    assert case.crime.tier == "petty" and case.crime.culprit in cases.offenders.active
+
+
+@pytest.mark.asyncio
+async def test_a_new_podcaster_always_has_a_petty_case_even_with_no_petty_offender_free():
+    cases, engine, town = make_cases(offender_share=0.0, offenders=3, min_offenders=3)
+    cases.offenders.active = {"v5": Offender("serious"), "v6": Offender("serious"), "v7": Offender("major")}
+    await cases.ensure(engine, 2.0)
+    case = cases.for_player("newcomer", "petty")
+    assert case is not None and case.crime.tier == "petty" and case.crime.culprit not in {"v5", "v6", "v7"}
+    assert cases.offenders.active[case.crime.culprit].tier == "petty"
+    assert [o.tier for vid, o in cases.offenders.active.items() if vid in {"v5", "v6", "v7"}] == [
+        "serious", "serious", "major"]
+
+
+def test_solvability_still_narrows_among_everyone_not_just_offenders():
+    cases, _, town = make_cases()
+    file = culprit_file(cases)
+    cases.offenders.active = {"v3": Offender()}
+    looks = town.looks("v3", 1)
+    twin = next(v for v in town.villagers if v.id not in ("v1", "v3"))
+    twin.traits = dict(town.get("v3").traits)
+    town.worn[1][twin.id] = looks["coat"]
+    clip = Record("r-1", file.crime.id, "clip", "elm street", "11:20pm", "", traits={c: looks[c] for c in CLIP_TRAITS})
+    assert {"v3", twin.id} <= suspects(file.crime, [clip], town)
+
+
+@pytest.mark.asyncio
+async def test_a_case_gone_cold_counts_as_an_escape():
+    cases, engine, _ = make_cases()
+    await tick(cases, engine)
+    culprit = shared(cases).crime.culprit
+    await tick(cases, engine, day=5)
+    assert cases.offenders.active[culprit].escaped == 1
+
+
+@pytest.mark.asyncio
+async def test_offenders_round_trip_with_the_cases():
+    cases, engine, town = make_cases()
+    await tick(cases, engine)
+    vid = next(iter(cases.offenders.active))
+    cases.offenders.active[vid] = Offender("serious", 1, 4)
+    cases.offenders.exposed["v8"] = "stole Dana Reyes's bike"
+    cases.vacant = ["oak street"]
+    fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
+    fresh.restore(json.loads(json.dumps(cases.to_state())))
+    assert fresh.offenders.active == cases.offenders.active and fresh.offenders.exposed == cases.offenders.exposed
+    assert fresh.vacant == ["oak street"]
+
+
+@pytest.mark.asyncio
+async def test_an_exposed_offender_may_reform_only_on_a_morning():
+    cases, engine, _ = make_cases(reform_chance=1.0)
+    cases.offenders.active["v3"] = Offender()
+    cases.offenders.exposed["v3"] = "stole Dana Reyes's bike"
+    await tick(cases, engine, phase="afternoon")
+    assert "v3" in cases.offenders.active
+    await tick(cases, engine, day=3)
+    assert "v3" not in cases.offenders.active
+
+
+@pytest.mark.asyncio
+async def test_a_held_serious_episode_arrests_the_culprit_who_leaves_town():
+    cases, engine, town = make_cases()
+    file = culprit_file(cases)
+    file.crime.tier = "serious"
+    cases.offenders.active["v3"] = Offender("serious")
+    await cases.on_held(engine, file, "p-1")
+    assert "v3" not in town and "v3" in {v.id for v in town.departed} and "v3" not in cases.offenders.active
+    assert "v3" not in cases.offenders.exposed
+    assert any(e.kind == "post" and e.data["text"] == "Fay Okafor was arrested and has left town." for e in engine.feed.recent)
+
+
+@pytest.mark.asyncio
+async def test_no_open_case_s_witness_is_another_open_case_s_culprit():
+    for seed in range(30):
+        cases, engine, town = make_cases(offenders=8)
+        cases.rng = Random(seed)
+        cases.routine = StubRoutine({vid: {"night": "elm street"} for vid, *_ in RESIDENTS})
+        other = culprit_file(cases, culprit="v7", victim="v2")
+        other.crime.owner = "p-1"
+        await tick(cases, engine)
+        case = shared(cases)
+        if case is None:
+            continue
+        holders = {r.holder for r in case.records.values() if r.kind == "memory"}
+        dropped = {r.who for r in case.records.values() if r.trail}
+        assert "v7" not in holders | dropped
+
+
+def test_named_round_trips_with_the_case():
+    cases, _, town = make_cases()
+    culprit_file(cases).named = {"p-1": "v5", "p-2": "v3"}
+    fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
+    fresh.restore(json.loads(json.dumps(cases.to_state())))
+    assert fresh.files["case-1"].named == {"p-1": "v5", "p-2": "v3"}
+
+
+@pytest.mark.asyncio
+async def test_a_petty_case_gone_cold_exposes_its_culprit_to_the_town():
+    cases, engine, town = make_cases()
+    await tick(cases, engine)
+    crime = shared(cases).crime
+    await tick(cases, engine, day=5)
+    assert crime.culprit in town and cases.offenders.exposed[crime.culprit].startswith("stole ")
+    assert cases.offenders.active[crime.culprit].quiet_until == 5 + cases.config.exposed_quiet_days
+    assert engine.reputation.to_state() == {} and not [e for e in engine.feed.recent if "podcast!" in e.line]
+
+
+@pytest.mark.asyncio
+async def test_a_serious_case_gone_cold_has_its_culprit_arrested():
+    cases, engine, town = make_cases()
+    file = culprit_file(cases)
+    file.crime.tier = "serious"
+    cases.offenders.active["v3"] = Offender("serious")
+    await tick(cases, engine, day=5)
+    assert file.state == "closed" and "v3" not in town and "v3" not in cases.offenders.active
+    assert "Fay Okafor was arrested and has left town." in [e.data.get("text") for e in engine.feed.recent]
+
+
+@pytest.mark.asyncio
+async def test_no_one_an_open_case_needs_is_drawn_into_another():
+    for seed in range(30):
+        cases, engine, _ = make_cases(offenders=8)
+        cases.rng = Random(seed)
+        other = culprit_file(cases, culprit="v7", victim="v2")
+        other.crime.owner = "p-1"
+        other.records = {"r-1": Record("r-1", other.crime.id, "memory", "elm street", "", "", "v4"),
+                         "r-2": Record("r-2", other.crime.id, "log", "grocery", "", "", who="v6", trail=True)}
+        await tick(cases, engine)
+        if case := shared(cases):
+            assert not {case.crime.culprit, case.crime.victim} & {"v4", "v6"}
+
+
+@pytest.mark.asyncio
+async def test_someone_only_logged_in_an_open_case_can_still_be_drawn_into_another():
+    drawn = set()
+    for seed in range(30):
+        cases, engine, _ = make_cases(offenders=8)
+        cases.rng = Random(seed)
+        other = culprit_file(cases, culprit="v7", victim="v2")
+        other.crime.owner = "p-1"
+        other.records = {"r-1": Record("r-1", other.crime.id, "log", "gym", "", "", who="v6")}
+        await tick(cases, engine)
+        if case := shared(cases):
+            drawn |= {case.crime.culprit, case.crime.victim}
+    assert "v6" in drawn
+
+
+def podcaster(tier, pid="p-1"):
+    return SimpleNamespace(**{**vars(stub_player(pid)), "tier": tier})
+
+
+def tiered(cases, tier, culprit="v3", victim="v1", opened=0.0):
+    file = culprit_file(cases, culprit, victim)
+    file.crime.tier, file.opened = tier, opened
+    return file
+
+
+@pytest.mark.asyncio
+async def test_a_case_is_open_for_each_tier_someone_playing_has_reached():
+    cases, engine, _ = make_cases(offenders=8)
+    tiered(cases, "petty", opened=2.0)
+    await tick(cases, engine)
+    assert [f.crime.tier for f in cases.open_shared()] == ["petty"]
+    engine.players.add(podcaster("serious"))
+    await tick(cases, engine)
+    assert sorted(f.crime.tier for f in cases.open_shared()) == ["petty", "serious"]
+    [case] = cases.open_shared("serious")
+    assert CRIMES[case.crime.template].tier == "serious"
+    assert cases.offenders.active[case.crime.culprit].tier == "serious"
+
+
+def test_a_podcaster_is_offered_cases_at_or_below_their_tier():
+    cases, _, _ = make_cases()
+    old = tiered(cases, "petty")
+    big = tiered(cases, "serious", "v5", "v7", opened=1.0)
+    new = tiered(cases, "petty", "v6", "v2", opened=2.0)
+    assert cases.offered("petty") == [old, new]
+    assert cases.offered("serious") == cases.offered("major") == [big, old, new]
+    assert cases.for_player("p-1") is old and cases.for_player("p-1", "serious") is big
+    assert cases.for_player("p-1", "serious", new.crime.id) is new
+    assert cases.for_player("p-1", "petty", big.crime.id) is old
+
+
+@pytest.mark.asyncio
+async def test_the_first_held_episode_closes_a_case_for_everyone_working_it():
+    cases, engine, _ = make_cases(offenders=8)
+    engine.players.add(podcaster("serious"))
+    petty, big = tiered(cases, "petty"), tiered(cases, "serious", "v5", "v7")
+    cases.offenders.active = {"v3": Offender(), "v5": Offender("serious")}
+    cases.now = 2.0
+    await cases.on_held(engine, petty, "p-1")
+    assert petty.state == "closed" and big.state == "open"
+    [following] = cases.open_shared("petty")
+    assert following is not petty and cases.open_shared("serious") == [big]
+
+
+@pytest.mark.asyncio
+async def test_serious_crimes_are_committed_by_serious_offenders_only():
+    opened = 0
+    for seed in range(20):
+        cases, engine, _ = make_cases(offenders=8)
+        cases.rng = Random(seed)
+        engine.players.add(podcaster("serious"))
+        tiered(cases, "petty", opened=2.0)
+        await tick(cases, engine)
+        for f in cases.open_shared("serious"):
+            opened += 1
+            assert CRIMES[f.crime.template].tier == f.crime.tier == cases.offenders.active[f.crime.culprit].tier
+    assert opened > 10
+
+
+@pytest.mark.asyncio
+async def test_serious_cases_stay_solvable_across_seeds():
+    opened = 0
+    for seed in range(30):
+        cases, engine, town = make_cases(offenders=8)
+        cases.rng = Random(seed)
+        engine.players.add(podcaster("serious"))
+        tiered(cases, "petty", opened=2.0)
+        await tick(cases, engine)
+        for f in cases.open_shared("serious"):
+            opened += 1
+            assert suspects(f.crime, list(f.records.values()), town) == {f.crime.culprit}
+    assert opened > 15
+
+
+@pytest.mark.asyncio
+async def test_a_mugging_victim_is_told_what_they_saw():
+    for seed in range(60):
+        cases, engine, _ = make_cases(offenders=8)
+        cases.rng = Random(seed)
+        engine.players.add(podcaster("serious"))
+        tiered(cases, "petty", opened=2.0)
+        await tick(cases, engine)
+        if mugging := next((f for f in cases.open_shared() if f.crime.template == "mug"), None):
+            break
+    victim = mugging.crime.victim
+    [m] = [r for r in mugging.records.values() if r.kind == "memory" and r.holder == victim]
+    assert len(m.traits) == 1 and any(u.id == m.utterance and ids == [victim] for u, ids, _ in engine.delivered)
+
+
+@pytest.mark.asyncio
+async def test_a_promoted_offender_fills_an_empty_serious_tier():
+    cases, engine, _ = make_cases(offenders=3)
+    engine.players.add(podcaster("serious"))
+    tiered(cases, "petty", opened=2.0)
+    cases.offenders.active = {"v3": Offender(escaped=1), "v6": Offender(escaped=1), "v8": Offender()}
+    cases.offenders.active["v6"].escaped = 2
+    await tick(cases, engine)
+    assert cases.offenders.active["v6"].tier == "serious"
+    [case] = cases.open_shared("serious")
+    assert case.crime.culprit == "v6"
+
+
+@pytest.mark.asyncio
+async def test_an_offender_lying_low_is_not_promoted_and_does_not_block_the_tier():
+    cases, engine, _ = make_cases(offenders=4)
+    engine.players.add(podcaster("serious"))
+    tiered(cases, "petty", opened=2.0)
+    cases.offenders.active = {"v3": Offender(), "v6": Offender(escaped=2, quiet_until=9),
+                              "v7": Offender("serious", quiet_until=9), "v8": Offender(escaped=1)}
+    await tick(cases, engine)
+    assert cases.offenders.active["v6"].tier == "petty" and cases.offenders.active["v8"].tier == "serious"
+    [case] = cases.open_shared("serious")
+    assert case.crime.culprit == "v8"
+
+
+@pytest.mark.asyncio
+async def test_a_held_serious_episode_ends_in_an_arrest():
+    cases, engine, town = make_cases(offenders=8)
+    engine.players.add(podcaster("serious"))
+    tiered(cases, "petty", opened=2.0)
+    await tick(cases, engine)
+    [case] = cases.open_shared("serious")
+    culprit = case.crime.culprit
+    cases.now = 2.25
+    await cases.on_held(engine, case, "p-1")
+    assert culprit not in town and culprit not in cases.offenders.active and culprit not in cases.offenders.exposed
+    assert f"{town.name_of(culprit)} was arrested and has left town." in [e.data.get("text") for e in engine.feed.recent]
+
+
+@pytest.mark.asyncio
+async def test_an_accomplice_is_never_a_witness_of_the_same_case():
+    covered = 0
+    for seed in range(30):
+        cases, engine, _ = make_cases(offenders=8, accomplice_chance=1.0)
+        cases.rng = Random(seed)
+        engine.players.add(podcaster("serious"))
+        tiered(cases, "petty", opened=2.0)
+        await tick(cases, engine)
+        for f in cases.open_shared("serious"):
+            if f.accomplice is None:
+                continue
+            covered += 1
+            holders = {r.holder for r in f.records.values()} | {r.who for r in f.records.values() if r.trail}
+            assert f.accomplice not in holders | {f.crime.culprit, f.crime.victim}
+    assert covered > 15
+
+
+def test_accomplice_round_trips_with_the_case():
+    cases, _, town = make_cases()
+    culprit_file(cases).accomplice = "v7"
+    fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
+    fresh.restore(json.loads(json.dumps(cases.to_state())))
+    assert fresh.files["case-1"].accomplice == "v7"
+
+
+@pytest.mark.asyncio
+async def test_a_held_episode_exposes_the_accomplice_too():
+    cases, engine, town = make_cases()
+    file = tiered(cases, "serious")
+    file.accomplice = "v7"
+    cases.offenders.active["v3"] = Offender("serious")
+    await cases.on_held(engine, file, "p-1")
+    assert "v3" not in town and "v7" in town
+    assert cases.offenders.exposed == {"v7": "covered for Fay Okafor"}
+    assert engine.reputation.get("v7", "p-1") == pytest.approx(cases.config.reputation_right + cases.config.reputation_exposed)
+
+
+def test_every_tier_up_to_the_highest_reached_is_wanted():
+    cases, engine, _ = make_cases()
+    assert cases.wanted(engine) == ["petty"]
+    engine.players.add(podcaster("major"))
+    assert cases.wanted(engine) == ["petty", "serious", "major"]
+
+
+@pytest.mark.asyncio
+async def test_a_case_gone_cold_exposes_the_accomplice_too():
+    cases, engine, town = make_cases()
+    file = tiered(cases, "serious")
+    file.accomplice = "v7"
+    cases.offenders.active["v3"] = Offender("serious")
+    await tick(cases, engine, day=5)
+    assert file.state == "closed" and "v3" not in town
+    assert cases.offenders.exposed["v7"] == "covered for Fay Okafor" and engine.reputation.to_state() == {}
+
+
+@pytest.mark.asyncio
+async def test_no_one_usually_at_the_scene_is_the_accomplice():
+    opened = 0
+    for seed in range(20):
+        cases, engine, town = make_cases(accomplice_chance=1.0)
+        cases.rng = Random(seed)
+        town.get("v5").warmth.update({"v2": 0.9, "v7": 0.7})
+        crime = Crime(f"case-{seed}", "mug", "wallet", "v5", "v1", "elm street", 1, "night", 1400, "opportunity", "",
+                      tier="serious")
+        if await cases._open(engine, crime, set()):
+            opened += 1
+            assert cases.files[crime.id].accomplice == "v7"
+    assert opened
+
+
+def deadly(seed=0):
+    """A town where Dana (v1) is on cold terms with Hal (v5), Jo (v7) and Kit (v8), everyone on Oak Street a major
+    offender, and the game at the morning of day 2."""
+    cases, engine, town = make_cases()
+    cases.rng = Random(seed)
+    feuding(town)
+    cases.offenders.active = {vid: Offender("major") for vid in ("v5", "v6", "v7", "v8")}
+    cases.now = 2.0
+    return cases, engine, town
+
+
+async def open_death(seed=0):
+    cases, engine, town = deadly(seed)
+    await cases._stage(engine, "major", 1, "night", set())
+    return cases, engine, town, next(iter(cases.open_shared("major")), None)
+
+
+def test_a_major_case_opens_only_for_a_major_podcaster_and_not_too_often():
+    cases, engine, _ = make_cases()
+    cases.now = 2.0
+    engine.players.add(podcaster("serious"))
+    assert cases.wanted(engine) == ["petty", "serious"]
+    engine.players.add(podcaster("major", "p-2"))
+    assert cases.wanted(engine) == ["petty", "serious", "major"]
+    death = tiered(cases, "major")
+    assert cases.wanted(engine) == ["petty", "serious"]
+    cases.close(death, None)
+    cases.last_major = 1.0
+    assert cases.wanted(engine) == ["petty", "serious"]
+    cases.now = 1.0 + cases.config.major_every_days
+    assert cases.wanted(engine) == ["petty", "serious", "major"]
+
+
+@pytest.mark.asyncio
+async def test_the_victim_leaves_town_and_someone_else_found_them():
+    cases, engine, town, case = await open_death()
+    crime = case.crime
+    assert crime.victim == "v1" and "v1" not in town and "v1" in {v.id for v in town.departed}
+    assert cases.vacant == ["elm street"] and cases.last_major == 2.0
+    [found] = [r for r in case.records.values() if r.kind == "discovery"]
+    assert found.holder in town and found.holder not in (crime.culprit, crime.victim)
+    finder = town.get(found.holder)
+    assert crime.place in case.whereabouts[finder.id] or cases.routine.place(finder.id, "night") == crime.place
+    assert found.text == f"Around {found.clock}, {finder.name} found Dana Reyes on Elm Street."
+    [told_them] = [(u, ids) for u, ids, _ in engine.delivered if u.id == found.utterance]
+    assert told_them == (told_them[0], [finder.id]) and told_them[0].text == f"Around {found.clock}, I found Dana Reyes on Elm Street."
+
+
+@pytest.mark.asyncio
+async def test_a_major_case_has_several_people_with_motives():
+    cases, engine, town, case = await open_death()
+    assert case.motives == ["v5", "v7", "v8"] and len(set(case.motives) - {case.crime.culprit}) >= 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("phase", ["night", "morning"])
+async def test_a_major_case_stays_solvable_across_seeds(phase):
+    opened = 0
+    for seed in range(30):
+        cases, engine, town = deadly(seed)
+        cases.routine = StubRoutine({vid: {"night": street, "morning": street} for vid, _, _, street in RESIDENTS})
+        await cases._stage(engine, "major", 2, phase, set())
+        if (case := next(iter(cases.open_shared("major")), None)) is None:
+            continue
+        opened += 1
+        assert suspects(case.crime, list(case.records.values()), town) == {case.crime.culprit}
+        assert phase in case.crime.window and told("{span}", case.crime, 2.25).startswith("sometime between ")
+    assert opened > 20
+
+
+@pytest.mark.asyncio
+async def test_a_lone_serious_offender_commits_the_major_case_on_demand():
+    cases, engine, town = deadly()
+    cases.offenders.active = {"v5": Offender("serious"), "v6": Offender()}
+    await cases._stage(engine, "major", 1, "night", set())
+    [case] = cases.open_shared("major")
+    assert case.crime.culprit == "v5" and cases.offenders.active["v5"].tier == "major"
+
+
+@pytest.mark.asyncio
+async def test_with_no_serious_offender_free_one_is_promoted_for_the_major_case():
+    cases, engine, town = deadly()
+    cases.offenders.active = {"v6": Offender(), "v7": Offender(escaped=1)}
+    await cases._stage(engine, "major", 1, "night", set())
+    [case] = cases.open_shared("major")
+    assert case.crime.culprit == "v7" and cases.offenders.active["v7"].tier == "major"
+
+
+# The playtest's pacing knobs.
+PACING = dict(population=24, case_days=2, major_case_days=3, serious_at=2, major_at=4, major_every_days=0,
+              escalate_after=1, organize_fear=0.25, neglect_at=0.3, turn_chance=1, reform_chance=0.5,
+              exposed_quiet_days=1)
+
+
+def generated_town(seed):
+    """A town of 24 wired as town generation wires one, with routines drawn from the town's places."""
+    rng = Random(seed)
+    villagers = [Villager(f"v{i:03d}", f"Name{i} Last{i}", "clerk", "calm", "", ["a", "b", "c"], {})
+                 for i in range(1, 25)]
+    form_households(villagers, rng)
+    assign_traits(villagers, rng)
+    wire_relationships(villagers, rng)
+    town = Town()
+    for v in villagers:
+        town.add(v, v.home)
+    routine = StubRoutine({v.id: {"morning": (work := rng.choice(PUBLIC_PLACES)), "afternoon": work,
+                                  "evening": rng.choice(PUBLIC_PLACES), "night": v.home} for v in villagers})
+    return town, routine
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("seed", range(5))
+async def test_a_town_at_test_pacing_opens_a_major_case_for_a_major_podcaster(seed):
+    town, routine = generated_town(seed)
+    config = Config(**PACING)
+    cases = Cases(config, town, routine, Random(seed), Ids())
+    cases.districts = Districts(config)
+    engine = FakeEngine(town)
+    engine.players.add(podcaster("major"))
+    for day in (1, 2):
+        for phase in PHASES:
+            await cases.on_tick(engine, day, phase, {})
+    assert any(f.crime.tier == "major" for f in cases.files.values())
+
+
+@pytest.mark.asyncio
+async def test_a_major_case_runs_longer_before_going_cold():
+    cases, engine, town = make_cases()
+    petty, death = tiered(cases, "petty"), tiered(cases, "major", "v5", "v2")
+    await tick(cases, engine, day=4)
+    assert petty.state == "closed" and death.state == "open"
+    await tick(cases, engine, day=6)
+    assert death.state == "closed" and "v5" not in town
+
+
+def test_window_and_motives_round_trip():
+    cases, _, town = make_cases()
+    file = tiered(cases, "major")
+    file.crime.window, file.motives, cases.last_major = ["night", "morning"], ["v5", "v7"], 1.5
+    fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
+    fresh.restore(json.loads(json.dumps(cases.to_state())))
+    assert fresh.files == cases.files and fresh.last_major == 1.5
+
+
+@pytest.mark.asyncio
+async def test_major_news_reaches_the_district_and_the_victim_s_ties_only():
+    cases, engine, town = deadly()
+    town.get("v7").relationships["v1"] = "friend"
+    await cases._stage(engine, "major", 1, "night", set())
+    [case] = cases.open_shared("major")
+    [(news, hearers)] = [(u, ids) for u, ids, _ in engine.delivered if case.roots.get(u.id) == "news"]
+    assert set(hearers) == {"v2", "v3", "v4", "v5", "v7"} and len(hearers) == 5
+
+
+@pytest.mark.asyncio
+async def test_a_death_is_found_only_by_someone_at_the_scene():
+    opened = 0
+    for seed in range(20):
+        cases, engine, town = deadly(seed)
+        cases.routine = make_routine(night={"v2": "gym"})
+        await cases._stage(engine, "major", 1, "night", set())
+        if case := next(iter(cases.open_shared("major")), None):
+            opened += 1
+            [found] = [r for r in case.records.values() if r.kind == "discovery"]
+            assert found.holder in ("v3", "v4")
+    assert opened
+    cases, engine, town = deadly()
+    cases.routine = make_routine(night={"v2": "gym", "v3": "gym", "v4": "gym"})
+    await cases._stage(engine, "major", 1, "night", set())
+    assert not cases.open_shared("major") and "v1" in town
+
+
+@pytest.mark.asyncio
+async def test_a_petty_case_opens_when_every_petty_offender_is_lying_low():
+    cases, engine, _ = make_cases(offenders=4, min_offenders=3)
+    cases.offenders.active = {"v3": Offender(quiet_until=9), "v5": Offender("serious"), "v6": Offender("serious")}
+    cases.offenders.exposed["v3"] = "stole Dana Reyes's bike"
+    await tick(cases, engine)
+    [case] = cases.open_shared("petty")
+    assert case.crime.culprit not in {"v3", "v5", "v6"} and cases.offenders.active[case.crime.culprit].tier == "petty"
+
+
+@pytest.mark.asyncio
+async def test_a_fresh_town_starts_with_offenders_and_later_refills_only_to_min_offenders():
+    cases, engine, _ = make_cases(offenders=5, min_offenders=3)
+    await tick(cases, engine)
+    assert len(cases.offenders.active) == 5
+    cases.offenders.active = {"v3": Offender()}
+    cases._refill(2)
+    assert len(cases.offenders.active) == 3
+
+
+@pytest.mark.asyncio
+async def test_with_no_petty_offender_free_just_one_joins():
+    cases, engine, _ = make_cases(offenders=8, min_offenders=3)
+    tiered(cases, "petty", opened=2.0)
+    cases.offenders.active = {"v3": Offender(quiet_until=9), "v5": Offender("serious"), "v6": Offender("serious")}
+    cases._refill(2)
+    assert len(cases.offenders.active) == 4 and len(cases.offenders.ready(2, "petty")) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_case_opens_after_someone_logged_that_part_of_the_day_has_left_town():
+    cases, engine, town = make_cases(offenders=3)
+    everyone = {v.id: ["gym"] for v in town.villagers}
+    cases.finished = everyone
+    town.remove("v8")
+    cases.offenders.active.pop("v8", None)
+    await cases.ensure(engine, 3.0)
+    [case] = cases.open_shared("petty")
+    assert "v8" not in case.whereabouts and all(r.who != "v8" for r in case.records.values())
+
+
+@pytest.mark.asyncio
+async def test_no_one_is_the_victim_again_the_day_after_their_case():
+    cases, engine, _ = make_cases(offenders=4)
+    first = culprit_file(cases, culprit="v5", victim="v1")
+    first.crime.day, first.state = 2, "closed"
+    for seed in range(20):
+        cases.rng = Random(seed)
+        cases.files = {first.crime.id: first}
+        await cases.ensure(engine, 4.0)
+        assert all(f.crime.victim != "v1" for f in cases.open_shared())

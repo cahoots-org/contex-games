@@ -1,0 +1,530 @@
+"""The town's cases as they happen: staged, checked for solvability, opened in the neighborhood app, gone cold."""
+
+import asyncio
+import logging
+import math
+import re
+from dataclasses import asdict, dataclass, field
+from random import Random
+
+from sleuth.arrivals import move_in
+from sleuth.case import (
+    CRIMES, TIERS, WHEN, Crime, Record, camera_clip, catalog_tiers, crime_title, discovery, found_it, logs, make_solvable,
+    motives, scene_clues, stage_crime, told, victim_memory, witness_memories,
+)
+from sleuth.config import Config
+from sleuth.decide import warmth_words
+from sleuth.districts import FORMED, TOLD, WOUND_DOWN, Districts, district_of, level
+from sleuth.feed import APP
+from sleuth.game import PHASES
+from sleuth.lineage import Ids
+from sleuth.models import Utterance, Villager
+from sleuth.offenders import Offender, Offenders
+from sleuth.town import STREETS, Town, at, place_name
+
+log = logging.getLogger(__name__)
+
+COLD = "The case went cold. It was {name}."
+COVERED = "covered for {name}"
+THANKS = "Thanks to that podcast, everyone knows who {did} my {item}!"
+ARRESTED = "{name} was arrested and has left town."
+ON_EDGE = "{street} is on edge after {title}."
+BREATHES = "{street} breathes a little easier now {name}'s been found out."
+RESOLVED = "{street} has its answer now. People are looking after one another."
+# How many crimes are drawn in one go for a solvable one.
+DRAWS = 10
+
+
+@dataclass
+class CaseFile:
+    crime: Crime
+    records: dict[str, Record]
+    state: str  # "open" | "closed"
+    opened: float = 0.0  # game time (day + phase index / 4) the news broke
+    roots: dict[str, str] = field(default_factory=dict)  # utterance id → "news" | "memory" | "cover" | "episode"
+    alibi: list[str] | None = None
+    whereabouts: dict[str, list[str]] = field(default_factory=dict)  # the crime phase's log
+    published: list[str] = field(default_factory=list)
+    solved_by: str | None = None
+    pressed: str = ""  # "day:phase" last pressed
+    pressed_by: str = ""  # the podcaster who last asked around
+    warned: str = ""  # "day:phase" the culprit last warned someone
+    words: dict[str, list] = field(default_factory=dict)  # "speaker:about" → [household word, sound]
+    named: dict[str, str] = field(default_factory=dict)  # player → the resident their episode named
+    accomplice: str | None = None  # who covers for the culprit
+    motives: list[str] = field(default_factory=list)  # a death's: who was on cold terms with the victim
+
+
+def case_json(case: CaseFile, town: Town, routine, today: float | None = None) -> dict:
+    """What a player sees of a case on today, titled like "Ada Reyes's bike", with who besides the victim is usually
+    at the scene in its part of the day, or either part of a death's window: a lead from routine alone, never from
+    where anyone actually was. A death's part of the day is left out."""
+    c = case.crime
+    phases = c.window or [c.phase]
+    nearby = [v.id for v in town.villagers if v.id != c.victim and routine is not None
+              and any(routine.place(v.id, p) == c.place for p in phases)]
+    body = {"id": c.id, "text": told(c.text, c, today), "place": c.place, "phase": c.phase, "day": c.day,
+            "state": case.state, "private": c.owner is not None, "title": crime_title(c, town), "victim": c.victim,
+            "nearby": nearby, "tier": c.tier}
+    if c.window:
+        del body["phase"]
+    return body
+
+
+class Cases:
+    def __init__(self, config: Config, town: Town, routine, rng: Random, ids: Ids):
+        self.config = config
+        self.town = town
+        self.routine = routine
+        self.rng = rng
+        self.ids = ids
+        self.files: dict[str, CaseFile] = {}
+        self.offenders = Offenders(config)
+        # The real town's districts; the practice town has none.
+        self.districts: Districts | None = None
+        # Homes someone left that no one has moved into yet.
+        self.vacant: list[str] = []
+        # Residents moving in, kept until they have, one at a time.
+        self._moving: set[asyncio.Task] = set()
+        self._moving_in = asyncio.Lock()
+        # Game time (day + phase index / 4) of the last tick, and of the last major case opening.
+        self.now = 0.0
+        self.last_major = -config.major_every_days
+        # Everyone's whereabouts through the part of the day the last tick finished.
+        self.finished: dict[str, list[str]] | None = None
+
+    def to_state(self) -> dict:
+        """Every case file, the offenders, the empty homes and when the last major case opened as plain JSON."""
+        return {"files": [asdict(f) for f in self.files.values()], "offenders": self.offenders.to_state(),
+                "vacant": list(self.vacant), "last_major": self.last_major}
+
+    def restore(self, state: dict) -> None:
+        """Replace the case files, offenders, empty homes and last major opening with a saved state, leaving out cases
+        saved before they opened."""
+        self.offenders.restore(state["offenders"])
+        self.vacant = list(state["vacant"])
+        self.last_major = state["last_major"]
+        self.files = {}
+        for f in state["files"]:
+            if f["state"] == "setup":
+                continue
+            records = {k: Record(**r) for k, r in f["records"].items()}
+            self.files[f["crime"]["id"]] = CaseFile(**{**f, "crime": Crime(**f["crime"]), "records": records})
+
+    def open_shared(self, tier: str | None = None) -> list[CaseFile]:
+        """The town's open cases, of tier when given."""
+        return [f for f in self.files.values()
+                if f.state == "open" and f.crime.owner is None and tier in (None, f.crime.tier)]
+
+    def offered(self, tier: str) -> list[CaseFile]:
+        """The open shared cases at or below tier, highest tier first, then oldest."""
+        fits = [f for f in self.open_shared() if TIERS.index(f.crime.tier) <= TIERS.index(tier)]
+        return sorted(fits, key=lambda f: (-TIERS.index(f.crime.tier), f.opened))
+
+    def private(self, player_id: str) -> CaseFile | None:
+        """The player's private open case."""
+        return next((f for f in self.files.values() if f.state == "open" and f.crime.owner == player_id), None)
+
+    def for_player(self, player_id: str, tier: str = "petty", chosen: str | None = None) -> CaseFile | None:
+        """The player's private open case, otherwise the chosen case if it is offered at tier, else the first
+        offered."""
+        if private := self.private(player_id):
+            return private
+        offered = self.offered(tier)
+        return next((f for f in offered if f.crime.id == chosen), offered[0] if offered else None)
+
+    def wanted(self, engine) -> list[str]:
+        """The tiers that should have a case open: every catalog tier up to the highest an active podcaster has
+        reached, petty always; major only with none open and major_every_days since the last opened."""
+        top = max((TIERS.index(p.tier) for p in engine.players if p.active()), default=0)
+        rested = not self.open_shared("major") and self.now - self.last_major >= self.config.major_every_days
+        return [t for t in catalog_tiers() if TIERS.index(t) <= top and (t != "major" or rested)]
+
+    def culprit_case(self, vid: str) -> CaseFile | None:
+        return next((f for f in self.files.values() if f.state != "closed" and f.crime.culprit == vid), None)
+
+    def alibi(self, vid: str) -> str | None:
+        """The culprit's claim to have been where the routine expects them during the crime, its time as WHEN; a death's
+        claim names no part of the day."""
+        case = self.culprit_case(vid)
+        if case is None:
+            return None
+        phase = case.crime.phase
+        place = self.routine.place(vid, phase)
+        case.alibi = [place]
+        where = f"at home {at(place)}" if place in STREETS else at(place)
+        return f"I was {where} {WHEN}." if case.crime.window else f"I was {where} {WHEN}, all {phase}."
+
+    def blame(self, vid: str) -> str | None:
+        """The culprit's hint at someone who dislikes the victim, else at the culprit's own coldest tie, its time as
+        WHEN."""
+        case = self.culprit_case(vid)
+        if case is None:
+            return None
+        crime = case.crime
+        victim = self.town.anyone(crime.victim)
+        rivals = [(v.warmth[victim.id], v.id) for v in self.town.villagers
+                  if v.id not in (crime.culprit, victim.id) and v.warmth.get(victim.id, 0.0) < 0]
+        ties = [(w, t) for t, w in self.town.get(vid).warmth.items() if t not in (victim.id, vid) and t in self.town]
+        pick = min(rivals or ties, default=None)
+        if pick is None:
+            return None
+        name = self.town.get(pick[1]).name
+        return f"{name} has never liked {victim.name.split()[0]}. I'd ask where they were {WHEN}."
+
+    def close(self, file: CaseFile, solved_by: str | None) -> None:
+        """Close a case, solved or not."""
+        file.state, file.solved_by = "closed", solved_by
+
+    async def on_held(self, engine, file: CaseFile, player_id: str) -> None:
+        """A held episode closes the case and wins the town's regard; a petty culprit is exposed, any other arrested,
+        its district eases and may organize a watch at once, and the next case opens."""
+        crime = file.crime
+        self.close(file, player_id)
+        engine.feed.on_case_closed(crime.id, "")
+        town = [v.id for v in self.town.villagers if v.id != crime.culprit]
+        engine.reputation.nudge_all(player_id, self.config.reputation_right, town)
+        await self._unmask(engine, file, player_id)
+        if self.districts is not None:
+            street = district_of(crime.place)
+            self.districts.on_exposed(crime)
+            line = RESOLVED if crime.tier == "major" else BREATHES
+            breathes = line.format(street=place_name(street), name=self.town.name_of(crime.culprit))
+            engine.feed.on_post(Utterance("", "app", APP, street, breathes, None, "posted"), crime.id)
+            await self.rally(engine, street, crime.victim)
+            self._show_districts(engine)
+        await self.ensure(engine)
+
+    async def _unmask(self, engine, file: CaseFile, player_id: str | None = None) -> None:
+        """The town learns who did it, from a podcaster's episode or a case gone cold: any accomplice is exposed, cold
+        to the podcaster; a petty culprit is exposed, any other arrested."""
+        if file.accomplice in self.town:
+            self.offenders.exposed[file.accomplice] = COVERED.format(name=self.town.name_of(file.crime.culprit))
+            if player_id:
+                engine.reputation.nudge(file.accomplice, player_id, self.config.reputation_exposed)
+        if file.crime.tier == "petty":
+            self._expose(engine, file, player_id)
+        else:
+            await self.arrest(engine, file.crime.culprit)
+
+    async def arrest(self, engine, vid: str) -> asyncio.Task:
+        """The resident is arrested and leaves town at once; returns the task of someone moving in on their street."""
+        v = self.town.get(vid)
+        engine.feed.on_post(Utterance("", "app", APP, v.home, ARRESTED.format(name=v.name), None, "posted"), None)
+        return await self._depart(engine, vid)
+
+    async def _depart(self, engine, vid: str) -> asyncio.Task:
+        """The resident leaves town at once; returns the task of someone moving in on their street."""
+        home = self.town.get(vid).home
+        self.offenders.drop(vid)
+        await engine.remove_villager(vid)
+        self.vacant.append(home)
+        return self._fill(engine, home)
+
+    def _fill(self, engine, home: str) -> asyncio.Task:
+        """Start someone moving into the empty home, after anyone already moving in."""
+        task = asyncio.create_task(self._move_in(engine, home))
+        self._moving.add(task)
+        task.add_done_callback(self._moving.discard)
+        return task
+
+    async def _move_in(self, engine, home: str) -> Villager | None:
+        async with self._moving_in:
+            v = await move_in(engine, home)
+        if v is not None:
+            self.vacant.remove(home)
+        return v
+
+    def on_wrong(self, engine, file: CaseFile, player_id: str, accused: str) -> None:
+        """A wrong episode costs the town's regard, the accused's most of all, then their household's and close ties'."""
+        config, them = self.config, self.town.get(accused)
+        engine.reputation.nudge_all(player_id, config.reputation_wrong, [v.id for v in self.town.villagers])
+        engine.reputation.nudge(accused, player_id, config.reputation_accused)
+        ties = [v.id for v in self.town.villagers if v.id != accused and (
+            them.household and v.household == them.household or warmth_words(v.warmth.get(accused, 0.0)) == "close")]
+        engine.reputation.nudge_all(player_id, config.reputation_accused_ties, ties)
+
+    def _expose(self, engine, file: CaseFile, player_id: str | None) -> None:
+        """The town learns what the culprit did, and they lie low. When a podcaster exposed them, the culprit is cold to
+        the podcaster, the victim's household warms to them, and the victim says thanks on the app."""
+        crime, config = file.crime, self.config
+        victim = self.town.get(crime.victim)
+        self.offenders.exposed[crime.culprit] = f"{CRIMES[crime.template].did} {victim.name}'s {crime.item}"
+        if offender := self.offenders.active.get(crime.culprit):
+            offender.quiet_until = int(self.now) + config.exposed_quiet_days
+        if player_id is None:
+            return
+        engine.reputation.nudge(crime.culprit, player_id, config.reputation_exposed)
+        household = {victim.id, *(v.id for v in self.town.villagers if victim.household and v.household == victim.household)}
+        engine.reputation.nudge_all(player_id, config.reputation_ally, household)
+        thanks = Utterance("", victim.id, victim.name, crime.place, THANKS.format(did=CRIMES[crime.template].did, item=crime.item), None, "posted")
+        engine.feed.on_post(thanks, crime.id)
+
+    async def rally(self, engine, street: str, victim: str | None) -> None:
+        """Let the street organize a watch; a new one is posted on the app and told by its founder to its members."""
+        watch = self.districts.organize(street, self.town, self.rng, self.now, victim)
+        if watch is None:
+            return
+        founder, name = self.town.get(watch.founder), place_name(street)
+        formed = FORMED.format(street=name, first=founder.name.split()[0])
+        engine.feed.on_post(Utterance("", "app", APP, street, formed, None, "posted"), None)
+        told_them = Utterance(self.ids.next("u"), founder.id, founder.name, street, TOLD.format(name=watch.name, street=name),
+                              None)
+        try:
+            await engine.deliver(told_them, watch.members[1:])
+        except Exception:
+            log.exception("telling the %s's members failed", watch.name)
+
+    def _show_districts(self, engine) -> None:
+        engine.feed.on_districts(self.districts.levels(self.town))
+
+    async def _watch(self, engine) -> bool:
+        """Wind down the watches no longer needed, and let every street organize, its latest victim the founder;
+        whether any watch changed."""
+        names = {street: d.watch.name for street, d in self.districts.by_street.items() if d.watch}
+        for street in self.districts.wind_down():
+            text = WOUND_DOWN.format(name=names[street], street=place_name(street))
+            engine.feed.on_post(Utterance("", "app", APP, street, text, None, "posted"), None)
+        for street in STREETS:
+            here = [f for f in self.files.values() if district_of(f.crime.place) == street]
+            latest = max(here, key=lambda f: f.opened).crime.victim if here else None
+            await self.rally(engine, street, latest)
+        return names != {street: d.watch.name for street, d in self.districts.by_street.items() if d.watch}
+
+    def brief(self, feed, player_id: str, today: float | None, tier: str) -> None:
+        """Tell a player just off the practice case every open case offered at tier and, unless the feed still
+        replays it, its news."""
+        for case in self.offered(tier):
+            crime = case.crime
+            feed.on_case(case_json(case, self.town, self.routine, today), player=player_id)
+            if any(e.kind == "post" and e.data["app"] and e.data["case_id"] == crime.id for e in feed.recent):
+                continue
+            news = Utterance("", "app", APP, crime.place, told(crime.text, crime, today), None, "posted")
+            feed.on_post(news, crime.id, player=player_id)
+
+    def mark_cover(self, vid: str, uid: str) -> None:
+        if case := self.culprit_case(vid):
+            case.roots[uid] = "cover"
+
+    def root_kind(self, uid: str) -> tuple[CaseFile, str] | None:
+        """The case a lineage root belongs to, and what kind of root it is."""
+        return next(((f, f.roots[uid]) for f in self.files.values() if uid in f.roots), None)
+
+    def hidden(self, day: int, phase: str) -> set[str]:
+        """Culprits of cases not closed whose crime was that day and part of it, whom no photo of it shows."""
+        return {f.crime.culprit for f in self.files.values()
+                if f.state != "closed" and (f.crime.day, f.crime.phase) == (day, phase)}
+
+    def cautious(self, day: int) -> dict[str, str]:
+        """The crime-day outfit of each open case's culprit, which they won't wear on later days."""
+        worn = {f.crime.culprit: self.town.outfit(f.crime.culprit, f.crime.day) for f in self.files.values()
+                if f.state != "closed" and f.crime.day < day}
+        return {vid: coat for vid, coat in worn.items() if coat}
+
+    def dress(self, day: int) -> None:
+        """Dress the town for day, culprits avoiding their crime's outfit."""
+        days = max(self.config.case_days, self.config.major_case_days)
+        self.town.dress(day, self.rng, self.cautious(day), math.ceil(days) + 2)
+
+    async def on_tick(self, engine, day: int, phase: str, finished: dict[str, list[str]]) -> None:
+        """Dress the town, let exposed offenders reform of a morning, try again to fill an empty home, let old cases go
+        cold, their culprits made known, let watches form and wind down, and open a shared case for each wanted tier with
+        none open."""
+        self.dress(day)
+        if phase == "morning":
+            self.offenders.new_day(day, self.rng)
+            self._breed()
+        if self.town.alive_count >= self.config.population:
+            self.vacant.clear()
+        elif self.vacant and not self._moving:
+            self._fill(engine, self.vacant[0])
+        now = self.now = day + PHASES.index(phase) / len(PHASES)
+        self.finished = finished
+        for case in [f for f in self.files.values() if f.state == "open"]:
+            if now - case.opened >= (self.config.major_case_days if case.crime.tier == "major" else self.config.case_days):
+                self.close(case, None)
+                self.offenders.escaped_with(case.crime.culprit)
+                cold = COLD.format(name=self.town.name_of(case.crime.culprit))
+                engine.feed.on_case_closed(case.crime.id, cold)
+                await self._unmask(engine, case)
+        if self.districts is not None and (await self._watch(engine) or phase == "morning"):
+            self._show_districts(engine)
+        await self.ensure(engine)
+
+    def _breed(self) -> None:
+        """Let each neglected district turn a resident into an offender with turn_chance, while there is room."""
+        for street in self.districts.neglected() if self.districts is not None else []:
+            if self.offenders.room(self.town) > 0 and self.rng.random() < self.config.turn_chance:
+                self.offenders.turn([v.id for v in self.town.villagers if v.home == street], self.rng)
+
+    def _refill(self, day: int) -> None:
+        """Fill the set up to offenders before any crime; after, refill it only up to min_offenders, adding one, up to
+        offenders, when no petty offender is free to offend on day. They come from districts without a watch, never a
+        watch's founder."""
+        config = self.config
+        size = config.min_offenders if self.files or self.offenders.exposed else config.offenders
+        if not self.offenders.ready(day, TIERS[0]):
+            size = max(size, min(len(self.offenders.active) + 1, config.offenders))
+        if len(self.offenders.active) >= size:
+            return
+        # With a watch on every street there is nowhere calmer to draw from, so draw from anywhere.
+        calm = [s for s in STREETS if self.districts is None or not self.districts.organized(s)] or list(STREETS)
+        founders = self.districts.founders() if self.districts is not None else set()
+        self.offenders.top_up(self.town, self.rng, [v.id for v in self.town.villagers
+                                                    if v.home in calm and v.id not in founders], size)
+
+    async def ensure(self, engine, now: float | None = None) -> None:
+        """Open a shared case, set in the part of the day just finished, for each wanted tier with none open; now is
+        the game time, else the last tick's."""
+        if now is not None:
+            self.now = now
+        missing = [t for t in self.wanted(engine) if not self.open_shared(t)]
+        if not missing:
+            return
+        before = self.now - 1 / len(PHASES)
+        day, phase = math.floor(before), PHASES[int(before % 1 * len(PHASES))]
+        pictured = {vid for p in engine.album.photos if (p.day, p.phase) == (day, phase) for vid in p.people}
+        self._refill(day)
+        for tier in missing:
+            await self._stage(engine, tier, day, phase, pictured)
+
+    async def _stage(self, engine, tier: str, day: int, phase: str, pictured: set[str]) -> None:
+        """Open a case of tier, its culprit a ready offender of that tier, one promoted from the tier below when none
+        is ready. With no major offender free, a serious one commits the major case, one promoted from petty when none
+        is free, and moves up. With no petty offender free, one lying low commits a petty case, else a resident not
+        offending, who becomes one. Up to DRAWS crimes are drawn for one that is solvable."""
+        busy = self._involved() | pictured
+        if tier == TIERS[-1] and not self.offenders.ready(day, tier) - busy:
+            below = TIERS[-2]
+            if not self.offenders.ready(day, below) - busy:
+                self.offenders.promote(below, busy, day)
+            culprits = self.offenders.ready(day, tier) | self.offenders.ready(day, below)
+        else:
+            if not self.offenders.ready(day, tier):
+                self.offenders.promote(tier, busy, day)
+            culprits = self.offenders.ready(day, tier)
+        if tier == TIERS[0] and not culprits - busy:
+            # A new podcaster always has a tip: a petty offender lying low will do, else anyone not offending.
+            culprits = ({vid for vid, o in self.offenders.active.items() if o.tier == tier} - busy
+                        or {v.id for v in self.town.villagers if v.id not in self.offenders.active} - busy)
+        # Nobody is a victim again the day after their own case, so one resident isn't robbed twice in a row.
+        recent = {f.crime.victim for f in self.files.values() if f.crime.day >= day - 1}
+        for _ in range(DRAWS):
+            crime = stage_crime(self.town, self.routine, self.rng, day, phase, self.ids.next("case"),
+                                exclude=self._involved() | pictured | recent, culprits=culprits, tier=tier,
+                                weight=self._weight if self.districts is not None else None)
+            if crime is None:
+                return
+            try:
+                if await self._open(engine, crime, pictured):
+                    offender = self.offenders.active.setdefault(crime.culprit, Offender())
+                    if offender.tier != tier:
+                        offender.tier, offender.escaped = tier, 0
+                    return
+            except Exception:
+                log.exception("opening %s failed", crime.id)
+                self.files.pop(crime.id, None)
+
+    def _weight(self, place: str) -> float:
+        """How likely a crime is at place: less in a district with a watch."""
+        return self.config.organized_crime_weight if self.districts.organized(place) else 1.0
+
+    def _involved(self) -> set[str]:
+        """Whom every case not yet closed rests on: its culprit, victim, witnesses, and whoever paid for a receipt
+        dropped at its scene."""
+        return {vid for f in self.files.values() if f.state != "closed"
+                for vid in (f.crime.culprit, f.crime.victim,
+                            *(x for r in f.records.values() for x in (r.holder, r.who if r.trail else None)))
+                if vid}
+
+    async def _open(self, engine, crime: Crime, pictured: set[str]) -> bool:
+        """Leave the crime's evidence, witnessed by no one pictured elsewhere then nor any open case's culprit, and, if
+        it narrows to the culprit, open the case: tell its witnesses and victim what they saw and found, and post the
+        news, a death's to the victim's street and ties. A death's victim is found by someone at the scene, then leaves
+        town, and someone moves in.
+        False if it cannot be made solvable or a death has no one to find it."""
+        away = pictured | {f.crime.culprit for f in self.files.values() if f.state == "open"}
+        self.dress(crime.day)
+        whereabouts = dict(self.finished or {v.id: [p] for v in self.town.villagers
+                                             if (p := self.routine.place(v.id, crime.phase))})
+        # Someone arrested since the tick still has that part of the day's whereabouts.
+        whereabouts = {vid: places for vid, places in whereabouts.items() if vid in self.town}
+        whereabouts[crime.culprit] = [crime.place]
+        scene = {vid for vid, places in whereabouts.items() if crime.place in places}
+        scene |= {v.id for v in self.town.villagers if self.routine.place(v.id, crime.phase) == crime.place}
+        accomplice = self._accomplice(crime, away | scene) if crime.tier == "serious" else None
+        away |= {accomplice} - {None}
+        clip = camera_clip(crime, self.town, self.ids)
+        records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids, away),
+                   *([victim_memory(crime, self.town, self.rng, self.ids)] if crime.template == "mug" else []),
+                   *scene_clues(crime, self.town, self.routine, self.rng, self.ids, away), *([clip] if clip else []),
+                   *logs(crime, whereabouts, self.town, self.rng, self.ids)]
+        added = make_solvable(crime, records, self.town, self.routine, self.rng, self.ids, away)
+        if added is None:
+            return False
+        death = crime.tier == "major"
+        finder = self._finder(crime, records + added, away, scene) if death else None
+        if death and finder is None:
+            return False
+        records += [*added, discovery(crime, self.town, self.rng, self.ids, finder)]
+        case = self.files[crime.id] = CaseFile(crime, {r.id: r for r in records}, "open", opened=self.now,
+                                               whereabouts=whereabouts, accomplice=accomplice,
+                                               motives=motives(self.town, crime.victim) if death else [])
+        for m in records:
+            if m.kind in ("memory", "discovery"):
+                await self._remember(engine, case, m)
+        news = Utterance(self.ids.next("u"), "app", APP, crime.place, told(crime.text, crime, self.now), None, "posted")
+        victim = self.town.get(crime.victim)
+        hearers = [victim.id, *(v.id for v in self.town.villagers if v.household == victim.household),
+                   *(v.id for v in self.town.present(crime.place))]
+        if death:
+            hearers = [v.id for v in self.town.villagers if v.id != victim.id and (
+                v.home == victim.home or victim.id in v.relationships or v.id in victim.relationships)]
+            self.last_major = self.now
+            await self._depart(engine, victim.id)
+        case.roots[news.id] = "news"
+        await engine.deliver(news, list(dict.fromkeys(hearers)))
+        engine.feed.on_case(case_json(case, self.town, self.routine, self.now))
+        engine.feed.on_post(news, crime.id)
+        if self.districts is not None:
+            self._shaken(engine, crime)
+        return True
+
+    def _shaken(self, engine, crime: Crime) -> None:
+        """Raise the crime's district's crime and fear; the app notices when its fear level rises."""
+        street = district_of(crime.place)
+        before = level(self.districts.by_street[street].fear)
+        self.districts.on_crime(crime)
+        if level(self.districts.by_street[street].fear) > before:
+            title = re.sub(r"^The ", "the ", crime_title(crime, self.town))
+            text = ON_EDGE.format(street=place_name(street), title=title)
+            engine.feed.on_post(Utterance("", "app", APP, street, text, None, "posted"), crime.id)
+        self._show_districts(engine)
+
+    def _accomplice(self, crime: Crime, barred: set[str]) -> str | None:
+        """With accomplice_chance, who covers for the culprit: their warmest close tie, else another active offender;
+        never the victim or anyone barred."""
+        if self.rng.random() >= self.config.accomplice_chance:
+            return None
+        barred = {crime.culprit, crime.victim, *barred}
+        culprit = self.town.get(crime.culprit)
+        ties = [(w, t) for t, w in culprit.warmth.items() if t in self.town and t not in barred and warmth_words(w) == "close"]
+        if ties:
+            return max(ties)[1]
+        others = sorted(vid for vid in self.offenders.active if vid in self.town and vid not in barred)
+        return self.rng.choice(others) if others else None
+
+    def _finder(self, crime: Crime, records: list[Record], away: set[str], scene: set[str]) -> str | None:
+        """Who finds a death's victim: someone at the scene, not away, a witness only when no one else is."""
+        near = sorted(vid for vid in scene - away - {crime.culprit, crime.victim} if vid in self.town)
+        seen_by = {r.holder for r in records}
+        return self.rng.choice([vid for vid in near if vid not in seen_by] or near) if near else None
+
+    async def _remember(self, engine, case: CaseFile, m: Record) -> None:
+        """Tell the witness what they saw, or the finder in their own words what they found, rooted in the case."""
+        victim = self.town.name_of(case.crime.victim) if case.crime.tier == "major" else ""
+        text = found_it(case.crime, m.clock, victim) if m.kind == "discovery" else m.text
+        u = Utterance(self.ids.next("u"), "memory", self.town.get(m.holder).name, case.crime.place, text, None, "saw")
+        case.roots[u.id] = "memory"
+        m.utterance = u.id
+        await engine.deliver(u, [m.holder], addressed=True)

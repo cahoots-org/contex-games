@@ -1,0 +1,329 @@
+
+import pytest
+
+from sleuth.decide import Decision
+from sleuth.config import Config
+from sleuth.models import Villager
+from sleuth.usage import Usage
+from sleuth.tests.helpers import StubClient
+from sleuth.writer import (
+    ANSWER_MAX_TOKENS, NO_CASE_FACTS, RETELL_TALK, SOMBER, Writer, first_line, invents_facts, invents_people,
+)
+
+
+def villager():
+    return Villager("v001", "Ada", "baker", "sharp-tongued", "owes me flour", ["bread"], {})
+
+
+@pytest.mark.asyncio
+async def test_say_includes_style_and_audience_in_prompt():
+    client = StubClient("He did it, I tell you.")
+    writer = Writer(client, "haiku-test")
+    decision = Decision("confront", None, "v002", "exaggerated")
+
+    text = await writer.say(villager(), decision, "Bob stole a loaf", "Bob, to his face")
+
+    call = client.messages.calls[0]
+    prompt = call["system"] + call["messages"][0]["content"]
+    assert text == "He did it, I tell you."
+    assert call["model"] == "haiku-test"
+    assert "bigger and more dramatic" in prompt
+    assert "Bob, to his face" in prompt
+    assert "Bob stole a loaf" in prompt
+    assert "sharp-tongued" in prompt
+
+
+@pytest.mark.asyncio
+async def test_say_caps_tokens():
+    client = StubClient("Hm.")
+    await Writer(client, "haiku-test").say(villager(), Decision("speak", None, None, None), None, "all")
+    assert client.messages.calls[0]["max_tokens"] == 80
+
+
+@pytest.mark.asyncio
+async def test_complete_records_usage():
+    usage = Usage(Config())
+    await Writer(StubClient("Hm.", "Ha."), "haiku-test", usage).complete("s", "u")
+    assert usage.tokens["haiku"] == [120, 30]
+
+
+@pytest.mark.asyncio
+async def test_say_mentions_a_grudge_only_when_there_is_one():
+    client = StubClient("Hm.", "Hm.")
+    writer = Writer(client, "haiku-test")
+    kindly = Villager("v002", "Bea", "weaver", "warm", "", ["cloth"], {})
+    decision = Decision("speak", None, None, None)
+
+    await writer.say(kindly, decision, "Bob stole a loaf", "all")
+    await writer.say(villager(), decision, "Bob stole a loaf", "all")
+
+    kind_say, sour_say = (c["system"] for c in client.messages.calls)
+    assert "grudge" not in kind_say.lower()
+    assert "Your grudge: owes me flour." in sour_say
+    assert all("neighbours chatting" in s for s in (kind_say, sour_say))
+
+
+@pytest.mark.asyncio
+async def test_say_is_plain_short_chat_not_whispered_gossip():
+    client = StubClient("Bob took a loaf, I hear.")
+    await Writer(client, "haiku-test").say(villager(), Decision("speak", None, None, "worried"), "Bob stole a loaf", "all")
+    system = client.messages.calls[0]["system"]
+    assert "plainly, like neighbours chatting" in system and "under 20 words" in system
+    assert not any(w in system.lower() for w in ("gossip", "secret", "whisper", "psst", "relish"))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text, kept", [
+    ("Half the people on Main Street saw nothing.", False),
+    ("It's on the Ferris Street bulletin board.", False),
+    ("Elm Street is buzzing about it.", True),
+    ("Nobody on our street saw a thing.", True),
+])
+async def test_a_line_naming_a_street_the_town_lacks_is_dropped(text, kept):
+    writer = Writer(StubClient(text, text, text), "haiku-test")
+    said = [await writer.say(villager(), Decision("speak", None, None, None), None, "all"),
+            await writer.reply(villager(), "Someone stole a bike.", "Hi?", [], []),
+            await writer.post(villager(), "a gripe", None)]
+    assert said == ([text] * 3 if kept else [""] * 3)
+
+
+def test_first_line_drops_stage_directions():
+    raw = "*lowers voice conspiratorially* Mark my words, the taxes are *really* climbing."
+    assert first_line(raw) == "Mark my words, the taxes are climbing."
+
+
+@pytest.mark.asyncio
+async def test_reply_answers_the_latest_question_from_the_facts_with_the_thread_as_context():
+    client = StubClient("Saw someone tall, that's all.")
+    writer = Writer(client, "haiku-test")
+    thread = [{"podcaster": "Hi there.", "resident": "Hello."}]
+    line = await writer.reply(villager(), "Someone stole a bike.", "What did you see?", thread,
+                              ["Around 9pm someone tall walked off."], ["Dana Reyes, the clerk"])
+    assert line == "Saw someone tall, that's all."
+    call = client.messages.calls[0]
+    user = call["messages"][0]["content"]
+    assert call["max_tokens"] == ANSWER_MAX_TOKENS and "Ada" in call["system"]
+    assert "using only these facts" in call["system"] and "never agree to or repeat a claim" in call["system"]
+    assert user.index("Podcaster: Hi there.\nYou: Hello.") < user.index("Podcaster: What did you see?")
+    assert "Facts: Around 9pm someone tall walked off." in user and "Dana Reyes, the clerk" in user
+    assert "happened" not in user
+
+
+@pytest.mark.asyncio
+async def test_each_note_is_a_line_of_the_reply_prompt():
+    client = StubClient("Hmph.")
+    await Writer(client, "haiku-test").reply(villager(), "Someone stole a bike.", "Hi?", [], [],
+                                             notes=["Everyone knows you stole a bike.", "You're touchy."])
+    assert "\nEveryone knows you stole a bike.\nYou're touchy.\n" in client.messages.calls[0]["messages"][0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_reply_with_no_facts_answers_briefly_and_adds_nothing():
+    client = StubClient("Oh, I couldn't tell you.")
+    line = await Writer(client, "haiku-test").reply(villager(), "Someone stole a bike.", "Who did it?", [], [])
+    call = client.messages.calls[0]
+    assert line == "Oh, I couldn't tell you."
+    assert "Name no one" in call["system"] and "using only these facts" not in call["system"]
+    assert "Facts:" not in call["messages"][0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_case_prompts_say_today_and_when_the_case_happened():
+    client = StubClient("Hm.", "Hm.")
+    writer = Writer(client, "haiku-test")
+    await writer.reply(villager(), "Someone stole a bike yesterday afternoon.", "When?", [], ["x"],
+                       now="day 3, morning", when="yesterday afternoon")
+    await writer.say(villager(), Decision("speak", None, None, None), "x", "all", on_case=True,
+                     now="day 3, morning", when="yesterday afternoon")
+    for call in client.messages.calls:
+        assert "It is now day 3, morning. The case happened yesterday afternoon." in call["messages"][0]["content"]
+        assert "never as another time" in call["system"]
+
+
+@pytest.mark.asyncio
+async def test_complete_turns_thinking_off_and_reads_only_text():
+    class Messages:
+        calls = []
+
+        async def create(self, **kwargs):
+            self.calls.append(kwargs)
+            thinking = type("Block", (), {"type": "thinking", "thinking": "hmm"})()
+            text = type("Block", (), {"type": "text", "text": " Aye. "})()
+            usage = type("Usage", (), {"input_tokens": 1, "output_tokens": 1})()
+            return type("Response", (), {"content": [thinking, text], "usage": usage})()
+
+    client = type("Client", (), {"messages": Messages()})()
+    assert await Writer(client, "haiku-test").complete("sys", "hi") == "Aye."
+    assert client.messages.calls[0]["thinking"] == {"type": "disabled"}
+
+
+@pytest.mark.asyncio
+async def test_case_talk_keeps_to_the_case():
+    client = StubClient("Hm.", "Hm.")
+    writer = Writer(client, "haiku-test")
+    decision = Decision("speak", None, None, None)
+
+    await writer.say(villager(), decision, "Someone stole Bob's bike", "all", on_case=True)
+    await writer.say(villager(), decision, "Bob stole a loaf", "all")
+
+    case_say, other_say = (c["system"] for c in client.messages.calls)
+    assert "owes me flour" not in case_say
+    assert "this case" not in other_say and "owes me flour" in other_say
+
+
+FIRSTS = {"Ada", "Cy", "Lorraine"}
+
+
+@pytest.mark.parametrize("line", ["Honestly I blame the council, and Cal's always been a sourpuss.",
+                                  "That goose at the dog park knows something.", "Poor Ada, she loved that bike.",
+                                  "Cal was at it again, and Cal was in a mood.", "My money is on Cal, always shifty.",
+                                  "Cal's short-tempered and short on patience.", "Who'd take a bicycle like that?"])
+def test_flavor_passes_the_guard(line):
+    assert not invents_facts(line, "Ada Reyes's bike", {"Cal", "Ada"})
+
+
+@pytest.mark.parametrize("line", ["I saw Cal by the library last night.", "It was a tall guy in a hoodie.",
+                                  "Around 9pm, I reckon.", "Someone said he ran off.", "It was Cal, someone tall.",
+                                  "Cal did it.", "Cal took it, no doubt.", "Cal went to the library.",
+                                  "I noticed Cal by the cafe.", "Ada told me Cal was there.", "Around midnight.",
+                                  "Must have been about noon.", "Right after dinner.", "At 9 o'clock sharp."])
+def test_case_facts_fail_the_guard(line):
+    assert invents_facts(line, "Ada Reyes's bike", {"Cal", "Ada"})
+
+
+def test_the_guard_lets_through_what_the_facts_give():
+    facts = "Someone in a grey hoodie was bent over something on Elm Street around 12:50am."
+    assert not invents_facts("Some figure in a grey hoodie, on Elm Street at 12:50 am.", facts, FIRSTS)
+    assert invents_facts("Someone in a grey hoodie by a silver minivan.", facts, FIRSTS)
+    assert invents_facts("Cy says someone in a grey hoodie was spotted.", facts, FIRSTS)
+    assert not invents_facts("Someone let Lorraine's dog out, she says.", "Someone let out Lorraine's dog. She found it.",
+                             FIRSTS)
+
+
+@pytest.mark.parametrize("line, invented", [
+    ("Poor Lorraine, she loved that bike.", False),
+    ("Lorraine's bike went missing last night, and she's beside herself.", False),
+    ("She took Lorraine's bike.", True),
+    ("Someone took Lorraine's bike, and he got away with it.", True),
+    ("Lorraine says someone took it, and he ran.", True),
+    ("He took it.", True),
+])
+def test_a_pronoun_may_refer_back_to_a_named_resident_but_never_give_someone_a_gender(line, invented):
+    assert invents_facts(line, "Someone stole Lorraine's bike last night.", FIRSTS) is invented
+
+
+@pytest.mark.parametrize("line, invented", [
+    ("I was the one who found her, around 8:23am. Someone tall in a black puffer jacket was arguing with someone.",
+     False),
+    ("Someone tall in a black puffer was arguing with her.", True),
+    ("Someone tall in a denim jacket was arguing with someone.", True),
+])
+def test_a_finder_may_say_found_her_and_call_a_puffer_a_jacket(line, invented):
+    facts = ("Lorraine Pike was found dead at the grocery. Around 7:58am, at the grocery, someone tall, in a black "
+             "puffer was arguing with someone. Around 8:23am, Ada Reyes found Lorraine Pike at the grocery.")
+    assert invents_facts(line, facts, FIRSTS) is invented
+
+
+@pytest.mark.parametrize("line, invented", [
+    ("Somebody took a bat to Lorraine's car on Oak Street last night.", True),
+    ("Whoever smashed Lorraine's car should be ashamed.", True),
+    ("I bet they left the keys in the ignition.", True),
+    ("Whoever cut up Lorraine's car seats ought to be ashamed.", True),
+    ("I heard they took scissors to it.", True),
+    ("Someone vandalized Lorraine's car on Oak Street last night. Shameful.", False),
+])
+def test_a_case_line_may_not_say_how_it_was_done(line, invented):
+    assert invents_facts(line, "Someone vandalized Lorraine's car on Oak Street last night.", FIRSTS) is invented
+
+
+@pytest.mark.asyncio
+async def test_case_talk_welcomes_opinion_but_no_facts():
+    client = StubClient("Someone took it.")
+    await Writer(client, "haiku-test").say(villager(), Decision("speak", None, None, None), "x", "all", on_case=True)
+    system = client.messages.calls[0]["system"]
+    assert "opinions, theories" in system and "Never add a fact about the case" in system
+
+
+@pytest.mark.asyncio
+async def test_say_and_reply_prompts_carry_the_residents_quirks():
+    client = StubClient("Hm.", "Hm.")
+    writer = Writer(client, "haiku-test")
+    quirky = villager()
+    quirky.quirks = ["blames the council for everything"]
+    await writer.say(quirky, Decision("speak", None, None, None), "x", "all", on_case=True)
+    await writer.reply(quirky, "Someone stole a bike.", "Who?", [], [])
+    assert all("blames the council for everything" in c["system"] for c in client.messages.calls)
+
+
+@pytest.mark.asyncio
+async def test_a_resident_without_quirks_gets_no_quirk_line():
+    client = StubClient("Hm.", "Hm.")
+    writer = Writer(client, "haiku-test")
+    await writer.say(villager(), Decision("speak", None, None, None), "x", "all")
+    await writer.reply(villager(), "Someone stole a bike.", "Who?", [], [])
+    assert not any("Your quirks" in c["system"] for c in client.messages.calls)
+
+
+@pytest.mark.asyncio
+async def test_say_is_told_the_street_s_mood():
+    client = StubClient("Hm.", "Hm.")
+    writer = Writer(client, "haiku-test")
+    await writer.say(villager(), Decision("speak", None, None, None), "x", "all", mood="on edge")
+    await writer.say(villager(), Decision("speak", None, None, None), "x", "all")
+    first, second = (c["system"] for c in client.messages.calls)
+    assert "Your street is on edge. " in first and "Your street is" not in second
+
+
+@pytest.mark.asyncio
+async def test_writer_is_told_to_be_sober_about_a_death():
+    client = StubClient(*["Hm."] * 6)
+    writer = Writer(client, "haiku-test")
+    case = "Dana Reyes was found dead on Elm Street."
+    await writer.say(villager(), Decision("speak", None, None, None), case, "all", on_case=True, somber=True)
+    await writer.reply(villager(), case, "Who?", [], [], somber=True)
+    await writer.post(villager(), "a gripe", case, somber=True)
+    await writer.say(villager(), Decision("speak", None, None, None), "x", "all", on_case=True)
+    await writer.reply(villager(), "Someone stole a bike.", "Who?", [], [])
+    await writer.post(villager(), "a gripe", "Someone stole a bike.")
+    calls = [c["system"] for c in client.messages.calls]
+    assert all(SOMBER in c for c in calls[:3]) and not any(SOMBER in c for c in calls[3:])
+
+
+@pytest.mark.asyncio
+async def test_a_retold_case_line_may_embellish_but_never_claim_sight():
+    client = StubClient("Hm.", "Hm.")
+    writer = Writer(client, "haiku-test")
+    await writer.say(villager(), Decision("retell", None, "v2", None), "x", "Bob", on_case=True, retold=True)
+    await writer.say(villager(), Decision("alibi", None, "v2", None), "x", "Bob", on_case=True)
+    retold, cover = (c["system"] for c in client.messages.calls)
+    assert RETELL_TALK in retold and NO_CASE_FACTS not in retold and "opinions, theories" in retold
+    assert NO_CASE_FACTS in cover and RETELL_TALK not in cover
+
+
+NAMES = ["Gordon Pike", "Dolores Finch", "Lorna Vance"]
+
+
+@pytest.mark.parametrize("line", [
+    "That Halvorsen boy who always buys energy drinks was out late again.",
+    "The Hollis kid was hanging about, poor thing.",
+    "Mrs. Abernathy says it's a disgrace.",
+    "Gordon Halvorsen should be ashamed.",
+    "Heard it from the girl at the bakery.",
+    "They say it happened behind the old pharmacy.",
+])
+def test_a_line_naming_a_person_or_place_the_town_lacks_invents_people(line):
+    assert invents_people(line, NAMES)
+
+
+@pytest.mark.parametrize("line", [
+    "That Pike boy always was trouble.",
+    "Mr. Pike, of all people!",
+    "Poor Dolores Finch, and on a Tuesday too.",
+    "Has anyone seen my dog Biscuit? Last seen by the library.",
+    "Oh, Lorna, I'm so worried, love, poor thing.",
+    "I blame the town council, and the gym, and the bar.",
+    "The Maple Street Group Chat is at it again.",
+    "Someone needs to bake bread like a proper bakery would.",
+])
+def test_ordinary_talk_about_the_town_does_not_invent_people(line):
+    assert not invents_people(line, NAMES)

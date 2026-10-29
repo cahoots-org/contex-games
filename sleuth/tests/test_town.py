@@ -1,0 +1,164 @@
+import json
+from random import Random
+
+import pytest
+
+from sleuth.models import Utterance, Villager
+from sleuth.town import PLACES, STREETS, Town, neighbours
+
+
+def v(vid, name):
+    return Villager(vid, name, "baker", "kind", "none", [], {})
+
+
+def test_present_excludes_given_id():
+    t = Town()
+    t.add(v("a", "Ann"))
+    t.add(v("b", "Bob"))
+    assert [x.id for x in t.present("cafe", exclude="a")] == ["b"]
+
+
+def test_find_exact_beats_substring():
+    t = Town()
+    t.add(v("a", "Bert"))
+    t.add(v("b", "Bertha"))
+    assert [x.id for x in t.find("bert")] == ["a"]
+
+
+def test_remove_records_departure():
+    t = Town()
+    t.add(v("a", "Ann"))
+    gone = t.remove("a")
+    assert gone.id == "a" and t.departed == [gone]
+    assert t.alive_count == 0
+
+
+def test_move_rejects_unknown_place():
+    t = Town()
+    t.add(v("a", "Ann"))
+    with pytest.raises(ValueError):
+        t.move("a", "moon")
+
+
+def test_utterance_to_data_is_one_sentence():
+    u = Utterance("u-1", "a", "Bert", "bar", "the oven is cold", "w-1", verb="said")
+    assert u.to_data() == {"id": "u-1", "text": "Bert said: the oven is cold"}
+
+
+def test_villagers_lists_current_roster():
+    town = Town()
+    a, b = v("v1", "Ann"), v("v2", "Bob")
+    town.add(a)
+    town.add(b)
+    town.remove("v1")
+    assert town.villagers == [b]
+
+
+def test_state_round_trips_as_json():
+    t = Town()
+    t.add(v("a", "Ann"))
+    t.add(v("b", "Bob"), "bar")
+    t.add(Villager("c", "Cy", "smith", "grim", "debt", ["coin"], {"a": "sister"}))
+    t.remove("c")
+    fresh = Town()
+    fresh.restore(json.loads(json.dumps(t.to_state())))
+    assert fresh._villagers == t._villagers and fresh._places == t._places
+    assert fresh.departed == t.departed
+
+
+def test_streets_and_modern_places_are_places():
+    assert set(STREETS) <= set(PLACES) and "dog park" in PLACES and "gate" not in PLACES
+
+
+def test_new_phase_returns_moves_or_start_place():
+    town = Town()
+    town.add(v("a", "Ann"), "cafe")
+    town.add(v("b", "Bob"), "gym")
+    town.new_phase()
+    town.move("a", "bar")
+    town.move("a", "elm street")
+    assert town.new_phase() == {"a": ["bar", "elm street"], "b": ["gym"]}
+    assert town.new_phase() == {"a": ["elm street"], "b": ["gym"]}
+
+
+def test_whereabouts_round_trip_through_state():
+    town = Town()
+    town.add(v("a", "Ann"), "cafe")
+    town.add(v("b", "Bob"), "gym")
+    town.new_phase()
+    town.move("a", "bar")
+    fresh = Town()
+    fresh.restore(json.loads(json.dumps(town.to_state())))
+    assert fresh.whereabouts("a") == ["bar"] and fresh.whereabouts("b") == ["gym"]
+    assert fresh.new_phase() == town.new_phase()
+
+
+def test_dress_picks_one_outfit_from_each_wardrobe_once_a_day():
+    town = Town()
+    v = Villager("v1", "A", "x", "y", "", [], {}, {"height": "tall"}, wardrobe=["grey hoodie", "denim jacket", "black puffer"])
+    town.add(v)
+    town.dress(3, Random(1))
+    first = town.outfit("v1", 3)
+    town.dress(3, Random(2))
+    assert first in v.wardrobe and town.outfit("v1", 3) == first
+    assert town.looks("v1", 3) == {"height": "tall", "coat": first} and town.outfit("v1", 4) is None
+
+
+def test_dress_avoids_the_given_outfit():
+    town = Town()
+    town.add(Villager("v1", "A", "x", "y", "", [], {}, {}, wardrobe=["grey hoodie", "denim jacket"]))
+    for day in range(1, 31):
+        town.dress(day, Random(day), {"v1": "grey hoodie"})
+        assert town.outfit("v1", day) == "denim jacket"
+
+
+def test_worn_round_trips_and_old_days_are_dropped():
+    town = Town()
+    town.add(Villager("v1", "A", "x", "y", "", [], {}, {}, wardrobe=["grey hoodie", "denim jacket"]))
+    for day in range(1, 11):
+        town.dress(day, Random(day), keep_days=5)
+    assert sorted(town.worn) == [5, 6, 7, 8, 9, 10]
+    restored = Town()
+    restored.restore(json.loads(json.dumps(town.to_state())))
+    assert restored.worn == town.worn
+
+
+def test_a_resident_added_after_the_day_is_dressed_wears_something_that_day():
+    town = Town()
+    town.add(Villager("v1", "A", "x", "y", "", [], {}, {}, wardrobe=["grey hoodie"]))
+    town.dress(4, Random(1))
+    town.add(Villager("v2", "B", "x", "y", "", [], {}, {}, wardrobe=["denim jacket", "black puffer"]))
+    assert town.outfit("v2", 4) in ("denim jacket", "black puffer")
+
+
+def test_adding_a_restored_resident_again_keeps_what_they_wore():
+    v = Villager("v1", "A", "x", "y", "", [], {}, {}, wardrobe=["grey hoodie", "denim jacket", "black puffer"])
+    town = Town()
+    town.add(v)
+    town.dress(4, Random(1))
+    worn = town.outfit("v1", 4)
+    for seed in range(20):
+        town.add(v, rng=Random(seed))
+        assert town.outfit("v1", 4) == worn
+
+
+def test_residents_bring_up_an_exposure_when_the_person_is_named():
+    town = Town()
+    ada, bo = Villager("v1", "Ada Reyes", "clerk", "calm", "", [], {}), Villager("v2", "Bo Hale", "baker", "calm", "", [], {})
+    town.add(ada)
+    town.add(bo)
+    assert neighbours(town, ada, "Bo again", {"v2": "stole Ada Reyes's bike"}) == [
+        "Bo Hale, the baker, who everyone knows stole Ada Reyes's bike"]
+    assert neighbours(town, ada, "Bo again") == ["Bo Hale, the baker"]
+
+
+def test_someone_who_left_is_described_as_gone_or_as_having_died():
+    town = Town()
+    ada, bo, cy = (Villager(vid, name, "clerk", "calm", "", [], {}) for vid, name in
+                   (("v1", "Ada Reyes"), ("v2", "Bo Hale"), ("v3", "Cy Park")))
+    for v in (ada, bo, cy):
+        town.add(v)
+    town.remove("v2")
+    town.remove("v3")
+    assert neighbours(town, ada, "Bo and Cy", died={"v3"}) == ["Bo Hale, the clerk, who has left town",
+                                                               "Cy Park, the clerk, who has died"]

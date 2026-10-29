@@ -22,7 +22,7 @@ jobs:
     - name: Lint
       run: ruff check .
     - name: Test
-      run: pytest whispers -q
+      run: pytest whispers sleuth -q
 
   integration:
     name: Integration Tests (live Contex)
@@ -64,11 +64,15 @@ jobs:
         pip install -r requirements-dev.txt
     - name: Run Whispers integration tests
       run: WHISPERS_CONTEX_URL=http://localhost:8001/mcp pytest whispers/tests/test_contex_integration.py -v
+    - name: Run Sleuth integration tests
+      run: SLEUTH_CONTEX_URL=http://localhost:8001/mcp pytest sleuth/tests/test_contex_integration.py -v
 
   docker:
-    name: Build Whispers Image
+    name: Build Images
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-    - name: Build
+    - name: Build Whispers
       run: docker build -f whispers/Dockerfile .
+    - name: Build Sleuth
+      run: docker build -f sleuth/Dockerfile .
