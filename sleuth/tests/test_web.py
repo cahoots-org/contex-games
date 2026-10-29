@@ -911,12 +911,14 @@ def test_search_and_pull_show_only_while_they_can_be_used(game):
     assert "!searched.has(caseNow.id)" in where and "caseNow && recordsAt.includes(here)" in where
 
 
-def test_a_search_that_ticks_its_step_shows_the_notebook_before_the_next_step(game):
+def test_a_search_that_ticks_its_step_points_at_the_clue_it_found(game):
     page = game.client.get("/").text
-    beat = page[page.index("function beatFrom("):page.index("// The checklist's current step")]
+    beat = page[page.index("function beatFrom("):page.index("// The search's clue")]
     assert 'book: s.action === "search"' in beat
+    found = page[page.index("function found()"):page.index("// The checklist's current step")]
+    assert '.findLast((r) => r.kind === "clue")' in found and 'return box?.closest("li") || $("book")' in found
     lit = page[page.index("function light()"):page.index("function placeCoach()")]
-    assert 'const reply = beat?.book ? $("book")' in lit
+    assert "const reply = beat?.book ? found()" in lit
 
 
 def test_the_described_beat_rings_the_row_of_who_was_named(game):

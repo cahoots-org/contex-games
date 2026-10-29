@@ -930,11 +930,18 @@ function pastTarget(page) {
   if (page === CASE_PAGE) return $("case-title");
   const s = steps[page.i];
   const row = (id) => $("people").querySelector(`[data-id="${CSS.escape(id)}"]`);
-  const t = page.beat?.book ? $("book")
+  const t = page.beat?.book ? found()
     : page.beat?.about ? row(page.beat.about)
     : page.beat && $("convo").dataset.id === page.beat.person ? $("thread").lastElementChild
     : s.person ? row(s.person) : s.action === "publish" || $("places").open ? $(ACTION_BUTTON[s.action]) : $("here");
   return t && !t.hidden ? t : t?.parentElement || $("people");
+}
+
+// The search's clue in the notebook, else the notebook.
+function found() {
+  const clue = [...notebook.values()].findLast((r) => r.kind === "clue");
+  const box = clue && $("notebook").querySelector(`input[value="${CSS.escape(clue.id)}"]`);
+  return box?.closest("li") || $("book");
 }
 
 // The checklist's current step: the first not yet done.
@@ -954,7 +961,7 @@ function light() {
   addPage(live);
   const past = back ? pages[pages.length - 1 - back] : null;
   const talking = s?.person && $("convo").dataset.id === s.person && !$("ask").hidden;
-  const reply = beat?.book ? $("book")
+  const reply = beat?.book ? found()
     : beat?.about ? $("people").querySelector(`[data-id="${CSS.escape(beat.about)}"]`) || $("people")
     : beat && $("convo").dataset.id === beat.person ? $("thread").lastElementChild : null;
   let target = past ? pastTarget(past) : beat ? reply : !s ? null : talking ? $("ask")
