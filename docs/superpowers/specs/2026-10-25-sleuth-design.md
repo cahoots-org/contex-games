@@ -338,20 +338,28 @@ From the owner, after reading the playtest report:
 
 ### Many cases have no witness
 - **Physical evidence and records come first.** When a case needs more to be solvable, it reaches for a trace, a dropped receipt, a check-in, or a camera on a nearby street that catches the car a few minutes later. A witness is the last resort, and some crimes never get one.
-- **A claim against the log is evidence.** A suspect who says they were at the gym, when the gym's check-ins that day don't include them, has been caught out. The missing entry isn't a record of its own: the log the player pulls is, and the solver treats a claimed place with no entry as no alibi (*my call: claims, not routines, since the player can't see routines*).
+- **A claim against the log is evidence.** A suspect who says they were at the gym, when the gym's check-ins that day don't include them, has been caught out. The missing entry isn't a record of its own: the log the player pulls is, and the solver treats a claimed place with no entry as no alibi.
+- **People who know someone know their habits.** A housemate, friend or coworker can say where someone usually is at a time of day ("Sam's always at the gym Tuesday evenings"), taken from the routine, so code owns it. That's a citable statement; set against a log with no check-in, it shows a gap in someone's day. Like any account, it can be wrong or a cover.
 - **No lead is handed out.** A case with no witness opens with the crime and its place. The player works out where to look: asking people nearby, checking cameras, searching for traces, pulling records.
 
 ### Conflicting evidence
 - **The new guarantee:** the true evidence narrows the case to exactly one person, and every false piece contradicts something the player can check, such as a camera clip, a log, another account or what the person wore that day. The player is never left guessing, but has to decide what to trust.
-- **What the guarantee covers** (*my call*): the false evidence staged with the case is checked when the case opens. Lies told during play (the culprit's alibi, a household covering, drifted hearsay) are already code-owned; each is bound to a place or claim a log or another account can disprove, as today.
-- **False evidence is aimed** (*my call*): each staged false piece fits a believable innocent decoy, preferably someone with a motive, so it leads the investigation somewhere wrong instead of nowhere.
-- **Citing false evidence sinks the episode**, as unsound evidence does today. An honest mistake and an innocent leftover count as false: the memory and the thread are real, but what they say about the culprit isn't. A ranged sighting points at the culprit when it fits them (*my call*).
+- **What the guarantee covers:** the false evidence planted when a case opens is checked then. Lies told during play (the culprit's alibi, a household covering, drifted hearsay) keep working as they do today.
+- **False evidence is a mix.** Some fits a believable innocent decoy, preferably someone with a motive, and leads the investigation somewhere wrong; some is plain noise that fits no one in particular.
+- **An episode can survive one bad piece.** It holds when it names the culprit, some cited evidence points at them, at most one cited piece is false, and that false piece contradicts nothing else it cites. Two false pieces, or a false piece that clashes with another cited one (a green raincoat cited beside a camera showing a black puffer), sink it. An honest mistake and an innocent leftover count as false: the memory and the thread are real, but what they say about the culprit isn't. A ranged sighting points at the culprit when it fits them.
 - **Kinds of false evidence, each with a cause in the town:**
   - **Honest mistakes:** a witness is sure of a green raincoat; it was dusk, and the camera shows a black puffer.
   - **Innocent leftovers:** the thread at the scene is real but was left by someone there an hour earlier, which their own log shows.
   - **Innocent liars:** a resident lies about where they were to hide something unrelated, such as an evening at the bar they'd rather keep quiet. They're hiding something, but not this.
   - **Cover stories:** a friend vouches for the culprit, and a receipt breaks the alibi. This extends today's accomplices.
-- **An innocent liar's secret** is always a visit to a place that keeps a log, such as the bar or the gym, so the log disproves the lie and shows the secret. It comes out publicly if they're named in an episode, and they hold it against the podcaster like any wrongly accused resident (*my call*).
+- **An innocent liar's secret** comes from a varied catalog, each kind with what can expose it:
+  - somewhere they shouldn't have been, shown by a log or a camera;
+  - planning a surprise for someone, which a co-conspirator gives away;
+  - a job interview out of town, which a coworker knows about;
+  - a hobby or purchase they're embarrassed by, shown by a receipt or a post on the app;
+  - covering for a friend's own small mischief, which the friend admits when pressed.
+
+  The secret comes out publicly if they're named in an episode, and they hold it against the podcaster like any wrongly accused resident.
 
 ### By tier
 - **Petty:** mostly straightforward, with a witness more often than not and little or no false evidence. Some cases stay a checklist.
