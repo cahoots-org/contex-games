@@ -587,10 +587,12 @@ class Player:
                 return [self._statement(file, vid, f"{name}: {word[0]}", word[1], who=about.id)], []
             theirs = file.whereabouts.get(about.id, [])
             met = [p for p in file.whereabouts.get(vid, []) if p in theirs and p != crime.place]
-            if not met:
-                return [], []
-            text = f"{name} says they saw {about.name} {at(met[0])} {WHEN}."
-            return [self._statement(file, vid, text, True, who=about.id)], []
+            if met:
+                text = f"{name} says they saw {about.name} {at(met[0])} {WHEN}."
+                return [self._statement(file, vid, text, True, who=about.id)], []
+            usual = routine.place(about.id, routed.when) if routine and acquainted(villager, about) else None
+            text = f"{name} says {about.name} is usually {at(usual)} in the {routed.when}."
+            return [self._statement(file, vid, text, True, who=about.id)] if usual else [], []
         if kind == "what_did_you_see":
             return self._seen(file, vid), []
         if kind == "what_happened":
