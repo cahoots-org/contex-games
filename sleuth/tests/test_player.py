@@ -1201,7 +1201,7 @@ async def test_talking_shows_how_they_look_today():
     player.feed.sinks.append(seen.append)
     assert await ask(player, "v1", "none") is None
     traits = player.town.get("v1").traits
-    assert player.known["v1"][-1] == {"looks": {"height": traits["height"], "hair": traits["hair"], "coat": "plaid flannel"},
+    assert player.known["v1"][-1] == {"looks": {"gender": traits["gender"], "height": traits["height"], "hair": traits["hair"], "coat": "plaid flannel"},
                                       "how": "talked", "by": None, "day": 2, "phase": player.game.phase}
     [known] = [e for e in seen if e.kind == "known"]
     assert known.player == PID and known.data["villager"] == player.person("v1")

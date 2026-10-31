@@ -7,18 +7,22 @@ from itertools import product
 from sleuth.models import Villager
 
 TRAITS: dict[str, tuple[str, ...]] = {
+    "gender": ("man", "woman"),
     "height": ("short", "average height", "tall"),
     "hair": ("grey-haired", "blond", "dark-haired", "red-haired", "bald"),
     "coat": ("grey hoodie", "denim jacket", "green raincoat", "black puffer", "plaid flannel"),
     "car": ("red pickup", "white sedan", "blue hatchback", "silver minivan", "bicycle"),
 }
 # What never changes about a resident; the coat is the day's outfit, picked from a wardrobe of WARDROBE.
-FIXED = ("height", "hair", "car")
+FIXED = ("gender", "height", "hair", "car")
+# Gender comes with the resident; the rest of the fixed traits are dealt.
+GIVEN = ("gender",)
+DEALT = tuple(c for c in FIXED if c not in GIVEN)
 WARDROBE = 3
 # What talking to someone shows of them, and what someone who knows them can put into words.
-IN_PERSON = ("height", "hair", "coat")
+IN_PERSON = ("gender", "height", "hair", "coat")
 BY_WORD = ("height", "hair", "car")
-PHRASES = {"height": "{}", "hair": "{}", "coat": "in a {}", "car": "with a {}"}
+PHRASES = {"gender": "{}", "height": "{}", "hair": "{}", "coat": "in a {}", "car": "with a {}"}
 # What a witness can say loosely, and the trait values each phrase covers.
 RANGES: dict[str, tuple[str, ...]] = {
     "not tall": ("short", "average height"),
@@ -41,16 +45,19 @@ def _look(v: Villager) -> tuple[str, ...]:
 
 
 def assign_traits(villagers: list[Villager], rng: random.Random) -> None:
-    """Deal each fixed category evenly, swap values until every fixed look is unique or the swaps run out, and give
-    each resident a wardrobe."""
+    """Keep each resident's gender, deal the other fixed categories evenly, swap values until every fixed look is
+    unique or the swaps run out, and give each resident a wardrobe."""
     for v in villagers:
-        v.traits = {}
+        v.traits = {c: v.traits[c] for c in GIVEN if c in v.traits}
         v.wardrobe = rng.sample(TRAITS["coat"], WARDROBE)
     for cat in FIXED:
+        dealt = [v for v in villagers if cat not in v.traits]
+        if not dealt:
+            continue
         order = rng.sample(TRAITS[cat], len(TRAITS[cat]))
-        column = [order[i % len(order)] for i in range(len(villagers))]
+        column = [order[i % len(order)] for i in range(len(dealt))]
         rng.shuffle(column)
-        for v, value in zip(villagers, column):
+        for v, value in zip(dealt, column):
             v.traits[cat] = value
     counts = Counter(map(_look, villagers))
     swaps = len(villagers) * 20
@@ -61,7 +68,7 @@ def assign_traits(villagers: list[Villager], rng: random.Random) -> None:
         for a in clashing[:swaps]:
             if counts[_look(a)] < 2:
                 continue
-            b, cat = rng.choice(villagers), rng.choice(FIXED)
+            b, cat = rng.choice(villagers), rng.choice(DEALT)
             counts.subtract((_look(a), _look(b)))
             a.traits[cat], b.traits[cat] = b.traits[cat], a.traits[cat]
             counts.update((_look(a), _look(b)))
@@ -81,6 +88,9 @@ def assign_look(v: Villager, others: list[Villager], rng: random.Random, avoid: 
     looks = [dict(zip(FIXED, look)) for look in product(*(TRAITS[c] for c in FIXED))]
     free = [look for look in looks if tuple(look.values()) not in taken]
     clear = [look for look in free if not any(s and fits(s, look) for s in sightings)]
+    kept = {c: v.traits[c] for c in GIVEN if c in v.traits}
+    free = [look for look in free if kept.items() <= look.items()] or free
+    clear = [look for look in clear if look in free]
     v.traits = rng.choice(clear or free or looks)
     v.wardrobe = rng.sample(TRAITS["coat"], WARDROBE)
 

@@ -288,9 +288,14 @@ def _memory(crime: Crime, witness: str, seen: dict[str, str], rng: Random, ids: 
                   witness, seen, day=crime.day)
 
 
+def _sighted(culprit: dict[str, str]) -> dict[str, str]:
+    """What a witness can draw on of the culprit: all their traits but gender, which sightings do not carry."""
+    return {c: v for c, v in culprit.items() if c != "gender"}
+
+
 def recall_more(crime: Crime, memory: Record, culprit: dict[str, str]) -> Record:
     """The memory with one more of the culprit's traits, unnumbered, or as it was when it already has them all."""
-    extra = next((c for c in culprit if c not in memory.traits), None)
+    extra = next((c for c in _sighted(culprit) if c not in memory.traits), None)
     if extra is None:
         return replace(memory)
     seen = {**memory.traits, extra: culprit[extra]}
@@ -306,7 +311,7 @@ def witness_memories(crime: Crime, town: Town, routine, rng: Random, ids: Ids, a
     """Up to the tier's EVIDENCE count of residents expected at the scene and not away, each recalling two of the
     culprit's traits."""
     bystanders = _bystanders(crime, town, routine, away)
-    culprit = town.looks(crime.culprit, crime.day)
+    culprit = _sighted(town.looks(crime.culprit, crime.day))
     memories = []
     for w in rng.sample(bystanders, min(EVIDENCE[crime.tier][0], len(bystanders))):
         seen = {c: culprit[c] for c in rng.sample(list(culprit), WITNESS_TRAITS)}
@@ -316,7 +321,7 @@ def witness_memories(crime: Crime, town: Town, routine, rng: Random, ids: Ids, a
 
 def victim_memory(crime: Crime, town: Town, rng: Random, ids: Ids) -> Record:
     """What a mugging's victim saw of the mugger: one of their traits."""
-    culprit = town.looks(crime.culprit, crime.day)
+    culprit = _sighted(town.looks(crime.culprit, crime.day))
     trait = rng.choice(list(culprit))
     return _memory(crime, crime.victim, {trait: culprit[trait]}, rng, ids)
 

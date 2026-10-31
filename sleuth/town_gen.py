@@ -10,12 +10,12 @@ from sleuth.models import Villager
 from sleuth.faith import FAITH, GORE
 from sleuth.routine import workplace
 from sleuth.town import PUBLIC_PLACES, STREETS
-from sleuth.traits import assign_traits
+from sleuth.traits import TRAITS, assign_traits
 from sleuth.writer import Writer, extract_json
 
 BATCH = 10
 MAX_FAILED_BATCHES = 5
-REQUIRED = ("name", "occupation", "personality", "grudge", "needs", "quirks")
+REQUIRED = ("name", "gender", "occupation", "personality", "grudge", "needs", "quirks")
 MAX_RELATIONSHIPS = 4
 REVERSE = {"parent": "child", "child": "parent"}
 # Weighted draw, so friends are commoner than the rest.
@@ -39,7 +39,7 @@ WARMTH = {
 SYSTEM = "You invent residents of a small modern American town. Reply with only JSON, no prose."
 PROMPT = (
     "Invent {n} distinct residents as a top-level JSON array of objects, not wrapped in "
-    "another object. Each item has: name (a full name), occupation (a job at one of the town's only workplaces, the "
+    "another object. Each item has: name (a full name), gender (\"man\" or \"woman\", matching the name), occupation (a job at one of the town's only workplaces, the "
     "cafe, gym, school, bar, dog park, hardware store, grocery, town hall or library, saying which, like \"barista at "
     "the cafe\"; or work done from home or on a night shift out of town, saying so, like \"night-shift nurse\" or "
     "\"illustrator, works from home\"), personality (one "
@@ -109,6 +109,7 @@ def _valid(raw) -> bool:
         and isinstance(raw["quirks"], list)
         and len(raw["quirks"]) >= 1
         and all(isinstance(q, str) and q.strip() for q in raw["quirks"])
+        and raw["gender"] in TRAITS["gender"]
         and isinstance(raw["occupation"], str)
         and workplace(raw["occupation"]) is not None
         and not FAITH.search(json.dumps(raw))
@@ -121,6 +122,7 @@ def _villager(vid: str, raw: dict) -> Villager:
         id=vid, name=raw["name"], occupation=raw["occupation"],
         personality=raw["personality"], grudge=raw["grudge"] or "",
         needs=list(raw["needs"])[:5], relationships={}, quirks=raw["quirks"][:2],
+        traits={"gender": raw["gender"]},
     )
 
 

@@ -75,7 +75,7 @@ def test_the_practice_town_keeps_the_town_s_rules():
 
 def test_practice_residents_own_three_outfits_and_wear_the_first_on_day_one():
     p = practice()
-    assert all(len(set(v.wardrobe)) == 3 and set(v.traits) == {"height", "hair", "car"} for v in p.town.villagers)
+    assert all(len(set(v.wardrobe)) == 3 and set(v.traits) == {"gender", "height", "hair", "car"} for v in p.town.villagers)
     assert all(p.town.outfit(v.id, 1) == v.wardrobe[0] for v in p.town.villagers)
     assert p.town.outfit("t5", 1) == p.town.outfit("t6", 1) == "green raincoat"
 

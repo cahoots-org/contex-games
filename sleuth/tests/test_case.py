@@ -57,7 +57,7 @@ RESIDENTS = [
 
 def make_town():
     town = Town()
-    traits = {"height": "tall", "hair": "bald", "coat": "grey hoodie", "car": "bicycle"}
+    traits = {"gender": "woman", "height": "tall", "hair": "bald", "coat": "grey hoodie", "car": "bicycle"}
     for vid, name, household, street in RESIDENTS:
         town.add(Villager(vid, name, "clerk", "calm", "", [], {}, dict(traits), street, household), street)
     rival, victim = town.get("v5"), town.get("v1")

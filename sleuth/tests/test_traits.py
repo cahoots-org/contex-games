@@ -60,3 +60,10 @@ def test_a_ranged_sighting_fits_every_value_it_covers():
 
 def test_a_ranged_sighting_is_described_as_said():
     assert describe({"height": "not tall", "coat": "in a dark coat"}) == "not tall, in a dark coat"
+
+
+def test_generated_residents_keep_their_gender():
+    vs = [Villager(f"v{i}", f"N{i}", "x", "y", "", [], {}, {"gender": ("man", "woman")[i % 2]}) for i in range(20)]
+    assign_traits(vs, random.Random(2))
+    assert [v.traits["gender"] for v in vs] == [("man", "woman")[i % 2] for i in range(20)]
+    assert len({tuple(v.traits[c] for c in FIXED) for v in vs}) == 20
