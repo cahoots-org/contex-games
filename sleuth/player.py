@@ -587,7 +587,7 @@ class Player:
             if word := accomplice_word(file, villager, about):
                 return [self._statement(file, vid, f"{name}: {word[0]}", word[1], who=about.id, disproof=word[2])], []
             if (secret := file.liars.get(about.id)) and secret["exposer"] == vid:
-                return [self._statement(file, vid, f"{name}: {secret['text']}.", True, who=about.id)], []
+                return [self._statement(file, vid, f"{name}: {secret['said']}.", True, who=about.id)], []
             if word := household_word(file, villager, about, routed.words.get(about.id)):
                 return [self._statement(file, vid, f"{name}: {word[0]}", word[1], who=about.id)], []
             theirs = file.whereabouts.get(about.id, [])

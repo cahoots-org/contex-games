@@ -21,7 +21,7 @@ from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.models import Utterance, Villager
 from sleuth.offenders import Offender, Offenders
-from sleuth.secrets import pick_liar
+from sleuth.liars import pick_liar, said_place
 from sleuth.town import STREETS, Town, at, district_of, place_name
 
 log = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ ARRESTED = "{name} was arrested and has left town."
 ON_EDGE = "{street} is on edge after {title}."
 BREATHES = "{street} breathes a little easier now {name}'s been found out."
 RESOLVED = "{street} has its answer now. People are looking after one another."
-SECRET_OUT = "{name} wasn't home that night: {text}."
+SECRET_OUT = "{name} wasn't {claimed} {when}: {text}."
 # The chance a serious case has an innocent liar; a death always has one among those with motives when one fits.
 LIAR_CHANCE = 0.5
 # How many crimes are drawn in one go for a solvable one.
@@ -58,7 +58,7 @@ class CaseFile:
     named: dict[str, str] = field(default_factory=dict)  # player → the resident their episode named
     accomplice: str | None = None  # who covers for the culprit
     motives: list[str] = field(default_factory=list)  # a death's: who was on cold terms with the victim
-    liars: dict[str, dict] = field(default_factory=dict)  # innocent resident → their secret, from pick_liar
+    liars: dict[str, dict] = field(default_factory=dict)  # innocent resident → their secret, from pick_liar; "out" once posted
 
 
 def case_json(case: CaseFile, town: Town, routine, today: float | None = None) -> dict:
@@ -243,15 +243,17 @@ class Cases:
 
     def on_wrong(self, engine, file: CaseFile, player_id: str, accused: str) -> None:
         """A wrong episode costs the town's regard, the accused's most of all, then their household's and close ties';
-        an accused liar's secret comes out on the app."""
+        an accused liar's secret comes out on the app the first time."""
         config, them = self.config, self.town.get(accused)
         engine.reputation.nudge_all(player_id, config.reputation_wrong, [v.id for v in self.town.villagers])
         engine.reputation.nudge(accused, player_id, config.reputation_accused)
         ties = [v.id for v in self.town.villagers if v.id != accused and (
             them.household and v.household == them.household or warmth_words(v.warmth.get(accused, 0.0)) == "close")]
         engine.reputation.nudge_all(player_id, config.reputation_accused_ties, ties)
-        if secret := file.liars.get(accused):
-            text = SECRET_OUT.format(name=them.name, text=secret["text"])
+        if (secret := file.liars.get(accused)) and not secret.get("out"):
+            secret["out"] = True
+            text = told(SECRET_OUT.format(name=them.name, claimed=said_place(secret["claimed"], them.home), when=WHEN,
+                                          text=secret["text"]), file.crime, self.now)
             engine.feed.on_post(Utterance("", "app", APP, them.home, text, None, "posted"), file.crime.id)
 
     def _expose(self, engine, file: CaseFile, player_id: str | None) -> None:

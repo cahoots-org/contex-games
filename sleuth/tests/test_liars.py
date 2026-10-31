@@ -7,7 +7,7 @@ from sleuth import cases as cases_mod
 from sleuth.case import NO_WITNESS, logs
 from sleuth.cases import case_json
 from sleuth.lineage import Ids
-from sleuth.secrets import HOBBIES, SECRETS, pick_liar
+from sleuth.liars import COVERED_ME, HOBBIES, SECRETS, pick_liar
 from sleuth.tests.helpers import StubRoutine
 from sleuth.tests.test_case import RESIDENTS, make_routine
 from sleuth.tests.test_cases import culprit_file, make_cases, podcaster, tick, tiered
@@ -57,6 +57,19 @@ def test_no_one_lies_who_is_home_the_whole_time():
     assert pick_liar(crime, whereabouts, town, routine, Random(0), set(), records) is None
 
 
+def test_a_liar_never_claims_to_have_been_at_the_scene():
+    crime, whereabouts, town, routine, _ = fitted("somewhere")
+    whereabouts["v6"], whereabouts["v2"] = ["oak street"], ["elm street", "bar"]
+    records = logs(crime, whereabouts, town, Random(0), Ids())
+    assert pick_liar(crime, whereabouts, town, routine, Random(0), set(), records) is None
+    routine.places["v2"] = {"night": "library"}
+    vid, secret = pick_liar(crime, whereabouts, town, routine, Random(0), set(), records)
+    assert vid == "v2" and secret["claimed"] == "library"
+    assert secret["text"] == "Eli was at the bar when they'd said they were at the library"
+    routine.places["v2"] = {"night": "bar"}
+    assert pick_liar(crime, whereabouts, town, routine, Random(0), set(), records) is None
+
+
 def liar_file():
     """Ivy (v6) at the bar the night Fay stole Dana's bike, saying she was home; the bar's log shows her."""
     player, file, engine, writer = interviewing()
@@ -65,7 +78,8 @@ def liar_file():
     file.records = {r.id: r for r in records}
     [log] = [r for r in records if r.who == "v6"]
     file.liars = {"v6": {"kind": "somewhere", "place": "bar", "claimed": "oak street", "exposer": log.id,
-                         "text": "Ivy was at the bar when they'd said they were home"}}
+                         "text": "Ivy was at the bar when they'd said they were home",
+                         "said": "Ivy was at the bar when they'd said they were home"}}
     return player, file, engine, writer, log
 
 
@@ -81,13 +95,14 @@ async def test_a_liar_s_claim_is_disproved_by_the_log_that_shows_them():
 async def test_the_exposer_gives_the_liar_away_when_asked():
     player, file, engine, writer, _ = liar_file()
     file.liars["v6"] = {**file.liars["v6"], "kind": "covering", "place": "cafe", "exposer": "v7",
-                        "text": "Ivy was covering for Jo Tran, who'd been up to something small"}
+                        "text": "Ivy was covering for Jo Tran, who'd been up to something small",
+                        "said": COVERED_ME.format(first="Ivy")}
     await ask(player, "v8", "where_was", who="v6")
     assert not [r for r in notebook(player) if "covering" in r.text]
     await ask(player, "v7", "where_was", who="v6")
     [said] = [r for r in notebook(player) if r.holder == "v7"]
     assert (said.text, said.sound, said.who) == (
-        "Jo Tran: Ivy was covering for Jo Tran, who'd been up to something small.", True, "v6")
+        "Jo Tran: Ivy was covering for me. I'd been up to something small.", True, "v6")
     await ask(player, "v6", "where_were_you")
     [claim] = [r for r in notebook(player) if r.holder == "v6"]
     assert (claim.sound, claim.disproof) == (False, None)
@@ -96,15 +111,17 @@ async def test_the_exposer_gives_the_liar_away_when_asked():
 def test_naming_a_liar_brings_out_their_secret():
     cases, engine, town = make_cases()
     file = culprit_file(cases)
+    cases.now = 2.0
     file.liars = {"v6": {"kind": "job", "place": "cafe", "claimed": "oak street", "exposer": "v2",
                          "text": "Ivy was interviewing for a job at the cafe"}}
     cases.on_wrong(engine, file, "p-1", "v6")
     [post] = [e for e in engine.feed.recent if e.kind == "post"]
-    assert post.data["text"] == "Ivy Burke wasn't home that night: Ivy was interviewing for a job at the cafe."
+    assert post.data["text"] == "Ivy Burke wasn't home last night: Ivy was interviewing for a job at the cafe."
     assert post.data["app"] and post.data["case_id"] == file.crime.id
     config = cases.config
     assert engine.reputation.get("v6", "p-1") == pytest.approx(config.reputation_wrong + config.reputation_accused)
     cases.on_wrong(engine, file, "p-1", "v5")
+    cases.on_wrong(engine, file, "p-2", "v6")
     assert len([e for e in engine.feed.recent if e.kind == "post"]) == 1
 
 
@@ -148,3 +165,13 @@ async def test_a_secret_stays_hidden_until_named(lying):
     assert secret["text"] not in shown
     cases.on_wrong(engine, file, "p-1", vid)
     assert any(secret["text"] in e.data["text"] for e in engine.feed.recent if e.kind == "post")
+
+
+@pytest.mark.asyncio
+async def test_a_petty_case_never_has_a_liar(lying):
+    for seed in range(30):
+        cases, engine, town = make_cases(offenders=8)
+        cases.routine = make_routine(OUT)
+        cases.rng = Random(seed)
+        await tick(cases, engine)
+        assert [f.liars for f in cases.open_shared("petty")] == [{}]
