@@ -7,7 +7,7 @@ from random import Random
 
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
-from sleuth.town import PLACES, STREETS, Town, at, place_name
+from sleuth.town import PLACES, STREETS, Town, at, district_of, place_name
 from sleuth.traits import RANGES, SEEN_AS, describe, figure, fits
 
 TIERS = ("petty", "serious", "major")
@@ -43,7 +43,7 @@ CRIMES = {
     "mug": Kind("serious", "mugged", "mugging", ("wallet", "phone"), "gone", "was grabbing at someone",
                 news="Someone mugged {victim} {at} {when} and took their {item}.", title="The mugging of {victim}"),
     "car": Kind("serious", "stole", "stealing", ("car",), "gone", "was driving off in a car that wasn't theirs"),
-    "death": Kind("major", "", "", ("",), "", "was arguing with someone",
+    "death": Kind("major", "", "", ("",), "", "was leaving in a hurry",
                   news="{victim} was found dead {at}. It happened {window}. Police are treating it as suspicious.",
                   title="The death of {victim}"),
 }
@@ -72,11 +72,16 @@ MOTIVE_WEIGHT = 3
 # By tier: how many residents may witness a crime, and how often its culprit is someone expected at the scene anyway,
 # when one fits.
 EVIDENCE = {"petty": (2, 1 / 3), "serious": (3, 0.0), "major": (2, 0.0)}
+# By tier: the chance a case has no witness, so it is solved from traces and records alone; a mugging's victim still
+# remembers one thing.
+NO_WITNESS = {"petty": 0.3, "serious": 0.6, "major": 0.85}
 CAMERA_PLACES = ("grocery", "bar", "town hall", "elm street")
 LOG_PLACES = {"gym": "Gym check-in", "bar": "Bar tab closed", "grocery": "Grocery receipt", "library": "Library checkout"}
 # The chance a witness describes what they saw only roughly, when a range covers it.
 RANGED_CHANCE = 0.4
 CLIP_TRAITS = ("height", "coat")
+# How many minutes after the crime a camera nearby catches the culprit's car.
+PASSING = (3, 12)
 WITNESS_DRIFT = 20
 # What the culprit can leave behind: a trace of one trait, or a store receipt whose log names who paid.
 TRACES = {"height": "A boot print {at}, left by {figure}.", "coat": "A thread {at}, snagged from {figure}.",
@@ -378,6 +383,20 @@ def camera_clip(crime: Crime, town: Town, ids: Ids) -> Record | None:
     return Record(ids.next("r"), crime.id, "clip", crime.place, clock, text, traits=seen, day=crime.day)
 
 
+def passing_clip(crime: Crime, town: Town, ids: Ids, rng: Random) -> Record | None:
+    """Another camera in the scene's district catching the culprit's car heading away a few minutes after, if they
+    drive and the district has one."""
+    car = town.looks(crime.culprit, crime.day)["car"]
+    cameras = [p for p in CAMERA_PLACES if p != crime.place and district_of(p) == district_of(crime.place)]
+    if car == "bicycle" or not cameras:
+        return None
+    camera = rng.choice(cameras)
+    clock = clock_at(crime.minute + rng.randint(*PASSING))
+    scene = place_name(crime.place) if crime.place in STREETS else f"the {crime.place}"
+    text = f"{clock}, {place_name(camera)} camera: a {car} heading away from {scene}."
+    return Record(ids.next("r"), crime.id, "clip", camera, clock, text, traits={"car": car}, day=crime.day)
+
+
 def scene_clues(crime: Crime, town: Town, routine, rng: Random, ids: Ids, away=frozenset()) -> list[Record]:
     """One or two things left at the scene: a trace of one of the culprit's traits, or a receipt dropped by the
     culprit or someone expected there and not away. A receipt names no one; the grocery's log for its time, returned
@@ -387,17 +406,25 @@ def scene_clues(crime: Crime, town: Town, routine, rng: Random, ids: Ids, away=f
     for kind in rng.sample([*TRACES, "receipt"], rng.randint(1, 2)):
         if kind == "receipt":
             who = rng.choice([crime.culprit, *_bystanders(crime, town, routine, away)])
-            clock = clock_at(max(crime.minute - rng.randint(*RECEIPT_BEFORE), PHASE_MINUTES[crime.phase][0]))
-            text = RECEIPT.format(at=at(crime.place), clock=clock)
-            clues.append(Record(ids.next("r"), crime.id, "clue", crime.place, clock, text, day=crime.day))
-            paid = f"{LOG_PLACES['grocery']}: {town.get(who).name}, {clock}"
-            clues.append(Record(ids.next("r"), crime.id, "log", "grocery", clock, paid, who=who, trail=True,
-                                day=crime.day))
+            clues += _receipt(crime, who, town, rng, ids)
         else:
-            seen = {kind: culprit[kind]}
-            text = TRACES[kind].format(at=at(crime.place), figure=figure(seen), value=seen[kind])
-            clues.append(Record(ids.next("r"), crime.id, "clue", crime.place, "", text, traits=seen, day=crime.day))
+            clues.append(_trace(crime, kind, culprit[kind], ids))
     return clues
+
+
+def _trace(crime: Crime, kind: str, value: str, ids: Ids) -> Record:
+    seen = {kind: value}
+    text = TRACES[kind].format(at=at(crime.place), figure=figure(seen), value=value)
+    return Record(ids.next("r"), crime.id, "clue", crime.place, "", text, traits=seen, day=crime.day)
+
+
+def _receipt(crime: Crime, who: str, town: Town, rng: Random, ids: Ids) -> list[Record]:
+    """A receipt dropped at the scene, and the grocery's log naming who paid."""
+    clock = clock_at(max(crime.minute - rng.randint(*RECEIPT_BEFORE), PHASE_MINUTES[crime.phase][0]))
+    text = RECEIPT.format(at=at(crime.place), clock=clock)
+    paid = f"{LOG_PLACES['grocery']}: {town.get(who).name}, {clock}"
+    return [Record(ids.next("r"), crime.id, "clue", crime.place, clock, text, day=crime.day),
+            Record(ids.next("r"), crime.id, "log", "grocery", clock, paid, who=who, trail=True, day=crime.day)]
 
 
 def logs(crime: Crime, phase_log: dict[str, list[str]], town: Town, rng: Random, ids: Ids) -> list[Record]:
@@ -425,9 +452,9 @@ def points_at(crime: Crime, culprit: str, traits: dict[str, str], r: Record) -> 
 
 
 def suspects(crime: Crime, records: list[Record], town: Town) -> set[str]:
-    """Residents who match every sighting and trace and are not logged only elsewhere."""
-    sightings = [r.traits for r in records if r.kind in ("memory", "clip", "clue")]
-    logged = [r for r in records if r.kind == "log" and not r.trail]
+    """Residents who match every sound sighting and trace and are not soundly logged only elsewhere."""
+    sightings = [r.traits for r in records if r.sound and r.kind in ("memory", "clip", "clue")]
+    logged = [r for r in records if r.sound and r.kind == "log" and not r.trail]
     at_scene = {r.who for r in logged if r.place == crime.place}
     alibied = {r.who for r in logged if r.place != crime.place} - at_scene
     return {v.id for v in town.villagers if v.id != crime.victim and v.id not in alibied
@@ -435,27 +462,54 @@ def suspects(crime: Crime, records: list[Record], town: Town) -> set[str]:
 
 
 def make_solvable(crime: Crime, records: list[Record], town: Town, routine, rng: Random, ids: Ids,
-                  away=frozenset()) -> list[Record] | None:
-    """The extra memory, from someone not away, that narrows the case to the culprit and points at them: [] if none is
-    needed, None if none can."""
+                  away=frozenset(), allow_witness: bool = True) -> list[Record] | None:
+    """The evidence that narrows the sound records to the culprit and points at them, tried in order: scene traces of
+    what no record shows yet, a passing camera, the culprit's receipt and its log, each kept only if it narrows, or
+    points at the culprit once only they are left; then, when allow_witness, one witness per trait still needed, from
+    someone not away. [] if none is needed, None if it can't be done."""
+    records = [r for r in records if r.sound]
     left = suspects(crime, records, town)
     if crime.culprit not in left:
         return None
     culprit = town.sighting(crime.culprit, crime.day)
-    seen: dict[str, str] = {}
-    pointing = any(r.sound and points_at(crime, crime.culprit, culprit, r) for r in records)
-    while len(left) > 1 or not (seen or pointing):
+    added: list[Record] = []
+    pointing = any(points_at(crime, crime.culprit, culprit, r) for r in records)
+    for lead in _leads(crime, records, town, rng, ids):
+        if len(left) == 1 and pointing:
+            break
+        narrowed = suspects(crime, records + added + lead, town)
+        points = any(points_at(crime, crime.culprit, culprit, r) for r in lead)
+        if narrowed < left or (len(left) == 1 and points and not pointing):
+            added, left, pointing = added + lead, narrowed, pointing or points
+    if len(left) == 1 and pointing:
+        return added
+    if not allow_witness:
+        return None
+    seen: set[str] = set()
+    seen_by = {r.holder for r in records if r.kind == "memory"}
+    others = [v.id for v in town.villagers if v.id not in (crime.culprit, crime.victim, *away)]
+    witnesses = [w for w in dict.fromkeys(_bystanders(crime, town, routine, away) + others) if w not in seen_by]
+    while len(left) > 1 or not pointing:
         unseen = [c for c in culprit if c not in seen]
-        if not unseen:
+        if not unseen or not witnesses:
             return None
         best = max(unseen, key=lambda c: sum(town.sighting(s, crime.day).get(c) != culprit[c] for s in left))
         narrowed = {s for s in left if town.sighting(s, crime.day).get(best) == culprit[best]}
         if narrowed == left and len(left) > 1:
             return None
-        seen[best], left = culprit[best], narrowed
-    if not seen:
-        return []
-    seen_by = {r.holder for r in records if r.kind == "memory"}
-    others = [v.id for v in town.villagers if v.id not in (crime.culprit, crime.victim, *away)]
-    witness = next((w for w in _bystanders(crime, town, routine, away) + others if w not in seen_by), None)
-    return None if witness is None else [_memory(crime, witness, seen, rng, ids)]
+        added.append(_memory(crime, witnesses.pop(0), {best: culprit[best]}, rng, ids))
+        seen.add(best)
+        left, pointing = narrowed, True
+    return added
+
+
+def _leads(crime: Crime, records: list[Record], town: Town, rng: Random, ids: Ids):
+    """The evidence make_solvable tries before a witness, each piece made only when it is tried."""
+    looks = town.looks(crime.culprit, crime.day)
+    seen = {c for r in records if r.kind in ("memory", "clip", "clue") for c in r.traits}
+    kinds = [k for k in TRACES if k not in seen]
+    for kind in rng.sample(kinds, len(kinds)):
+        yield [_trace(crime, kind, looks[kind], ids)]
+    if clip := passing_clip(crime, town, ids, rng):
+        yield [clip]
+    yield _receipt(crime, crime.culprit, town, rng, ids)

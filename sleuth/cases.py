@@ -9,8 +9,8 @@ from random import Random
 
 from sleuth.arrivals import move_in
 from sleuth.case import (
-    CRIMES, TIERS, WHEN, Crime, Record, camera_clip, catalog_tiers, crime_title, discovery, found_it, logs, make_solvable,
-    motives, scene_clues, stage_crime, told, victim_memory, witness_memories,
+    CRIMES, NO_WITNESS, TIERS, WHEN, Crime, Record, camera_clip, catalog_tiers, crime_title, discovery, found_it, logs,
+    make_solvable, motives, scene_clues, stage_crime, told, victim_memory, witness_memories,
 )
 from sleuth.config import Config
 from sleuth.decide import warmth_words
@@ -438,12 +438,13 @@ class Cases:
                 if vid}
 
     async def _open(self, engine, crime: Crime, pictured: set[str]) -> bool:
-        """Leave the crime's evidence, witnessed by no one pictured elsewhere then nor any open case's culprit, and, if
-        it narrows to the culprit, open the case: tell its witnesses and victim what they saw and found, and post the
-        news, a death's to the victim's street and ties. A death's victim is found by someone at the scene, then leaves
+        """Leave the crime's evidence, witnessed by no one pictured elsewhere then nor any open case's culprit, and by
+        no one at all with the tier's NO_WITNESS chance, and, if it narrows to the culprit, open the case: tell its
+        witnesses and victim what they saw and found, and post the news, a death's to the victim's street and ties. A death's victim is found by someone at the scene, then leaves
         town, and someone moves in.
         False if it cannot be made solvable or a death has no one to find it."""
         away = pictured | {f.crime.culprit for f in self.files.values() if f.state == "open"}
+        witnessed = self.rng.random() >= NO_WITNESS[crime.tier]
         self.dress(crime.day)
         whereabouts = dict(self.finished or {v.id: [p] for v in self.town.villagers
                                              if (p := self.routine.place(v.id, crime.phase))})
@@ -455,11 +456,11 @@ class Cases:
         accomplice = self._accomplice(crime, away | scene) if crime.tier == "serious" else None
         away |= {accomplice} - {None}
         clip = camera_clip(crime, self.town, self.ids)
-        records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids, away),
+        records = [*(witness_memories(crime, self.town, self.routine, self.rng, self.ids, away) if witnessed else []),
                    *([victim_memory(crime, self.town, self.rng, self.ids)] if crime.template == "mug" else []),
                    *scene_clues(crime, self.town, self.routine, self.rng, self.ids, away), *([clip] if clip else []),
                    *logs(crime, whereabouts, self.town, self.rng, self.ids)]
-        added = make_solvable(crime, records, self.town, self.routine, self.rng, self.ids, away)
+        added = make_solvable(crime, records, self.town, self.routine, self.rng, self.ids, away, witnessed)
         if added is None:
             return False
         death = crime.tier == "major"

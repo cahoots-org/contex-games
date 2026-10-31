@@ -22,6 +22,7 @@ from sleuth.case import (
     found_it,
     logs,
     make_solvable,
+    passing_clip,
     points_at,
     record_json,
     recall_more,
@@ -36,12 +37,11 @@ from sleuth.case import (
     victim_memory,
     witness_memories,
 )
-from sleuth.districts import district_of
 from sleuth.lineage import Ids
 from sleuth.models import Villager
 from sleuth.tests.helpers import StubRoutine
-from sleuth.town import PLACES, STREETS, Town, at
-from sleuth.traits import RANGES, SEEN_AS, assign_traits, describe, fits
+from sleuth.town import PLACES, STREETS, Town, at, district_of
+from sleuth.traits import RANGES, SEEN_AS, TRAITS, assign_traits, describe, fits
 from sleuth.writer import CLOCK
 
 RESIDENTS = [
@@ -365,11 +365,17 @@ def test_make_solvable_returns_empty_when_already_singled_out():
     assert make_solvable(crime, [full], town, make_routine(), Random(1), Ids()) == []
 
 
-def test_make_solvable_adds_a_witness_when_evidence_is_ambiguous():
+def test_make_solvable_adds_a_witness_when_traces_and_records_cannot_narrow():
     town, routine, crime = make_case()
+    culprit = town.looks(crime.culprit, 1)
+    for v in town.villagers:
+        v.traits.update({c: culprit[c] for c in ("height", "car")}, hair="blond")
+        town.worn[1][v.id] = culprit["coat"]
+    town.get(crime.culprit).traits["hair"] = "red-haired"
     added = make_solvable(crime, [], town, routine, Random(1), Ids())
-    assert len(added) == 1 and suspects(crime, added, town) == {crime.culprit}
-    assert added[0].kind == "memory" and added[0].holder == "v2"
+    assert suspects(crime, added, town) == {crime.culprit}
+    assert {r.kind for r in added} == {"memory"} and added[0].holder == "v2"
+    assert all(len(r.traits) == 1 for r in added) and len({r.holder for r in added}) == len(added)
 
 
 def test_make_solvable_returns_none_when_the_culprit_is_logged_elsewhere():
@@ -531,7 +537,7 @@ def test_make_solvable_narrows_on_the_crime_day_outfit():
     town.worn = {1: {v.id: "grey hoodie" for v in town.villagers}, 2: {}}
     town.worn[1]["v5"] = "green raincoat"
     added = make_solvable(crime, [], town, routine, Random(1), Ids())
-    assert added and added[0].traits.get("coat") == "green raincoat"
+    assert added and any(r.traits.get("coat") == "green raincoat" for r in added)
 
 
 def test_every_crime_kind_has_places_for_its_items():
@@ -705,3 +711,48 @@ def test_every_district_has_somewhere_by_day_for_each_serious_crime_but_a_car_th
     for kind in ("rob", "mug"):
         for item in CRIMES[kind].items:
             assert {district_of(p) for p in ITEM_PLACES[item] if p in by_day} == set(STREETS), (kind, item)
+
+
+def test_traces_come_before_witnesses():
+    town, routine, crime = make_case()
+    culprit = town.looks(crime.culprit, 1)
+    rest = [v.id for v in town.villagers if v.id not in (crime.culprit, crime.victim)]
+    left = [rest[0], next(v for v in rest[1:] if town.looks(v, 1)["coat"] != culprit["coat"])]
+    elsewhere = [Record(f"r-{i}", "case-1", "log", "gym", "11:00pm", "", who=vid)
+                 for i, vid in enumerate(rest) if vid not in left]
+    assert suspects(crime, elsewhere, town) == {crime.culprit, *left}
+    for seed in range(20):
+        added = make_solvable(crime, elsewhere, town, routine, Random(seed), Ids(), allow_witness=True)
+        assert added and added[0].kind in ("clue", "clip")
+        assert suspects(crime, elsewhere + added, town) == {crime.culprit}
+
+
+def test_a_case_with_no_witness_is_never_given_one():
+    town, routine, crime = make_case()
+    for seed in range(20):
+        added = make_solvable(crime, [], town, routine, Random(seed), Ids(), allow_witness=False)
+        assert added is None or not any(r.kind == "memory" for r in added)
+
+
+def test_a_passing_camera_sees_only_the_car():
+    town, _, crime = make_case("cafe")
+    town.get(crime.culprit).traits["car"] = "red pickup"
+    others = {v for c, values in TRAITS.items() if c != "car" for v in values}
+    for seed in range(20):
+        clip = passing_clip(crime, town, Ids(), Random(seed))
+        assert (clip.kind, clip.case, clip.holder, clip.day, clip.traits) == ("clip", "case-1", "", 1, {"car": "red pickup"})
+        assert clip.place in ("bar", "elm street")
+        assert clip.text.endswith("camera: a red pickup heading away from the cafe.")
+        assert clip.text.startswith(f"{clip.clock}, ") and not any(v in clip.text for v in others)
+        assert 3 <= [m for m in range(1425, 1440) if clock_at(m) == clip.clock][0] - crime.minute <= 12
+    assert passing_clip(replace(crime, place="bar"), town, Ids(), Random(0)).place == "elm street"
+    assert passing_clip(replace(crime, place="gym"), town, Ids(), Random(0)) is None
+    town.get(crime.culprit).traits["car"] = "bicycle"
+    assert passing_clip(crime, town, Ids(), Random(0)) is None
+
+
+def test_unsound_records_never_narrow_suspects():
+    town, _, crime = make_case()
+    lie = Record("r-1", "case-1", "memory", "elm street", "11:40pm", "", "v2", dict(town.looks("v3", 1)), sound=False)
+    alibi = Record("r-2", "case-1", "log", "gym", "11:00pm", "", who="v6", sound=False)
+    assert suspects(crime, [lie, alibi], town) == suspects(crime, [], town)

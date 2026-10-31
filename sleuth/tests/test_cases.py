@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import asdict, replace
 from types import SimpleNamespace
 from random import Random
@@ -7,7 +8,7 @@ import pytest
 
 from sleuth import cases as cases_mod
 from sleuth.alibi import claim
-from sleuth.case import CLIP_TRAITS, CRIMES, WHEN, Crime, Record, points_at, suspects, told
+from sleuth.case import CLIP_TRAITS, CRIMES, NO_WITNESS, WHEN, Crime, Record, points_at, suspects, told
 from sleuth.cases import CaseFile, Cases, case_json
 from sleuth.config import Config
 from sleuth.districts import Districts
@@ -914,7 +915,7 @@ async def test_a_town_at_test_pacing_opens_a_major_case_for_a_major_podcaster(se
     cases.districts = Districts(config)
     engine = FakeEngine(town)
     engine.players.add(podcaster("major"))
-    for day in (1, 2, 3):
+    for day in (1, 2):
         for phase in PHASES:
             await cases.on_tick(engine, day, phase, {})
     assert any(f.crime.tier == "major" for f in cases.files.values())
@@ -1018,3 +1019,43 @@ async def test_no_one_is_the_victim_again_the_day_after_their_case():
         cases.files = {first.crime.id: first}
         await cases.ensure(engine, 4.0)
         assert all(f.crime.victim != "v1" for f in cases.open_shared())
+
+
+@pytest.mark.asyncio
+async def test_a_case_without_witnesses_is_solved_from_traces_and_records(monkeypatch):
+    for tier in NO_WITNESS:
+        monkeypatch.setitem(NO_WITNESS, tier, 1.0)
+    opened = []
+    for seed in range(200):
+        town, routine = generated_town(seed)
+        cases = Cases(Config(**PACING), town, routine, Random(seed), Ids())
+        engine = FakeEngine(town)
+        engine.players.add(podcaster("serious"))
+        await tick(cases, engine)
+        opened += [(f, town) for f in cases.open_shared()]
+        if len(opened) >= 50:
+            break
+    assert len(opened) >= 50
+    for f, town in opened:
+        records = list(f.records.values())
+        assert not [r for r in records if r.kind == "memory" and r.holder != f.crime.victim]
+        assert suspects(f.crime, [r for r in records if r.sound], town) == {f.crime.culprit}
+
+
+@pytest.mark.asyncio
+async def test_a_death_s_witness_is_rare_and_only_saw_someone_leaving():
+    staged = seen = 0
+    for seed in range(400):
+        cases, engine, town = deadly(seed)
+        await cases._stage(engine, "major", 1, "night", set())
+        if (case := next(iter(cases.open_shared("major")), None)) is None:
+            continue
+        staged += 1
+        memories = [r for r in case.records.values() if r.kind == "memory"]
+        seen += bool(memories)
+        for m in memories:
+            assert len(m.traits) == 1 and re.search(r"leaving|drove off|rode off", m.text), m.text
+            assert "argu" not in m.text
+        if staged == 200:
+            break
+    assert staged == 200 and 0 < seen < staged / 2
