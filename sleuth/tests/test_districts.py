@@ -7,7 +7,7 @@ from sleuth.case import Crime, crime_title
 from sleuth.cases import BREATHES, ON_EDGE, THANKS
 from sleuth.config import Config
 from sleuth.districts import (
-    FORMED, HIT, PLACE_DISTRICT, RELIEF, TOLD, WATCH_SIZE, WOUND_DOWN, Districts, Watch, district_of,
+    FORMED, HIT, RELIEF, TOLD, WATCH_SIZE, WOUND_DOWN, Districts, Watch, district_of,
 )
 from sleuth.engine import Engine
 from sleuth.lineage import Ids, Lineage
@@ -16,7 +16,7 @@ from sleuth.offenders import Offender
 from sleuth.tests.helpers import PID
 from sleuth.tests.test_cases import kinds, make_cases, shared, tick
 from sleuth.tests.test_player import cite, interviewing, memory_of
-from sleuth.town import PLACES, STREETS, Town
+from sleuth.town import PLACE_DISTRICT, PLACES, STREETS, Town
 
 
 def crime(place="cafe", tier="petty"):

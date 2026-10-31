@@ -9,6 +9,11 @@ from sleuth.models import Villager
 PUBLIC_PLACES = ("cafe", "gym", "school", "bar", "dog park", "hardware store", "grocery", "town hall", "library")
 STREETS = ("elm street", "oak street", "maple street")
 PLACES = PUBLIC_PLACES + STREETS
+# Which street's district each place is in.
+PLACE_DISTRICT = {"cafe": "elm street", "bar": "elm street", "dog park": "elm street",
+                  "gym": "oak street", "school": "oak street", "library": "oak street",
+                  "hardware store": "maple street", "grocery": "maple street", "town hall": "maple street",
+                  **{s: s for s in STREETS}}
 START_PLACE = "cafe"
 
 
@@ -25,6 +30,10 @@ def at(place: str) -> str:
 def subject(place: str) -> str:
     """The place opening a sentence, like "The cafe" or "Elm Street"."""
     return place_name(place) if place in STREETS else f"The {place}"
+
+
+def district_of(place: str) -> str:
+    return PLACE_DISTRICT[place]
 
 
 NEWCOMER = "newcomer"
