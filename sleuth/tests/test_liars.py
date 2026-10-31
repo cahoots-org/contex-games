@@ -48,7 +48,7 @@ def test_each_secret_kind_has_someone_or_something_to_expose_it(kind):
     else:
         assert secret["exposer"] in town and secret["exposer"] != "v6"
     if kind == "hobby":
-        assert any(h in secret["text"] for h in HOBBIES)
+        assert any(secret["reason"] == f"at a {h} class she'd rather no one knew about" for h in HOBBIES)
     assert pick_liar(crime, whereabouts, town, routine, Random(0), {"v6"}, records, kinds=(kind,)) is None
 
 
@@ -66,7 +66,7 @@ def test_a_liar_never_claims_to_have_been_at_the_scene():
     routine.places["v2"] = {"night": "library"}
     vid, secret = pick_liar(crime, whereabouts, town, routine, Random(0), set(), records)
     assert vid == "v2" and secret["claimed"] == "library"
-    assert secret["text"] == "Eli was at the bar when they'd said they were at the library"
+    assert (secret["reason"], secret["text"]) == ("at the bar", "Eli was at the bar")
     routine.places["v2"] = {"night": "bar"}
     assert pick_liar(crime, whereabouts, town, routine, Random(0), set(), records) is None
 
@@ -119,11 +119,13 @@ def test_naming_a_liar_brings_out_their_secret():
     cases, engine, town = make_cases()
     file = culprit_file(cases)
     cases.now = 2.0
-    file.liars = {"v6": {"kind": "job", "place": "cafe", "claimed": "oak street", "exposer": "v2",
-                         "text": "Ivy was interviewing for a job at the cafe"}}
+    file.liars = {"v6": {"kind": "hobby", "place": "library", "claimed": "oak street", "exposer": "r-1",
+                         "reason": "at a pottery class she'd rather no one knew about",
+                         "text": "Ivy was at a pottery class she'd rather no one knew about"}}
     cases.on_wrong(engine, file, "p-1", "v6")
     [post] = [e for e in engine.feed.recent if e.kind == "post"]
-    assert post.data["text"] == "Ivy Burke wasn't home last night: Ivy was interviewing for a job at the cafe."
+    assert post.data["text"] == ("Ivy Burke wasn't home last night. "
+                                 "She was at a pottery class she'd rather no one knew about.")
     assert post.data["app"] and post.data["case_id"] == file.crime.id
     config = cases.config
     assert engine.reputation.get("v6", "p-1") == pytest.approx(config.reputation_wrong + config.reputation_accused)
@@ -171,7 +173,7 @@ async def test_a_secret_stays_hidden_until_named(lying):
     shown += json.dumps([u.text for u, _, _ in engine.delivered])
     assert secret["text"] not in shown
     cases.on_wrong(engine, file, "p-1", vid)
-    assert any(secret["text"] in e.data["text"] for e in engine.feed.recent if e.kind == "post")
+    assert any(secret["reason"] in e.data["text"] for e in engine.feed.recent if e.kind == "post")
 
 
 @pytest.mark.asyncio

@@ -21,7 +21,7 @@ from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.models import Utterance, Villager
 from sleuth.offenders import Offender, Offenders
-from sleuth.liars import pick_liar, said_place
+from sleuth.liars import PRONOUNS, pick_liar, said_place
 from sleuth.town import STREETS, Town, at, district_of, place_name
 
 log = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ ARRESTED = "{name} was arrested and has left town."
 ON_EDGE = "{street} is on edge after {title}."
 BREATHES = "{street} breathes a little easier now {name}'s been found out."
 RESOLVED = "{street} has its answer now. People are looking after one another."
-SECRET_OUT = "{name} wasn't {claimed} {when}: {text}."
+SECRET_OUT = "{name} wasn't {claimed} {when}. {they} was {reason}."
 # The chance a serious case has an innocent liar; a death always has one among those with motives when one fits.
 LIAR_CHANCE = 0.5
 # How many crimes are drawn in one go for a solvable one.
@@ -252,8 +252,10 @@ class Cases:
         engine.reputation.nudge_all(player_id, config.reputation_accused_ties, ties)
         if (secret := file.liars.get(accused)) and not secret.get("out"):
             secret["out"] = True
-            text = told(SECRET_OUT.format(name=them.name, claimed=said_place(secret["claimed"], them.home), when=WHEN,
-                                          text=secret["text"]), file.crime, self.now)
+            claimed = said_place(secret["claimed"], them.home)
+            they = PRONOUNS[them.traits["gender"]].capitalize()
+            text = told(SECRET_OUT.format(name=them.name, claimed=claimed, when=WHEN, they=they, reason=secret["reason"]),
+                        file.crime, self.now)
             engine.feed.on_post(Utterance("", "app", APP, them.home, text, None, "posted"), file.crime.id)
 
     def _expose(self, engine, file: CaseFile, player_id: str | None) -> None:

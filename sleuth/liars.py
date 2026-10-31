@@ -8,10 +8,10 @@ from sleuth.town import STREETS, Town, at
 
 # Each kind's reason, said after "{name} was", and what exposes it: the place's log, or a person who says so.
 SECRETS = {
-    "somewhere": ("at the {place} when they'd said they were {claimed}", "log"),
+    "somewhere": ("at the {place}", "log"),
     "surprise": ("planning a surprise for {tie}", "co-conspirator"),
     "job": ("interviewing for a job at the {place}", "coworker"),
-    "hobby": ("at a {hobby} class they'd rather no one knew about", "log"),
+    "hobby": ("at a {hobby} class {they}'d rather no one knew about", "log"),
     "covering": ("covering for {friend}, who'd been up to something small", "friend"),
 }
 # What a friend the liar covered for says of it.
@@ -21,6 +21,8 @@ HOBBIES = ("line dancing", "pottery", "magic tricks", "competitive yo-yo")
 CLASS_PLACES = ("gym", "library")
 # Workplaces no one interviews at.
 NO_INTERVIEWS = ("school",)
+# How a resident of each gender is spoken of.
+PRONOUNS = {"man": "he", "woman": "she"}
 
 
 def said_place(claimed: str, home: str) -> str:
@@ -73,6 +75,8 @@ def pick_liar(crime: Crime, whereabouts: dict[str, list[str]], town: Town, routi
     if kind == "hobby":
         words = {"hobby": rng.choice(HOBBIES)}
     first = v.name.split()[0]
-    text = f"{first} was " + SECRETS[kind][0].format(place=place, claimed=said_place(claimed, v.home), **words)
+    reason = SECRETS[kind][0].format(place=place, they=PRONOUNS[v.traits["gender"]], **words)
+    text = f"{first} was {reason}"
     said = COVERED_ME.format(first=first) if kind == "covering" else text
-    return v.id, {"kind": kind, "place": place, "claimed": claimed, "exposer": exposer, "text": text, "said": said}
+    return v.id, {"kind": kind, "place": place, "claimed": claimed, "exposer": exposer, "reason": reason, "text": text,
+                  "said": said}
