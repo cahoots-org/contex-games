@@ -8,7 +8,7 @@ from random import Random
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.town import PLACES, STREETS, Town, at, district_of, place_name
-from sleuth.traits import RANGES, SEEN_AS, describe, figure, fits
+from sleuth.traits import RANGES, SEEN_AS, figure, fits
 
 TIERS = ("petty", "serious", "major")
 NEWS = "Someone {did} {victim}'s {item} {at} {when}."
@@ -231,10 +231,10 @@ def stage_crime(town: Town, routine, rng: Random, day: int, phase: str, case_id:
                 exclude=frozenset(), culprits: set[str] | None = None, tier: str = "petty",
                 weight: Callable[[str], float] | None = None) -> Crime | None:
     """Draw a crime of tier, then a culprit (one of culprits, when given) and a victim from different households, the
-    victim where the item plausibly is, at work for a till, each place weighted by weight when given. With the tier's EVIDENCE chance, when one fits, the culprit is expected at the
-    scene too, otherwise elsewhere; with none, never there. A death's victim is on cold terms with at least MOTIVES
-    others besides the culprit, and its window spans the part of the day before or after, either equally likely.
-    None if no crime fits."""
+    victim where the item plausibly is, at work for a till, each place weighted by weight when given. With the tier's
+    EVIDENCE chance, when one fits, the culprit is expected at the scene too, otherwise elsewhere; with none, never
+    there. A death's victim is on cold terms with at least MOTIVES others besides the culprit, and its window spans the
+    part of the day before or after, either equally likely. None if no crime fits."""
     residents = [v for v in town.villagers if v.id not in exclude and routine.place(v.id, phase) is not None]
     disliked = {v.id: set(motives(town, v.id)) for v in residents} if tier == "major" else {}
     crimes = [(t, item) for t, kind in CRIMES.items() if kind.tier == tier for item in kind.items]
@@ -291,17 +291,6 @@ def record_json(r: Record, town: Town, crime: Crime | None = None, today: float 
             "from": town.name_of(r.holder) or "" if r.holder else "", "holder": r.holder}
 
 
-def _sighted(seen: dict[str, str]) -> str:
-    """Who was seen, gender as the noun: "a tall woman in a grey hoodie", "a bald figure", or just "someone"."""
-    looks = ", ".join(seen[c].replace(" ", "-") for c in ("height", "hair") if c in seen)
-    noun = seen.get("gender") or ("figure" if looks else "")
-    gear = " ".join(describe({c: seen[c]}) for c in ("coat", "car") if c in seen)
-    words = f"{looks} {noun}".strip()
-    if words:
-        words = f"{'an' if words[0] in 'aeiou' else 'a'} {words}"
-    return f"{words or 'someone'} {gear}".rstrip()
-
-
 def _memory_text(crime: Crime, clock: str, seen: dict[str, str], holder: str) -> str:
     """What the holder saw, a mugging's victim in their own words."""
     where = f"Around {clock}, {at(crime.place)}"
@@ -310,7 +299,7 @@ def _memory_text(crime: Crime, clock: str, seen: dict[str, str], holder: str) ->
         return f"{where}, someone {'rode off on' if seen['car'] == 'bicycle' else 'drove off in'} {car}."
     did = VICTIM_SAW.format(item=crime.item) if holder == crime.victim else CRIMES[crime.template].seen
     headed = f", headed toward {place_name(seen['headed'])}" if "headed" in seen else ""
-    return f"{where}, {_sighted(seen)} {did}{headed}."
+    return f"{where}, {figure(seen)} {did}{headed}."
 
 
 def witness_memory(crime: Crime, witness: str, seen: dict[str, str], rng: Random, ids: Ids) -> Record:

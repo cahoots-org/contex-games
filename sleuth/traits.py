@@ -106,12 +106,13 @@ def describe(traits: dict[str, str]) -> str:
 
 
 def figure(traits: dict[str, str]) -> str:
-    """The traits around "figure", e.g. "a tall, bald figure in a grey hoodie, with a bicycle"."""
-    looks = [traits[c].replace(" ", "-") for c in ("height", "hair") if c in traits]
-    gear = describe({c: traits[c] for c in ("coat", "car") if c in traits})
-    words = ", ".join(looks) + " figure" if looks else "figure"
-    article = "an" if words[0] in "aeiou" else "a"
-    return f"{article} {words} {gear}".rstrip()
+    """Who was seen, gender as the noun: "a tall, bald woman in a grey hoodie", "a bald figure with a bicycle", or
+    just "someone"."""
+    looks = ", ".join(traits[c].replace(" ", "-") for c in ("height", "hair") if c in traits)
+    words = f"{looks} {traits.get('gender') or ('figure' if looks else '')}".strip()
+    gear = " ".join(describe({c: traits[c]}) for c in ("coat", "car") if c in traits)
+    who = f"{'an' if words[0] in 'aeiou' else 'a'} {words}" if words else "someone"
+    return f"{who} {gear}".rstrip()
 
 
 def face(traits: dict[str, str]) -> dict:

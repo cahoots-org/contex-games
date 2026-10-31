@@ -4,7 +4,7 @@ from itertools import product
 import pytest
 
 from sleuth.models import Villager
-from sleuth.traits import COLOURS, FIXED, TRAITS, assign_look, assign_traits, describe, face, figure, fits
+from sleuth.traits import COLOURS, FIXED, RANGES, TRAITS, assign_look, assign_traits, describe, face, figure, fits
 
 
 def ring(n):
@@ -21,7 +21,14 @@ def test_figure_puts_looks_before_the_noun_and_clothes_after():
     assert figure({"coat": "black puffer", "hair": "dark-haired", "height": "tall"}) == (
         "a tall, dark-haired figure in a black puffer")
     assert figure({"height": "average height", "car": "bicycle"}) == "an average-height figure with a bicycle"
-    assert figure({"coat": "grey hoodie", "car": "white sedan"}) == "a figure in a grey hoodie, with a white sedan"
+    assert figure({"coat": "grey hoodie", "car": "white sedan"}) == "someone in a grey hoodie with a white sedan"
+    assert figure({"gender": "woman", "height": "tall", "coat": "in a dark coat"}) == "a tall woman in a dark coat"
+    assert figure({}) == "someone"
+
+
+def test_every_range_covers_values_of_one_category():
+    for phrase, covered in RANGES.items():
+        assert any(set(covered) <= set(values) for values in TRAITS.values()), phrase
 
 
 def test_assign_traits_gives_fixed_looks_and_a_wardrobe_of_three():
