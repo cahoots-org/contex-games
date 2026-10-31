@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from random import Random
 
 import pytest
@@ -68,6 +69,11 @@ def test_a_liar_never_claims_to_have_been_at_the_scene():
     assert secret["text"] == "Eli was at the bar when they'd said they were at the library"
     routine.places["v2"] = {"night": "bar"}
     assert pick_liar(crime, whereabouts, town, routine, Random(0), set(), records) is None
+
+
+def test_a_liar_was_never_truly_at_the_scene():
+    crime, whereabouts, town, routine, records = fitted("somewhere")
+    assert pick_liar(replace(crime, place="bar"), whereabouts, town, routine, Random(0), set(), records) is None
 
 
 def liar_file():

@@ -39,10 +39,10 @@ def _claim(crime: Crime, v: Villager, place: str, routine) -> str | None:
 
 def pick_liar(crime: Crime, whereabouts: dict[str, list[str]], town: Town, routine, rng: Random, barred: set[str],
               records: list[Record], kinds=tuple(SECRETS)) -> tuple[str, dict] | None:
-    """A resident, not the culprit, victim or anyone barred, who was somewhere other than home during the crime and
-    claims to have been somewhere else, never the scene, with a secret of one of kinds, each fitting kind as likely,
-    whose exposer exists: a log of theirs on file, or someone not the culprit or victim who knows, a job's coworker by
-    working at the interview's place, there then or not. None when no one fits."""
+    """A resident, not the culprit, victim or anyone barred, who was somewhere other than home or the scene during the
+    crime and claims to have been somewhere else, never the scene, with a secret of one of kinds, each fitting kind as
+    likely, whose exposer exists: a log of theirs on file, or someone not the culprit or victim who knows, a job's
+    coworker by working at the interview's place, there then or not. None when no one fits."""
     logged = {(r.who, r.place): r.id for r in records if r.kind == "log" and r.sound and not r.trail}
     knows = [v for v in town.villagers if v.id not in (crime.culprit, crime.victim)]
     options: dict[str, list] = {kind: [] for kind in kinds}
@@ -50,7 +50,7 @@ def pick_liar(crime: Crime, whereabouts: dict[str, list[str]], town: Town, routi
         if v.id in barred or v.id in (crime.culprit, crime.victim):
             continue
         ties = [o for o in knows if o.id in v.relationships]
-        for place in dict.fromkeys(p for p in whereabouts.get(v.id, []) if p not in STREETS):
+        for place in dict.fromkeys(p for p in whereabouts.get(v.id, []) if p not in (*STREETS, crime.place)):
             if (claimed := _claim(crime, v, place, routine)) is None:
                 continue
             log = logged.get((v.id, place))
