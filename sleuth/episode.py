@@ -22,7 +22,7 @@ def holds(crime: Crime, culprit: str, traits: dict[str, str], cited: list[Record
     """Right when it names the culprit, cites evidence from this case, some sound piece points at them, and at most
     one cited piece is unsound, clashing with nothing else cited."""
     stray = [r for r in cited if not r.sound]
-    clash = any(contradicts(stray[0], r) for r in cited if r is not stray[0]) if stray else False
+    clash = len(stray) == 1 and any(contradicts(stray[0], r) for r in cited if r is not stray[0])
     return (culprit == crime.culprit and all(r.case == crime.id for r in cited) and len(stray) <= 1 and not clash
             and any(r.sound and points_at(crime, culprit, traits, r) for r in cited))
 

@@ -116,7 +116,12 @@ async def test_an_aimed_fake_fits_an_innocent_with_a_motive_when_there_is_one(mo
 async def test_a_case_that_cannot_disprove_its_fakes_does_not_open(monkeypatch):
     stray = Record("r-99", "", "clue", "elm street", "", "A thread.", sound=False, disproof="r-404")
     tried = []
-    monkeypatch.setattr(cases_mod, "stage_false", lambda *a, **k: tried.append(a) or [stray])
+
+    def staging(*args, **kwargs):
+        tried.append(args)
+        return [stray]
+
+    monkeypatch.setattr(cases_mod, "stage_false", staging)
     for seed in range(20):
         cases, engine, _ = make_cases()
         cases.rng = Random(seed)

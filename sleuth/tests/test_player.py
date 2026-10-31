@@ -347,18 +347,18 @@ async def test_where_was_someone_else_is_where_the_log_put_them_together_never_t
 
 @pytest.mark.asyncio
 async def test_a_friend_says_where_someone_usually_is():
-    player, file, engine, _ = interviewing()
+    player, _, engine, _ = interviewing()
     player.town.get("v2").relationships["v6"] = "friend"
     engine.routine = StubRoutine({"v6": {"evening": "gym"}})
     await ask(player, "v2", "where_was", who="v6", when="evening")
     [said] = notebook(player)
-    assert (said.text, said.sound, said.who) == ("Eli Reyes says Ivy Burke is usually at the gym in the evening.", True,
-                                                 "v6")
+    assert said.text == "Eli Reyes says Ivy Burke is usually at the gym in the evening."
+    assert (said.sound, said.who) == (True, "v6")
 
 
 @pytest.mark.asyncio
 async def test_a_stranger_knows_nothing_of_someone_s_habits():
-    player, file, engine, _ = interviewing()
+    player, _, engine, _ = interviewing()
     player.town.get("v2").relationships.pop("v6", None)
     engine.routine = StubRoutine({"v6": {"evening": "gym"}})
     await ask(player, "v2", "where_was", who="v6", when="evening")
@@ -367,7 +367,7 @@ async def test_a_stranger_knows_nothing_of_someone_s_habits():
 
 @pytest.mark.asyncio
 async def test_a_housemate_still_gives_their_word_for_the_night():
-    player, file, engine, _ = interviewing()
+    player, _, engine, _ = interviewing()
     engine.routine = StubRoutine({"v3": {"night": "home"}})
     await ask(player, "v4", "where_was", who="v3", **{"word:v3": "cover"})
     [word] = notebook(player)
