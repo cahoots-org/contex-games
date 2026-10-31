@@ -1708,6 +1708,30 @@ async def test_citing_drifted_hearsay_with_another_false_piece_sinks_the_episode
 
 
 @pytest.mark.asyncio
+async def test_hearsay_of_a_mistake_is_as_unsound_as_the_mistake():
+    player, file, engine, _ = interviewing()
+    memory = heard_as(player, engine, file, "Someone tall took a bike.")
+    memory.sound, memory.disproof = False, "r-50"
+    await ask(player, "v6", "who_told_you")
+    [said] = notebook(player)
+    assert (said.sound, said.disproof) == (False, "r-50")
+
+
+@pytest.mark.asyncio
+async def test_citing_a_retold_mistake_with_another_false_piece_sinks_the_episode():
+    player, file, engine, _ = interviewing()
+    memory = heard_as(player, engine, file, "Someone tall took a bike.")
+    memory.sound = False
+    await ask(player, "v6", "who_told_you")
+    [said] = notebook(player)
+    seen = memory_of(file, player.ids, holder="v2", utterance="u-9")
+    lie = Record("r-92", file.crime.id, "statement", "elm street", "11:50pm", "Kit says they were home.", "v8",
+                 sound=False)
+    await player.publish("v3", [*cite(player, file, seen, lie), said.id])
+    assert file.state == "open" and [e.data["held"] for e in player.feed.recent if e.kind == "episode"] == [False]
+
+
+@pytest.mark.asyncio
 async def test_first_hand_testimony_stays_exact():
     player, file, engine, writer = interviewing()
     memory = heard_as(player, engine, file, "Someone tall in a red coat took it around 9pm.")

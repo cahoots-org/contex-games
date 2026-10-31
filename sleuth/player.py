@@ -659,8 +659,8 @@ class Player:
 
     async def _hearsay(self, file: CaseFile, villager: Villager) -> tuple[list[Record], list[str]]:
         """The best case hearsay the resident heard: a record when it traces to evidence, else news as talk. Hearsay
-        is sound only when it traces to a memory still on file and adds no case fact that memory, its witness and the
-        case don't give."""
+        is sound only when it traces to a sound memory still on file and adds no case fact that memory, its witness and
+        the case don't give; it carries that memory's disproof."""
         crime, vid, name = file.crime, villager.id, villager.name
         talk = []
         for m in await self.engine.recall_heard(vid, self._told(crime.text, crime)):
@@ -676,9 +676,11 @@ class Player:
                 firsts = {v.name.split()[0] for v in self.town.villagers}
                 case = f"{self._told(crime.text, crime)} {when(crime, self._today())}"
                 allowed = f"{source.text} {self.town.name_of(source.holder)} {case}" if source else ""
-                sound = rooted[1] == "memory" and bool(allowed) and not invents_facts(self._told(said, crime), allowed, firsts)
+                sound = (rooted[1] == "memory" and source is not None and source.sound
+                         and not invents_facts(self._told(said, crime), allowed, firsts))
                 text = f"{name} heard from {heard.speaker_name}: {said}"
-                return [self._statement(file, vid, text, sound, source.id if source else None)], []
+                return [self._statement(file, vid, text, sound, source.id if source else None,
+                                        disproof=source.disproof if source else None)], []
             if rooted[1] == "news" and not talk:
                 talk.append(f"{heard.speaker_name} told me: {self._told(retime(heard.text, WHEN), crime)}")
         return [], talk
