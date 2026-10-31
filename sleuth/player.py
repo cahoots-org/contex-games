@@ -573,7 +573,8 @@ class Player:
         """What the resident knows for the routed question: records for evidence, and talk that is only phrased."""
         crime, vid, name, routine = file.crime, villager.id, villager.name, self.engine.routine
         kind, about = routed.kind, self.town.anyone(routed.who) if routed.who else None
-        if kind == "where_were_you" and (routed.when == crime.phase or routed.when in crime.window):
+        then = routed.when == crime.phase or routed.when in crime.window
+        if kind == "where_were_you" and then:
             places, sound = claim(file, vid, routine)
             text = f"{name} says they were {' then '.join(at(p) for p in places)} {WHEN}."
             exposer = file.liars.get(vid, {}).get("exposer")
@@ -586,7 +587,7 @@ class Player:
         if kind == "where_was" and about:
             if word := accomplice_word(file, villager, about):
                 return [self._statement(file, vid, f"{name}: {word[0]}", word[1], who=about.id, disproof=word[2])], []
-            if (secret := file.liars.get(about.id)) and secret["exposer"] == vid:
+            if then and (secret := file.liars.get(about.id)) and secret["exposer"] == vid:
                 return [self._statement(file, vid, f"{name}: {secret['said']}.", True, who=about.id)], []
             if word := household_word(file, villager, about, routed.words.get(about.id)):
                 return [self._statement(file, vid, f"{name}: {word[0]}", word[1], who=about.id)], []

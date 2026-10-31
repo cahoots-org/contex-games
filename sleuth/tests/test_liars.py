@@ -104,9 +104,10 @@ async def test_the_exposer_gives_the_liar_away_when_asked():
                         "text": "Ivy was covering for Jo Tran, who'd been up to something small",
                         "said": COVERED_ME.format(first="Ivy")}
     await ask(player, "v8", "where_was", who="v6")
+    await ask(player, "v7", "where_was", who="v6", when="morning")
     assert not [r for r in notebook(player) if "covering" in r.text]
     await ask(player, "v7", "where_was", who="v6")
-    [said] = [r for r in notebook(player) if r.holder == "v7"]
+    [said] = [r for r in notebook(player) if "covering" in r.text]
     assert (said.text, said.sound, said.who) == (
         "Jo Tran: Ivy was covering for me. I'd been up to something small.", True, "v6")
     await ask(player, "v6", "where_were_you")
