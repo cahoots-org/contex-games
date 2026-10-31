@@ -19,6 +19,16 @@ WARDROBE = 3
 IN_PERSON = ("height", "hair", "coat")
 BY_WORD = ("height", "hair", "car")
 PHRASES = {"height": "{}", "hair": "{}", "coat": "in a {}", "car": "with a {}"}
+# What a witness can say loosely, and the trait values each phrase covers.
+RANGES: dict[str, tuple[str, ...]] = {
+    "not tall": ("short", "average height"),
+    "not short": ("average height", "tall"),
+    "darkish-haired": ("dark-haired", "red-haired"),
+    "fair-haired": ("blond", "grey-haired"),
+    "in a dark coat": ("black puffer", "denim jacket", "grey hoodie"),
+    "in a bright coat": ("green raincoat", "plaid flannel"),
+    "with a car": ("red pickup", "white sedan", "blue hatchback", "silver minivan"),
+}
 COLOURS = {
     "grey-haired": "#9a9a9a", "blond": "#e0c77a", "dark-haired": "#2b2118", "red-haired": "#b0482a", "bald": None,
     "grey hoodie": "#8a8d91", "denim jacket": "#3d5f8a", "green raincoat": "#4f8a3e", "black puffer": "#25272b",
@@ -58,6 +68,11 @@ def assign_traits(villagers: list[Villager], rng: random.Random) -> None:
             swaps -= 1
 
 
+def fits(seen: dict[str, str], looks: dict[str, str]) -> bool:
+    """Whether every sighting is exactly the look's value or a range covering it."""
+    return all(value == looks.get(c) or looks.get(c) in RANGES.get(value, ()) for c, value in seen.items())
+
+
 def assign_look(v: Villager, others: list[Villager], rng: random.Random, avoid: list[dict[str, str]] = ()) -> None:
     """Give one resident fixed traits no one else's fixed look has and fitting none of the sightings to avoid, as far
     as one is left, and a wardrobe."""
@@ -65,14 +80,14 @@ def assign_look(v: Villager, others: list[Villager], rng: random.Random, avoid: 
     sightings = [{c: s[c] for c in FIXED if c in s} for s in avoid]
     looks = [dict(zip(FIXED, look)) for look in product(*(TRAITS[c] for c in FIXED))]
     free = [look for look in looks if tuple(look.values()) not in taken]
-    clear = [look for look in free if not any(s and s.items() <= look.items() for s in sightings)]
+    clear = [look for look in free if not any(s and fits(s, look) for s in sightings)]
     v.traits = rng.choice(clear or free or looks)
     v.wardrobe = rng.sample(TRAITS["coat"], WARDROBE)
 
 
 def describe(traits: dict[str, str]) -> str:
     """The traits as a witness would put them, e.g. "tall, bald, in a grey hoodie, with a bicycle"."""
-    return ", ".join(PHRASES[c].format(traits[c]) for c in TRAITS if c in traits)
+    return ", ".join(traits[c] if traits[c] in RANGES else PHRASES[c].format(traits[c]) for c in TRAITS if c in traits)
 
 
 def figure(traits: dict[str, str]) -> str:

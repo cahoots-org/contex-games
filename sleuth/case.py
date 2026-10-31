@@ -8,7 +8,7 @@ from random import Random
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.town import PLACES, STREETS, Town, at, place_name
-from sleuth.traits import describe, figure
+from sleuth.traits import describe, figure, fits
 
 TIERS = ("petty", "serious", "major")
 NEWS = "Someone {did} {victim}'s {item} {at} {when}."
@@ -392,7 +392,7 @@ def points_at(crime: Crime, culprit: str, traits: dict[str, str], r: Record) -> 
     """Whether a record singles out the culprit: a sighting or trace that fits them, or a log that puts them at the
     scene or behind a receipt left there. A housemate's "I was asleep" says the same of everyone, so it points at no one."""
     if r.kind in ("memory", "clip", "clue") and r.traits:
-        return r.traits.items() <= traits.items()
+        return fits(r.traits, traits)
     return r.kind == "log" and r.who == culprit and (r.place == crime.place or r.trail)
 
 
@@ -403,7 +403,7 @@ def suspects(crime: Crime, records: list[Record], town: Town) -> set[str]:
     at_scene = {r.who for r in logged if r.place == crime.place}
     alibied = {r.who for r in logged if r.place != crime.place} - at_scene
     return {v.id for v in town.villagers if v.id != crime.victim and v.id not in alibied
-            and all(seen.items() <= town.looks(v.id, crime.day).items() for seen in sightings)}
+            and all(fits(seen, town.looks(v.id, crime.day)) for seen in sightings)}
 
 
 def make_solvable(crime: Crime, records: list[Record], town: Town, routine, rng: Random, ids: Ids,

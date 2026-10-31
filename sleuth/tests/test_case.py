@@ -277,6 +277,14 @@ def test_suspects_narrow_by_traits_and_log_alibis():
     assert suspects(crime, [alibi, present, elsewhere], town) == everyone - {"v6"}
 
 
+def test_suspects_narrow_on_a_ranged_sighting():
+    town, _, crime = make_case()
+    for v in town.villagers:
+        v.traits["height"] = "short" if v.id in ("v2", "v3") else "tall"
+    seen = Record("r-1", "case-1", "memory", "elm street", "11:40pm", "", "v4", {"height": "not tall"})
+    assert suspects(crime, [seen], town) == {"v2", "v3"}
+
+
 def test_make_solvable_returns_empty_when_already_singled_out():
     town, _, crime = make_case()
     full = Record("r-1", "case-1", "clip", "elm street", "11:42pm", "", traits=town.looks("v5", 1))

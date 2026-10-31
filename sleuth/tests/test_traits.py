@@ -1,7 +1,7 @@
 import random
 
 from sleuth.models import Villager
-from sleuth.traits import COLOURS, FIXED, TRAITS, assign_traits, describe, face, figure
+from sleuth.traits import COLOURS, FIXED, TRAITS, assign_traits, describe, face, figure, fits
 
 
 def ring(n):
@@ -49,3 +49,14 @@ def test_face_draws_hair_and_coat_from_the_traits():
     bald = face({"height": "short", "hair": "bald", "coat": "grey hoodie", "car": "bicycle"})
     assert bald == {"hair": None, "coat": COLOURS["grey hoodie"], "height": 0}
     assert face({"height": "tall", "hair": "red-haired", "coat": "black puffer"})["hair"] == COLOURS["red-haired"]
+
+
+def test_a_ranged_sighting_fits_every_value_it_covers():
+    assert fits({"height": "not tall"}, {"height": "short", "hair": "bald"})
+    assert fits({"height": "not tall"}, {"height": "average height"})
+    assert not fits({"height": "not tall"}, {"height": "tall"})
+    assert fits({"hair": "bald"}, {"hair": "bald"}) and not fits({"hair": "bald"}, {"hair": "blond"})
+
+
+def test_a_ranged_sighting_is_described_as_said():
+    assert describe({"height": "not tall", "coat": "in a dark coat"}) == "not tall, in a dark coat"
