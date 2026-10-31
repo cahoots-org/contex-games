@@ -19,8 +19,9 @@ def test_rejects_the_wrong_culprit():
     assert not holds(CRIME, "v2", TRAITS, [record()])
 
 
-def test_rejects_a_cover_story_statement():
-    assert not holds(CRIME, "v3", TRAITS, [record(), record("r-2", kind="statement", sound=False)])
+def test_rejects_two_cover_story_statements():
+    covers = [record(f"r-{n}", kind="statement", sound=False) for n in (2, 3)]
+    assert not holds(CRIME, "v3", TRAITS, [record(), *covers])
 
 
 def test_rejects_no_evidence():
@@ -52,3 +53,41 @@ def test_holds_on_a_log_naming_the_culprit_at_the_scene():
 
 def test_a_housemates_asleep_statement_does_not_point_at_the_culprit():
     assert not holds(CRIME, "v3", TRAITS, [record(kind="statement", who="v3", place="oak street", traits={})])
+
+
+def test_one_stray_piece_that_clashes_with_nothing_still_holds():
+    stray = record("r-9", kind="statement", sound=False, traits={})
+    assert holds(CRIME, "v3", TRAITS, [record(), stray])
+
+
+def test_two_false_pieces_sink_it():
+    strays = [record(f"r-{n}", kind="statement", sound=False, traits={}) for n in (8, 9)]
+    assert not holds(CRIME, "v3", TRAITS, [record(), *strays])
+
+
+def test_a_false_piece_cited_beside_what_disproves_it_sinks_it():
+    clip = record("r-2", kind="clip", traits={"coat": "black puffer"})
+    memory = record("r-9", sound=False, traits={"coat": "green raincoat"})
+    memory.disproof = "r-2"
+    assert not holds(CRIME, "v3", TRAITS, [record(), clip, memory])
+
+
+def test_a_false_piece_that_clashes_in_a_trait_sinks_it():
+    memory = record("r-9", sound=False, traits={"coat": "green raincoat"})
+    assert not holds(CRIME, "v3", TRAITS, [record(), record("r-2", traits={"coat": "black puffer"}), memory])
+
+
+def test_overlapping_ranges_do_not_clash():
+    log = record(kind="log", who="v3", traits={})
+    stray = record("r-9", sound=False, traits={"height": "not tall"})
+    assert holds(CRIME, "v3", TRAITS, [log, record("r-2", traits={"height": "short"}), stray])
+
+
+def test_a_range_clashes_with_an_exact_value_outside_it():
+    log = record(kind="log", who="v3", traits={})
+    stray = record("r-9", sound=False, traits={"height": "tall"})
+    assert not holds(CRIME, "v3", TRAITS, [log, record("r-2", traits={"height": "not tall"}), stray])
+
+
+def test_a_false_piece_alone_never_holds():
+    assert not holds(CRIME, "v3", TRAITS, [record(sound=False)])

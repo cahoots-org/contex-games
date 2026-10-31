@@ -1582,13 +1582,13 @@ def test_the_chosen_case_round_trips_with_the_run():
 
 
 @pytest.mark.asyncio
-async def test_citing_the_accomplice_s_word_sinks_the_episode():
+async def test_citing_the_accomplice_s_word_with_another_false_piece_sinks_the_episode():
     player, file, engine, _ = interviewing()
     file.accomplice = "v7"
     await ask(player, "v7", "where_was", who="v3")
     [word] = notebook(player)
     assert word.text == f"Jo Tran: Fay Okafor was with me on Oak Street {WHEN}." and not word.sound
-    ids = cite(player, file, memory_of(file, player.ids)) + [word.id]
+    ids = cite(player, file, memory_of(file, player.ids), replace(word, id="r-91")) + [word.id]
     assert await player.publish("v3", ids) is None
     assert file.state == "open" and player.standing == 0
 
@@ -1679,12 +1679,12 @@ async def test_hearsay_from_a_memory_no_longer_on_file_is_unsound():
 
 
 @pytest.mark.asyncio
-async def test_citing_drifted_hearsay_sinks_the_episode():
+async def test_citing_drifted_hearsay_with_another_false_piece_sinks_the_episode():
     player, file, engine, _ = interviewing()
     memory = heard_as(player, engine, file, "Someone tall in a red coat took it around 9pm.")
     await ask(player, "v6", "who_told_you")
     [said] = notebook(player)
-    await player.publish("v3", [*cite(player, file, memory), said.id])
+    await player.publish("v3", [*cite(player, file, memory, replace(said, id="r-91")), said.id])
     assert file.state == "open" and [e.data["held"] for e in player.feed.recent if e.kind == "episode"] == [False]
 
 
