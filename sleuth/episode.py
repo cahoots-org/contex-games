@@ -5,6 +5,8 @@ from sleuth.town import Town, at
 from sleuth.traits import RANGES
 
 MAX_CITED = 5
+# The records that show how the figure looked; a description says how some resident looks.
+SIGHTINGS = {"memory", "clip", "clue"}
 
 
 def covers(value: str) -> set[str]:
@@ -13,9 +15,10 @@ def covers(value: str) -> set[str]:
 
 
 def contradicts(a: Record, b: Record) -> bool:
-    """Whether one disproves the other, or they give a trait no single look could fit both of."""
+    """Whether one disproves the other, or they are sightings giving a trait no single look could fit both of."""
+    shared = a.traits.keys() & b.traits.keys() if {a.kind, b.kind} <= SIGHTINGS else set()
     return (a.disproof == b.id or b.disproof == a.id
-            or any(not covers(a.traits[c]) & covers(b.traits[c]) for c in a.traits.keys() & b.traits.keys()))
+            or any(not covers(a.traits[c]) & covers(b.traits[c]) for c in shared))
 
 
 def holds(crime: Crime, culprit: str, traits: dict[str, str], cited: list[Record]) -> bool:

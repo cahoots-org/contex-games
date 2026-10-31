@@ -67,10 +67,17 @@ def test_two_false_pieces_sink_it():
 
 
 def test_a_false_piece_cited_beside_what_disproves_it_sinks_it():
-    clip = record("r-2", kind="clip", traits={"coat": "black puffer"})
-    memory = record("r-9", sound=False, traits={"coat": "green raincoat"})
-    memory.disproof = "r-2"
-    assert not holds(CRIME, "v3", TRAITS, [record(), clip, memory])
+    log = record("r-2", kind="log", who="v4", traits={})
+    word = record("r-9", kind="statement", sound=False, traits={})
+    assert holds(CRIME, "v3", TRAITS, [record(), log, word])
+    word.disproof = "r-2"
+    assert not holds(CRIME, "v3", TRAITS, [record(), log, word])
+
+
+def test_a_description_never_clashes_with_a_sighting():
+    described = record("r-2", kind="statement", traits={"height": "short"})
+    stray = record("r-9", sound=False, traits={"coat": "green raincoat", "height": "tall"})
+    assert holds(CRIME, "v3", TRAITS, [record(kind="log", who="v3", traits={}), described, stray])
 
 
 def test_a_false_piece_that_clashes_in_a_trait_sinks_it():
