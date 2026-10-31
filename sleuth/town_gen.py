@@ -315,7 +315,7 @@ def stir_rivalries(villagers: list[Villager], rng: random.Random) -> None:
 
 
 class SeedMismatch(ValueError):
-    """The seed file is not a village this game can use: another size, or one from before Sleuth or outfits."""
+    """The seed file is not a village this game can use: another size, or one from before Sleuth, outfits or genders."""
 
 
 async def load_or_generate(
@@ -332,6 +332,8 @@ async def load_or_generate(
             raise SeedMismatch(f"{path} is a town from before Sleuth's; delete it")
         if any(not v.wardrobe for v in villagers):
             raise SeedMismatch(f"{path} is a town from before outfits; delete it")
+        if any("gender" not in v.traits for v in villagers):
+            raise SeedMismatch(f"{path} is a town from before genders; delete it")
         if len(villagers) != count:
             raise SeedMismatch(
                 f"{path} has {len(villagers)} residents but population is {count}; "

@@ -360,6 +360,16 @@ async def test_load_or_generate_rejects_a_village_without_wardrobes(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_load_or_generate_rejects_a_village_without_genders(tmp_path):
+    path = tmp_path / "old.json"
+    traits = {"height": "tall", "hair": "bald", "car": "bicycle"}
+    path.write_text(json.dumps([asdict(Villager("v001", "Ada", "miller", "calm", "", ["a", "b", "c"], {}, traits=traits,
+                                                wardrobe=["grey hoodie"]))]))
+    with pytest.raises(SeedMismatch, match="before genders"):
+        await load_or_generate(str(path), FreshBatches(1), 1, random.Random(1))
+
+
+@pytest.mark.asyncio
 async def test_generation_asks_for_a_modern_town():
     prompts = []
 
@@ -444,7 +454,7 @@ async def test_a_quirk_of_faith_is_rejected():
 async def test_an_old_seed_without_quirks_still_loads(tmp_path):
     path = tmp_path / "old.json"
     old = asdict(Villager("v001", "Ada", "miller", "calm", "", ["a", "b", "c"], {},
-                          traits={"height": "tall"}, wardrobe=["a red scarf"]))
+                          traits={"gender": "woman", "height": "tall"}, wardrobe=["a red scarf"]))
     del old["quirks"]
     path.write_text(json.dumps([old]))
     villagers = await load_or_generate(str(path), FreshBatches(1), 1, random.Random(1))
