@@ -5,16 +5,16 @@ import pytest
 from sleuth import cases as cases_mod
 from sleuth import falsehoods
 from sleuth.alibi import accomplice_word
-from sleuth.case import Crime, Record, minute_of, motives, record_json, suspects
-from sleuth.falsehoods import LEFT_BEFORE
+from sleuth.case import NO_WITNESS, Crime, Record, minute_of, motives, record_json, suspects
+from sleuth.falsehoods import LEFT_BEFORE, cover_place
 from sleuth.tests.test_case import feuding, make_routine
 from sleuth.tests.test_cases import make_cases, podcaster, tick, tiered
 from sleuth.tests.test_tutorial import case, practice
 from sleuth.traits import fits
 
 
-# Who is out at a logging place at night rather than home.
-NIGHT_OUT = {"v2": "bar", "v4": "gym", "v6": "gym", "v7": "bar", "v8": "gym"}
+# Who is out at a logging place at night rather than home: a crowd at the bar, so a mistake has bystanders left.
+NIGHT_OUT = {"v1": "bar", "v2": "bar", "v4": "bar", "v6": "bar", "v7": "bar", "v8": "gym"}
 
 
 async def serious_cases(seeds=range(100), feud=False, night=None, **config):
@@ -37,24 +37,47 @@ def fakes(file):
     return [r for r in file.records.values() if not r.sound]
 
 
+@pytest.fixture
+def witnessed(monkeypatch):
+    """Every serious case truly witnessed, so mistakes can be staged."""
+    monkeypatch.setitem(NO_WITNESS, "serious", 0.0)
+
+
 @pytest.mark.asyncio
-async def test_every_fake_has_a_disproof_on_file():
+async def test_every_fake_has_a_disproof_on_file(witnessed):
     staged = await serious_cases() + await serious_cases(night=NIGHT_OUT)
-    assert len(staged) > 50 and all(fakes(f) for f, _ in staged)
+    staged_fakes = [r for f, _ in staged for r in fakes(f)]
+    assert {r.kind for r in staged_fakes} == {"memory", "clue"}
     for file, town in staged:
+        crime = file.crime
         for fake in fakes(file):
             disproof = file.records[fake.disproof]
             assert disproof.sound and disproof.kind in ("clue", "clip", "log", "memory")
             if fake.kind == "memory":
-                assert disproof.place == file.crime.place and not fits(fake.traits, disproof.traits)
+                assert disproof.place == crime.place and not fits(fake.traits, disproof.traits)
             else:
                 assert fake.kind == "clue" and disproof.kind == "log" and disproof.place == file.crime.place
-                assert fits(fake.traits, town.sighting(disproof.who, file.crime.day))
-                assert not fits(fake.traits, town.sighting(file.crime.culprit, file.crime.day))
+                assert fits(fake.traits, town.sighting(disproof.who, crime.day))
+                assert not fits(fake.traits, town.sighting(crime.culprit, crime.day))
 
 
 @pytest.mark.asyncio
-async def test_fakes_never_change_who_the_true_evidence_points_to():
+async def test_a_mistaken_witness_is_a_bystander_in_a_case_a_bystander_truly_witnessed(witnessed):
+    mistakes = 0
+    for night in (None, NIGHT_OUT):
+        routine = make_routine(night)
+        for file, _ in await serious_cases(night=night):
+            crime = file.crime
+            memories = [r for r in file.records.values() if r.kind == "memory" and r.holder != crime.victim]
+            at_scene = {m.holder for m in memories if routine.place(m.holder, crime.phase) == crime.place}
+            for fake in [m for m in memories if not m.sound]:
+                mistakes += 1
+                assert fake.holder in at_scene and any(m.sound and m.holder in at_scene for m in memories)
+    assert mistakes
+
+
+@pytest.mark.asyncio
+async def test_fakes_never_change_who_the_true_evidence_points_to(witnessed):
     for file, town in await serious_cases() + await serious_cases(night=NIGHT_OUT):
         sound = [r for r in file.records.values() if r.sound]
         assert suspects(file.crime, sound, town) == {file.crime.culprit}
@@ -71,10 +94,10 @@ async def test_a_leftover_was_left_before_the_crime():
 
 
 @pytest.mark.asyncio
-async def test_an_aimed_fake_fits_an_innocent_with_a_motive_when_there_is_one(monkeypatch):
+async def test_an_aimed_fake_fits_an_innocent_with_a_motive_when_there_is_one(monkeypatch, witnessed):
     monkeypatch.setattr(falsehoods, "AIMED_CHANCE", 1.0)
     aimed = 0
-    for file, town in await serious_cases(feud=True):
+    for file, town in await serious_cases(feud=True, night=NIGHT_OUT):
         crime = file.crime
         culprit = town.sighting(crime.culprit, crime.day)
         for fake in fakes(file):
@@ -91,8 +114,9 @@ async def test_an_aimed_fake_fits_an_innocent_with_a_motive_when_there_is_one(mo
 
 @pytest.mark.asyncio
 async def test_a_case_that_cannot_disprove_its_fakes_does_not_open(monkeypatch):
+    stray = Record("r-99", "", "clue", "elm street", "", "A thread.", sound=False, disproof="r-404")
     tried = []
-    monkeypatch.setattr(cases_mod, "stage_false", lambda *a, **k: tried.append(a[-1]))
+    monkeypatch.setattr(cases_mod, "stage_false", lambda *a, **k: tried.append(a) or [stray])
     for seed in range(20):
         cases, engine, _ = make_cases()
         cases.rng = Random(seed)
@@ -100,7 +124,7 @@ async def test_a_case_that_cannot_disprove_its_fakes_does_not_open(monkeypatch):
                       tier="serious")
         assert not await cases._open(engine, crime, set())
         assert cases.files == {} and engine.delivered == []
-    assert tried and all(tried)
+    assert tried
 
 
 def test_the_tutorial_case_has_no_fakes():
@@ -115,7 +139,7 @@ async def test_an_accomplice_s_word_is_disproved_by_a_record_on_file():
             continue
         covered += 1
         text, sound, disproof = accomplice_word(file, town.get(file.accomplice), town.get(file.crime.culprit))
-        place = (file.whereabouts.get(file.accomplice) or [town.get(file.accomplice).home])[0]
+        place = cover_place(file.whereabouts, town.get(file.accomplice))
         log = file.records[disproof]
         assert not sound and log.sound and log.kind == "log" and log.place == place and log.who != file.crime.culprit
     assert covered

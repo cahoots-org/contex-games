@@ -3,8 +3,11 @@
 from dataclasses import replace
 from random import Random
 
-from sleuth.case import TRACES, Crime, Record, _bystanders, _memory, _trace, evident, minute_of, motives
+from sleuth.case import (
+    PHASE_MINUTES, TRACES, Crime, Record, bystanders, evident, minute_of, motives, trace, witness_memory,
+)
 from sleuth.lineage import Ids
+from sleuth.models import Villager
 from sleuth.town import Town
 from sleuth.traits import TRAITS
 
@@ -25,17 +28,18 @@ def false_count(tier: str, rng: Random) -> int:
 
 
 def stage_false(crime: Crime, records: list[Record], town: Town, routine, rng: Random, ids: Ids, away: set[str],
-                count: int) -> list[Record] | None:
-    """count false pieces, each unsound with the id of the sound record that contradicts it as its disproof: a
-    witness's mistaken memory of one thing the scene's camera or a trace there shows rightly, or a trace of a decoy
-    whose own log puts them at the scene well before the crime. None if count can't be staged."""
+                count: int) -> list[Record]:
+    """Up to count false pieces, each unsound with the id of the sound record that contradicts it as its disproof: a
+    bystander's mistaken memory of one thing the scene's camera or a trace there shows rightly, only in a case a
+    bystander truly witnessed, or a trace of a decoy whose own log puts them at the scene well before the crime. As
+    many as can be disproved, so possibly none."""
     culprit = evident(crime, town)
     suspected = set(motives(town, crime.victim)) - {crime.culprit}
     sound = [r for r in records if r.sound]
+    nearby = bystanders(crime, town, routine, away)
+    witnessed = any(r.kind == "memory" and r.holder in nearby for r in sound)
     seen_by = {r.holder for r in records}
-    # Bystanders first, then, as make_solvable's witnesses do, anyone else not away.
-    others = [v.id for v in town.villagers if v.id not in (crime.culprit, crime.victim, *away)]
-    witnesses = [w for w in dict.fromkeys(_bystanders(crime, town, routine, away) + others) if w not in seen_by]
+    witnesses = [w for w in nearby if w not in seen_by] if witnessed else []
     shown = [r for r in sound if r.kind in ("clip", "clue") and r.place == crime.place and r.traits]
     earlier = [r for r in sound if r.kind == "log" and not r.trail and r.place == crime.place
                and r.who not in (crime.culprit, crime.victim)
@@ -45,18 +49,18 @@ def stage_false(crime: Crime, records: list[Record], town: Town, routine, rng: R
         leftovers = [(log, c) for log in earlier for c in _left(crime, town, culprit, log.who)]
         kinds = [k for k, can in (("mistake", witnesses and shown), ("leftover", leftovers)) if can]
         if not kinds:
-            return None
+            break
         if rng.choice(kinds) == "mistake":
             disproof = rng.choice(shown)
             category = rng.choice(list(disproof.traits))
             value = _wrong(crime, town, category, disproof.traits[category], suspected, rng)
-            witness = witnesses.pop(0)
-            fake = _memory(crime, witness, {category: value}, rng, ids)
+            witness = witnesses.pop(rng.randrange(len(witnesses)))
+            fake = witness_memory(crime, witness, {category: value}, rng, ids)
         else:
             aimed = [p for p in leftovers if p[0].who in suspected]
             disproof, category = rng.choice(aimed if aimed and rng.random() < AIMED_CHANCE else leftovers)
             earlier.remove(disproof)
-            fake = _trace(crime, category, town.sighting(disproof.who, crime.day)[category], ids)
+            fake = trace(crime, category, town.sighting(disproof.who, crime.day)[category], ids)
         fakes.append(replace(fake, sound=False, disproof=disproof.id))
     return fakes
 
@@ -78,8 +82,15 @@ def _wrong(crime: Crime, town: Town, category: str, right: str, suspected: set[s
     return rng.choice([v for v in TRAITS[category] if v != right])
 
 
+def cover_place(whereabouts: dict[str, list[str]], accomplice: Villager) -> str:
+    """Where the accomplice says the culprit was with them: the first place they were during the crime, else home."""
+    return (whereabouts.get(accomplice.id) or [accomplice.home])[0]
+
+
 def cover_disproof(crime: Crime, records, place: str) -> str | None:
-    """The id of a sound log at place in the crime's part of the day that leaves the culprit out, which disproves a
-    word that they were there."""
-    return next((r.id for r in records if r.sound and r.kind == "log" and r.place == place and r.who != crime.culprit),
+    """The id of a sound log, not one behind a receipt, at place in the crime's part of the day that leaves the
+    culprit out, which disproves a word that they were there."""
+    lo, hi = PHASE_MINUTES[crime.phase]
+    return next((r.id for r in records if r.sound and r.kind == "log" and not r.trail and r.place == place
+                 and r.who != crime.culprit and r.day == crime.day and lo <= minute_of(r.clock, crime.phase) < hi),
                 None)

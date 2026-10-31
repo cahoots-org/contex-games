@@ -5,7 +5,7 @@ from typesafe_sdk import Choice
 from sleuth.case import WHEN
 from sleuth.cases import CaseFile
 from sleuth.decide import warmth_words
-from sleuth.falsehoods import cover_disproof
+from sleuth.falsehoods import cover_disproof, cover_place
 from sleuth.models import Villager
 from sleuth.town import at
 
@@ -62,5 +62,5 @@ def accomplice_word(file: CaseFile, speaker: Villager, about: Villager) -> tuple
     that disproves it; None from anyone else, or about anyone else."""
     if speaker.id != file.accomplice or about.id != file.crime.culprit:
         return None
-    place = (file.whereabouts.get(speaker.id) or [speaker.home])[0]
+    place = cover_place(file.whereabouts, speaker)
     return f"{about.name} was with me {at(place)} {WHEN}.", False, cover_disproof(file.crime, file.records.values(), place)

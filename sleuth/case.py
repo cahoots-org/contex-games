@@ -311,7 +311,8 @@ def _memory_text(crime: Crime, clock: str, seen: dict[str, str], holder: str) ->
     return f"{where}, {_sighted(seen)} {did}{headed}."
 
 
-def _memory(crime: Crime, witness: str, seen: dict[str, str], rng: Random, ids: Ids) -> Record:
+def witness_memory(crime: Crime, witness: str, seen: dict[str, str], rng: Random, ids: Ids) -> Record:
+    """What the witness saw at the scene, clocked a little either side of the crime within its part of the day."""
     lo, hi = PHASE_MINUTES[crime.phase]
     clock = clock_at(min(max(crime.minute + rng.randint(-WITNESS_DRIFT, WITNESS_DRIFT), lo), hi - 1))
     return Record(ids.next("r"), crime.id, "memory", crime.place, clock, _memory_text(crime, clock, seen, witness),
@@ -349,7 +350,8 @@ def recall_more(crime: Crime, memory: Record, culprit: dict[str, str]) -> Record
     return replace(memory, id="", traits=seen, text=_memory_text(crime, memory.clock, seen, memory.holder))
 
 
-def _bystanders(crime: Crime, town: Town, routine, away=frozenset()) -> list[str]:
+def bystanders(crime: Crime, town: Town, routine, away=frozenset()) -> list[str]:
+    """Residents expected at the scene in the crime's part of the day, besides its culprit, its victim and anyone away."""
     return [v.id for v in town.villagers if v.id not in (crime.culprit, crime.victim, *away)
             and routine.place(v.id, crime.phase) == crime.place]
 
@@ -357,11 +359,11 @@ def _bystanders(crime: Crime, town: Town, routine, away=frozenset()) -> list[str
 def witness_memories(crime: Crime, town: Town, routine, rng: Random, ids: Ids, away=frozenset()) -> list[Record]:
     """Up to the tier's EVIDENCE count of residents expected at the scene and not away, each recalling one thing about
     the culprit."""
-    bystanders = _bystanders(crime, town, routine, away)
+    nearby = bystanders(crime, town, routine, away)
     culprit = evident(crime, town)
     memories = []
-    for w in rng.sample(bystanders, min(EVIDENCE[crime.tier][0], len(bystanders))):
-        memories.append(_memory(crime, w, witness_sees(culprit, rng), rng, ids))
+    for w in rng.sample(nearby, min(EVIDENCE[crime.tier][0], len(nearby))):
+        memories.append(witness_memory(crime, w, witness_sees(culprit, rng), rng, ids))
     return memories
 
 
@@ -369,7 +371,7 @@ def victim_memory(crime: Crime, town: Town, rng: Random, ids: Ids) -> Record:
     """What a mugging's victim saw of the mugger: one of their traits."""
     culprit = evident(crime, town)
     trait = rng.choice([c for c in SEEN_AS if c in culprit])
-    return _memory(crime, crime.victim, {trait: culprit[trait]}, rng, ids)
+    return witness_memory(crime, crime.victim, {trait: culprit[trait]}, rng, ids)
 
 
 def discovery(crime: Crime, town: Town, rng: Random, ids: Ids, finder: str | None = None) -> Record:
@@ -423,14 +425,15 @@ def scene_clues(crime: Crime, town: Town, routine, rng: Random, ids: Ids, away=f
     clues: list[Record] = []
     for kind in rng.sample([*(k for k in TRACES if k in culprit), "receipt"], rng.randint(1, 2)):
         if kind == "receipt":
-            who = rng.choice([crime.culprit, *_bystanders(crime, town, routine, away)])
+            who = rng.choice([crime.culprit, *bystanders(crime, town, routine, away)])
             clues += _receipt(crime, who, town, rng, ids)
         else:
-            clues.append(_trace(crime, kind, culprit[kind], ids))
+            clues.append(trace(crime, kind, culprit[kind], ids))
     return clues
 
 
-def _trace(crime: Crime, kind: str, value: str, ids: Ids) -> Record:
+def trace(crime: Crime, kind: str, value: str, ids: Ids) -> Record:
+    """A trace at the scene of one trait value."""
     seen = {kind: value}
     text = TRACES[kind].format(at=at(crime.place), figure=figure(seen), value=value)
     return Record(ids.next("r"), crime.id, "clue", crime.place, "", text, traits=seen, day=crime.day)
@@ -506,7 +509,7 @@ def make_solvable(crime: Crime, records: list[Record], town: Town, routine, rng:
     seen: set[str] = set()
     seen_by = {r.holder for r in records if r.kind == "memory"}
     others = [v.id for v in town.villagers if v.id not in (crime.culprit, crime.victim, *away)]
-    witnesses = [w for w in dict.fromkeys(_bystanders(crime, town, routine, away) + others) if w not in seen_by]
+    witnesses = [w for w in dict.fromkeys(bystanders(crime, town, routine, away) + others) if w not in seen_by]
     while len(left) > 1 or not pointing:
         unseen = [c for c in culprit if c not in seen]
         if not unseen or not witnesses:
@@ -515,7 +518,7 @@ def make_solvable(crime: Crime, records: list[Record], town: Town, routine, rng:
         narrowed = {s for s in left if town.sighting(s, crime.day).get(best) == culprit[best]}
         if narrowed == left and len(left) > 1:
             return None
-        added.append(_memory(crime, witnesses.pop(0), {best: culprit[best]}, rng, ids))
+        added.append(witness_memory(crime, witnesses.pop(0), {best: culprit[best]}, rng, ids))
         seen.add(best)
         left, pointing = narrowed, True
     return added
@@ -527,7 +530,7 @@ def _leads(crime: Crime, records: list[Record], town: Town, rng: Random, ids: Id
     seen = {c for r in records if r.kind in ("memory", "clip", "clue") for c in r.traits}
     kinds = [k for k in TRACES if k in looks and k not in seen]
     for kind in rng.sample(kinds, len(kinds)):
-        yield [_trace(crime, kind, looks[kind], ids)]
+        yield [trace(crime, kind, looks[kind], ids)]
     if clip := passing_clip(crime, town, ids, rng):
         yield [clip]
     yield _receipt(crime, crime.culprit, town, rng, ids)

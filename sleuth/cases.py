@@ -15,7 +15,7 @@ from sleuth.case import (
 from sleuth.config import Config
 from sleuth.decide import warmth_words
 from sleuth.districts import FORMED, TOLD, WOUND_DOWN, Districts, level
-from sleuth.falsehoods import cover_disproof, false_count, stage_false
+from sleuth.falsehoods import cover_disproof, cover_place, false_count, stage_false
 from sleuth.feed import APP
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
@@ -440,11 +440,11 @@ class Cases:
 
     async def _open(self, engine, crime: Crime, pictured: set[str]) -> bool:
         """Leave the crime's evidence, witnessed by no one pictured elsewhere then nor any open case's culprit, and by
-        no one at all with the tier's NO_WITNESS chance, and, if it narrows to the culprit, add the tier's false pieces,
-        each disproved by something on file, and open the case: tell its witnesses and victim what they saw and found,
+        no one at all with the tier's NO_WITNESS chance, and, if it narrows to the culprit, add as many of the tier's false
+        pieces as something on file disproves, and open the case: tell its witnesses and victim what they saw and found,
         and post the news, a death's to the victim's street and ties. An accomplice is kept only when a log on file
         disproves their word. A death's victim is found by someone at the scene, then leaves town, and someone moves in.
-        False if it cannot be made solvable, its false pieces can't be disproved, or a death has no one to find it."""
+        False if it cannot be made solvable, a false piece's disproof isn't on file, or a death has no one to find it."""
         away = pictured | {f.crime.culprit for f in self.files.values() if f.state == "open"}
         witnessed = self.rng.random() >= NO_WITNESS[crime.tier]
         self.dress(crime.day)
@@ -466,12 +466,11 @@ class Cases:
         if added is None:
             return False
         records += added
-        count = false_count(crime.tier, self.rng)
-        fakes = stage_false(crime, records, self.town, self.routine, self.rng, self.ids, away, count) if count else []
-        if fakes is None or not self._disproved(crime, records + fakes):
+        records += stage_false(crime, records, self.town, self.routine, self.rng, self.ids, away,
+                               false_count(crime.tier, self.rng))
+        if not self._disproved(crime, records):
             return False
-        records += fakes
-        if accomplice and not cover_disproof(crime, records, (whereabouts.get(accomplice) or [self.town.get(accomplice).home])[0]):
+        if accomplice and not cover_disproof(crime, records, cover_place(whereabouts, self.town.get(accomplice))):
             accomplice = None
         death = crime.tier == "major"
         finder = self._finder(crime, records, away, scene) if death else None
@@ -515,10 +514,9 @@ class Cases:
     def _disproved(self, crime: Crime, records: list[Record]) -> bool:
         """Whether the sound records still narrow to the culprit alone and each unsound one's disproof is a clue, clip,
         log or memory on file."""
-        on_file = {r.id: r for r in records}
+        findable = {r.id for r in records if r.kind in ("clue", "clip", "log", "memory")}
         return (suspects(crime, [r for r in records if r.sound], self.town) == {crime.culprit}
-                and all(on_file.get(r.disproof) is not None and on_file[r.disproof].kind in ("clue", "clip", "log", "memory")
-                        for r in records if not r.sound))
+                and all(r.disproof in findable for r in records if not r.sound))
 
     def _accomplice(self, crime: Crime, barred: set[str]) -> str | None:
         """With accomplice_chance, who covers for the culprit: their warmest close tie, else another active offender;
