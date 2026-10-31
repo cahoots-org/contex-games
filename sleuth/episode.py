@@ -1,6 +1,6 @@
 """The judge: whether a podcaster's episode holds up."""
 
-from sleuth.case import LOG_PLACES, TRACES, Crime, Record, points_at
+from sleuth.case import LOG_NOUNS, TRACES, Crime, Record, points_at
 from sleuth.town import Town, at
 from sleuth.traits import RANGES
 
@@ -44,7 +44,7 @@ def label(r: Record, crime: Crime, town: Town) -> str:
     if r.kind == "clip":
         return f"the {r.place} camera"
     if r.kind == "log":
-        return f"the {r.place}'s {LOG_PLACES[r.place].lower()}"
+        return f"the {r.place}'s {LOG_NOUNS[r.place]}"
     return f"{first}'s word"
 
 
@@ -58,8 +58,9 @@ def disproof_label(fake: Record, proof: Record, crime: Crime, town: Town) -> str
 
 def why_wrong(crime: Crime, named: str, cited: list[Record], notebook: dict[str, Record], town: Town,
               records: dict[str, Record]) -> str:
-    """One sentence on why an episode failed, never naming the culprit: the first false piece cited and what disproves
-    it, else that sound evidence points elsewhere, else that none of it points at the one named."""
+    """One sentence on why an episode failed, never naming the culprit or saying whether the one named is: the first
+    false piece cited and what disproves it, else that the evidence doesn't point at them. The notebook holds the
+    podcaster's records and records all the case's, which tell the source of a disproof they never found."""
     fake = next((r for r in cited if not r.sound), None)
     if fake is not None:
         if fake.disproof is None:
@@ -68,7 +69,4 @@ def why_wrong(crime: Crime, named: str, cited: list[Record], notebook: dict[str,
             return f"{label(fake, crime, town)}: {disproof_label(fake, notebook[fake.disproof], crime, town)}."
         source = SOURCES.get(records[fake.disproof].kind if fake.disproof in records else "", "account")
         return f"{label(fake, crime, town)}: a {source} says otherwise."
-    name = town.name_of(named)
-    if named != crime.culprit:
-        return f"Your evidence was sound, but it doesn't point at {name}."
-    return f"Nothing you cited points at {name}."
+    return f"Your evidence doesn't point at {town.name_of(named)}."

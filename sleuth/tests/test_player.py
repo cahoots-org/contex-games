@@ -820,7 +820,7 @@ async def test_a_wrong_episode_carries_a_note_for_its_author_only():
     ids = cite(player, file, memory_of(file, player.ids))
     assert await player.publish("v5", ids) is None
     [episode] = [e for e in player.feed.recent if e.kind == "episode"]
-    assert episode.to_json(PID)["note"] == "Your evidence was sound, but it doesn't point at Hal Burke."
+    assert episode.to_json(PID)["note"] == "Your evidence doesn't point at Hal Burke."
     assert "note" not in episode.to_json("p-2")
 
 

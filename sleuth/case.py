@@ -77,6 +77,8 @@ EVIDENCE = {"petty": (2, 1 / 3), "serious": (3, 0.0), "major": (2, 0.0)}
 NO_WITNESS = {"petty": 0.3, "serious": 0.6, "major": 0.85}
 CAMERA_PLACES = ("grocery", "bar", "town hall", "elm street")
 LOG_PLACES = {"gym": "Gym check-in", "bar": "Bar tab closed", "grocery": "Grocery receipt", "library": "Library checkout"}
+# What a podcaster calls a place's logs, e.g. "the gym's check-ins".
+LOG_NOUNS = {"gym": "check-ins", "bar": "tabs", "grocery": "receipts", "library": "checkouts"}
 # The chance a witness describes what they saw only roughly, when a range covers it.
 RANGED_CHANCE = 0.4
 CLIP_TRAITS = ("height", "coat")

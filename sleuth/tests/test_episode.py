@@ -117,14 +117,14 @@ def test_a_range_memory_is_labelled_as_the_witness_put_it():
     fake = piece("r-1", "memory", "v7", "r-2", traits={"coat": "in a dark coat"})
     log = record("r-2", kind="log", place="gym", who="v4")
     assert why_wrong(CRIME, "v2", [fake, log], {r.id: r for r in (fake, log)}, TOWN, {}) == \
-        "Jo's in a dark coat: the gym's gym check-in."
+        "Jo's in a dark coat: the gym's check-ins."
 
 
 def test_a_false_clue_is_labelled_by_its_trace_and_place():
     fake = piece("r-1", "clue", "", "r-2", text="A thread on Elm Street, snagged from a tall figure.", place="elm street")
     log = record("r-2", kind="log", place="bar", who="v4")
     assert why_wrong(CRIME, "v2", [fake, log], {r.id: r for r in (fake, log)}, TOWN, {}) == \
-        "the thread on Elm Street: the bar's bar tab closed."
+        "the thread on Elm Street: the bar's tabs."
 
 
 def test_a_false_receipt_and_a_false_camera_clip_have_labels():
@@ -150,12 +150,9 @@ def test_the_first_false_piece_is_the_one_named():
     assert note("v2", [first, second]).startswith("Jo's word")
 
 
-def test_sound_evidence_for_the_wrong_person():
-    assert note("v2", [record()]) == "Your evidence was sound, but it doesn't point at Eli Reyes."
-
-
-def test_the_right_person_with_nothing_pointing_at_them():
-    assert note("v3", [record(kind="log", who="v4")]) == "Nothing you cited points at Fay Okafor."
+def test_sound_evidence_that_points_elsewhere_or_nowhere_reads_the_same():
+    assert note("v2", [record()]) == "Your evidence doesn't point at Eli Reyes."
+    assert note("v3", [record(kind="log", who="v4")]) == "Your evidence doesn't point at Fay Okafor."
 
 
 def test_the_note_never_names_the_culprit_of_an_open_case():
