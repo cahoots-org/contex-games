@@ -485,6 +485,7 @@ class Cases:
         if not self._disproved(crime, records):
             return False
         if accomplice and not cover_disproof(crime, records, cover_place(whereabouts, self.town.get(accomplice))):
+            away.discard(accomplice)
             accomplice = None
         death = crime.tier == "major"
         finder = self._finder(crime, records, away, scene) if death else None

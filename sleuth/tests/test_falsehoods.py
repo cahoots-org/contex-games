@@ -145,6 +145,36 @@ async def test_an_accomplice_s_word_is_disproved_by_a_record_on_file():
     assert covered
 
 
+@pytest.mark.asyncio
+async def test_an_accomplice_dropped_for_want_of_a_disproof_is_not_kept_away(monkeypatch):
+    chosen, barred = [], []
+    accomplice, pick = cases_mod.Cases._accomplice, cases_mod.pick_liar
+
+    def choose(self, *args):
+        chosen.append(accomplice(self, *args))
+        return chosen[-1]
+
+    def picking(crime, whereabouts, town, routine, rng, bar, *args):
+        barred.append(set(bar))
+        return pick(crime, whereabouts, town, routine, rng, bar, *args)
+
+    monkeypatch.setattr(cases_mod, "LIAR_CHANCE", 1.0)
+    monkeypatch.setattr(cases_mod, "cover_disproof", lambda *a: None)
+    monkeypatch.setattr(cases_mod.Cases, "_accomplice", choose)
+    monkeypatch.setattr(cases_mod, "pick_liar", picking)
+    for seed in range(20):
+        cases, engine, town = make_cases(accomplice_chance=1.0)
+        cases.rng = Random(seed)
+        cases.routine = make_routine({"v7": "gym"})
+        town.get("v5").warmth["v7"] = 0.7
+        crime = Crime(f"case-{seed}", "mug", "wallet", "v5", "v1", "elm street", 1, "night", 1400, "opportunity", "",
+                      tier="serious")
+        if await cases._open(engine, crime, set()):
+            assert cases.files[crime.id].accomplice is None
+            assert chosen[-1] == "v7" and "v7" not in barred[-1]
+    assert barred
+
+
 def test_record_json_never_says_whether_a_record_is_sound():
     cases, _, town = make_cases()
     r = Record("r-1", "case-1", "clue", "elm street", "", "A thread.", sound=False, disproof="r-2")
