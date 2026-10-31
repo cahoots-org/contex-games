@@ -815,6 +815,25 @@ async def test_publish_wrong_spreads_the_accusation_and_lowers_reputation():
 
 
 @pytest.mark.asyncio
+async def test_a_wrong_episode_carries_a_note_for_its_author_only():
+    player, file, *_ = interviewing()
+    ids = cite(player, file, memory_of(file, player.ids))
+    assert await player.publish("v5", ids) is None
+    [episode] = [e for e in player.feed.recent if e.kind == "episode"]
+    assert episode.to_json(PID)["note"] == "Your evidence was sound, but it doesn't point at Hal Burke."
+    assert "note" not in episode.to_json("p-2")
+
+
+@pytest.mark.asyncio
+async def test_a_held_episode_has_no_note():
+    player, file, *_ = interviewing()
+    ids = cite(player, file, memory_of(file, player.ids))
+    assert await player.publish("v3", ids) is None
+    [episode] = [e for e in player.feed.recent if e.kind == "episode"]
+    assert episode.data["note"] == ""
+
+
+@pytest.mark.asyncio
 async def test_one_episode_per_player_per_case():
     player, file, *_ = interviewing()
     ids = cite(player, file, memory_of(file, player.ids))

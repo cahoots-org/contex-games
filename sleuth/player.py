@@ -13,7 +13,7 @@ from sleuth.case import (
 from sleuth.cases import CaseFile
 from sleuth.config import Config
 from sleuth.decide import warmth_words
-from sleuth.episode import MAX_CITED, holds
+from sleuth.episode import MAX_CITED, holds, why_wrong
 from sleuth.faith import FAITH, GORE
 from sleuth.game import Game
 from sleuth.interview import Route, exchanges, route
@@ -823,8 +823,10 @@ class Player:
             for rival in self.engine.players:
                 if rival is not self and any(r.case == crime.id for r in rival.notebook.values()):
                     self.feed.say(RIVAL, player=rival.id)
+        cited = [self.notebook[i] for i in record_ids]
+        note = "" if held else why_wrong(crime, culprit_id, cited, self.notebook, self.town, file.records)
         self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids),
-                             verdict=HELD if held else WRONG)
+                             verdict=HELD if held else WRONG, note=note)
         self._rank(held, crime)
         if held:
             await self.engine.cases.on_held(self.engine, file, self.id)

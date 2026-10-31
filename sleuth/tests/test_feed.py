@@ -120,6 +120,14 @@ def test_only_its_author_sees_an_episode_as_theirs_with_its_verdict():
     assert "by" not in mine and "by" not in theirs
 
 
+def test_only_its_author_sees_the_note_on_an_episode():
+    feed, _ = make()
+    feed.on_episode("case-1", "Bert", False, by=PID, cited=2, verdict="It didn't hold up.", note="Because.")
+    event = feed.recent[-1]
+    assert event.to_json(PID)["note"] == "Because."
+    assert "note" not in event.to_json("p-2")
+
+
 def test_a_search_says_where_it_was():
     feed, lines = make()
     feed.on_searched("bar", [], case_id="case-1", player=PID)
