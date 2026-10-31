@@ -5,6 +5,7 @@ from collections import Counter
 from itertools import product
 
 from sleuth.models import Villager
+from sleuth.town import place_name
 
 TRAITS: dict[str, tuple[str, ...]] = {
     "gender": ("man", "woman"),
@@ -23,6 +24,8 @@ WARDROBE = 3
 IN_PERSON = ("gender", "height", "hair", "coat")
 BY_WORD = ("height", "hair", "car")
 PHRASES = {"gender": "a {}", "height": "{}", "hair": "{}", "coat": "in a {}", "car": "with a {}"}
+# What a witness can notice of someone: their traits, and the street they headed toward.
+SEEN_AS = ("gender", "height", "hair", "coat", "car", "headed")
 # What a witness can say loosely, and the trait values each phrase covers.
 RANGES: dict[str, tuple[str, ...]] = {
     "not tall": ("short", "average height"),
@@ -96,7 +99,10 @@ def assign_look(v: Villager, others: list[Villager], rng: random.Random, avoid: 
 
 def describe(traits: dict[str, str]) -> str:
     """The traits as a witness would put them, e.g. "tall, bald, in a grey hoodie, with a bicycle"."""
-    return ", ".join(traits[c] if traits[c] in RANGES else PHRASES[c].format(traits[c]) for c in TRAITS if c in traits)
+    said = [traits[c] if traits[c] in RANGES else PHRASES[c].format(traits[c]) for c in TRAITS if c in traits]
+    if "headed" in traits:
+        said.append(f"headed toward {place_name(traits['headed'])}")
+    return ", ".join(said)
 
 
 def figure(traits: dict[str, str]) -> str:

@@ -8,7 +8,7 @@ from random import Random
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.town import PLACES, STREETS, Town, at, place_name
-from sleuth.traits import describe, figure, fits
+from sleuth.traits import RANGES, SEEN_AS, describe, figure, fits
 
 TIERS = ("petty", "serious", "major")
 NEWS = "Someone {did} {victim}'s {item} {at} {when}."
@@ -74,7 +74,8 @@ MOTIVE_WEIGHT = 3
 EVIDENCE = {"petty": (2, 1 / 3), "serious": (3, 0.0), "major": (2, 0.0)}
 CAMERA_PLACES = ("grocery", "bar", "town hall", "elm street")
 LOG_PLACES = {"gym": "Gym check-in", "bar": "Bar tab closed", "grocery": "Grocery receipt", "library": "Library checkout"}
-WITNESS_TRAITS = 2
+# The chance a witness describes what they saw only roughly, when a range covers it.
+RANGED_CHANCE = 0.4
 CLIP_TRAITS = ("height", "coat")
 WITNESS_DRIFT = 20
 # What the culprit can leave behind: a trace of one trait, or a store receipt whose log names who paid.
@@ -277,8 +278,13 @@ def record_json(r: Record, town: Town, crime: Crime | None = None, today: float 
 
 def _memory_text(crime: Crime, clock: str, seen: dict[str, str], holder: str) -> str:
     """What the holder saw, a mugging's victim in their own words."""
+    if list(seen) == ["car"] and holder != crime.victim:
+        car = "a car" if seen["car"] in RANGES else f"a {seen['car']}"
+        gone = "rode off on" if seen["car"] == "bicycle" else "drove off in"
+        return f"Around {clock}, {at(crime.place)}, someone {gone} {car}."
     did = VICTIM_SAW.format(item=crime.item) if holder == crime.victim else CRIMES[crime.template].seen
-    return f"Around {clock}, {at(crime.place)}, someone {describe(seen)} {did}."
+    who = describe(seen) if "gender" in seen else f"someone {describe(seen)}"
+    return f"Around {clock}, {at(crime.place)}, {who} {did}."
 
 
 def _memory(crime: Crime, witness: str, seen: dict[str, str], rng: Random, ids: Ids) -> Record:
@@ -288,17 +294,25 @@ def _memory(crime: Crime, witness: str, seen: dict[str, str], rng: Random, ids: 
                   witness, seen, day=crime.day)
 
 
-def _sighted(culprit: dict[str, str]) -> dict[str, str]:
-    """What a witness can draw on of the culprit: all their traits but gender, which sightings do not carry."""
-    return {c: v for c, v in culprit.items() if c != "gender"}
+def witness_sees(culprit: dict[str, str], rng: Random) -> dict[str, str]:
+    """One thing a witness noticed of the culprit, sometimes only roughly."""
+    category = rng.choice([c for c in SEEN_AS if c in culprit])
+    value = culprit[category]
+    loosely = [phrase for phrase, covered in RANGES.items() if value in covered]
+    if loosely and rng.random() < RANGED_CHANCE:
+        value = rng.choice(loosely)
+    return {category: value}
 
 
 def recall_more(crime: Crime, memory: Record, culprit: dict[str, str]) -> Record:
-    """The memory with one more of the culprit's traits, unnumbered, or as it was when it already has them all."""
-    extra = next((c for c in _sighted(culprit) if c not in memory.traits), None)
+    """The memory with a rough sighting sharpened, else one more of the culprit's traits, unnumbered, or as it was
+    when it already has them all."""
+    seen = dict(memory.traits)
+    rough = next((c for c in seen if seen[c] != culprit[c]), None)
+    extra = rough or next((c for c in SEEN_AS if c in culprit and c not in seen), None)
     if extra is None:
         return replace(memory)
-    seen = {**memory.traits, extra: culprit[extra]}
+    seen[extra] = culprit[extra]
     return replace(memory, id="", traits=seen, text=_memory_text(crime, memory.clock, seen, memory.holder))
 
 
@@ -308,21 +322,20 @@ def _bystanders(crime: Crime, town: Town, routine, away=frozenset()) -> list[str
 
 
 def witness_memories(crime: Crime, town: Town, routine, rng: Random, ids: Ids, away=frozenset()) -> list[Record]:
-    """Up to the tier's EVIDENCE count of residents expected at the scene and not away, each recalling two of the
-    culprit's traits."""
+    """Up to the tier's EVIDENCE count of residents expected at the scene and not away, each recalling one thing about
+    the culprit."""
     bystanders = _bystanders(crime, town, routine, away)
-    culprit = _sighted(town.looks(crime.culprit, crime.day))
+    culprit = town.sighting(crime.culprit, crime.day)
     memories = []
     for w in rng.sample(bystanders, min(EVIDENCE[crime.tier][0], len(bystanders))):
-        seen = {c: culprit[c] for c in rng.sample(list(culprit), WITNESS_TRAITS)}
-        memories.append(_memory(crime, w, seen, rng, ids))
+        memories.append(_memory(crime, w, witness_sees(culprit, rng), rng, ids))
     return memories
 
 
 def victim_memory(crime: Crime, town: Town, rng: Random, ids: Ids) -> Record:
     """What a mugging's victim saw of the mugger: one of their traits."""
-    culprit = _sighted(town.looks(crime.culprit, crime.day))
-    trait = rng.choice(list(culprit))
+    culprit = town.sighting(crime.culprit, crime.day)
+    trait = rng.choice([c for c in SEEN_AS if c in culprit])
     return _memory(crime, crime.victim, {trait: culprit[trait]}, rng, ids)
 
 
@@ -408,7 +421,7 @@ def suspects(crime: Crime, records: list[Record], town: Town) -> set[str]:
     at_scene = {r.who for r in logged if r.place == crime.place}
     alibied = {r.who for r in logged if r.place != crime.place} - at_scene
     return {v.id for v in town.villagers if v.id != crime.victim and v.id not in alibied
-            and all(fits(seen, town.looks(v.id, crime.day)) for seen in sightings)}
+            and all(fits(seen, town.sighting(v.id, crime.day)) for seen in sightings)}
 
 
 def make_solvable(crime: Crime, records: list[Record], town: Town, routine, rng: Random, ids: Ids,
@@ -418,15 +431,15 @@ def make_solvable(crime: Crime, records: list[Record], town: Town, routine, rng:
     left = suspects(crime, records, town)
     if crime.culprit not in left:
         return None
-    culprit = town.looks(crime.culprit, crime.day)
+    culprit = town.sighting(crime.culprit, crime.day)
     seen: dict[str, str] = {}
     pointing = any(r.sound and points_at(crime, crime.culprit, culprit, r) for r in records)
     while len(left) > 1 or not (seen or pointing):
         unseen = [c for c in culprit if c not in seen]
         if not unseen:
             return None
-        best = max(unseen, key=lambda c: sum(town.looks(s, crime.day).get(c) != culprit[c] for s in left))
-        narrowed = {s for s in left if town.looks(s, crime.day).get(best) == culprit[best]}
+        best = max(unseen, key=lambda c: sum(town.sighting(s, crime.day).get(c) != culprit[c] for s in left))
+        narrowed = {s for s in left if town.sighting(s, crime.day).get(best) == culprit[best]}
         if narrowed == left and len(left) > 1:
             return None
         seen[best], left = culprit[best], narrowed

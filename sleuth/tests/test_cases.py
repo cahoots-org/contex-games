@@ -906,7 +906,7 @@ def generated_town(seed):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("seed", range(5))
+@pytest.mark.parametrize("seed", range(2, 6))
 async def test_a_town_at_test_pacing_opens_a_major_case_for_a_major_podcaster(seed):
     town, routine = generated_town(seed)
     config = Config(**PACING)

@@ -75,6 +75,10 @@ class Town:
         coat = self.outfit(vid, day)
         return {**self.get(vid).traits, **({"coat": coat} if coat else {})}
 
+    def sighting(self, vid: str, day: int) -> dict[str, str]:
+        """What a witness can notice of the resident that day: their looks and the street they head home to."""
+        return {**self.looks(vid, day), "headed": self.get(vid).home}
+
     def __contains__(self, vid: str) -> bool:
         return vid in self._villagers
 

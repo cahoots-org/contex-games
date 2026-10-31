@@ -645,7 +645,7 @@ class Player:
         crime = file.crime
         records = [replace(r) for r in file.records.values() if r.kind in ("memory", "discovery") and r.holder == vid]
         if self.engine.reputation.get(vid, self.id) >= self.config.trusted_at:
-            culprit = self.town.looks(crime.culprit, crime.day)
+            culprit = self.town.sighting(crime.culprit, crime.day)
             records = [recall_more(crime, r, culprit) if r.kind == "memory" else r for r in records]
         return records
 
@@ -793,7 +793,7 @@ class Player:
         file.named[self.id] = culprit_id
         crime = file.crime
         accused, victim = self.town.get(culprit_id), self.town.anyone(crime.victim)
-        held = holds(crime, culprit_id, self.town.looks(culprit_id, crime.day), [self.notebook[i] for i in record_ids])
+        held = holds(crime, culprit_id, self.town.sighting(culprit_id, crime.day), [self.notebook[i] for i in record_ids])
         if crime.owner:
             verdict = HELD if held else f"{PRACTICE_WRONG} It was {self.town.get(crime.culprit).name}."
             self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids), verdict=verdict,

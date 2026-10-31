@@ -250,8 +250,8 @@ async def test_a_trusting_witness_recalls_one_more_of_the_culprit_s_traits():
     await ask(player, "v2", "what_did_you_see")
     [fuller] = notebook(player, "memory")
     assert fuller.id not in (memory.id, "") and fuller.sound and fuller.holder == "v2"
-    hair = player.town.get("v3").traits["hair"]
-    assert fuller.traits == {"height": "tall", "hair": hair, "coat": "grey hoodie"}
+    gender = player.town.get("v3").traits["gender"]
+    assert fuller.traits == {"height": "tall", "coat": "grey hoodie", "gender": gender}
 
 
 @pytest.mark.asyncio

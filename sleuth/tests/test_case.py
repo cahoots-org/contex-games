@@ -40,7 +40,7 @@ from sleuth.lineage import Ids
 from sleuth.models import Villager
 from sleuth.tests.helpers import StubRoutine
 from sleuth.town import PLACES, STREETS, Town, at
-from sleuth.traits import assign_traits, describe
+from sleuth.traits import RANGES, SEEN_AS, assign_traits, describe, fits
 from sleuth.writer import CLOCK
 
 RESIDENTS = [
@@ -225,14 +225,55 @@ def test_witnesses_are_expected_at_the_crime_place_and_never_culprit_or_victim()
             assert m.holder in {"v2", "v3", "v4"} and routine.place(m.holder, "night") == crime.place
 
 
-def test_witness_sees_two_culprit_traits_and_never_a_name():
+def test_witness_sees_culprit_traits_and_never_a_name():
     town, routine, crime = make_case()
     culprit = town.get(crime.culprit)
     m = witness_memories(crime, town, routine, Random(3), Ids())[0]
-    assert len(m.traits) == 2 and m.traits.items() <= town.looks(culprit.id, 1).items() and culprit.name not in m.text
+    assert fits(m.traits, town.sighting(culprit.id, 1)) and culprit.name not in m.text
     assert m.id == "r-1" and m.text.startswith(f"Around {m.clock}, on Elm Street, someone ")
-    assert m.text.endswith(" walked off with something.")
     assert any(clock_at(minute) == m.clock for minute in range(1402, 1443)) and m.day == crime.day
+
+
+def test_a_witness_sees_one_thing():
+    town, routine, crime = make_case()
+    sighting = town.sighting(crime.culprit, 1)
+    for seed in range(200):
+        for m in witness_memories(crime, town, routine, Random(seed), Ids()):
+            assert len(m.traits) == 1 and set(m.traits) <= set(SEEN_AS) and fits(m.traits, sighting)
+
+
+def test_some_witnesses_see_a_range():
+    town, routine, crime = make_case()
+    seen = [v for seed in range(200) for m in witness_memories(crime, town, routine, Random(seed), Ids())
+            for v in m.traits.values()]
+    assert any(v in RANGES for v in seen) and any(v not in RANGES for v in seen)
+
+
+def test_a_car_alone_is_someone_driving_off():
+    town, routine, crime = make_case()
+    for car in ("bicycle", "red pickup"):
+        town.get(crime.culprit).traits["car"] = car
+        texts = {m.traits["car"]: m.text for seed in range(200)
+                 for m in witness_memories(crime, town, routine, Random(seed), Ids()) if list(m.traits) == ["car"]}
+        sees = {"bicycle": "someone rode off on a bicycle.", "red pickup": "someone drove off in a red pickup."}
+        assert texts[car].endswith(sees[car])
+        if car != "bicycle":
+            assert texts["with a car"].endswith("someone drove off in a car.")
+
+
+def test_headed_toward_narrows_by_home_street():
+    town, _, crime = make_case()
+    heard = Record("r-1", crime.id, "memory", crime.place, "11:40pm", "", traits={"headed": "oak street"})
+    assert suspects(crime, [heard], town) == {"v5", "v6", "v7", "v8"}
+    assert describe({"headed": "oak street"}) == "headed toward Oak Street"
+
+
+def test_a_trusting_witness_sharpens_a_range():
+    town, _, crime = make_case()
+    town.get(crime.culprit).traits["height"] = "short"
+    m = Record("r-1", crime.id, "memory", crime.place, "11:40pm", "", traits={"height": "not tall"})
+    more = recall_more(crime, m, town.sighting(crime.culprit, 1))
+    assert more.traits == {"height": "short"} and more.id == ""
 
 
 def test_clip_only_at_camera_places():
@@ -440,7 +481,7 @@ def test_witness_and_clip_report_the_outfit_worn_on_the_crime_day():
     crime = replace(crime, place="elm street")
     for seed in range(20):
         for m in witness_memories(crime, town, routine, Random(seed), Ids()):
-            assert m.traits.get("coat", "green raincoat") == "green raincoat"
+            assert fits(m.traits, town.sighting("v5", 1))
 
 
 def test_suspects_match_what_each_wore_on_the_crime_day():
@@ -580,7 +621,7 @@ def test_a_mugging_victim_remembers_one_trait_of_the_mugger():
     assert crime_title(crime, town) == f"The mugging of {town.name_of(crime.victim)}"
     said = f"Around {m.clock}, {at(crime.place)}, someone {describe(m.traits)} grabbed at me and took my {crime.item}."
     assert m.text == said
-    more = recall_more(crime, m, town.looks(crime.culprit, 1))
+    more = recall_more(crime, m, town.sighting(crime.culprit, 1))
     assert len(more.traits) == 2 and more.text.endswith(f"grabbed at me and took my {crime.item}.")
 
 
