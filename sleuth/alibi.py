@@ -15,7 +15,9 @@ ANSWERS = {"honest": "Say honestly you were asleep and can't vouch for them.",
 
 def claim(file: CaseFile, vid: str, routine) -> tuple[list[str], bool]:
     """The places the resident says they were during the crime, and whether that is the truth: a culprit who is a
-    regular at the scene says so truthfully."""
+    regular at the scene says so truthfully, and a liar falsely that they were home."""
+    if secret := file.liars.get(vid):
+        return [secret["claimed"]], False
     if vid != file.crime.culprit:
         return file.whereabouts.get(vid, []), True
     places = file.alibi or [routine.place(vid, file.crime.phase)]
@@ -50,7 +52,7 @@ def household_word(file: CaseFile, speaker: Villager, about: Villager, answer: s
     if answer is None:
         return None
     if answer == "cover":
-        word = f"{about.name} was home with me all night.", about.id != file.crime.culprit
+        word = f"{about.name} was home with me all night.", about.id != file.crime.culprit and about.id not in file.liars
     else:
         word = f"I was asleep. I can't say where {about.name} was.", True
     file.words[key] = list(word)

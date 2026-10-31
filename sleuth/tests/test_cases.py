@@ -1093,3 +1093,29 @@ async def test_no_evidence_of_a_car_theft_shows_the_culprit_s_own_car():
         records = list(f.records.values())
         assert not any("car" in r.traits for r in records)
         assert suspects(f.crime, [r for r in records if r.sound], town) == {f.crime.culprit}
+
+
+@pytest.mark.asyncio
+async def test_a_death_has_a_liar_among_those_with_motives():
+    opened = lied = 0
+    for seed in range(20):
+        cases, engine, town = deadly(seed)
+        # Jo is at the bar and Kit at the cafe, where Eli works, so each has a secret something gives away.
+        cases.routine = StubRoutine({vid: {"night": {"v7": "bar", "v8": "cafe"}.get(vid, street),
+                                           "morning": "cafe" if vid == "v2" else street} for vid, _, _, street in RESIDENTS})
+        await cases._stage(engine, "major", 1, "night", set())
+        if (case := next(iter(cases.open_shared("major")), None)) is None:
+            continue
+        opened += 1
+        lied += bool(case.liars)
+        assert set(case.liars) <= set(case.motives) - {case.crime.culprit} and len(case.liars) <= 1
+    assert opened and lied == opened
+
+
+def test_liars_round_trip_with_the_case():
+    cases, _, town = make_cases()
+    file = culprit_file(cases)
+    file.liars = {"v6": {"kind": "job", "place": "cafe", "claimed": "oak street", "exposer": "v2", "text": "Ivy was"}}
+    fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
+    fresh.restore(json.loads(json.dumps(cases.to_state())))
+    assert fresh.files == cases.files

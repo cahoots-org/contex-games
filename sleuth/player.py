@@ -576,7 +576,9 @@ class Player:
         if kind == "where_were_you" and (routed.when == crime.phase or routed.when in crime.window):
             places, sound = claim(file, vid, routine)
             text = f"{name} says they were {' then '.join(at(p) for p in places)} {WHEN}."
-            return [self._statement(file, vid, text, sound)] if places else [], []
+            exposer = file.liars.get(vid, {}).get("exposer")
+            disproof = exposer if exposer in file.records else None
+            return [self._statement(file, vid, text, sound, disproof=disproof)] if places else [], []
         if kind == "where_were_you":
             usual = routine.place(vid, routed.when) if routine else None
             text = f"{name} says they're usually {at(usual)} in the {routed.when}."
@@ -584,6 +586,8 @@ class Player:
         if kind == "where_was" and about:
             if word := accomplice_word(file, villager, about):
                 return [self._statement(file, vid, f"{name}: {word[0]}", word[1], who=about.id, disproof=word[2])], []
+            if (secret := file.liars.get(about.id)) and secret["exposer"] == vid:
+                return [self._statement(file, vid, f"{name}: {secret['text']}.", True, who=about.id)], []
             if word := household_word(file, villager, about, routed.words.get(about.id)):
                 return [self._statement(file, vid, f"{name}: {word[0]}", word[1], who=about.id)], []
             theirs = file.whereabouts.get(about.id, [])

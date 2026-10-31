@@ -21,6 +21,7 @@ from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.models import Utterance, Villager
 from sleuth.offenders import Offender, Offenders
+from sleuth.secrets import pick_liar
 from sleuth.town import STREETS, Town, at, district_of, place_name
 
 log = logging.getLogger(__name__)
@@ -32,6 +33,9 @@ ARRESTED = "{name} was arrested and has left town."
 ON_EDGE = "{street} is on edge after {title}."
 BREATHES = "{street} breathes a little easier now {name}'s been found out."
 RESOLVED = "{street} has its answer now. People are looking after one another."
+SECRET_OUT = "{name} wasn't home that night: {text}."
+# The chance a serious case has an innocent liar; a death always has one among those with motives when one fits.
+LIAR_CHANCE = 0.5
 # How many crimes are drawn in one go for a solvable one.
 DRAWS = 10
 
@@ -54,6 +58,7 @@ class CaseFile:
     named: dict[str, str] = field(default_factory=dict)  # player → the resident their episode named
     accomplice: str | None = None  # who covers for the culprit
     motives: list[str] = field(default_factory=list)  # a death's: who was on cold terms with the victim
+    liars: dict[str, dict] = field(default_factory=dict)  # innocent resident → their secret, from pick_liar
 
 
 def case_json(case: CaseFile, town: Town, routine, today: float | None = None) -> dict:
@@ -237,13 +242,17 @@ class Cases:
         return v
 
     def on_wrong(self, engine, file: CaseFile, player_id: str, accused: str) -> None:
-        """A wrong episode costs the town's regard, the accused's most of all, then their household's and close ties'."""
+        """A wrong episode costs the town's regard, the accused's most of all, then their household's and close ties';
+        an accused liar's secret comes out on the app."""
         config, them = self.config, self.town.get(accused)
         engine.reputation.nudge_all(player_id, config.reputation_wrong, [v.id for v in self.town.villagers])
         engine.reputation.nudge(accused, player_id, config.reputation_accused)
         ties = [v.id for v in self.town.villagers if v.id != accused and (
             them.household and v.household == them.household or warmth_words(v.warmth.get(accused, 0.0)) == "close")]
         engine.reputation.nudge_all(player_id, config.reputation_accused_ties, ties)
+        if secret := file.liars.get(accused):
+            text = SECRET_OUT.format(name=them.name, text=secret["text"])
+            engine.feed.on_post(Utterance("", "app", APP, them.home, text, None, "posted"), file.crime.id)
 
     def _expose(self, engine, file: CaseFile, player_id: str | None) -> None:
         """The town learns what the culprit did, and they lie low. When a podcaster exposed them, the culprit is cold to
@@ -443,7 +452,8 @@ class Cases:
         no one at all with the tier's NO_WITNESS chance, and, if it narrows to the culprit, add as many of the tier's false
         pieces as something on file disproves, and open the case: tell its witnesses and victim what they saw and found,
         and post the news, a death's to the victim's street and ties. An accomplice is kept only when a log on file
-        disproves their word. A death's victim is found by someone at the scene, then leaves town, and someone moves in.
+        disproves their word. A serious case has an innocent liar with LIAR_CHANCE, a death always one among those with
+        motives when one fits. A death's victim is found by someone at the scene, then leaves town, and someone moves in.
         False if it cannot be made solvable, a false piece's disproof isn't on file, or a death has no one to find it."""
         away = pictured | {f.crime.culprit for f in self.files.values() if f.state == "open"}
         witnessed = self.rng.random() >= NO_WITNESS[crime.tier]
@@ -477,9 +487,15 @@ class Cases:
         if death and finder is None:
             return False
         records.append(discovery(crime, self.town, self.rng, self.ids, finder))
+        cold = motives(self.town, crime.victim) if death else []
+        liar = None
+        if death or crime.tier == "serious" and self.rng.random() < LIAR_CHANCE:
+            barred = away | {r.holder for r in records}
+            barred |= {v.id for v in self.town.villagers if v.id not in cold} if death else set()
+            liar = pick_liar(crime, whereabouts, self.town, self.routine, self.rng, barred, records)
         case = self.files[crime.id] = CaseFile(crime, {r.id: r for r in records}, "open", opened=self.now,
-                                               whereabouts=whereabouts, accomplice=accomplice,
-                                               motives=motives(self.town, crime.victim) if death else [])
+                                               whereabouts=whereabouts, accomplice=accomplice, motives=cold,
+                                               liars=dict([liar]) if liar else {})
         for m in records:
             if m.kind in ("memory", "discovery"):
                 await self._remember(engine, case, m)
