@@ -564,9 +564,9 @@ class Player:
         return told(text, crime, self._today())
 
     def _statement(self, file: CaseFile, vid: str, text: str, sound: bool, source: str | None = None,
-                   who: str | None = None) -> Record:
+                   who: str | None = None, disproof: str | None = None) -> Record:
         return Record("", file.crime.id, "statement", self.place, self._clock(), text, vid, who=who, sound=sound,
-                      utterance=source, day=self.game.day if self.game else 0)
+                      utterance=source, day=self.game.day if self.game else 0, disproof=disproof)
 
     async def _known(self, file: CaseFile, villager: Villager, routed: Route,
                      question: str) -> tuple[list[Record], list[str]]:
@@ -582,8 +582,9 @@ class Player:
             text = f"{name} says they're usually {at(usual)} in the {routed.when}."
             return [self._statement(file, vid, text, True)] if usual else [], []
         if kind == "where_was" and about:
-            if word := accomplice_word(file, villager, about) or household_word(file, villager, about,
-                                                                                 routed.words.get(about.id)):
+            if word := accomplice_word(file, villager, about):
+                return [self._statement(file, vid, f"{name}: {word[0]}", word[1], who=about.id, disproof=word[2])], []
+            if word := household_word(file, villager, about, routed.words.get(about.id)):
                 return [self._statement(file, vid, f"{name}: {word[0]}", word[1], who=about.id)], []
             theirs = file.whereabouts.get(about.id, [])
             met = [p for p in file.whereabouts.get(vid, []) if p in theirs and p != crime.place]

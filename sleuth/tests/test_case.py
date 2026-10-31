@@ -23,6 +23,7 @@ from sleuth.case import (
     logs,
     evident,
     make_solvable,
+    minute_of,
     passing_clip,
     points_at,
     record_json,
@@ -308,6 +309,17 @@ def test_a_trusting_witness_sharpens_a_range():
     m = Record("r-1", crime.id, "memory", crime.place, "11:40pm", "", traits={"height": "not tall"})
     more = recall_more(crime, m, town.sighting(crime.culprit, 1))
     assert more.traits == {"height": "short"} and more.id == ""
+
+
+def test_a_mistaken_witness_recalls_nothing_more():
+    town, _, crime = make_case()
+    m = Record("r-1", crime.id, "memory", crime.place, "11:40pm", "", traits={"height": "short"}, sound=False)
+    assert recall_more(crime, m, town.sighting(crime.culprit, 1)) == m
+
+
+def test_a_clock_reads_back_as_minutes_in_its_part_of_the_day():
+    assert minute_of(clock_at(1400), "night") == 1400 and minute_of(clock_at(1500), "night") == 1500
+    assert minute_of(clock_at(725), "afternoon") == 725
 
 
 def test_clip_only_at_camera_places():

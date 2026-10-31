@@ -72,7 +72,7 @@ def test_an_accomplice_vouches_falsely_for_the_culprit():
     file = culprit_file(cases)
     file.accomplice, file.whereabouts = "v7", {"v7": ["bar"]}
     fay, jo = town.get("v3"), town.get("v7")
-    assert accomplice_word(file, jo, fay) == (f"Fay Okafor was with me at the bar {WHEN}.", False)
+    assert accomplice_word(file, jo, fay) == (f"Fay Okafor was with me at the bar {WHEN}.", False, None)
     assert accomplice_word(file, town.get("v8"), fay) is None and accomplice_word(file, jo, town.get("v4")) is None
 
 

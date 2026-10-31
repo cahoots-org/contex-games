@@ -137,12 +137,20 @@ class Record:
     utterance: str | None = None  # memory: its delivered utterance id; statement: source record id
     day: int = 0  # game day
     trail: bool = False  # a store log behind a receipt dropped at the scene
+    disproof: str | None = None  # an unsound record's: the id of a sound record that contradicts it
 
 
 def clock_at(minute: int) -> str:
     """Minutes since midnight as a twelve-hour time, like "11:42pm"."""
     hour, mins = divmod(minute % 1440, 60)
     return f"{(hour - 1) % 12 + 1}:{mins:02d}{'am' if hour < 12 else 'pm'}"
+
+
+def minute_of(clock: str, phase: str) -> int:
+    """A twelve-hour time in phase as minutes since the phase's day began, past midnight for the small hours."""
+    hour, mins = map(int, clock[:-2].split(":"))
+    minute = hour % 12 * 60 + mins + (720 if clock.endswith("pm") else 0)
+    return minute + 1440 if minute < PHASE_MINUTES[phase][0] else minute
 
 
 def ago(day: int, phase: str, today: float) -> str:
@@ -328,7 +336,10 @@ def witness_sees(culprit: dict[str, str], rng: Random) -> dict[str, str]:
 
 
 def recall_more(crime: Crime, memory: Record, culprit: dict[str, str]) -> Record:
-    """The memory with a rough sighting sharpened or one more trait, unnumbered, or as it was when it has them all."""
+    """The memory with a rough sighting sharpened or one more trait, unnumbered, or as it was when it has them all or
+    is mistaken."""
+    if not memory.sound:
+        return replace(memory)
     seen = dict(memory.traits)
     rough = next((c for c in seen if seen[c] != culprit[c]), None)
     extra = rough or next((c for c in SEEN_AS if c in culprit and c not in seen), None)

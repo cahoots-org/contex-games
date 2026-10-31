@@ -1593,6 +1593,17 @@ async def test_citing_the_accomplice_s_word_sinks_the_episode():
     assert file.state == "open" and player.standing == 0
 
 
+@pytest.mark.asyncio
+async def test_the_accomplice_s_word_is_disproved_by_a_log_at_the_place_they_name():
+    player, file, engine, _ = interviewing()
+    file.accomplice, file.whereabouts["v7"] = "v7", ["bar"]
+    file.records["r-90"] = Record("r-90", file.crime.id, "log", "bar", "11:10pm", "Bar tab closed: Jo Tran, 11:10pm",
+                                  who="v7", day=1)
+    await ask(player, "v7", "where_was", who="v3")
+    [word] = notebook(player)
+    assert not word.sound and word.disproof == "r-90"
+
+
 def a_death(player, file):
     """Dana (v1) died; Hal (v5), Jo (v7) and Kit (v8) had reason to."""
     file.crime.template, file.crime.item, file.crime.tier = "death", "", "major"

@@ -5,6 +5,7 @@ from typesafe_sdk import Choice
 from sleuth.case import WHEN
 from sleuth.cases import CaseFile
 from sleuth.decide import warmth_words
+from sleuth.falsehoods import cover_disproof
 from sleuth.models import Villager
 from sleuth.town import at
 
@@ -56,10 +57,10 @@ def household_word(file: CaseFile, speaker: Villager, about: Villager, answer: s
     return word
 
 
-def accomplice_word(file: CaseFile, speaker: Villager, about: Villager) -> tuple[str, bool] | None:
-    """The accomplice's false word that the culprit was with them, its time as WHEN; None from anyone else, or about
-    anyone else."""
+def accomplice_word(file: CaseFile, speaker: Villager, about: Villager) -> tuple[str, bool, str | None] | None:
+    """The accomplice's false word that the culprit was with them, its time as WHEN, and the id of the log on file
+    that disproves it; None from anyone else, or about anyone else."""
     if speaker.id != file.accomplice or about.id != file.crime.culprit:
         return None
     place = (file.whereabouts.get(speaker.id) or [speaker.home])[0]
-    return f"{about.name} was with me {at(place)} {WHEN}.", False
+    return f"{about.name} was with me {at(place)} {WHEN}.", False, cover_disproof(file.crime, file.records.values(), place)

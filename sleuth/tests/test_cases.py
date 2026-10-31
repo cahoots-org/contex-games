@@ -226,6 +226,15 @@ async def test_cases_round_trip_through_state():
     assert fresh.files == cases.files and fresh.to_state() == cases.to_state()
 
 
+def test_a_record_s_disproof_round_trips_with_the_case():
+    cases, _, town = make_cases()
+    file = culprit_file(cases)
+    file.records["r-1"] = Record("r-1", file.crime.id, "clue", "elm street", "", "A thread.", sound=False, disproof="r-2")
+    fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
+    fresh.restore(json.loads(json.dumps(cases.to_state())))
+    assert fresh.files[file.crime.id].records["r-1"].disproof == "r-2"
+
+
 @pytest.mark.asyncio
 async def test_a_restore_with_no_open_case_opens_one():
     cases, engine, town = make_cases()
@@ -728,9 +737,11 @@ async def test_a_held_serious_episode_ends_in_an_arrest():
 @pytest.mark.asyncio
 async def test_an_accomplice_is_never_a_witness_of_the_same_case():
     covered = 0
-    for seed in range(30):
+    for seed in range(60):
         cases, engine, _ = make_cases(offenders=8, accomplice_chance=1.0)
         cases.rng = Random(seed)
+        # An accomplice is kept only where a log can disprove their word.
+        cases.routine = make_routine({"v2": "bar", "v4": "gym", "v6": "gym", "v7": "bar", "v8": "gym"})
         engine.players.add(podcaster("serious"))
         tiered(cases, "petty", opened=2.0)
         await tick(cases, engine)
@@ -787,6 +798,7 @@ async def test_no_one_usually_at_the_scene_is_the_accomplice():
     for seed in range(20):
         cases, engine, town = make_cases(accomplice_chance=1.0)
         cases.rng = Random(seed)
+        cases.routine = make_routine({"v7": "gym"})
         town.get("v5").warmth.update({"v2": 0.9, "v7": 0.7})
         crime = Crime(f"case-{seed}", "mug", "wallet", "v5", "v1", "elm street", 1, "night", 1400, "opportunity", "",
                       tier="serious")
@@ -1038,7 +1050,7 @@ async def test_a_case_without_witnesses_is_solved_from_traces_and_records(monkey
     assert len(opened) >= 50
     for f, town in opened:
         records = list(f.records.values())
-        assert not [r for r in records if r.kind == "memory" and r.holder != f.crime.victim]
+        assert not [r for r in records if r.sound and r.kind == "memory" and r.holder != f.crime.victim]
         assert suspects(f.crime, [r for r in records if r.sound], town) == {f.crime.culprit}
 
 
@@ -1052,7 +1064,7 @@ async def test_a_death_s_witness_is_rare_and_only_saw_someone_leaving():
             continue
         staged += 1
         memories = [r for r in case.records.values() if r.kind == "memory"]
-        seen += bool(memories)
+        seen += any(m.sound for m in memories)
         for m in memories:
             assert len(m.traits) == 1 and re.search(r"leaving|drove off|rode off", m.text), m.text
             assert "argu" not in m.text
