@@ -1059,3 +1059,22 @@ async def test_a_death_s_witness_is_rare_and_only_saw_someone_leaving():
         if staged == 200:
             break
     assert staged == 200 and 0 < seen < staged / 2
+
+
+@pytest.mark.asyncio
+async def test_no_evidence_of_a_car_theft_shows_the_culprit_s_own_car():
+    thefts = []
+    for seed in range(300):
+        town, routine = generated_town(seed)
+        cases = Cases(Config(**PACING), town, routine, Random(seed), Ids())
+        engine = FakeEngine(town)
+        engine.players.add(podcaster("serious"))
+        await tick(cases, engine)
+        thefts += [(f, town) for f in cases.open_shared("serious") if f.crime.template == "car"]
+        if len(thefts) >= 20:
+            break
+    assert len(thefts) >= 20
+    for f, town in thefts:
+        records = list(f.records.values())
+        assert not any("car" in r.traits for r in records)
+        assert suspects(f.crime, [r for r in records if r.sound], town) == {f.crime.culprit}

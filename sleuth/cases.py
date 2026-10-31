@@ -14,13 +14,13 @@ from sleuth.case import (
 )
 from sleuth.config import Config
 from sleuth.decide import warmth_words
-from sleuth.districts import FORMED, TOLD, WOUND_DOWN, Districts, district_of, level
+from sleuth.districts import FORMED, TOLD, WOUND_DOWN, Districts, level
 from sleuth.feed import APP
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.models import Utterance, Villager
 from sleuth.offenders import Offender, Offenders
-from sleuth.town import STREETS, Town, at, place_name
+from sleuth.town import STREETS, Town, at, district_of, place_name
 
 log = logging.getLogger(__name__)
 
@@ -440,8 +440,8 @@ class Cases:
     async def _open(self, engine, crime: Crime, pictured: set[str]) -> bool:
         """Leave the crime's evidence, witnessed by no one pictured elsewhere then nor any open case's culprit, and by
         no one at all with the tier's NO_WITNESS chance, and, if it narrows to the culprit, open the case: tell its
-        witnesses and victim what they saw and found, and post the news, a death's to the victim's street and ties. A death's victim is found by someone at the scene, then leaves
-        town, and someone moves in.
+        witnesses and victim what they saw and found, and post the news, a death's to the victim's street and ties. A
+        death's victim is found by someone at the scene, then leaves town, and someone moves in.
         False if it cannot be made solvable or a death has no one to find it."""
         away = pictured | {f.crime.culprit for f in self.files.values() if f.state == "open"}
         witnessed = self.rng.random() >= NO_WITNESS[crime.tier]

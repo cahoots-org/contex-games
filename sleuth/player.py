@@ -8,7 +8,7 @@ from dataclasses import asdict, replace
 
 from sleuth.alibi import accomplice_word, claim, household_word
 from sleuth.case import (
-    WHEN, CRIMES, Crime, Record, clock_at, motive_of, recall_more, record_json, resents, retime, told, when,
+    WHEN, CRIMES, Crime, Record, clock_at, evident, motive_of, recall_more, record_json, resents, retime, told, when,
 )
 from sleuth.cases import CaseFile
 from sleuth.config import Config
@@ -645,7 +645,7 @@ class Player:
         crime = file.crime
         records = [replace(r) for r in file.records.values() if r.kind in ("memory", "discovery") and r.holder == vid]
         if self.engine.reputation.get(vid, self.id) >= self.config.trusted_at:
-            culprit = self.town.sighting(crime.culprit, crime.day)
+            culprit = evident(crime, self.town)
             records = [recall_more(crime, r, culprit) if r.kind == "memory" else r for r in records]
         return records
 

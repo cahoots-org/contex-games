@@ -21,6 +21,7 @@ from sleuth.case import (
     discovery,
     found_it,
     logs,
+    evident,
     make_solvable,
     passing_clip,
     points_at,
@@ -729,9 +730,9 @@ def test_traces_come_before_witnesses():
 
 def test_a_case_with_no_witness_is_never_given_one():
     town, routine, crime = make_case()
-    for seed in range(20):
-        added = make_solvable(crime, [], town, routine, Random(seed), Ids(), allow_witness=False)
-        assert added is None or not any(r.kind == "memory" for r in added)
+    results = [make_solvable(crime, [], town, routine, Random(seed), Ids(), allow_witness=False) for seed in range(20)]
+    assert any(added is not None for added in results)
+    assert not any(r.kind == "memory" for added in results if added for r in added)
 
 
 def test_a_passing_camera_sees_only_the_car():
@@ -756,3 +757,16 @@ def test_unsound_records_never_narrow_suspects():
     lie = Record("r-1", "case-1", "memory", "elm street", "11:40pm", "", "v2", dict(town.looks("v3", 1)), sound=False)
     alibi = Record("r-2", "case-1", "log", "gym", "11:00pm", "", who="v6", sound=False)
     assert suspects(crime, [lie, alibi], town) == suspects(crime, [], town)
+
+
+def test_a_car_thief_s_own_car_is_never_evident():
+    town, routine, crime = make_case()
+    theft = replace(crime, template="car", item="car", tier="serious")
+    assert "car" not in evident(theft, town) and evident(crime, town)["car"] == town.looks(crime.culprit, 1)["car"]
+    town.get(crime.culprit).traits["car"] = "red pickup"
+    assert passing_clip(replace(theft, place="cafe"), town, Ids(), Random(0)) is None
+    for seed in range(40):
+        records = [*witness_memories(theft, town, routine, Random(seed), Ids()),
+                   *scene_clues(theft, town, routine, Random(seed), Ids()),
+                   *(make_solvable(theft, [], town, routine, Random(seed), Ids()) or [])]
+        assert records and not any("car" in r.traits for r in records)

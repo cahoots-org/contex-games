@@ -1,7 +1,7 @@
 """Staging a crime from where the town expects its residents to be, and the evidence it leaves."""
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
 from random import Random
 
@@ -310,6 +310,13 @@ def _memory(crime: Crime, witness: str, seen: dict[str, str], rng: Random, ids: 
                   witness, seen, day=crime.day)
 
 
+def evident(crime: Crime, town: Town) -> dict[str, str]:
+    """What evidence can show of the culprit: their sighting that day, less their own car when they drove off in the
+    victim's."""
+    seen = town.sighting(crime.culprit, crime.day)
+    return {c: v for c, v in seen.items() if not (crime.template == "car" and c == "car")}
+
+
 def witness_sees(culprit: dict[str, str], rng: Random) -> dict[str, str]:
     """One thing a witness noticed of the culprit, sometimes only roughly."""
     category = rng.choice([c for c in SEEN_AS if c in culprit])
@@ -340,7 +347,7 @@ def witness_memories(crime: Crime, town: Town, routine, rng: Random, ids: Ids, a
     """Up to the tier's EVIDENCE count of residents expected at the scene and not away, each recalling one thing about
     the culprit."""
     bystanders = _bystanders(crime, town, routine, away)
-    culprit = town.sighting(crime.culprit, crime.day)
+    culprit = evident(crime, town)
     memories = []
     for w in rng.sample(bystanders, min(EVIDENCE[crime.tier][0], len(bystanders))):
         memories.append(_memory(crime, w, witness_sees(culprit, rng), rng, ids))
@@ -349,7 +356,7 @@ def witness_memories(crime: Crime, town: Town, routine, rng: Random, ids: Ids, a
 
 def victim_memory(crime: Crime, town: Town, rng: Random, ids: Ids) -> Record:
     """What a mugging's victim saw of the mugger: one of their traits."""
-    culprit = town.sighting(crime.culprit, crime.day)
+    culprit = evident(crime, town)
     trait = rng.choice([c for c in SEEN_AS if c in culprit])
     return _memory(crime, crime.victim, {trait: culprit[trait]}, rng, ids)
 
@@ -384,11 +391,11 @@ def camera_clip(crime: Crime, town: Town, ids: Ids) -> Record | None:
 
 
 def passing_clip(crime: Crime, town: Town, ids: Ids, rng: Random) -> Record | None:
-    """Another camera in the scene's district catching the culprit's car heading away a few minutes after, if they
-    drive and the district has one."""
-    car = town.looks(crime.culprit, crime.day)["car"]
+    """Another camera in the scene's district catching the culprit's own car heading away a few minutes after, if they
+    drove it and the district has one."""
+    car = evident(crime, town).get("car")
     cameras = [p for p in CAMERA_PLACES if p != crime.place and district_of(p) == district_of(crime.place)]
-    if car == "bicycle" or not cameras:
+    if car in (None, "bicycle") or not cameras:
         return None
     camera = rng.choice(cameras)
     clock = clock_at(crime.minute + rng.randint(*PASSING))
@@ -401,9 +408,9 @@ def scene_clues(crime: Crime, town: Town, routine, rng: Random, ids: Ids, away=f
     """One or two things left at the scene: a trace of one of the culprit's traits, or a receipt dropped by the
     culprit or someone expected there and not away. A receipt names no one; the grocery's log for its time, returned
     with it, names who paid."""
-    culprit = town.looks(crime.culprit, crime.day)
+    culprit = evident(crime, town)
     clues: list[Record] = []
-    for kind in rng.sample([*TRACES, "receipt"], rng.randint(1, 2)):
+    for kind in rng.sample([*(k for k in TRACES if k in culprit), "receipt"], rng.randint(1, 2)):
         if kind == "receipt":
             who = rng.choice([crime.culprit, *_bystanders(crime, town, routine, away)])
             clues += _receipt(crime, who, town, rng, ids)
@@ -471,7 +478,7 @@ def make_solvable(crime: Crime, records: list[Record], town: Town, routine, rng:
     left = suspects(crime, records, town)
     if crime.culprit not in left:
         return None
-    culprit = town.sighting(crime.culprit, crime.day)
+    culprit = evident(crime, town)
     added: list[Record] = []
     pointing = any(points_at(crime, crime.culprit, culprit, r) for r in records)
     for lead in _leads(crime, records, town, rng, ids):
@@ -503,11 +510,11 @@ def make_solvable(crime: Crime, records: list[Record], town: Town, routine, rng:
     return added
 
 
-def _leads(crime: Crime, records: list[Record], town: Town, rng: Random, ids: Ids):
+def _leads(crime: Crime, records: list[Record], town: Town, rng: Random, ids: Ids) -> Iterator[list[Record]]:
     """The evidence make_solvable tries before a witness, each piece made only when it is tried."""
-    looks = town.looks(crime.culprit, crime.day)
+    looks = evident(crime, town)
     seen = {c for r in records if r.kind in ("memory", "clip", "clue") for c in r.traits}
-    kinds = [k for k in TRACES if k not in seen]
+    kinds = [k for k in TRACES if k in looks and k not in seen]
     for kind in rng.sample(kinds, len(kinds)):
         yield [_trace(crime, kind, looks[kind], ids)]
     if clip := passing_clip(crime, town, ids, rng):
