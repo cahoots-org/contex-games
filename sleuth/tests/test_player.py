@@ -10,7 +10,7 @@ from random import Random
 from sleuth.contex_client import Match
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
-from sleuth.player import KNOWN_KEPT, PRACTICE_WRONG, HELD, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, Player, Refusal, conveys, learned, looks_in, voiced
+from sleuth.player import KNOWN_KEPT, PRACTICE_WRONG, HELD, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, Player, Refusal, conveys, first_hand, learned, looks_in, voiced
 from sleuth.players import Players
 from sleuth.config import Config
 from sleuth.case import WHEN, Record
@@ -23,6 +23,7 @@ from sleuth.photos import Album, posted
 from sleuth.tests.helpers import PID, FakeEngine, StubJev, StubRoutine, StubWriter
 from sleuth.tests.test_cases import culprit_file, make_cases, shared
 from sleuth.tests.helpers import make_player as make
+from sleuth.writer import invents_facts
 
 
 @pytest.fixture
@@ -1054,6 +1055,36 @@ def test_a_reply_conveys_a_look_in_a_close_spelling(line):
     assert conveys(line, [memory])
     hair = replace(memory, traits={"hair": "dark-haired"})
     assert conveys("Someone with dark hair.", [hair]) and not conveys("Someone with red hair.", [hair])
+
+
+SIGHTED = "Around 11:40pm, on Elm Street, a tall woman walked off with something, headed toward Oak Street."
+
+
+def sighted_memory():
+    return Record("r-1", "case-1", "memory", "elm street", "11:40pm", SIGHTED, "v2",
+                  {"gender": "woman", "height": "tall", "headed": "oak street"})
+
+
+def test_a_reply_conveys_a_gender_and_a_street_and_drops_neither():
+    memory = sighted_memory()
+    assert conveys("I saw a tall woman walk off, headed toward Oak Street.", [memory])
+    assert not conveys("I saw a tall woman walk off.", [memory])
+    assert not conveys("I saw a tall woman walk off, headed toward Elm Street.", [memory])
+
+
+def test_a_reply_inventing_a_gender_or_a_street_is_rejected():
+    allowed = f"Dana Reyes {SIGHTED}"
+    firsts = {"Dana"}
+    assert not invents_facts("I saw a tall woman, headed toward Oak Street.", allowed, firsts)
+    assert invents_facts("I saw a tall man, headed toward Oak Street.", allowed, firsts)
+    plain = "Around 11:40pm, on Elm Street, someone walked off with something."
+    assert invents_facts("I saw a woman walk off.", f"Dana Reyes {plain}", firsts)
+
+
+def test_a_witness_tells_a_gender_and_street_sighting_first_hand():
+    eli = SimpleNamespace(id="v2", name="Eli Reyes")
+    assert first_hand("I saw a tall woman, headed toward Oak Street.", [sighted_memory()], eli)
+    assert not first_hand("I heard a tall woman was headed toward Oak Street.", [sighted_memory()], eli)
 
 
 def test_a_hedge_the_records_make_themselves_still_conveys_them():

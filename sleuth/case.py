@@ -276,15 +276,26 @@ def record_json(r: Record, town: Town, crime: Crime | None = None, today: float 
             "from": town.name_of(r.holder) or "" if r.holder else "", "holder": r.holder}
 
 
+def _sighted(seen: dict[str, str]) -> str:
+    """Who was seen, gender as the noun: "a tall woman in a grey hoodie", "a bald figure", or just "someone"."""
+    looks = ", ".join(seen[c].replace(" ", "-") for c in ("height", "hair") if c in seen)
+    noun = seen.get("gender") or ("figure" if looks else "")
+    gear = " ".join(describe({c: seen[c]}) for c in ("coat", "car") if c in seen)
+    words = f"{looks} {noun}".strip()
+    if words:
+        words = f"{'an' if words[0] in 'aeiou' else 'a'} {words}"
+    return f"{words or 'someone'} {gear}".rstrip()
+
+
 def _memory_text(crime: Crime, clock: str, seen: dict[str, str], holder: str) -> str:
     """What the holder saw, a mugging's victim in their own words."""
+    where = f"Around {clock}, {at(crime.place)}"
     if list(seen) == ["car"] and holder != crime.victim:
         car = "a car" if seen["car"] in RANGES else f"a {seen['car']}"
-        gone = "rode off on" if seen["car"] == "bicycle" else "drove off in"
-        return f"Around {clock}, {at(crime.place)}, someone {gone} {car}."
+        return f"{where}, someone {'rode off on' if seen['car'] == 'bicycle' else 'drove off in'} {car}."
     did = VICTIM_SAW.format(item=crime.item) if holder == crime.victim else CRIMES[crime.template].seen
-    who = describe(seen) if "gender" in seen else f"someone {describe(seen)}"
-    return f"Around {clock}, {at(crime.place)}, {who} {did}."
+    headed = f", headed toward {place_name(seen['headed'])}" if "headed" in seen else ""
+    return f"{where}, {_sighted(seen)} {did}{headed}."
 
 
 def _memory(crime: Crime, witness: str, seen: dict[str, str], rng: Random, ids: Ids) -> Record:
@@ -305,8 +316,7 @@ def witness_sees(culprit: dict[str, str], rng: Random) -> dict[str, str]:
 
 
 def recall_more(crime: Crime, memory: Record, culprit: dict[str, str]) -> Record:
-    """The memory with a rough sighting sharpened, else one more of the culprit's traits, unnumbered, or as it was
-    when it already has them all."""
+    """The memory with a rough sighting sharpened or one more trait, unnumbered, or as it was when it has them all."""
     seen = dict(memory.traits)
     rough = next((c for c in seen if seen[c] != culprit[c]), None)
     extra = rough or next((c for c in SEEN_AS if c in culprit and c not in seen), None)

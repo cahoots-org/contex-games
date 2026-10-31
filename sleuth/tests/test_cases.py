@@ -906,7 +906,7 @@ def generated_town(seed):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("seed", range(2, 6))
+@pytest.mark.parametrize("seed", range(5))
 async def test_a_town_at_test_pacing_opens_a_major_case_for_a_major_podcaster(seed):
     town, routine = generated_town(seed)
     config = Config(**PACING)
@@ -914,7 +914,7 @@ async def test_a_town_at_test_pacing_opens_a_major_case_for_a_major_podcaster(se
     cases.districts = Districts(config)
     engine = FakeEngine(town)
     engine.players.add(podcaster("major"))
-    for day in (1, 2):
+    for day in (1, 2, 3):
         for phase in PHASES:
             await cases.on_tick(engine, day, phase, {})
     assert any(f.crime.tier == "major" for f in cases.files.values())

@@ -5,6 +5,7 @@ from random import Random
 import pytest
 
 from sleuth.case import (
+    _memory_text,
     CLIP_TRAITS,
     CRIMES,
     ITEM_PLACES,
@@ -230,7 +231,7 @@ def test_witness_sees_culprit_traits_and_never_a_name():
     culprit = town.get(crime.culprit)
     m = witness_memories(crime, town, routine, Random(3), Ids())[0]
     assert fits(m.traits, town.sighting(culprit.id, 1)) and culprit.name not in m.text
-    assert m.id == "r-1" and m.text.startswith(f"Around {m.clock}, on Elm Street, someone ")
+    assert m.id == "r-1" and m.text.startswith(f"Around {m.clock}, on Elm Street, ")
     assert any(clock_at(minute) == m.clock for minute in range(1402, 1443)) and m.day == crime.day
 
 
@@ -259,6 +260,38 @@ def test_a_car_alone_is_someone_driving_off():
         assert texts[car].endswith(sees[car])
         if car != "bicycle":
             assert texts["with a car"].endswith("someone drove off in a car.")
+
+
+SAW = {
+    (("height", "tall"),): "a tall figure walked off with something.",
+    (("hair", "bald"),): "a bald figure walked off with something.",
+    (("coat", "grey hoodie"),): "someone in a grey hoodie walked off with something.",
+    (("gender", "woman"),): "a woman walked off with something.",
+    (("headed", "oak street"),): "someone walked off with something, headed toward Oak Street.",
+    (("gender", "woman"), ("height", "tall"), ("coat", "grey hoodie")): "a tall woman in a grey hoodie walked off with something.",
+    (("gender", "man"), ("height", "average height")): "an average-height man walked off with something.",
+    (("gender", "woman"), ("height", "not tall")): "a not-tall woman walked off with something.",
+    (("height", "tall"), ("hair", "bald"), ("car", "bicycle")): "a tall, bald figure with a bicycle walked off with something.",
+    (("gender", "man"), ("hair", "bald"), ("coat", "in a dark coat"), ("car", "red pickup"), ("headed", "elm street")):
+        "a bald man in a dark coat with a red pickup walked off with something, headed toward Elm Street.",
+}
+
+
+@pytest.mark.parametrize("seen", SAW)
+def test_a_sighting_reads_as_plain_english(seen):
+    _, _, crime = make_case()
+    text = _memory_text(crime, "9:45am", dict(seen), "v2")
+    assert text == f"Around 9:45am, on Elm Street, {SAW[seen]}"
+
+
+def test_a_car_alone_is_someone_driving_off_but_a_victim_still_says_it_was_grabbed():
+    _, _, crime = make_case()
+    assert _memory_text(crime, "9:45am", {"car": "red pickup"}, "v2").endswith(", someone drove off in a red pickup.")
+    assert _memory_text(crime, "9:45am", {"car": "with a car"}, "v2").endswith(", someone drove off in a car.")
+    assert _memory_text(crime, "9:45am", {"car": "red pickup"}, "v1").endswith(
+        ", someone with a red pickup grabbed at me and took my bike.")
+    assert _memory_text(crime, "9:45am", {"gender": "man", "headed": "oak street"}, "v1").endswith(
+        ", a man grabbed at me and took my bike, headed toward Oak Street.")
 
 
 def test_headed_toward_narrows_by_home_street():
