@@ -22,7 +22,7 @@ WARDROBE = 3
 # What talking to someone shows of them, and what someone who knows them can put into words.
 IN_PERSON = ("gender", "height", "hair", "coat")
 BY_WORD = ("height", "hair", "car")
-PHRASES = {"gender": "{}", "height": "{}", "hair": "{}", "coat": "in a {}", "car": "with a {}"}
+PHRASES = {"gender": "a {}", "height": "{}", "hair": "{}", "coat": "in a {}", "car": "with a {}"}
 # What a witness can say loosely, and the trait values each phrase covers.
 RANGES: dict[str, tuple[str, ...]] = {
     "not tall": ("short", "average height"),
@@ -81,16 +81,15 @@ def fits(seen: dict[str, str], looks: dict[str, str]) -> bool:
 
 
 def assign_look(v: Villager, others: list[Villager], rng: random.Random, avoid: list[dict[str, str]] = ()) -> None:
-    """Give one resident fixed traits no one else's fixed look has and fitting none of the sightings to avoid, as far
-    as one is left, and a wardrobe."""
+    """Give one resident, keeping their gender, fixed traits no one else's fixed look has and fitting none of the
+    sightings to avoid, as far as one is left, and a wardrobe."""
     taken = {tuple(o.traits.get(c) for c in FIXED) for o in others}
     sightings = [{c: s[c] for c in FIXED if c in s} for s in avoid]
+    kept = {c: v.traits[c] for c in GIVEN if c in v.traits}
     looks = [dict(zip(FIXED, look)) for look in product(*(TRAITS[c] for c in FIXED))]
+    looks = [look for look in looks if kept.items() <= look.items()]
     free = [look for look in looks if tuple(look.values()) not in taken]
     clear = [look for look in free if not any(s and fits(s, look) for s in sightings)]
-    kept = {c: v.traits[c] for c in GIVEN if c in v.traits}
-    free = [look for look in free if kept.items() <= look.items()] or free
-    clear = [look for look in clear if look in free]
     v.traits = rng.choice(clear or free or looks)
     v.wardrobe = rng.sample(TRAITS["coat"], WARDROBE)
 

@@ -1,7 +1,10 @@
 import random
+from itertools import product
+
+import pytest
 
 from sleuth.models import Villager
-from sleuth.traits import COLOURS, FIXED, TRAITS, assign_traits, describe, face, figure, fits
+from sleuth.traits import COLOURS, FIXED, TRAITS, assign_look, assign_traits, describe, face, figure, fits
 
 
 def ring(n):
@@ -9,6 +12,7 @@ def ring(n):
 
 
 def test_describe_orders_and_phrases_traits():
+    assert describe({"height": "tall", "gender": "woman", "hair": "red-haired"}) == "a woman, tall, red-haired"
     assert describe({"coat": "grey hoodie", "height": "tall"}) == "tall, in a grey hoodie"
     assert describe({"car": "red pickup", "hair": "red-haired"}) == "red-haired, with a red pickup"
 
@@ -67,3 +71,17 @@ def test_generated_residents_keep_their_gender():
     assign_traits(vs, random.Random(2))
     assert [v.traits["gender"] for v in vs] == [("man", "woman")[i % 2] for i in range(20)]
     assert len({tuple(v.traits[c] for c in FIXED) for v in vs}) == 20
+
+
+@pytest.mark.parametrize("gender", ["man", "woman"])
+@pytest.mark.parametrize("seed", range(5))
+def test_someone_moving_in_is_given_a_look_of_their_own_gender(gender, seed):
+    others = [Villager(f"v{i}", f"N{i}", "x", "y", "", [], {}, dict(zip(FIXED, look)))
+              for i, look in enumerate(product(*(TRAITS[c] for c in FIXED))) if look[0] != gender]
+    v = Villager("v0", "Wren Abara", "x", "y", "", [], {}, {"gender": gender})
+    assign_look(v, others, random.Random(seed))
+    assert v.traits["gender"] == gender
+    full = [Villager(f"w{i}", f"M{i}", "x", "y", "", [], {}, dict(zip(FIXED, look)))
+            for i, look in enumerate(product(*(TRAITS[c] for c in FIXED)))]
+    assign_look(v, full, random.Random(seed))
+    assert v.traits["gender"] == gender

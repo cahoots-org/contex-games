@@ -39,7 +39,8 @@ WARMTH = {
 SYSTEM = "You invent residents of a small modern American town. Reply with only JSON, no prose."
 PROMPT = (
     "Invent {n} distinct residents as a top-level JSON array of objects, not wrapped in "
-    "another object. Each item has: name (a full name), gender (\"man\" or \"woman\", matching the name), occupation (a job at one of the town's only workplaces, the "
+    "another object. Each item has: name (a full name), gender (\"man\" or \"woman\", matching the name), "
+    "occupation (a job at one of the town's only workplaces, the "
     "cafe, gym, school, bar, dog park, hardware store, grocery, town hall or library, saying which, like \"barista at "
     "the cafe\"; or work done from home or on a night shift out of town, saying so, like \"night-shift nurse\" or "
     "\"illustrator, works from home\"), personality (one "

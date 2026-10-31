@@ -21,7 +21,8 @@ from sleuth.tests.test_cases import culprit_file, make_cases, tiered
 from sleuth.town_gen import settle
 from sleuth.traits import FIXED, TRAITS, assign_look
 
-RESIDENT = {"name": "Wren Abara", "gender": "woman", "occupation": "locksmith", "personality": "dry and patient", "grudge": "",
+RESIDENT = {"name": "Wren Abara", "gender": "woman", "occupation": "locksmith",
+            "personality": "dry and patient", "grudge": "",
             "needs": ["a lock I can't pick", "my sister's new job", "rent going up"], "quirks": ["collects old keys"]}
 
 
@@ -116,10 +117,13 @@ async def test_someone_who_moved_in_may_be_an_offender_while_there_is_room(tmp_p
 
 
 @pytest.mark.asyncio
-async def test_someone_moving_in_keeps_the_gender_they_were_written_with(tmp_path):
+@pytest.mark.parametrize("gender", ["man", "woman"])
+@pytest.mark.parametrize("seed", range(5))
+async def test_someone_moving_in_keeps_the_gender_they_were_written_with(tmp_path, gender, seed):
     engine, _ = arriving(tmp_path)
-    engine.writer.reply = json.dumps([{**RESIDENT, "gender": "woman"}])
-    assert (await move_in(engine, "elm street")).traits["gender"] == "woman"
+    engine.cases.rng = Random(seed)
+    engine.writer.reply = json.dumps([{**RESIDENT, "gender": gender}])
+    assert (await move_in(engine, "elm street")).traits["gender"] == gender
 
 
 def test_a_resident_who_moved_in_has_unique_looks_and_three_outfits():
