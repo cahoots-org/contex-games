@@ -827,7 +827,7 @@ class Player:
                 if rival is not self and any(r.case == crime.id for r in rival.notebook.values()):
                     self.feed.say(RIVAL, player=rival.id)
         cited = [self.notebook[i] for i in record_ids]
-        note = "" if held else why_wrong(crime, culprit_id, cited, self.notebook, self.town, file.records)
+        note = "" if held else why_wrong(culprit_id, cited, self.notebook, self.town, file.records)
         self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids),
                              verdict=HELD if held else WRONG, note=note)
         self._rank(held, crime)

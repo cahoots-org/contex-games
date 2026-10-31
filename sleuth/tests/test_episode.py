@@ -110,46 +110,66 @@ def piece(rid, kind, holder="", disproof=None, text="", **fields):
 
 
 def note(named, cited, records=()):
-    return why_wrong(CRIME, named, cited, {r.id: r for r in cited}, TOWN, {r.id: r for r in records})
+    return why_wrong(named, cited, {r.id: r for r in cited}, TOWN, {r.id: r for r in records})
 
 
 def test_a_false_memory_is_answered_by_the_camera_that_shows_otherwise():
     fake = piece("r-1", "memory", "v7", "r-2", traits={"coat": "green raincoat"})
-    clip = record("r-2", kind="clip", traits={"coat": "black puffer"}, place="library")
-    assert why_wrong(CRIME, "v2", [fake, clip], {r.id: r for r in (fake, clip)}, TOWN, {}) == \
-        "Jo's green raincoat: the library camera shows a black puffer."
+    clip = record("r-2", kind="clip", traits={"height": "tall", "coat": "black puffer"})
+    assert note("v2", [fake, clip]) == \
+        "Jo's sighting of someone in a green raincoat: the Elm Street camera shows a black puffer."
+
+
+def test_a_camera_shows_a_height_as_someone_of_it():
+    fake = piece("r-1", "memory", "v7", "r-2", traits={"gender": "woman", "height": "short"})
+    clip = record("r-2", kind="clip", traits={"height": "tall", "coat": "black puffer"}, place="town hall")
+    assert note("v2", [fake, clip]) == "Jo's sighting of a short woman: the town hall camera shows someone tall."
 
 
 def test_a_range_memory_is_labelled_as_the_witness_put_it():
     fake = piece("r-1", "memory", "v7", "r-2", traits={"coat": "in a dark coat"})
+    clue = record("r-2", kind="clue", traits={"coat": "green raincoat"})
+    clue.text = "A thread on Elm Street, snagged from someone in a green raincoat."
+    assert note("v2", [fake, clue]) == \
+        "Jo's sighting of someone in a dark coat: the thread on Elm Street shows a green raincoat."
+
+
+def test_a_log_puts_whoever_left_a_trace_at_the_scene():
+    fake = piece("r-1", "clue", "", "r-2", text="A thread at the gym, snagged from someone in a grey hoodie.",
+                 place="gym")
     log = record("r-2", kind="log", place="gym", who="v4")
-    assert why_wrong(CRIME, "v2", [fake, log], {r.id: r for r in (fake, log)}, TOWN, {}) == \
-        "Jo's in a dark coat: the gym's check-ins."
+    assert note("v2", [fake, log]) == "The thread at the gym: the gym's check-ins put Gus Okafor there at 11:40pm."
 
 
-def test_a_false_clue_is_labelled_by_its_trace_and_place():
-    fake = piece("r-1", "clue", "", "r-2", text="A thread on Elm Street, snagged from a tall figure.", place="elm street")
+def test_a_log_shows_a_liar_where_they_were():
+    fake = piece("r-1", "statement", "v6", "r-2")
+    log = record("r-2", kind="log", place="bar", who="v6")
+    assert note("v2", [fake, log]) == "Ivy's word: the bar's tabs put Ivy Burke there at 11:40pm."
+
+
+def test_a_log_that_leaves_someone_out_says_so():
+    fake = piece("r-1", "statement", "v7", "r-2", who="v5")
     log = record("r-2", kind="log", place="bar", who="v4")
-    assert why_wrong(CRIME, "v2", [fake, log], {r.id: r for r in (fake, log)}, TOWN, {}) == \
-        "the thread on Elm Street: the bar's tabs."
+    assert note("v2", [fake, log]) == "Jo's word: the bar's tabs don't have Hal Burke."
 
 
 def test_a_false_receipt_and_a_false_camera_clip_have_labels():
     receipt = piece("r-1", "clue", text="A grocery receipt dropped at the grocery, stamped 11:00pm.", place="grocery")
-    assert note("v2", [receipt]) == "the receipt at the grocery: someone's account says otherwise."
-    clip = piece("r-2", "clip", place="bar")
-    assert note("v2", [clip]) == "the bar camera: someone's account says otherwise."
+    assert note("v2", [receipt]) == "The receipt at the grocery: it doesn't hold up."
+    clip = piece("r-2", "clip", place="elm street")
+    assert note("v2", [clip]) == "The Elm Street camera: it doesn't hold up."
 
 
 def test_a_disproof_outside_the_notebook_is_named_by_its_source_kind():
     fake = piece("r-1", "statement", "v7", "r-9")
-    for kind, source in (("clip", "camera"), ("log", "log"), ("memory", "witness"), ("clue", "trace"), ("statement", "account")):
+    for kind, source in (("clip", "a camera"), ("log", "a log"), ("memory", "a witness"), ("clue", "a trace"),
+                         ("statement", "an account")):
         proof = record("r-9", kind=kind)
-        assert note("v2", [fake], [proof]) == f"Jo's word: a {source} says otherwise."
+        assert note("v2", [fake], [proof]) == f"Jo's word: {source} says otherwise."
 
 
 def test_a_lie_told_in_play_has_no_disproof_to_name():
-    assert note("v2", [piece("r-1", "statement", "v7")]) == "Jo's word: someone's account says otherwise."
+    assert note("v2", [piece("r-1", "statement", "v7")]) == "Jo's word: it doesn't hold up."
 
 
 def test_the_first_false_piece_is_the_one_named():
@@ -162,8 +182,18 @@ def test_sound_evidence_that_points_elsewhere_or_nowhere_reads_the_same():
     assert note("v3", [record(kind="log", who="v4")]) == "Your evidence doesn't point at Fay Okafor."
 
 
-def test_the_note_never_names_the_culprit_of_an_open_case():
-    cover = piece("r-1", "statement", "v3")
+def test_the_culprit_is_named_like_anyone_who_said_a_piece_cited():
+    assert note("v2", [piece("r-1", "statement", "v3")]) == "Fay's word: it doesn't hold up."
+
+
+def test_the_note_names_the_culprit_only_as_the_holder_of_a_piece_cited():
+    mistake = piece("r-1", "memory", "v7", "r-2", traits={"coat": "green raincoat"})
+    clip = record("r-2", kind="clip", traits={"coat": "black puffer"})
+    trace = piece("r-3", "clue", "", "r-4", text="A thread at the gym, snagged from someone tall.", place="gym")
+    log = record("r-4", kind="log", place="gym", who="v4")
+    cover = piece("r-5", "statement", "v3")
     for named in ("v1", "v2", "v4", "v5"):
-        for cited in ([record()], [cover], [record(), cover]):
-            assert "Fay" not in note(named, cited)
+        for cited in ([record()], [mistake, clip], [trace, log], [record(), mistake], [cover], [record(), cover]):
+            said = note(named, cited)
+            holds_one = any(r.holder == "v3" for r in cited)
+            assert "Fay" not in said.replace("Fay's word", "") and ("Fay" in said) == holds_one

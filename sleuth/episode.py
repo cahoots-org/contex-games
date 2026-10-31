@@ -1,8 +1,8 @@
 """The judge: whether a podcaster's episode holds up."""
 
 from sleuth.case import LOG_NOUNS, TRACES, Crime, Record, points_at
-from sleuth.town import Town, at
-from sleuth.traits import RANGES
+from sleuth.town import Town, at, place_name
+from sleuth.traits import RANGES, figure
 
 MAX_CITED = 5
 # The records that show how the figure looked; a description says how some resident looks.
@@ -31,45 +31,57 @@ def holds(crime: Crime, culprit: str, traits: dict[str, str], cited: list[Record
 
 
 # What a record that disproves a false piece is called to a podcaster who never found it.
-SOURCES = {"clip": "camera", "log": "log", "memory": "witness", "clue": "trace"}
+SOURCES = {"clip": "a camera", "log": "a log", "memory": "a witness", "clue": "a trace"}
 # The nouns that open a trace's text, e.g. "A boot print", and the receipt.
 TRACE_NOUNS = [t.split(" {")[0] for t in TRACES.values()] + ["A grocery receipt"]
+# What a camera or trace shows of one trait, after "shows".
+SHOWS = {"gender": "a {}", "height": "someone {}", "hair": "someone {}", "coat": "a {}", "car": "a {}"}
 
 
-def label(r: Record, crime: Crime, town: Town) -> str:
-    """A record as a podcaster would point at it, never naming the culprit."""
-    first = "someone" if r.holder == crime.culprit else (town.name_of(r.holder) or "someone").split()[0]
+def label(r: Record, town: Town) -> str:
+    """A record as a podcaster would point at it, its holder by first name."""
+    first = (town.name_of(r.holder) or "someone").split()[0]
     if r.kind == "memory":
-        return f"{first}'s {next(iter(r.traits.values()), 'account')}"
+        headed = f" headed toward {place_name(r.traits['headed'])}" if "headed" in r.traits else ""
+        return f"{first}'s sighting of {figure(r.traits)}{headed}"
     if r.kind == "clue":
         noun = next((n for n in TRACE_NOUNS if r.text.startswith(n)), "A trace")
         return f"the {noun.removeprefix('A grocery ').removeprefix('A ').lower()} {at(r.place)}"
     if r.kind == "clip":
-        return f"the {r.place} camera"
+        return f"the {place_name(r.place)} camera"
     if r.kind == "log":
         return f"the {r.place}'s {LOG_NOUNS[r.place]}"
     return f"{first}'s word"
 
 
-def disproof_label(fake: Record, proof: Record, crime: Crime, town: Town) -> str:
-    """The record that disproves a false piece; a camera is named with the look it shows."""
-    shown = next((proof.traits[c] for c in fake.traits if c in proof.traits), None)
-    if proof.kind == "clip" and shown:
-        return f"{label(proof, crime, town)} shows a {shown}"
-    return label(proof, crime, town)
+def disproof_label(fake: Record, proof: Record, town: Town) -> str:
+    """The record that disproves a false piece and what it shows: a camera or trace the look, a log who it puts there
+    or that it leaves out the one the piece is about."""
+    said = label(proof, town)
+    shown = next((c for c in fake.traits if c in proof.traits), None)
+    if proof.kind in ("clip", "clue") and shown:
+        return f"{said} shows {SHOWS[shown].format(proof.traits[shown])}"
+    about = fake.who or fake.holder
+    if proof.kind == "log" and about and proof.who != about:
+        return f"{said} don't have {town.name_of(about)}"
+    if proof.kind == "log":
+        return f"{said} put {town.name_of(proof.who)} there at {proof.clock}"
+    return said
 
 
-def why_wrong(crime: Crime, named: str, cited: list[Record], notebook: dict[str, Record], town: Town,
+def why_wrong(named: str, cited: list[Record], notebook: dict[str, Record], town: Town,
               records: dict[str, Record]) -> str:
-    """One sentence on why an episode failed, never naming the culprit or saying whether the one named is: the first
-    false piece cited and what disproves it, else that the evidence doesn't point at them. The notebook holds the
-    podcaster's records and records all the case's, which tell the source of a disproof they never found."""
+    """One sentence on why an episode failed, never saying whether the one named did it: the first false piece cited
+    and what disproves it, else that the evidence doesn't point at them. The notebook holds the podcaster's records and
+    records all the case's, which tell the source of a disproof they never found."""
     fake = next((r for r in cited if not r.sound), None)
-    if fake is not None:
-        if fake.disproof is None:
-            return f"{label(fake, crime, town)}: someone's account says otherwise."
-        if fake.disproof in notebook:
-            return f"{label(fake, crime, town)}: {disproof_label(fake, notebook[fake.disproof], crime, town)}."
-        source = SOURCES.get(records[fake.disproof].kind if fake.disproof in records else "", "account")
-        return f"{label(fake, crime, town)}: a {source} says otherwise."
-    return f"Your evidence doesn't point at {town.name_of(named)}."
+    if fake is None:
+        return f"Your evidence doesn't point at {town.name_of(named)}."
+    piece = label(fake, town)
+    piece = piece[0].upper() + piece[1:]
+    if fake.disproof is None:
+        return f"{piece}: it doesn't hold up."
+    if fake.disproof in notebook:
+        return f"{piece}: {disproof_label(fake, notebook[fake.disproof], town)}."
+    source = SOURCES.get(records[fake.disproof].kind if fake.disproof in records else "", "an account")
+    return f"{piece}: {source} says otherwise."
