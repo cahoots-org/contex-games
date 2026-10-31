@@ -119,16 +119,17 @@ In `test_case.py`: `test_suspects_narrow_on_a_ranged_sighting` — a town where 
 - Test: `sleuth/tests/test_case.py`, `sleuth/tests/test_cases.py`
 
 **Interfaces:**
-- `NO_WITNESS = {"petty": 0.3, "serious": 0.6, "major": 1.0}`: the chance a case stages no witness memories (a mugging's victim still remembers one thing). A death never has an ordinary witness.
+- `NO_WITNESS = {"petty": 0.3, "serious": 0.6, "major": 0.85}`: the chance a case stages no witness memories (a mugging's victim still remembers one thing).
+- A death's witness, when it has one, sees only someone leaving: `CRIMES["death"].seen` becomes "was leaving in a hurry", and a car-only sighting reads "someone drove off in a {car}". Never the death itself, never an argument.
 - `passing_clip(crime: Crime, town: Town, ids: Ids, rng: Random) -> Record | None`: a camera at a `CAMERA_PLACES` place in the scene's district (`district_of`), other than the scene, catching the culprit's car `rng.randint(3, 12)` minutes after the crime: "7:42pm, Elm Street camera: a red pickup heading away from the library." Traits `{"car": value}`. None when the culprit's car is a bicycle or the district has no other camera.
 - `make_solvable(crime, records, town, routine, rng, ids, away, allow_witness: bool) -> list[Record] | None` narrows with, in order: a scene trace of a category not yet seen (`TRACES` kinds), a `passing_clip`, a store receipt and its log, then, only when `allow_witness`, a witness who saw one category. Each step is added only if it narrows `suspects`. It considers only `sound` records. Returns `[]` when nothing is needed, None when it can't narrow to the culprit.
-- `allow_witness` is False when the case drew no witness, and always for a death.
+- `allow_witness` is False when the case drew no witness.
 
 - [ ] **Step 1: Failing tests**
   - `test_a_case_without_witnesses_is_solved_from_traces_and_records` — with `NO_WITNESS` forced to 1.0, 50 seeded cases each open with no `memory` records from bystanders and `suspects()` of their sound records is exactly the culprit.
   - `test_traces_come_before_witnesses` — a case whose clues already narrow to three suspects gets a trace or clip from `make_solvable`, not a memory, when one narrows.
   - `test_a_passing_camera_sees_only_the_car` — `passing_clip` text names the car and the direction away from the scene and has no other category.
-  - `test_a_death_has_no_ordinary_witness` — 30 staged deaths, no bystander memories.
+  - `test_a_death_s_witness_is_rare_and_only_saw_someone_leaving` — over 200 staged deaths, most have no bystander memory, at least one has one, and every death memory's text says "leaving" or "drove off" and one category.
   - `test_unsound_records_never_narrow_suspects` — a record with `sound=False` doesn't change `suspects()`.
 - [ ] **Step 2:** Run; expect failures.
 - [ ] **Step 3:** Implement; `_open` draws `no_witness = rng.random() < NO_WITNESS[tier]` before staging.

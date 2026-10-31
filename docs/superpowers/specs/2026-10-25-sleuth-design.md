@@ -364,7 +364,7 @@ From the owner, after reading the playtest report:
 ### By tier
 - **Petty:** mostly straightforward, with a witness more often than not and little or no false evidence. Some cases stay a checklist.
 - **Serious:** often no witness; one or two false pieces.
-- **Major:** no ordinary witness to the death; several false pieces, including at least one innocent liar among the people with motives.
+- **Major:** a witness is rare, and only ever sees something innocuous near the scene, such as "someone leaving in a green car", never the death itself; several false pieces, including at least one innocent liar among the people with motives.
 
 ### When an episode is wrong
 - **A short note on why.** One line naming the cited piece that was false and what shows it, such as "Tess's green raincoat: the library camera shows a black puffer." When the cited evidence was sound but didn't point at who was named, the note says so.
