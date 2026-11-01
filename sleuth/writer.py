@@ -13,7 +13,7 @@ from sleuth.traits import TRAITS
 from sleuth.usage import charged_to
 
 SAY_MAX_TOKENS = 80
-ANSWER_MAX_TOKENS = 120
+ANSWER_MAX_TOKENS = 160
 NO_CASE_FACTS = ("Never add a fact about the case: no one seen or placed anywhere, no time, no look or clothing, "
                  "no sighting. ")
 CASE_OPINIONS = ("This is about a case. Say what you think, feel and suspect, in character: opinions, theories, "
@@ -209,20 +209,23 @@ class Writer:
     async def reply(
         self, villager: Villager, case: str, question: str, thread: Sequence[dict], facts: Sequence[str],
         known: Sequence[str] = (), now: str = "", when: str = "", notes: Sequence[str] = (), somber: bool = False,
+        asides: Sequence[str] = (),
     ) -> str:
-        """The resident replying to the podcaster's latest question in one line, from the facts alone.
+        """The resident replying to the podcaster's latest question from the facts, chatting a little around them.
 
         thread holds the earlier exchanges; known describes the neighbours the case names; when is when the case
-        happened, said on now; each note is something the resident feels about the podcaster or themselves; a somber
-        case is a death.
+        happened, said on now; each note is something the resident feels about the podcaster or themselves; asides
+        are true things about the resident they may bring up; a somber case is a death.
         """
         answer = (
-            "Reply to their latest question in one or two short sentences in your own voice, using only these facts. "
-            "Get every fact across with each detail it gives, such as looks, clothes, cars, places and times. "
-            "Your manner shapes the wording, never the facts: never deny or doubt them. "
+            "Reply to their latest question in two or three short sentences in your own voice. Get every fact across "
+            "with each detail it gives, such as looks, clothes, cars, places and times, and add no other case fact. "
+            "Your manner shapes the wording, never the facts: never deny or doubt them. Around the facts you may chat "
+            "a little in character: an opinion, a grumble, your quirk, or one of the things you could bring up. "
             if facts else
-            "You know nothing that answers their latest question. Reply in one short, natural sentence in your own "
-            "voice. Name no one, give no time, place or look, and add nothing about the case. "
+            "You know nothing that answers their latest question. Say so in one or two short, natural sentences in "
+            "your own voice; you may chat about yourself or one of the things you could bring up. Name no one, give "
+            "no time, place or look, and add nothing about the case. "
         )
         system = (
             f"You are {villager.name}, a {villager.occupation} in a small town. "
@@ -241,6 +244,8 @@ class Writer:
         lines += notes
         lines += [f"Podcaster: {t['podcaster']}\nYou: {t['resident']}" for t in thread]
         lines.append(f"Podcaster: {question}")
+        if asides:
+            lines.append("Things you could bring up: " + " / ".join(asides))
         if facts:
             lines.append("Facts: " + " / ".join(facts))
         return town_line(await self.complete(system, "\n".join(lines), max_tokens=ANSWER_MAX_TOKENS))

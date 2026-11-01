@@ -121,6 +121,8 @@ SHRUGS = ("I couldn't tell you, sorry.", "Can't help you there.", "No idea, I'm 
 LOOKS = tuple(v for values in TRAITS.values() for v in values)
 # Hearsay rooted in these is evidence; news-rooted hearsay is only talk.
 EVIDENCE_ROOTS = ("memory", "cover")
+# How many times the writer may phrase a reply before the plain line from the records stands in.
+REPLY_TRIES = 2
 PODCAST = "A true-crime podcast"
 WRONG = "Your episode didn't hold up. The town now believes it, and people are warier of you."
 PRACTICE_WRONG = "Your episode didn't hold up: the evidence doesn't back it."
@@ -700,19 +702,34 @@ class Player:
                 died = {f.crime.victim for f in self.engine.cases.files.values() if f.crime.tier == "major"}
                 known = neighbours(self.town, villager, case, self._exposed(), died)
                 now = self.game.now() if self.game else ""
-                line = await self.writer.reply(villager, case, question, exchanges(thread), texts, known, now,
-                                               when(crime, self._today()), self._notes(villager.id),
-                                               somber=crime.tier == "major")
-                allowed = " ".join([villager.name, case, *texts, *known, *(t["line"] for t in thread)])
+                asides = self._asides(villager, crime)
+                allowed = " ".join([villager.name, case, *texts, *known, *asides, *(t["line"] for t in thread)])
                 firsts = {v.name.split()[0] for v in self.town.villagers}
-                if (line and not (FAITH.search(line) or GORE.search(line)) and conveys(line, records) and first_hand(line, records, villager)
-                        and not invents_facts(line, allowed, firsts)
-                        and not (any(r.traits for r in records) and adds_looks(line, texts))):
-                    return line
+                for _ in range(REPLY_TRIES):
+                    line = await self.writer.reply(villager, case, question, exchanges(thread), texts, known, now,
+                                                   when(crime, self._today()), self._notes(villager.id),
+                                                   somber=crime.tier == "major", asides=asides)
+                    if (line and not (FAITH.search(line) or GORE.search(line)) and conveys(line, records)
+                            and first_hand(line, records, villager) and not invents_facts(line, allowed, firsts)
+                            and not (any(r.traits for r in records) and adds_looks(line, texts))):
+                        return line
             except Exception:
                 log.exception("reply from %s failed", villager.id)
         return " ".join([*(f"I saw it myself. {r.text}" if r.kind == "memory" else voiced(r.text, villager.name)
                            for r in records), *talk])
+
+    def _own_life(self, villager: Villager) -> list[str]:
+        """One thing on the resident's mind about their own life, said in their voice, to chat about."""
+        return [random.choice(villager.needs)] if villager.needs else []
+
+    def _asides(self, villager: Villager, crime: Crime) -> list[str]:
+        """True things the resident may bring up around their answer: their own life, and how they get on with the
+        victim when they know them."""
+        victim = self.town.anyone(crime.victim)
+        tie = victim and villager.relationships.get(victim.id)
+        feeling = ([f"{victim.name} is your {tie}, and you're on {warmth_words(villager.warmth.get(victim.id, 0.0))} "
+                    "terms."] if tie and victim.id != villager.id else [])
+        return self._own_life(villager) + feeling
 
     async def _shrug(self, villager: Villager, file: CaseFile, question: str, thread: list[dict]) -> str:
         """The resident's reply when they know nothing for the question: the writer's, if it adds nothing and has no
@@ -721,7 +738,7 @@ class Player:
             try:
                 line = await self.writer.reply(villager, self._told(file.crime.text, file.crime), question,
                                                exchanges(thread), [], notes=self._notes(villager.id),
-                                               somber=file.crime.tier == "major")
+                                               somber=file.crime.tier == "major", asides=self._own_life(villager))
                 names = {w for v in self.town.villagers for w in v.name.split()}
                 if adds_nothing(line, names) and not (FAITH.search(line) or GORE.search(line)):
                     return line

@@ -103,7 +103,7 @@ async def test_reply_answers_the_latest_question_from_the_facts_with_the_thread_
     call = client.messages.calls[0]
     user = call["messages"][0]["content"]
     assert call["max_tokens"] == ANSWER_MAX_TOKENS and "Ada" in call["system"]
-    assert "using only these facts" in call["system"] and "never agree to or repeat a claim" in call["system"]
+    assert "add no other case fact" in call["system"] and "never agree to or repeat a claim" in call["system"]
     assert user.index("Podcaster: Hi there.\nYou: Hello.") < user.index("Podcaster: What did you see?")
     assert "Facts: Around 9pm someone tall walked off." in user and "Dana Reyes, the clerk" in user
     assert "happened" not in user
@@ -327,3 +327,24 @@ def test_a_line_naming_a_person_or_place_the_town_lacks_invents_people(line):
 ])
 def test_ordinary_talk_about_the_town_does_not_invent_people(line):
     assert not invents_people(line, NAMES)
+
+
+@pytest.mark.asyncio
+async def test_a_reply_may_chat_around_the_facts_from_its_asides():
+    client = StubClient("Saw someone tall. Mind you, my rent's going up again.")
+    await Writer(client, "haiku-test").reply(villager(), "Someone stole a bike.", "What did you see?", [],
+                                             ["Around 9pm someone tall walked off."],
+                                             asides=["My rent is going up again."])
+    call = client.messages.calls[0]
+    assert "two or three short sentences" in call["system"] and "chat a little" in call["system"]
+    assert "Things you could bring up: My rent is going up again." in call["messages"][0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_a_shrug_may_chat_about_yourself_but_still_names_no_one():
+    client = StubClient("No idea, sorry. Been run off my feet at the shop.")
+    await Writer(client, "haiku-test").reply(villager(), "Someone stole a bike.", "Who did it?", [], [],
+                                             asides=["The shop has been busy."])
+    call = client.messages.calls[0]
+    assert "one or two short, natural sentences" in call["system"] and "Name no one" in call["system"]
+    assert "Things you could bring up: The shop has been busy." in call["messages"][0]["content"]
