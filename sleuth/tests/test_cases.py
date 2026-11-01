@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import asdict, replace
 from types import SimpleNamespace
 from random import Random
@@ -7,7 +8,7 @@ import pytest
 
 from sleuth import cases as cases_mod
 from sleuth.alibi import claim
-from sleuth.case import CLIP_TRAITS, CRIMES, WHEN, Crime, Record, points_at, suspects, told
+from sleuth.case import CLIP_TRAITS, CRIMES, NO_WITNESS, WHEN, Crime, Record, points_at, suspects, told
 from sleuth.cases import CaseFile, Cases, case_json
 from sleuth.config import Config
 from sleuth.districts import Districts
@@ -223,6 +224,15 @@ async def test_cases_round_trip_through_state():
     fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
     fresh.restore(json.loads(json.dumps(cases.to_state())))
     assert fresh.files == cases.files and fresh.to_state() == cases.to_state()
+
+
+def test_a_record_s_disproof_round_trips_with_the_case():
+    cases, _, town = make_cases()
+    file = culprit_file(cases)
+    file.records["r-1"] = Record("r-1", file.crime.id, "clue", "elm street", "", "A thread.", sound=False, disproof="r-2")
+    fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
+    fresh.restore(json.loads(json.dumps(cases.to_state())))
+    assert fresh.files[file.crime.id].records["r-1"].disproof == "r-2"
 
 
 @pytest.mark.asyncio
@@ -727,9 +737,11 @@ async def test_a_held_serious_episode_ends_in_an_arrest():
 @pytest.mark.asyncio
 async def test_an_accomplice_is_never_a_witness_of_the_same_case():
     covered = 0
-    for seed in range(30):
+    for seed in range(60):
         cases, engine, _ = make_cases(offenders=8, accomplice_chance=1.0)
         cases.rng = Random(seed)
+        # An accomplice is kept only where a log can disprove their word.
+        cases.routine = make_routine({"v2": "bar", "v4": "gym", "v6": "gym", "v7": "bar", "v8": "gym"})
         engine.players.add(podcaster("serious"))
         tiered(cases, "petty", opened=2.0)
         await tick(cases, engine)
@@ -786,6 +798,7 @@ async def test_no_one_usually_at_the_scene_is_the_accomplice():
     for seed in range(20):
         cases, engine, town = make_cases(accomplice_chance=1.0)
         cases.rng = Random(seed)
+        cases.routine = make_routine({"v7": "gym"})
         town.get("v5").warmth.update({"v2": 0.9, "v7": 0.7})
         crime = Crime(f"case-{seed}", "mug", "wallet", "v5", "v1", "elm street", 1, "night", 1400, "opportunity", "",
                       tier="serious")
@@ -906,18 +919,21 @@ def generated_town(seed):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("seed", range(5))
-async def test_a_town_at_test_pacing_opens_a_major_case_for_a_major_podcaster(seed):
-    town, routine = generated_town(seed)
-    config = Config(**PACING)
-    cases = Cases(config, town, routine, Random(seed), Ids())
-    cases.districts = Districts(config)
-    engine = FakeEngine(town)
-    engine.players.add(podcaster("major"))
-    for day in (1, 2):
-        for phase in PHASES:
-            await cases.on_tick(engine, day, phase, {})
-    assert any(f.crime.tier == "major" for f in cases.files.values())
+async def test_a_town_at_test_pacing_opens_a_major_case_for_a_major_podcaster():
+    # Now and then every free culprit for a death has no victim with enough motives, so a few towns go without.
+    opened = 0
+    for seed in range(20):
+        town, routine = generated_town(seed)
+        config = Config(**PACING)
+        cases = Cases(config, town, routine, Random(seed), Ids())
+        cases.districts = Districts(config)
+        engine = FakeEngine(town)
+        engine.players.add(podcaster("major"))
+        for day in (1, 2):
+            for phase in PHASES:
+                await cases.on_tick(engine, day, phase, {})
+        opened += any(f.crime.tier == "major" for f in cases.files.values())
+    assert opened >= 18
 
 
 @pytest.mark.asyncio
@@ -1018,3 +1034,88 @@ async def test_no_one_is_the_victim_again_the_day_after_their_case():
         cases.files = {first.crime.id: first}
         await cases.ensure(engine, 4.0)
         assert all(f.crime.victim != "v1" for f in cases.open_shared())
+
+
+@pytest.mark.asyncio
+async def test_a_case_without_witnesses_is_solved_from_traces_and_records(monkeypatch):
+    for tier in NO_WITNESS:
+        monkeypatch.setitem(NO_WITNESS, tier, 1.0)
+    opened = []
+    for seed in range(200):
+        town, routine = generated_town(seed)
+        cases = Cases(Config(**PACING), town, routine, Random(seed), Ids())
+        engine = FakeEngine(town)
+        engine.players.add(podcaster("serious"))
+        await tick(cases, engine)
+        opened += [(f, town) for f in cases.open_shared()]
+        if len(opened) >= 50:
+            break
+    assert len(opened) >= 50
+    for f, town in opened:
+        records = list(f.records.values())
+        assert not [r for r in records if r.kind == "memory" and r.holder != f.crime.victim]
+        assert suspects(f.crime, [r for r in records if r.sound], town) == {f.crime.culprit}
+
+
+@pytest.mark.asyncio
+async def test_a_death_s_witness_is_rare_and_only_saw_someone_leaving():
+    staged = seen = 0
+    for seed in range(400):
+        cases, engine, town = deadly(seed)
+        await cases._stage(engine, "major", 1, "night", set())
+        if (case := next(iter(cases.open_shared("major")), None)) is None:
+            continue
+        staged += 1
+        memories = [r for r in case.records.values() if r.kind == "memory"]
+        seen += bool(memories)
+        for m in memories:
+            assert len(m.traits) == 1 and re.search(r"leaving|drove off|rode off", m.text), m.text
+            assert "argu" not in m.text
+        if staged == 200:
+            break
+    assert staged == 200 and 0 < seen < staged / 2
+
+
+@pytest.mark.asyncio
+async def test_no_evidence_of_a_car_theft_shows_the_culprit_s_own_car():
+    thefts = []
+    for seed in range(300):
+        town, routine = generated_town(seed)
+        cases = Cases(Config(**PACING), town, routine, Random(seed), Ids())
+        engine = FakeEngine(town)
+        engine.players.add(podcaster("serious"))
+        await tick(cases, engine)
+        thefts += [(f, town) for f in cases.open_shared("serious") if f.crime.template == "car"]
+        if len(thefts) >= 20:
+            break
+    assert len(thefts) >= 20
+    for f, town in thefts:
+        records = list(f.records.values())
+        assert not any("car" in r.traits for r in records)
+        assert suspects(f.crime, [r for r in records if r.sound], town) == {f.crime.culprit}
+
+
+@pytest.mark.asyncio
+async def test_a_death_has_a_liar_among_those_with_motives():
+    opened = lied = 0
+    for seed in range(20):
+        cases, engine, town = deadly(seed)
+        # Jo is at the bar and Kit at the cafe, where Eli works, so each has a secret something gives away.
+        cases.routine = StubRoutine({vid: {"night": {"v7": "bar", "v8": "cafe"}.get(vid, street),
+                                           "morning": "cafe" if vid == "v2" else street} for vid, _, _, street in RESIDENTS})
+        await cases._stage(engine, "major", 1, "night", set())
+        if (case := next(iter(cases.open_shared("major")), None)) is None:
+            continue
+        opened += 1
+        lied += bool(case.liars)
+        assert set(case.liars) <= set(case.motives) - {case.crime.culprit} and len(case.liars) <= 1
+    assert opened and lied == opened
+
+
+def test_liars_round_trip_with_the_case():
+    cases, _, town = make_cases()
+    file = culprit_file(cases)
+    file.liars = {"v6": {"kind": "job", "place": "cafe", "claimed": "oak street", "exposer": "v2", "text": "Ivy was"}}
+    fresh = Cases(Config(), town, make_routine(), Random(1), Ids())
+    fresh.restore(json.loads(json.dumps(cases.to_state())))
+    assert fresh.files == cases.files

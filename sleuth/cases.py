@@ -9,18 +9,20 @@ from random import Random
 
 from sleuth.arrivals import move_in
 from sleuth.case import (
-    CRIMES, TIERS, WHEN, Crime, Record, camera_clip, catalog_tiers, crime_title, discovery, found_it, logs, make_solvable,
-    motives, scene_clues, stage_crime, told, victim_memory, witness_memories,
+    CRIMES, NO_WITNESS, TIERS, WHEN, Crime, Record, camera_clip, catalog_tiers, crime_title, discovery, found_it, logs,
+    make_solvable, motives, scene_clues, stage_crime, suspects, told, victim_memory, witness_memories,
 )
 from sleuth.config import Config
 from sleuth.decide import warmth_words
-from sleuth.districts import FORMED, TOLD, WOUND_DOWN, Districts, district_of, level
+from sleuth.districts import FORMED, TOLD, WOUND_DOWN, Districts, level
+from sleuth.falsehoods import cover_disproof, cover_place, false_count, stage_false
 from sleuth.feed import APP
 from sleuth.game import PHASES
 from sleuth.lineage import Ids
 from sleuth.models import Utterance, Villager
 from sleuth.offenders import Offender, Offenders
-from sleuth.town import STREETS, Town, at, place_name
+from sleuth.liars import PRONOUNS, pick_liar, said_place
+from sleuth.town import STREETS, Town, at, district_of, place_name
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +33,9 @@ ARRESTED = "{name} was arrested and has left town."
 ON_EDGE = "{street} is on edge after {title}."
 BREATHES = "{street} breathes a little easier now {name}'s been found out."
 RESOLVED = "{street} has its answer now. People are looking after one another."
+SECRET_OUT = "{name} wasn't {claimed} {when}. {they} was {reason}."
+# The chance a serious case has an innocent liar; a death always has one among those with motives when one fits.
+LIAR_CHANCE = 0.5
 # How many crimes are drawn in one go for a solvable one.
 DRAWS = 10
 
@@ -53,6 +58,7 @@ class CaseFile:
     named: dict[str, str] = field(default_factory=dict)  # player → the resident their episode named
     accomplice: str | None = None  # who covers for the culprit
     motives: list[str] = field(default_factory=list)  # a death's: who was on cold terms with the victim
+    liars: dict[str, dict] = field(default_factory=dict)  # innocent resident → their secret, from pick_liar; "out" once posted
 
 
 def case_json(case: CaseFile, town: Town, routine, today: float | None = None) -> dict:
@@ -236,13 +242,21 @@ class Cases:
         return v
 
     def on_wrong(self, engine, file: CaseFile, player_id: str, accused: str) -> None:
-        """A wrong episode costs the town's regard, the accused's most of all, then their household's and close ties'."""
+        """A wrong episode costs the town's regard, the accused's most of all, then their household's and close ties';
+        an accused liar's secret comes out on the app the first time."""
         config, them = self.config, self.town.get(accused)
         engine.reputation.nudge_all(player_id, config.reputation_wrong, [v.id for v in self.town.villagers])
         engine.reputation.nudge(accused, player_id, config.reputation_accused)
         ties = [v.id for v in self.town.villagers if v.id != accused and (
             them.household and v.household == them.household or warmth_words(v.warmth.get(accused, 0.0)) == "close")]
         engine.reputation.nudge_all(player_id, config.reputation_accused_ties, ties)
+        if (secret := file.liars.get(accused)) and not secret.get("out"):
+            secret["out"] = True
+            claimed = said_place(secret["claimed"], them.home)
+            they = PRONOUNS[them.traits["gender"]].capitalize()
+            text = told(SECRET_OUT.format(name=them.name, claimed=claimed, when=WHEN, they=they, reason=secret["reason"]),
+                        file.crime, self.now)
+            engine.feed.on_post(Utterance("", "app", APP, them.home, text, None, "posted"), file.crime.id)
 
     def _expose(self, engine, file: CaseFile, player_id: str | None) -> None:
         """The town learns what the culprit did, and they lie low. When a podcaster exposed them, the culprit is cold to
@@ -438,12 +452,15 @@ class Cases:
                 if vid}
 
     async def _open(self, engine, crime: Crime, pictured: set[str]) -> bool:
-        """Leave the crime's evidence, witnessed by no one pictured elsewhere then nor any open case's culprit, and, if
-        it narrows to the culprit, open the case: tell its witnesses and victim what they saw and found, and post the
-        news, a death's to the victim's street and ties. A death's victim is found by someone at the scene, then leaves
-        town, and someone moves in.
-        False if it cannot be made solvable or a death has no one to find it."""
+        """Leave the crime's evidence, witnessed by no one pictured elsewhere then nor any open case's culprit, and by
+        no one at all with the tier's NO_WITNESS chance, and, if it narrows to the culprit, add as many of the tier's false
+        pieces as something on file disproves, and open the case: tell its witnesses and victim what they saw and found,
+        and post the news, a death's to the victim's street and ties. An accomplice is kept only when a log on file
+        disproves their word. A serious case has an innocent liar with LIAR_CHANCE, a death always one among those with
+        motives when one fits. A death's victim is found by someone at the scene, then leaves town, and someone moves in.
+        False if it cannot be made solvable, a false piece's disproof isn't on file, or a death has no one to find it."""
         away = pictured | {f.crime.culprit for f in self.files.values() if f.state == "open"}
+        witnessed = self.rng.random() >= NO_WITNESS[crime.tier]
         self.dress(crime.day)
         whereabouts = dict(self.finished or {v.id: [p] for v in self.town.villagers
                                              if (p := self.routine.place(v.id, crime.phase))})
@@ -455,21 +472,35 @@ class Cases:
         accomplice = self._accomplice(crime, away | scene) if crime.tier == "serious" else None
         away |= {accomplice} - {None}
         clip = camera_clip(crime, self.town, self.ids)
-        records = [*witness_memories(crime, self.town, self.routine, self.rng, self.ids, away),
+        records = [*(witness_memories(crime, self.town, self.routine, self.rng, self.ids, away) if witnessed else []),
                    *([victim_memory(crime, self.town, self.rng, self.ids)] if crime.template == "mug" else []),
                    *scene_clues(crime, self.town, self.routine, self.rng, self.ids, away), *([clip] if clip else []),
                    *logs(crime, whereabouts, self.town, self.rng, self.ids)]
-        added = make_solvable(crime, records, self.town, self.routine, self.rng, self.ids, away)
+        added = make_solvable(crime, records, self.town, self.routine, self.rng, self.ids, away, witnessed)
         if added is None:
             return False
+        records += added
+        records += stage_false(crime, records, self.town, self.routine, self.rng, self.ids, away,
+                               false_count(crime.tier, self.rng))
+        if not self._disproved(crime, records):
+            return False
+        if accomplice and not cover_disproof(crime, records, cover_place(whereabouts, self.town.get(accomplice))):
+            away.discard(accomplice)
+            accomplice = None
         death = crime.tier == "major"
-        finder = self._finder(crime, records + added, away, scene) if death else None
+        finder = self._finder(crime, records, away, scene) if death else None
         if death and finder is None:
             return False
-        records += [*added, discovery(crime, self.town, self.rng, self.ids, finder)]
+        records.append(discovery(crime, self.town, self.rng, self.ids, finder))
+        cold = motives(self.town, crime.victim) if death else []
+        liar = None
+        if death or crime.tier == "serious" and self.rng.random() < LIAR_CHANCE:
+            barred = away | {r.holder for r in records}
+            barred |= {v.id for v in self.town.villagers if v.id not in cold} if death else set()
+            liar = pick_liar(crime, whereabouts, self.town, self.routine, self.rng, barred, records)
         case = self.files[crime.id] = CaseFile(crime, {r.id: r for r in records}, "open", opened=self.now,
-                                               whereabouts=whereabouts, accomplice=accomplice,
-                                               motives=motives(self.town, crime.victim) if death else [])
+                                               whereabouts=whereabouts, accomplice=accomplice, motives=cold,
+                                               liars=dict([liar]) if liar else {})
         for m in records:
             if m.kind in ("memory", "discovery"):
                 await self._remember(engine, case, m)
@@ -500,6 +531,13 @@ class Cases:
             text = ON_EDGE.format(street=place_name(street), title=title)
             engine.feed.on_post(Utterance("", "app", APP, street, text, None, "posted"), crime.id)
         self._show_districts(engine)
+
+    def _disproved(self, crime: Crime, records: list[Record]) -> bool:
+        """Whether the sound records still narrow to the culprit alone and each unsound one's disproof is a clue, clip,
+        log or memory on file."""
+        findable = {r.id for r in records if r.kind in ("clue", "clip", "log", "memory")}
+        return (suspects(crime, [r for r in records if r.sound], self.town) == {crime.culprit}
+                and all(r.disproof in findable for r in records if not r.sound))
 
     def _accomplice(self, crime: Crime, barred: set[str]) -> str | None:
         """With accomplice_chance, who covers for the culprit: their warmest close tie, else another active offender;

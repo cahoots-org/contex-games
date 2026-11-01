@@ -8,12 +8,12 @@ from dataclasses import asdict, replace
 
 from sleuth.alibi import accomplice_word, claim, household_word
 from sleuth.case import (
-    WHEN, CRIMES, Crime, Record, clock_at, motive_of, recall_more, record_json, resents, retime, told, when,
+    WHEN, CRIMES, Crime, Record, clock_at, evident, motive_of, recall_more, record_json, resents, retime, told, when,
 )
 from sleuth.cases import CaseFile
 from sleuth.config import Config
 from sleuth.decide import warmth_words
-from sleuth.episode import MAX_CITED, holds
+from sleuth.episode import MAX_CITED, holds, why_wrong
 from sleuth.faith import FAITH, GORE
 from sleuth.game import Game
 from sleuth.interview import Route, exchanges, route
@@ -564,33 +564,41 @@ class Player:
         return told(text, crime, self._today())
 
     def _statement(self, file: CaseFile, vid: str, text: str, sound: bool, source: str | None = None,
-                   who: str | None = None) -> Record:
+                   who: str | None = None, disproof: str | None = None) -> Record:
         return Record("", file.crime.id, "statement", self.place, self._clock(), text, vid, who=who, sound=sound,
-                      utterance=source, day=self.game.day if self.game else 0)
+                      utterance=source, day=self.game.day if self.game else 0, disproof=disproof)
 
     async def _known(self, file: CaseFile, villager: Villager, routed: Route,
                      question: str) -> tuple[list[Record], list[str]]:
         """What the resident knows for the routed question: records for evidence, and talk that is only phrased."""
         crime, vid, name, routine = file.crime, villager.id, villager.name, self.engine.routine
         kind, about = routed.kind, self.town.anyone(routed.who) if routed.who else None
-        if kind == "where_were_you" and (routed.when == crime.phase or routed.when in crime.window):
+        then = routed.when == crime.phase or routed.when in crime.window
+        if kind == "where_were_you" and then:
             places, sound = claim(file, vid, routine)
             text = f"{name} says they were {' then '.join(at(p) for p in places)} {WHEN}."
-            return [self._statement(file, vid, text, sound)] if places else [], []
+            exposer = file.liars.get(vid, {}).get("exposer")
+            disproof = exposer if exposer in file.records else None
+            return [self._statement(file, vid, text, sound, disproof=disproof)] if places else [], []
         if kind == "where_were_you":
             usual = routine.place(vid, routed.when) if routine else None
             text = f"{name} says they're usually {at(usual)} in the {routed.when}."
             return [self._statement(file, vid, text, True)] if usual else [], []
         if kind == "where_was" and about:
-            if word := accomplice_word(file, villager, about) or household_word(file, villager, about,
-                                                                                 routed.words.get(about.id)):
+            if word := accomplice_word(file, villager, about):
+                return [self._statement(file, vid, f"{name}: {word[0]}", word[1], who=about.id, disproof=word[2])], []
+            if then and (secret := file.liars.get(about.id)) and secret["exposer"] == vid:
+                return [self._statement(file, vid, f"{name}: {secret['said']}.", True, who=about.id)], []
+            if word := household_word(file, villager, about, routed.words.get(about.id)):
                 return [self._statement(file, vid, f"{name}: {word[0]}", word[1], who=about.id)], []
             theirs = file.whereabouts.get(about.id, [])
             met = [p for p in file.whereabouts.get(vid, []) if p in theirs and p != crime.place]
-            if not met:
-                return [], []
-            text = f"{name} says they saw {about.name} {at(met[0])} {WHEN}."
-            return [self._statement(file, vid, text, True, who=about.id)], []
+            if met:
+                text = f"{name} says they saw {about.name} {at(met[0])} {WHEN}."
+                return [self._statement(file, vid, text, True, who=about.id)], []
+            usual = routine.place(about.id, routed.when) if routine and acquainted(villager, about) else None
+            text = f"{name} says {about.name} is usually {at(usual)} in the {routed.when}."
+            return [self._statement(file, vid, text, True, who=about.id)] if usual else [], []
         if kind == "what_did_you_see":
             return self._seen(file, vid), []
         if kind == "what_happened":
@@ -645,14 +653,14 @@ class Player:
         crime = file.crime
         records = [replace(r) for r in file.records.values() if r.kind in ("memory", "discovery") and r.holder == vid]
         if self.engine.reputation.get(vid, self.id) >= self.config.trusted_at:
-            culprit = self.town.looks(crime.culprit, crime.day)
+            culprit = evident(crime, self.town)
             records = [recall_more(crime, r, culprit) if r.kind == "memory" else r for r in records]
         return records
 
     async def _hearsay(self, file: CaseFile, villager: Villager) -> tuple[list[Record], list[str]]:
         """The best case hearsay the resident heard: a record when it traces to evidence, else news as talk. Hearsay
-        is sound only when it traces to a memory still on file and adds no case fact that memory, its witness and the
-        case don't give."""
+        is sound only when it traces to a sound memory still on file and adds no case fact that memory, its witness and
+        the case don't give; it carries that memory's disproof."""
         crime, vid, name = file.crime, villager.id, villager.name
         talk = []
         for m in await self.engine.recall_heard(vid, self._told(crime.text, crime)):
@@ -668,9 +676,11 @@ class Player:
                 firsts = {v.name.split()[0] for v in self.town.villagers}
                 case = f"{self._told(crime.text, crime)} {when(crime, self._today())}"
                 allowed = f"{source.text} {self.town.name_of(source.holder)} {case}" if source else ""
-                sound = rooted[1] == "memory" and bool(allowed) and not invents_facts(self._told(said, crime), allowed, firsts)
+                sound = (rooted[1] == "memory" and source is not None and source.sound
+                         and not invents_facts(self._told(said, crime), allowed, firsts))
                 text = f"{name} heard from {heard.speaker_name}: {said}"
-                return [self._statement(file, vid, text, sound, source.id if source else None)], []
+                return [self._statement(file, vid, text, sound, source.id if source else None,
+                                        disproof=source.disproof if source else None)], []
             if rooted[1] == "news" and not talk:
                 talk.append(f"{heard.speaker_name} told me: {self._told(retime(heard.text, WHEN), crime)}")
         return [], talk
@@ -793,7 +803,7 @@ class Player:
         file.named[self.id] = culprit_id
         crime = file.crime
         accused, victim = self.town.get(culprit_id), self.town.anyone(crime.victim)
-        held = holds(crime, culprit_id, self.town.looks(culprit_id, crime.day), [self.notebook[i] for i in record_ids])
+        held = holds(crime, culprit_id, self.town.sighting(culprit_id, crime.day), [self.notebook[i] for i in record_ids])
         if crime.owner:
             verdict = HELD if held else f"{PRACTICE_WRONG} It was {self.town.get(crime.culprit).name}."
             self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids), verdict=verdict,
@@ -816,8 +826,10 @@ class Player:
             for rival in self.engine.players:
                 if rival is not self and any(r.case == crime.id for r in rival.notebook.values()):
                     self.feed.say(RIVAL, player=rival.id)
+        cited = [self.notebook[i] for i in record_ids]
+        note = "" if held else why_wrong(culprit_id, cited, self.notebook, self.town, file.records)
         self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids),
-                             verdict=HELD if held else WRONG)
+                             verdict=HELD if held else WRONG, note=note)
         self._rank(held, crime)
         if held:
             await self.engine.cases.on_held(self.engine, file, self.id)

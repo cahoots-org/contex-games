@@ -162,6 +162,12 @@ def test_the_page_is_never_served_from_cache_so_a_new_visitor_always_gets_a_run(
     assert game.client.get("/").headers["cache-control"] == "no-cache"
 
 
+def test_the_page_shows_why_an_episode_failed_beneath_its_verdict(game):
+    page = game.client.get("/").text
+    episode = page[page.index('case "episode":'):page.index('case "post":')]
+    assert 'className: "note"' in episode and "${e.verdict}${e.note" in episode
+
+
 def test_the_header_shows_the_day_and_part_and_speaks_only_when_the_connection_is_lost(game):
     page = game.client.get("/").text
     header = page[page.index("<header>"):page.index("</header>")]

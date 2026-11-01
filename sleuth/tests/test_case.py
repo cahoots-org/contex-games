@@ -5,6 +5,7 @@ from random import Random
 import pytest
 
 from sleuth.case import (
+    _memory_text,
     CLIP_TRAITS,
     CRIMES,
     ITEM_PLACES,
@@ -20,7 +21,10 @@ from sleuth.case import (
     discovery,
     found_it,
     logs,
+    evident,
     make_solvable,
+    minute_of,
+    passing_clip,
     points_at,
     record_json,
     recall_more,
@@ -35,12 +39,11 @@ from sleuth.case import (
     victim_memory,
     witness_memories,
 )
-from sleuth.districts import district_of
 from sleuth.lineage import Ids
 from sleuth.models import Villager
 from sleuth.tests.helpers import StubRoutine
-from sleuth.town import PLACES, STREETS, Town, at
-from sleuth.traits import assign_traits, describe
+from sleuth.town import PLACES, STREETS, Town, at, district_of
+from sleuth.traits import RANGES, SEEN_AS, TRAITS, assign_traits, describe, fits
 from sleuth.writer import CLOCK
 
 RESIDENTS = [
@@ -57,7 +60,7 @@ RESIDENTS = [
 
 def make_town():
     town = Town()
-    traits = {"height": "tall", "hair": "bald", "coat": "grey hoodie", "car": "bicycle"}
+    traits = {"gender": "woman", "height": "tall", "hair": "bald", "coat": "grey hoodie", "car": "bicycle"}
     for vid, name, household, street in RESIDENTS:
         town.add(Villager(vid, name, "clerk", "calm", "", [], {}, dict(traits), street, household), street)
     rival, victim = town.get("v5"), town.get("v1")
@@ -225,14 +228,98 @@ def test_witnesses_are_expected_at_the_crime_place_and_never_culprit_or_victim()
             assert m.holder in {"v2", "v3", "v4"} and routine.place(m.holder, "night") == crime.place
 
 
-def test_witness_sees_two_culprit_traits_and_never_a_name():
+def test_witness_sees_culprit_traits_and_never_a_name():
     town, routine, crime = make_case()
     culprit = town.get(crime.culprit)
     m = witness_memories(crime, town, routine, Random(3), Ids())[0]
-    assert len(m.traits) == 2 and m.traits.items() <= town.looks(culprit.id, 1).items() and culprit.name not in m.text
-    assert m.id == "r-1" and m.text.startswith(f"Around {m.clock}, on Elm Street, someone ")
-    assert m.text.endswith(" walked off with something.")
+    assert fits(m.traits, town.sighting(culprit.id, 1)) and culprit.name not in m.text
+    assert m.id == "r-1" and m.text.startswith(f"Around {m.clock}, on Elm Street, ")
     assert any(clock_at(minute) == m.clock for minute in range(1402, 1443)) and m.day == crime.day
+
+
+def test_a_witness_sees_one_thing():
+    town, routine, crime = make_case()
+    sighting = town.sighting(crime.culprit, 1)
+    for seed in range(200):
+        for m in witness_memories(crime, town, routine, Random(seed), Ids()):
+            assert len(m.traits) == 1 and set(m.traits) <= set(SEEN_AS) and fits(m.traits, sighting)
+
+
+def test_some_witnesses_see_a_range():
+    town, routine, crime = make_case()
+    seen = [v for seed in range(200) for m in witness_memories(crime, town, routine, Random(seed), Ids())
+            for v in m.traits.values()]
+    assert any(v in RANGES for v in seen) and any(v not in RANGES for v in seen)
+
+
+def test_a_car_alone_is_someone_driving_off():
+    town, routine, crime = make_case()
+    for car in ("bicycle", "red pickup"):
+        town.get(crime.culprit).traits["car"] = car
+        texts = {m.traits["car"]: m.text for seed in range(200)
+                 for m in witness_memories(crime, town, routine, Random(seed), Ids()) if list(m.traits) == ["car"]}
+        sees = {"bicycle": "someone rode off on a bicycle.", "red pickup": "someone drove off in a red pickup."}
+        assert texts[car].endswith(sees[car])
+        if car != "bicycle":
+            assert texts["with a car"].endswith("someone drove off in a car.")
+
+
+SAW = {
+    (("height", "tall"),): "a tall figure walked off with something.",
+    (("hair", "bald"),): "a bald figure walked off with something.",
+    (("coat", "grey hoodie"),): "someone in a grey hoodie walked off with something.",
+    (("gender", "woman"),): "a woman walked off with something.",
+    (("headed", "oak street"),): "someone walked off with something, headed toward Oak Street.",
+    (("gender", "woman"), ("height", "tall"), ("coat", "grey hoodie")): "a tall woman in a grey hoodie walked off with something.",
+    (("gender", "man"), ("height", "average height")): "an average-height man walked off with something.",
+    (("gender", "woman"), ("height", "not tall")): "a not-tall woman walked off with something.",
+    (("height", "tall"), ("hair", "bald"), ("car", "bicycle")): "a tall, bald figure with a bicycle walked off with something.",
+    (("gender", "man"), ("hair", "bald"), ("coat", "in a dark coat"), ("car", "red pickup"), ("headed", "elm street")):
+        "a bald man in a dark coat with a red pickup walked off with something, headed toward Elm Street.",
+}
+
+
+@pytest.mark.parametrize("seen", SAW)
+def test_a_sighting_reads_as_plain_english(seen):
+    _, _, crime = make_case()
+    text = _memory_text(crime, "9:45am", dict(seen), "v2")
+    assert text == f"Around 9:45am, on Elm Street, {SAW[seen]}"
+
+
+def test_a_car_alone_is_someone_driving_off_but_a_victim_still_says_it_was_grabbed():
+    _, _, crime = make_case()
+    assert _memory_text(crime, "9:45am", {"car": "red pickup"}, "v2").endswith(", someone drove off in a red pickup.")
+    assert _memory_text(crime, "9:45am", {"car": "with a car"}, "v2").endswith(", someone drove off in a car.")
+    assert _memory_text(crime, "9:45am", {"car": "red pickup"}, "v1").endswith(
+        ", someone with a red pickup grabbed at me and took my bike.")
+    assert _memory_text(crime, "9:45am", {"gender": "man", "headed": "oak street"}, "v1").endswith(
+        ", a man grabbed at me and took my bike, headed toward Oak Street.")
+
+
+def test_headed_toward_narrows_by_home_street():
+    town, _, crime = make_case()
+    heard = Record("r-1", crime.id, "memory", crime.place, "11:40pm", "", traits={"headed": "oak street"})
+    assert suspects(crime, [heard], town) == {"v5", "v6", "v7", "v8"}
+    assert describe({"headed": "oak street"}) == "headed toward Oak Street"
+
+
+def test_a_trusting_witness_sharpens_a_range():
+    town, _, crime = make_case()
+    town.get(crime.culprit).traits["height"] = "short"
+    m = Record("r-1", crime.id, "memory", crime.place, "11:40pm", "", traits={"height": "not tall"})
+    more = recall_more(crime, m, town.sighting(crime.culprit, 1))
+    assert more.traits == {"height": "short"} and more.id == ""
+
+
+def test_a_mistaken_witness_recalls_nothing_more():
+    town, _, crime = make_case()
+    m = Record("r-1", crime.id, "memory", crime.place, "11:40pm", "", traits={"height": "short"}, sound=False)
+    assert recall_more(crime, m, town.sighting(crime.culprit, 1)) == m
+
+
+def test_a_clock_reads_back_as_minutes_in_its_part_of_the_day():
+    assert minute_of(clock_at(1400), "night") == 1400 and minute_of(clock_at(1500), "night") == 1500
+    assert minute_of(clock_at(725), "afternoon") == 725
 
 
 def test_clip_only_at_camera_places():
@@ -277,17 +364,31 @@ def test_suspects_narrow_by_traits_and_log_alibis():
     assert suspects(crime, [alibi, present, elsewhere], town) == everyone - {"v6"}
 
 
+def test_suspects_narrow_on_a_ranged_sighting():
+    town, _, crime = make_case()
+    for v in town.villagers:
+        v.traits["height"] = "short" if v.id in ("v2", "v3") else "tall"
+    seen = Record("r-1", "case-1", "memory", "elm street", "11:40pm", "", "v4", {"height": "not tall"})
+    assert suspects(crime, [seen], town) == {"v2", "v3"}
+
+
 def test_make_solvable_returns_empty_when_already_singled_out():
     town, _, crime = make_case()
     full = Record("r-1", "case-1", "clip", "elm street", "11:42pm", "", traits=town.looks("v5", 1))
     assert make_solvable(crime, [full], town, make_routine(), Random(1), Ids()) == []
 
 
-def test_make_solvable_adds_a_witness_when_evidence_is_ambiguous():
+def test_make_solvable_adds_a_witness_when_traces_and_records_cannot_narrow():
     town, routine, crime = make_case()
+    culprit = town.looks(crime.culprit, 1)
+    for v in town.villagers:
+        v.traits.update({c: culprit[c] for c in ("height", "car")}, hair="blond")
+        town.worn[1][v.id] = culprit["coat"]
+    town.get(crime.culprit).traits["hair"] = "red-haired"
     added = make_solvable(crime, [], town, routine, Random(1), Ids())
-    assert len(added) == 1 and suspects(crime, added, town) == {crime.culprit}
-    assert added[0].kind == "memory" and added[0].holder == "v2"
+    assert suspects(crime, added, town) == {crime.culprit}
+    assert {r.kind for r in added} == {"memory"} and added[0].holder == "v2"
+    assert all(len(r.traits) == 1 for r in added) and len({r.holder for r in added}) == len(added)
 
 
 def test_make_solvable_returns_none_when_the_culprit_is_logged_elsewhere():
@@ -432,7 +533,7 @@ def test_witness_and_clip_report_the_outfit_worn_on_the_crime_day():
     crime = replace(crime, place="elm street")
     for seed in range(20):
         for m in witness_memories(crime, town, routine, Random(seed), Ids()):
-            assert m.traits.get("coat", "green raincoat") == "green raincoat"
+            assert fits(m.traits, town.sighting("v5", 1))
 
 
 def test_suspects_match_what_each_wore_on_the_crime_day():
@@ -449,7 +550,7 @@ def test_make_solvable_narrows_on_the_crime_day_outfit():
     town.worn = {1: {v.id: "grey hoodie" for v in town.villagers}, 2: {}}
     town.worn[1]["v5"] = "green raincoat"
     added = make_solvable(crime, [], town, routine, Random(1), Ids())
-    assert added and added[0].traits.get("coat") == "green raincoat"
+    assert added and any(r.traits.get("coat") == "green raincoat" for r in added)
 
 
 def test_every_crime_kind_has_places_for_its_items():
@@ -572,7 +673,7 @@ def test_a_mugging_victim_remembers_one_trait_of_the_mugger():
     assert crime_title(crime, town) == f"The mugging of {town.name_of(crime.victim)}"
     said = f"Around {m.clock}, {at(crime.place)}, someone {describe(m.traits)} grabbed at me and took my {crime.item}."
     assert m.text == said
-    more = recall_more(crime, m, town.looks(crime.culprit, 1))
+    more = recall_more(crime, m, town.sighting(crime.culprit, 1))
     assert len(more.traits) == 2 and more.text.endswith(f"grabbed at me and took my {crime.item}.")
 
 
@@ -623,3 +724,61 @@ def test_every_district_has_somewhere_by_day_for_each_serious_crime_but_a_car_th
     for kind in ("rob", "mug"):
         for item in CRIMES[kind].items:
             assert {district_of(p) for p in ITEM_PLACES[item] if p in by_day} == set(STREETS), (kind, item)
+
+
+def test_traces_come_before_witnesses():
+    town, routine, crime = make_case()
+    culprit = town.looks(crime.culprit, 1)
+    rest = [v.id for v in town.villagers if v.id not in (crime.culprit, crime.victim)]
+    left = [rest[0], next(v for v in rest[1:] if town.looks(v, 1)["coat"] != culprit["coat"])]
+    elsewhere = [Record(f"r-{i}", "case-1", "log", "gym", "11:00pm", "", who=vid)
+                 for i, vid in enumerate(rest) if vid not in left]
+    assert suspects(crime, elsewhere, town) == {crime.culprit, *left}
+    for seed in range(20):
+        added = make_solvable(crime, elsewhere, town, routine, Random(seed), Ids(), allow_witness=True)
+        assert added and added[0].kind in ("clue", "clip")
+        assert suspects(crime, elsewhere + added, town) == {crime.culprit}
+
+
+def test_a_case_with_no_witness_is_never_given_one():
+    town, routine, crime = make_case()
+    results = [make_solvable(crime, [], town, routine, Random(seed), Ids(), allow_witness=False) for seed in range(20)]
+    assert any(added is not None for added in results)
+    assert not any(r.kind == "memory" for added in results if added for r in added)
+
+
+def test_a_passing_camera_sees_only_the_car():
+    town, _, crime = make_case("cafe")
+    town.get(crime.culprit).traits["car"] = "red pickup"
+    others = {v for c, values in TRAITS.items() if c != "car" for v in values}
+    for seed in range(20):
+        clip = passing_clip(crime, town, Ids(), Random(seed))
+        assert (clip.kind, clip.case, clip.holder, clip.day, clip.traits) == ("clip", "case-1", "", 1, {"car": "red pickup"})
+        assert clip.place in ("bar", "elm street")
+        assert clip.text.endswith("camera: a red pickup heading away from the cafe.")
+        assert clip.text.startswith(f"{clip.clock}, ") and not any(v in clip.text for v in others)
+        assert 3 <= [m for m in range(1425, 1440) if clock_at(m) == clip.clock][0] - crime.minute <= 12
+    assert passing_clip(replace(crime, place="bar"), town, Ids(), Random(0)).place == "elm street"
+    assert passing_clip(replace(crime, place="gym"), town, Ids(), Random(0)) is None
+    town.get(crime.culprit).traits["car"] = "bicycle"
+    assert passing_clip(crime, town, Ids(), Random(0)) is None
+
+
+def test_unsound_records_never_narrow_suspects():
+    town, _, crime = make_case()
+    lie = Record("r-1", "case-1", "memory", "elm street", "11:40pm", "", "v2", dict(town.looks("v3", 1)), sound=False)
+    alibi = Record("r-2", "case-1", "log", "gym", "11:00pm", "", who="v6", sound=False)
+    assert suspects(crime, [lie, alibi], town) == suspects(crime, [], town)
+
+
+def test_a_car_thief_s_own_car_is_never_evident():
+    town, routine, crime = make_case()
+    theft = replace(crime, template="car", item="car", tier="serious")
+    assert "car" not in evident(theft, town) and evident(crime, town)["car"] == town.looks(crime.culprit, 1)["car"]
+    town.get(crime.culprit).traits["car"] = "red pickup"
+    assert passing_clip(replace(theft, place="cafe"), town, Ids(), Random(0)) is None
+    for seed in range(40):
+        records = [*witness_memories(theft, town, routine, Random(seed), Ids()),
+                   *scene_clues(theft, town, routine, Random(seed), Ids()),
+                   *(make_solvable(theft, [], town, routine, Random(seed), Ids()) or [])]
+        assert records and not any("car" in r.traits for r in records)

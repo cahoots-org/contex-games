@@ -10,7 +10,7 @@ from sleuth.models import Villager
 from sleuth.town import STREETS
 from sleuth.tests.test_copy import WORDS
 from sleuth.town_gen import (
-    HOUSEHOLDS, MAX_FAILED_BATCHES, SeedMismatch, form_households, generate_villagers,
+    HOUSEHOLDS, MAX_FAILED_BATCHES, SeedMismatch, _valid, form_households, generate_villagers,
     generate_resident, load_or_generate, settle, wire_relationships, world_path,
 )
 
@@ -19,7 +19,7 @@ HOUSEHOLD_TIES = {"spouse", "partner", "roommate", "parent", "child", "sibling"}
 
 def entry(i):
     return {
-        "name": f"Name{i}", "occupation": "baker", "personality": "gruff",
+        "name": f"Name{i}", "gender": "woman" if i % 2 else "man", "occupation": "baker", "personality": "gruff",
         "grudge": "old feud",
         "needs": ["my oven keeps failing", "my daughter wants to leave", "flour prices"],
         "quirks": ["blames the town council for everything"],
@@ -360,6 +360,16 @@ async def test_load_or_generate_rejects_a_village_without_wardrobes(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_load_or_generate_rejects_a_village_without_genders(tmp_path):
+    path = tmp_path / "old.json"
+    traits = {"height": "tall", "hair": "bald", "car": "bicycle"}
+    path.write_text(json.dumps([asdict(Villager("v001", "Ada", "miller", "calm", "", ["a", "b", "c"], {}, traits=traits,
+                                                wardrobe=["grey hoodie"]))]))
+    with pytest.raises(SeedMismatch, match="before genders"):
+        await load_or_generate(str(path), FreshBatches(1), 1, random.Random(1))
+
+
+@pytest.mark.asyncio
 async def test_generation_asks_for_a_modern_town():
     prompts = []
 
@@ -444,7 +454,7 @@ async def test_a_quirk_of_faith_is_rejected():
 async def test_an_old_seed_without_quirks_still_loads(tmp_path):
     path = tmp_path / "old.json"
     old = asdict(Villager("v001", "Ada", "miller", "calm", "", ["a", "b", "c"], {},
-                          traits={"height": "tall"}, wardrobe=["a red scarf"]))
+                          traits={"gender": "woman", "height": "tall"}, wardrobe=["a red scarf"]))
     del old["quirks"]
     path.write_text(json.dumps([old]))
     villagers = await load_or_generate(str(path), FreshBatches(1), 1, random.Random(1))
@@ -467,3 +477,13 @@ async def test_newcomers_are_asked_for_varied_names_and_jobs():
         await generate_resident(writer, taken, random.Random(seed))
     assert len({u.split("Give them a job ")[1].split(".")[0] for u in writer.users}) > 3
     assert len({u.split("first name starts with ")[1][0] for u in writer.users}) > 3
+
+
+@pytest.mark.parametrize("gender", ["robot", None])
+def test_a_resident_without_a_valid_gender_is_rejected(gender):
+    raw = entry(0)
+    if gender is None:
+        del raw["gender"]
+    else:
+        raw["gender"] = gender
+    assert not _valid(raw)

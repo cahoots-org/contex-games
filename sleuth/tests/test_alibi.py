@@ -72,7 +72,7 @@ def test_an_accomplice_vouches_falsely_for_the_culprit():
     file = culprit_file(cases)
     file.accomplice, file.whereabouts = "v7", {"v7": ["bar"]}
     fay, jo = town.get("v3"), town.get("v7")
-    assert accomplice_word(file, jo, fay) == (f"Fay Okafor was with me at the bar {WHEN}.", False)
+    assert accomplice_word(file, jo, fay) == (f"Fay Okafor was with me at the bar {WHEN}.", False, None)
     assert accomplice_word(file, town.get("v8"), fay) is None and accomplice_word(file, jo, town.get("v4")) is None
 
 
@@ -85,3 +85,18 @@ def test_a_death_window_that_includes_night_gets_a_household_word_whatever_its_o
     file = culprit_file(cases, phase="evening")
     file.crime.window = ["afternoon", "evening"]
     assert household_word(file, town.get("v4"), town.get("v3"), "cover") is None
+
+
+def test_a_liar_claims_somewhere_they_were_not():
+    cases, _, _ = make_cases()
+    file = culprit_file(cases)
+    file.whereabouts = {"v6": ["oak street", "bar"]}
+    file.liars = {"v6": {"kind": "somewhere", "place": "bar", "claimed": "oak street", "exposer": "r-1", "text": ""}}
+    assert claim(file, "v6", make_routine()) == (["oak street"], False)
+
+
+def test_a_housemate_s_cover_for_a_liar_is_unsound():
+    cases, _, town = make_cases()
+    file = culprit_file(cases)
+    file.liars = {"v2": {"kind": "somewhere", "place": "bar", "claimed": "elm street", "exposer": "r-1", "text": ""}}
+    assert household_word(file, town.get("v1"), town.get("v2"), "cover") == ("Eli Reyes was home with me all night.", False)

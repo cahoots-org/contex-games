@@ -10,7 +10,7 @@ from random import Random
 from sleuth.contex_client import Match
 from sleuth.lineage import Ids
 from sleuth.models import Utterance
-from sleuth.player import KNOWN_KEPT, PRACTICE_WRONG, HELD, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, Player, Refusal, conveys, learned, looks_in, voiced
+from sleuth.player import KNOWN_KEPT, PRACTICE_WRONG, HELD, MAX_QUESTION, MESSAGES_PER_PART, SHRUGS, Player, Refusal, conveys, first_hand, learned, looks_in, voiced
 from sleuth.players import Players
 from sleuth.config import Config
 from sleuth.case import WHEN, Record
@@ -23,6 +23,7 @@ from sleuth.photos import Album, posted
 from sleuth.tests.helpers import PID, FakeEngine, StubJev, StubRoutine, StubWriter
 from sleuth.tests.test_cases import culprit_file, make_cases, shared
 from sleuth.tests.helpers import make_player as make
+from sleuth.writer import invents_facts
 
 
 @pytest.fixture
@@ -250,8 +251,8 @@ async def test_a_trusting_witness_recalls_one_more_of_the_culprit_s_traits():
     await ask(player, "v2", "what_did_you_see")
     [fuller] = notebook(player, "memory")
     assert fuller.id not in (memory.id, "") and fuller.sound and fuller.holder == "v2"
-    hair = player.town.get("v3").traits["hair"]
-    assert fuller.traits == {"height": "tall", "hair": hair, "coat": "grey hoodie"}
+    gender = player.town.get("v3").traits["gender"]
+    assert fuller.traits == {"height": "tall", "coat": "grey hoodie", "gender": gender}
 
 
 @pytest.mark.asyncio
@@ -342,6 +343,35 @@ async def test_where_was_someone_else_is_where_the_log_put_them_together_never_t
     assert (seen.text, seen.sound) == (f"Eli Reyes says they saw Hal Burke at the bar {WHEN}.", True)
     await ask(player, "v2", "where_was", who="v6")
     assert len(notebook(player)) == 1 and writer.calls[-1][4] == []
+
+
+@pytest.mark.asyncio
+async def test_a_friend_says_where_someone_usually_is():
+    player, _, engine, _ = interviewing()
+    player.town.get("v2").relationships["v6"] = "friend"
+    engine.routine = StubRoutine({"v6": {"evening": "gym"}})
+    await ask(player, "v2", "where_was", who="v6", when="evening")
+    [said] = notebook(player)
+    assert said.text == "Eli Reyes says Ivy Burke is usually at the gym in the evening."
+    assert (said.sound, said.who) == (True, "v6")
+
+
+@pytest.mark.asyncio
+async def test_a_stranger_knows_nothing_of_someone_s_habits():
+    player, _, engine, _ = interviewing()
+    player.town.get("v2").relationships.pop("v6", None)
+    engine.routine = StubRoutine({"v6": {"evening": "gym"}})
+    await ask(player, "v2", "where_was", who="v6", when="evening")
+    assert notebook(player) == []
+
+
+@pytest.mark.asyncio
+async def test_a_housemate_still_gives_their_word_for_the_night():
+    player, _, engine, _ = interviewing()
+    engine.routine = StubRoutine({"v3": {"night": "home"}})
+    await ask(player, "v4", "where_was", who="v3", **{"word:v3": "cover"})
+    [word] = notebook(player)
+    assert word.text == "Gus Okafor: Fay Okafor was home with me all night."
 
 
 @pytest.mark.asyncio
@@ -785,6 +815,25 @@ async def test_publish_wrong_spreads_the_accusation_and_lowers_reputation():
 
 
 @pytest.mark.asyncio
+async def test_a_wrong_episode_carries_a_note_for_its_author_only():
+    player, file, *_ = interviewing()
+    ids = cite(player, file, memory_of(file, player.ids))
+    assert await player.publish("v5", ids) is None
+    [episode] = [e for e in player.feed.recent if e.kind == "episode"]
+    assert episode.to_json(PID)["note"] == "Your evidence doesn't point at Hal Burke."
+    assert "note" not in episode.to_json("p-2")
+
+
+@pytest.mark.asyncio
+async def test_a_held_episode_has_no_note():
+    player, file, *_ = interviewing()
+    ids = cite(player, file, memory_of(file, player.ids))
+    assert await player.publish("v3", ids) is None
+    [episode] = [e for e in player.feed.recent if e.kind == "episode"]
+    assert episode.data["note"] == ""
+
+
+@pytest.mark.asyncio
 async def test_one_episode_per_player_per_case():
     player, file, *_ = interviewing()
     ids = cite(player, file, memory_of(file, player.ids))
@@ -1056,6 +1105,36 @@ def test_a_reply_conveys_a_look_in_a_close_spelling(line):
     assert conveys("Someone with dark hair.", [hair]) and not conveys("Someone with red hair.", [hair])
 
 
+SIGHTED = "Around 11:40pm, on Elm Street, a tall woman walked off with something, headed toward Oak Street."
+
+
+def sighted_memory():
+    return Record("r-1", "case-1", "memory", "elm street", "11:40pm", SIGHTED, "v2",
+                  {"gender": "woman", "height": "tall", "headed": "oak street"})
+
+
+def test_a_reply_conveys_a_gender_and_a_street_and_drops_neither():
+    memory = sighted_memory()
+    assert conveys("I saw a tall woman walk off, headed toward Oak Street.", [memory])
+    assert not conveys("I saw a tall woman walk off.", [memory])
+    assert not conveys("I saw a tall woman walk off, headed toward Elm Street.", [memory])
+
+
+def test_a_reply_inventing_a_gender_or_a_street_is_rejected():
+    allowed = f"Dana Reyes {SIGHTED}"
+    firsts = {"Dana"}
+    assert not invents_facts("I saw a tall woman, headed toward Oak Street.", allowed, firsts)
+    assert invents_facts("I saw a tall man, headed toward Oak Street.", allowed, firsts)
+    plain = "Around 11:40pm, on Elm Street, someone walked off with something."
+    assert invents_facts("I saw a woman walk off.", f"Dana Reyes {plain}", firsts)
+
+
+def test_a_witness_tells_a_gender_and_street_sighting_first_hand():
+    eli = SimpleNamespace(id="v2", name="Eli Reyes")
+    assert first_hand("I saw a tall woman, headed toward Oak Street.", [sighted_memory()], eli)
+    assert not first_hand("I heard a tall woman was headed toward Oak Street.", [sighted_memory()], eli)
+
+
 def test_a_hedge_the_records_make_themselves_still_conveys_them():
     hedge = Record("r-1", "case-1", "statement", "elm street", "9:00am", "Eli Reyes: I can't say where Dana was.", "v2")
     assert conveys("I can't say where Dana was, honestly.", [hedge])
@@ -1201,7 +1280,7 @@ async def test_talking_shows_how_they_look_today():
     player.feed.sinks.append(seen.append)
     assert await ask(player, "v1", "none") is None
     traits = player.town.get("v1").traits
-    assert player.known["v1"][-1] == {"looks": {"height": traits["height"], "hair": traits["hair"], "coat": "plaid flannel"},
+    assert player.known["v1"][-1] == {"looks": {"gender": traits["gender"], "height": traits["height"], "hair": traits["hair"], "coat": "plaid flannel"},
                                       "how": "talked", "by": None, "day": 2, "phase": player.game.phase}
     [known] = [e for e in seen if e.kind == "known"]
     assert known.player == PID and known.data["villager"] == player.person("v1")
@@ -1522,15 +1601,26 @@ def test_the_chosen_case_round_trips_with_the_run():
 
 
 @pytest.mark.asyncio
-async def test_citing_the_accomplice_s_word_sinks_the_episode():
+async def test_citing_the_accomplice_s_word_with_another_false_piece_sinks_the_episode():
     player, file, engine, _ = interviewing()
     file.accomplice = "v7"
     await ask(player, "v7", "where_was", who="v3")
     [word] = notebook(player)
     assert word.text == f"Jo Tran: Fay Okafor was with me on Oak Street {WHEN}." and not word.sound
-    ids = cite(player, file, memory_of(file, player.ids)) + [word.id]
+    ids = cite(player, file, memory_of(file, player.ids), replace(word, id="r-91")) + [word.id]
     assert await player.publish("v3", ids) is None
     assert file.state == "open" and player.standing == 0
+
+
+@pytest.mark.asyncio
+async def test_the_accomplice_s_word_is_disproved_by_a_log_at_the_place_they_name():
+    player, file, engine, _ = interviewing()
+    file.accomplice, file.whereabouts["v7"] = "v7", ["bar"]
+    file.records["r-90"] = Record("r-90", file.crime.id, "log", "bar", "11:10pm", "Bar tab closed: Jo Tran, 11:10pm",
+                                  who="v7", day=1)
+    await ask(player, "v7", "where_was", who="v3")
+    [word] = notebook(player)
+    assert not word.sound and word.disproof == "r-90"
 
 
 def a_death(player, file):
@@ -1608,12 +1698,36 @@ async def test_hearsay_from_a_memory_no_longer_on_file_is_unsound():
 
 
 @pytest.mark.asyncio
-async def test_citing_drifted_hearsay_sinks_the_episode():
+async def test_citing_drifted_hearsay_with_another_false_piece_sinks_the_episode():
     player, file, engine, _ = interviewing()
     memory = heard_as(player, engine, file, "Someone tall in a red coat took it around 9pm.")
     await ask(player, "v6", "who_told_you")
     [said] = notebook(player)
-    await player.publish("v3", [*cite(player, file, memory), said.id])
+    await player.publish("v3", [*cite(player, file, memory, replace(said, id="r-91")), said.id])
+    assert file.state == "open" and [e.data["held"] for e in player.feed.recent if e.kind == "episode"] == [False]
+
+
+@pytest.mark.asyncio
+async def test_hearsay_of_a_mistake_is_as_unsound_as_the_mistake():
+    player, file, engine, _ = interviewing()
+    memory = heard_as(player, engine, file, "Someone tall took a bike.")
+    memory.sound, memory.disproof = False, "r-50"
+    await ask(player, "v6", "who_told_you")
+    [said] = notebook(player)
+    assert (said.sound, said.disproof) == (False, "r-50")
+
+
+@pytest.mark.asyncio
+async def test_citing_a_retold_mistake_with_another_false_piece_sinks_the_episode():
+    player, file, engine, _ = interviewing()
+    memory = heard_as(player, engine, file, "Someone tall took a bike.")
+    memory.sound = False
+    await ask(player, "v6", "who_told_you")
+    [said] = notebook(player)
+    seen = memory_of(file, player.ids, holder="v2", utterance="u-9")
+    lie = Record("r-92", file.crime.id, "statement", "elm street", "11:50pm", "Kit says they were home.", "v8",
+                 sound=False)
+    await player.publish("v3", [*cite(player, file, seen, lie), said.id])
     assert file.state == "open" and [e.data["held"] for e in player.feed.recent if e.kind == "episode"] == [False]
 
 

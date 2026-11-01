@@ -198,6 +198,8 @@ select, input[type="text"], input[type="search"] {
 .feed li { padding: .5rem 0; border-top: 1px solid var(--rail); overflow-wrap: anywhere; }
 .feed .quiet { color: var(--muted); }
 .feed .loud { font-weight: 700; }
+.feed .note { display: block; margin-top: .2rem; font-weight: 400; }
+#case-status { white-space: pre-line; }
 .feed .post { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .25rem .75rem; }
 .feed .post > b { grid-column: 1 / -1; font-weight: 400; }
 .feed .faces { display: flex; gap: .25rem; grid-row: span 2; align-self: start; }
@@ -1406,8 +1408,9 @@ function render(e, fresh) {
       break;
     case "episode":
       if (e.mine) {
-        talk("loud", fresh, `You named ${e.name}, citing ${plural(e.cited, "record")}. ${e.verdict}`);
-        if (fresh) say("case-status", `You named ${e.name}. ${e.verdict}`);
+        talk("loud", fresh, `You named ${e.name}, citing ${plural(e.cited, "record")}. ${e.verdict}`,
+          e.note ? el("span", { className: "note" }, e.note) : null);
+        if (fresh) say("case-status", `You named ${e.name}. ${e.verdict}${e.note ? `\n${e.note}` : ""}`);
       } else {
         talk("loud", fresh, e.text);
       }

@@ -5,12 +5,8 @@ from random import Random
 
 from sleuth.case import Crime
 from sleuth.config import Config
-from sleuth.town import STREETS, Town
+from sleuth.town import STREETS, Town, district_of
 
-PLACE_DISTRICT = {"cafe": "elm street", "bar": "elm street", "dog park": "elm street",
-                  "gym": "oak street", "school": "oak street", "library": "oak street",
-                  "hardware store": "maple street", "grocery": "maple street", "town hall": "maple street",
-                  **{s: s for s in STREETS}}
 # How far a crime of each tier raises its district's crime and fear.
 HIT = {"petty": 0.25, "serious": 0.45, "major": 0.7}
 # How far an exposure lowers its district's crime, and fear.
@@ -22,10 +18,6 @@ WATCH_SIZE = 6
 FORMED = "{street} residents are starting a watch. {first}'s making flyers."
 TOLD = "We're starting the {name}. Keep an eye out on {street}."
 WOUND_DOWN = "The {name} has wound down. {street} feels safe again."
-
-
-def district_of(place: str) -> str:
-    return PLACE_DISTRICT[place]
 
 
 def level(x: float) -> int:

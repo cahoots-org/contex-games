@@ -39,6 +39,7 @@ class Event:
             data["mine"] = data.pop("by") == viewer
             if not data["mine"]:
                 data.pop("verdict", None)
+                data.pop("note", None)
         return {"id": self.id, "at": self.at, "kind": self.kind, **data}
 
 
@@ -165,12 +166,12 @@ class Feed:
         self.emit("searched", line, player=player, place=place, records=records, text=line, case_id=case_id)
 
     def on_episode(self, case_id: str, name: str, held: bool, *, by: str, cited: int, verdict: str,
-                   player: str | None = None) -> None:
+                   note: str = "", player: str | None = None) -> None:
         """A podcaster's episode named a resident citing some records, and whether it held up, which its author sees
-        as verdict."""
+        as verdict, and when it didn't, a note on why."""
         line = f"A podcaster's episode names {name}" + (", and it holds up. Case closed." if held else ".")
         self.emit("episode", line, player=player, case_id=case_id, name=name, held=held, text=line, by=by, cited=cited,
-                  verdict=verdict)
+                  verdict=verdict, note=note)
 
     def on_standing(self, standing: int, tier: str, label: str, line: str, *, player: str) -> None:
         """The podcaster's standing after an episode, with what changed for them when their tier rose."""

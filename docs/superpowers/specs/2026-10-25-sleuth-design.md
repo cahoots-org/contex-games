@@ -313,3 +313,65 @@ From the owner, after playing:
 4. **Districts and the loop:** district state; watches forming (groups); crime displacement; offenders arising from neglect; the district map; district reactions on the app.
 5. **Major cases:** an occasional murder as a town event, with the time-of-death window, several motives and a longer case.
 6. **Drifting hearsay:** looser drift for resident-to-resident talk.
+
+## Addendum, 2026-10-29: detective work
+
+From the owner, after reading the playtest report:
+- "Many cases have no witnesses. With no witnesses, you have to go by other evidence and piece things together."
+- "Our witnesses (when we do use them) being more subtle. Maybe they only saw gender. Maybe they only saw height. Maybe they only saw the getaway car."
+- "Having conflicting pieces of 'evidence' and figuring out which ones are real is part of the game."
+- "A very short summary explaining why you were wrong seems to be in order."
+- "The player should work it out on their own by interviewing people nearby, checking cameras, looking for trace, etc. Just like real detective work."
+- Keeping some checklist cases is fine: "That's how the real world works too."
+
+### Why cases feel like a checklist today
+- **A witness always closes the gap.** When a case's evidence doesn't narrow it to the culprit, `make_solvable` adds a witness who remembers exactly the traits that do. Every case ends up with a witness, and the last one lands on the answer.
+- **Witnesses see too much, too exactly.** Each recalls two of four traits, and fixed looks are unique across about 75 combinations, so two exact traits usually leave one to three people.
+- **False evidence only bites at the end.** Lies, false alibis and drifted hearsay sink an episode that cites them, but they rarely mislead an investigation in progress.
+
+### Witnesses see less
+- **Most witnesses see one thing.** Height, hair, the coat, gender, the car, which way the figure went, or what they were carrying.
+- **Some see a range, not a value.** "Darkish hair" fits dark-haired and red-haired; "not tall" fits short and average height. A sighting rules out a slice of the town, and several sightings together narrow it.
+- **The car without the driver.** A witness may see only a red pickup pulling away.
+- **Which way they went** narrows by home street: "headed toward Oak Street" fits residents who live there. What the figure carried is flavor and narrows nothing (*my call*).
+- **Gender becomes a fixed trait** of every resident, like height. Generation assigns it; new residents get one when they move in.
+
+### Many cases have no witness
+- **Physical evidence and records come first.** When a case needs more to be solvable, it reaches for a trace, a dropped receipt, a check-in, or a camera on a nearby street that catches the car a few minutes later. A witness is the last resort, and some crimes never get one.
+- **A claim against the log is evidence.** A suspect who says they were at the gym, when the gym's check-ins that day don't include them, has been caught out. The missing entry isn't a record of its own: the log the player pulls is, and the solver treats a claimed place with no entry as no alibi.
+- **People who know someone know their habits.** A housemate, friend or coworker can say where someone usually is at a time of day ("Sam's always at the gym Tuesday evenings"), taken from the routine, so code owns it. That's a citable statement; set against a log with no check-in, it shows a gap in someone's day. Like any account, it can be wrong or a cover.
+- **No lead is handed out.** A case with no witness opens with the crime and its place. The player works out where to look: asking people nearby, checking cameras, searching for traces, pulling records.
+
+### Conflicting evidence
+- **The new guarantee:** the true evidence narrows the case to exactly one person, and every false piece contradicts something the player can check, such as a camera clip, a log, another account or what the person wore that day. The player is never left guessing, but has to decide what to trust.
+- **What the guarantee covers:** the false evidence planted when a case opens is checked then. Lies told during play (the culprit's alibi, a household covering, drifted hearsay) keep working as they do today.
+- **False evidence is a mix.** Some fits a believable innocent decoy, preferably someone with a motive, and leads the investigation somewhere wrong; some is plain noise that fits no one in particular.
+- **An episode can survive one bad piece.** It holds when it names the culprit, some cited evidence points at them, at most one cited piece is false, and that false piece contradicts nothing else it cites. Two false pieces, or a false piece that clashes with another cited one (a green raincoat cited beside a camera showing a black puffer), sink it. An honest mistake and an innocent leftover count as false: the memory and the thread are real, but what they say about the culprit isn't. A ranged sighting points at the culprit when it fits them.
+- **Kinds of false evidence, each with a cause in the town:**
+  - **Honest mistakes:** a witness is sure of a green raincoat; it was dusk, and the camera shows a black puffer.
+  - **Innocent leftovers:** the thread at the scene is real but was left by someone there an hour earlier, which their own log shows.
+  - **Innocent liars:** a resident lies about where they were to hide something unrelated, such as an evening at the bar they'd rather keep quiet. They're hiding something, but not this.
+  - **Cover stories:** a friend vouches for the culprit, and a receipt breaks the alibi. This extends today's accomplices.
+- **An innocent liar's secret** comes from a varied catalog, each kind with what can expose it:
+  - somewhere they shouldn't have been, shown by a log or a camera;
+  - planning a surprise for someone, which a co-conspirator gives away;
+  - a job interview out of town, which a coworker knows about;
+  - a hobby or purchase they're embarrassed by, shown by a receipt or a post on the app;
+  - covering for a friend's own small mischief, which the friend admits when pressed.
+
+  The secret comes out publicly if they're named in an episode, and they hold it against the podcaster like any wrongly accused resident.
+
+### By tier
+- **Petty:** mostly straightforward, with a witness more often than not and little or no false evidence. Some cases stay a checklist.
+- **Serious:** often no witness; one or two false pieces.
+- **Major:** a witness is rare, and only ever sees something innocuous near the scene, such as "someone leaving in a green car", never the death itself; several false pieces, including at least one innocent liar among the people with motives.
+
+### When an episode is wrong
+- **A short note on why.** One line naming the cited piece that was false and what shows it, such as "Tess's green raincoat: the library camera shows a black puffer." When the cited evidence was sound but didn't point at who was named, the note says so.
+- **Spoilers stay out while a town case is open.** The note never names the culprit. When the podcaster hasn't found what disproves their pick, the note names only the kind of source, such as "a camera saw otherwise" (*my call*). The tutorial's case still names the culprit once it closes.
+
+### Stages
+1. **Partial and ranged sightings, and gender:** witnesses recall one trait, or a range; gender as a fixed trait; the solver narrows on ranges.
+2. **No-witness cases:** the solvability check reaches for traces, records and nearby cameras before witnesses; opportunity gaps; witness-free crimes by tier.
+3. **False evidence:** honest mistakes, innocent leftovers, innocent liars and cover stories, each with something that disproves it; the guarantee checked for every case.
+4. **The wrong-episode note:** which cited piece was false and why, without spoilers.
