@@ -330,21 +330,20 @@ def test_ordinary_talk_about_the_town_does_not_invent_people(line):
 
 
 @pytest.mark.asyncio
-async def test_a_reply_may_chat_around_the_facts_from_its_asides():
-    client = StubClient("Saw someone tall. Mind you, my rent's going up again.")
+async def test_a_reply_may_react_in_character_but_never_changes_the_subject():
+    client = StubClient("Saw someone tall. Poor Ruth, she loved that bag.")
     await Writer(client, "haiku-test").reply(villager(), "Someone stole a bike.", "What did you see?", [],
                                              ["Around 9pm someone tall walked off."],
-                                             asides=["My rent is going up again."])
+                                             asides=["Ruth Okafor is your friend, and you're on close terms."])
     call = client.messages.calls[0]
-    assert "two or three short sentences" in call["system"] and "chat a little" in call["system"]
-    assert "Things you could bring up: My rent is going up again." in call["messages"][0]["content"]
+    assert "one short sentence reacting" in call["system"] and "never change the subject" in call["system"]
+    assert ("Things you could bring up: Ruth Okafor is your friend, and you're on close terms."
+            in call["messages"][0]["content"])
 
 
 @pytest.mark.asyncio
-async def test_a_shrug_may_chat_about_yourself_but_still_names_no_one():
-    client = StubClient("No idea, sorry. Been run off my feet at the shop.")
-    await Writer(client, "haiku-test").reply(villager(), "Someone stole a bike.", "Who did it?", [], [],
-                                             asides=["The shop has been busy."])
+async def test_a_shrug_stays_on_the_question_and_names_no_one():
+    client = StubClient("No idea, sorry.")
+    await Writer(client, "haiku-test").reply(villager(), "Someone stole a bike.", "Who did it?", [], [])
     call = client.messages.calls[0]
-    assert "one or two short, natural sentences" in call["system"] and "Name no one" in call["system"]
-    assert "Things you could bring up: The shop has been busy." in call["messages"][0]["content"]
+    assert "never change the subject" in call["system"] and "Name no one" in call["system"]

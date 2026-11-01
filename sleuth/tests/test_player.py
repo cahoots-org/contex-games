@@ -1788,26 +1788,22 @@ async def test_a_resident_is_not_shown_what_they_said_about_another_case():
 
 
 @pytest.mark.asyncio
-async def test_a_reply_may_bring_up_the_resident_s_own_life_and_how_they_feel_about_the_victim():
+async def test_a_reply_may_react_with_how_the_resident_gets_on_with_the_victim():
     player, file, engine, writer = interviewing()
     memory_of(file, player.ids)
     eli = player.town.get("v2")
     eli.needs = ["My rent is going up again."]
     eli.relationships["v1"], eli.warmth["v1"] = "friend", 0.8
     await ask(player, "v2", "what_did_you_see")
-    asides = writer.asides[-1]
-    assert "My rent is going up again." in asides
-    assert any("Dana" in a and "friend" in a for a in asides)
+    assert writer.asides[-1] == ["Dana Reyes is your friend, and you're on close terms."]
 
 
 @pytest.mark.asyncio
-async def test_a_shrug_brings_up_only_the_resident_s_own_life():
+async def test_a_shrug_brings_up_nothing_beside_the_question():
     player, file, engine, writer = interviewing()
-    eli = player.town.get("v2")
-    eli.needs = ["My rent is going up again."]
-    eli.relationships["v1"], eli.warmth["v1"] = "friend", 0.8
+    player.town.get("v2").needs = ["My rent is going up again."]
     await ask(player, "v2", "none")
-    assert writer.asides[-1] == ["My rent is going up again."]
+    assert writer.asides[-1] == []
 
 
 @pytest.mark.asyncio

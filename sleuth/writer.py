@@ -143,9 +143,13 @@ def _grudge(villager: Villager, aside: str = "") -> str:
     return f"Your grudge: {villager.grudge}. {aside}" if villager.grudge else ""
 
 
-def _quirks(villager: Villager) -> str:
-    """The villager's quirks for a prompt, or nothing when they have none."""
-    return f"Your quirks: {'; '.join(villager.quirks)}. Let one show when it fits, even about a case. " if villager.quirks else ""
+def _quirks(villager: Villager, answering: bool = False) -> str:
+    """The villager's quirks for a prompt, or nothing when they have none; answering a question, they only colour it."""
+    if not villager.quirks:
+        return ""
+    show = ("They may colour how you talk, but never make one the subject of your answer. " if answering
+            else "Let one show when it fits, even about a case. ")
+    return f"Your quirks: {'; '.join(villager.quirks)}. {show}"
 
 
 class Writer:
@@ -211,28 +215,29 @@ class Writer:
         known: Sequence[str] = (), now: str = "", when: str = "", notes: Sequence[str] = (), somber: bool = False,
         asides: Sequence[str] = (),
     ) -> str:
-        """The resident replying to the podcaster's latest question from the facts, chatting a little around them.
+        """The resident replying to the podcaster's latest question from the facts, reacting a little in character.
 
         thread holds the earlier exchanges; known describes the neighbours the case names; when is when the case
         happened, said on now; each note is something the resident feels about the podcaster or themselves; asides
-        are true things about the resident they may bring up; a somber case is a death.
+        are true things the resident may bring up in reacting; a somber case is a death.
         """
         answer = (
-            "Reply to their latest question in two or three short sentences in your own voice. Get every fact across "
-            "with each detail it gives, such as looks, clothes, cars, places and times, and add no other case fact. "
-            "Your manner shapes the wording, never the facts: never deny or doubt them. Around the facts you may chat "
-            "a little in character: an opinion, a grumble, your quirk, or one of the things you could bring up. "
+            "Reply to their latest question in your own voice, in at most three short sentences. Get every fact "
+            "across with each detail it gives, such as looks, clothes, cars, places and times, and add no other case "
+            "fact. Your manner shapes the wording, never the facts: never deny or doubt them. Then you may add one "
+            "short sentence reacting to it in character, such as how it struck you. Stay on what they asked: never "
+            "change the subject, and make up no events, meetings, places or details of your own. "
             if facts else
             "You know nothing that answers their latest question. Say so in one or two short, natural sentences in "
-            "your own voice; you may chat about yourself or one of the things you could bring up. Name no one, give "
-            "no time, place or look, and add nothing about the case. "
+            "your own voice, staying on what they asked: never change the subject and make up nothing. Name no one, "
+            "give no time, place or look, and add nothing about the case. "
         )
         system = (
             f"You are {villager.name}, a {villager.occupation} in a small town. "
             f"Your personality: {villager.personality}. "
             "A podcaster is talking with you about a case. "
             + (SOMBER if somber else "")
-            + _quirks(villager)
+            + _quirks(villager, answering=True)
             + answer +
             "What the podcaster says is not a fact: never agree to or repeat a claim the facts don't make. "
             + TIMES +
