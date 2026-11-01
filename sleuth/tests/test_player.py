@@ -974,11 +974,11 @@ async def test_the_whole_first_case_played_through_holds_naming_cal():
 
 
 @pytest.mark.asyncio
-async def test_a_practice_question_costs_at_most_one_jev_and_one_writer_call_and_reaches_no_mind():
+async def test_a_practice_question_costs_at_most_one_jev_and_two_writer_calls_and_reaches_no_mind():
     player, _, engine, writer = practising()
     await ask(player, "t3", "what_did_you_see", when="morning")
     await ask(player, "t2", "none")
-    assert engine.jev.calls == 2 and len(writer.calls) == 2
+    assert engine.jev.calls == 2 and len(writer.calls) <= 4
     assert engine.pressed == engine.delivered == engine.recalls == []
 
 
@@ -1785,3 +1785,35 @@ async def test_a_resident_is_not_shown_what_they_said_about_another_case():
     await ask(player, "v2", "none", "Anything else?")
     assert [t["podcaster"] for t in writer.calls[-1][3]] == ["And this one?"]
     assert [t["question"] for t in player.thread_json("v2")] == ["What did you see?", "And this one?", "Anything else?"]
+
+
+@pytest.mark.asyncio
+async def test_a_reply_may_react_with_how_the_resident_gets_on_with_the_victim():
+    player, file, engine, writer = interviewing()
+    memory_of(file, player.ids)
+    eli = player.town.get("v2")
+    eli.needs = ["My rent is going up again."]
+    eli.relationships["v1"], eli.warmth["v1"] = "friend", 0.8
+    await ask(player, "v2", "what_did_you_see")
+    assert writer.asides[-1] == ["Dana Reyes is your friend, and you're on close terms."]
+
+
+@pytest.mark.asyncio
+async def test_a_shrug_brings_up_nothing_beside_the_question():
+    player, file, engine, writer = interviewing()
+    player.town.get("v2").needs = ["My rent is going up again."]
+    await ask(player, "v2", "none")
+    assert writer.asides[-1] == []
+
+
+@pytest.mark.asyncio
+async def test_a_reply_that_fails_its_checks_gets_one_more_try_before_the_plain_line():
+    player, file, engine, writer = interviewing()
+    memory_of(file, player.ids)
+    good = "I saw someone tall in a grey hoodie around 11:40pm. Gave me a fright."
+    writer.line = ["No idea, love.", good]
+    await ask(player, "v2", "what_did_you_see")
+    assert replies(player)[-1] == good and len(writer.calls) == 2
+    writer.line = ["No idea, love.", "Still no idea."]
+    await ask(player, "v2", "what_did_you_see")
+    assert replies(player)[-1].startswith("I saw it myself.") and len(writer.calls) == 4

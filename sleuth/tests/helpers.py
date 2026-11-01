@@ -173,19 +173,22 @@ class FakeEngine:
 
 
 class StubWriter:
-    """Records what each reply was given, and replies with line."""
+    """Records what each reply was given, and replies with line, or each of a list of lines in turn."""
 
     def __init__(self, line="Can't say I know much."):
         self.line = line
         self.calls = []
         self.notes = []
         self.somber = []
+        self.asides = []
 
-    async def reply(self, villager, case, question, thread, facts, known=(), now="", when="", notes=(), somber=False):
+    async def reply(self, villager, case, question, thread, facts, known=(), now="", when="", notes=(), somber=False,
+                    asides=()):
         self.calls.append((villager.id, case, question, list(thread), list(facts), list(known), now, when))
         self.notes.append(list(notes))
         self.somber.append(somber)
-        return self.line
+        self.asides.append(list(asides))
+        return self.line.pop(0) if isinstance(self.line, list) else self.line
 
 
 def stub_player(pid=PID, place="cafe"):

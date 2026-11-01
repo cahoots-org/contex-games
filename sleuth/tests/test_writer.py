@@ -103,7 +103,7 @@ async def test_reply_answers_the_latest_question_from_the_facts_with_the_thread_
     call = client.messages.calls[0]
     user = call["messages"][0]["content"]
     assert call["max_tokens"] == ANSWER_MAX_TOKENS and "Ada" in call["system"]
-    assert "using only these facts" in call["system"] and "never agree to or repeat a claim" in call["system"]
+    assert "add no other case fact" in call["system"] and "never agree to or repeat a claim" in call["system"]
     assert user.index("Podcaster: Hi there.\nYou: Hello.") < user.index("Podcaster: What did you see?")
     assert "Facts: Around 9pm someone tall walked off." in user and "Dana Reyes, the clerk" in user
     assert "happened" not in user
@@ -327,3 +327,23 @@ def test_a_line_naming_a_person_or_place_the_town_lacks_invents_people(line):
 ])
 def test_ordinary_talk_about_the_town_does_not_invent_people(line):
     assert not invents_people(line, NAMES)
+
+
+@pytest.mark.asyncio
+async def test_a_reply_may_react_in_character_but_never_changes_the_subject():
+    client = StubClient("Saw someone tall. Poor Ruth, she loved that bag.")
+    await Writer(client, "haiku-test").reply(villager(), "Someone stole a bike.", "What did you see?", [],
+                                             ["Around 9pm someone tall walked off."],
+                                             asides=["Ruth Okafor is your friend, and you're on close terms."])
+    call = client.messages.calls[0]
+    assert "one short sentence reacting" in call["system"] and "never change the subject" in call["system"]
+    assert ("Things you could bring up: Ruth Okafor is your friend, and you're on close terms."
+            in call["messages"][0]["content"])
+
+
+@pytest.mark.asyncio
+async def test_a_shrug_stays_on_the_question_and_names_no_one():
+    client = StubClient("No idea, sorry.")
+    await Writer(client, "haiku-test").reply(villager(), "Someone stole a bike.", "Who did it?", [], [])
+    call = client.messages.calls[0]
+    assert "never change the subject" in call["system"] and "Name no one" in call["system"]
