@@ -375,3 +375,52 @@ From the owner, after reading the playtest report:
 2. **No-witness cases:** the solvability check reaches for traces, records and nearby cameras before witnesses; opportunity gaps; witness-free crimes by tier.
 3. **False evidence:** honest mistakes, innocent leftovers, innocent liars and cover stories, each with something that disproves it; the guarantee checked for every case.
 4. **The wrong-episode note:** which cited piece was false and why, without spoilers.
+
+## Addendum, 2026-11-01: a show that grows
+
+From the owner:
+- "How can we make progress more visible? How do we make progression fun?"
+- Asked whether the pull is the show growing as something you collect, or the town treating you differently as your reputation grows: "Both."
+
+### Why progress is invisible today
+- **One small line:** "New podcaster · 0 points" in muted text under Publish.
+- **Abstract points:** a held episode adds 1, 2 or 3 points by tier; a wrong one takes 1. Tiers change at 3 and 6 points, with one line when they do.
+- **Hidden effects:** witnesses recall more when they trust you, and record-keepers refuse a podcaster they distrust, but the game never says so.
+
+### Listeners, not points
+- **Your show's listeners** replace points as the measure of progress, shown at the top of the case rail under "Your show".
+- **A held episode** brings listeners by tier: petty 100, serious 300, major 800 (*my call*). **A wrong one** loses 100, never below zero.
+- **Tiers follow listeners:** serious cases from 500, major from 1500 (*my call*, replacing `serious_at` and `major_at` points).
+- **Old saves** convert points to listeners at 100 each.
+
+### Credit for good detective work
+A held episode's reception calls out what the podcaster did well, each with bonus listeners (*my call: 50 each*):
+- **Caught a mistake or a leftover:** the podcaster's notebook holds a false piece, and the episode cites the record that disproves it without citing the false piece. "Listeners loved how you caught Tess's mistake about the green raincoat."
+- **Saw through a cover story:** an accomplice's word is in the notebook, and the episode cites the record that breaks it. "Listeners loved how you broke Jo's alibi for Hal."
+- **Cleared an innocent liar:** the notebook holds a liar's false claim and the evidence or word that exposes it, and the episode names the real culprit. "Listeners loved that you didn't fall for Ivy's story."
+- **No witness:** the case had no witness memory at all. "Listeners loved that you cracked it without a single witness."
+
+A held episode with no credit gets a plain line ("A solid episode."). The reception never reveals anything about a case still open to other podcasters: it names only pieces the author found.
+
+### Your episodes
+- **An archive** of every episode the podcaster has published: the case's title, who they named, whether it held, the listeners it brought or cost, and its reception lines. Newest first. It opens from the case rail.
+- **Wrong episodes stay in it.** The archive is the podcaster's record in the town, mistakes included.
+
+### Milestones the town feels
+The next milestone shows under the listener count with what it brings ("Next: 250 listeners. Record-keepers start sharing with you."). Reaching one is a moment: a line in the conversation area and a post on the neighborhood app (code-written, in-world).
+
+| Listeners | What changes (*my calls*) |
+|---|---|
+| 250 | **Record-keepers share:** pulling records no longer needs a keeper's trust. |
+| 500 | **Serious cases** come to you (today's tier). |
+| 1000 | **People open up:** witnesses who aren't cold toward you recall as if they trusted you. |
+| 1500 | **Major cases** come to you (today's tier). |
+| 2500 | **A local celebrity:** residents know your show, and say so when you talk to them. |
+
+- **Recognition in talk:** from 1000, residents' replies are told they know the podcaster's show, so they can react to it ("Oh, you're the one with the podcast!"). This colours answers only; it adds no case fact and volunteers nothing.
+
+### Stages
+1. **Listeners and tiers:** listeners replace points; tiers by listeners; old saves convert; the rail shows "Your show", listeners and the next milestone.
+2. **The archive:** every published episode recorded and shown, with listeners and reception.
+3. **Credit:** the four kinds of credit, bonus listeners and reception lines.
+4. **Milestones:** the 250, 1000 and 2500 effects; milestone moments in the conversation and on the app; recognition in talk.
