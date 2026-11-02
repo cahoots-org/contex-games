@@ -1,6 +1,7 @@
 """Generate the village: Haiku writes the people, code wires who knows whom."""
 
 import json
+import logging
 import os
 import random
 import re
@@ -13,11 +14,15 @@ from sleuth.town import PUBLIC_PLACES, STREETS
 from sleuth.traits import TRAITS, assign_traits
 from sleuth.writer import Writer, extract_json
 
+log = logging.getLogger(__name__)
+
 BATCH = 10
 MAX_FAILED_BATCHES = 5
 REQUIRED = ("name", "gender", "occupation", "personality", "grudge", "needs", "quirks")
 MAX_RELATIONSHIPS = 4
 REVERSE = {"parent": "child", "child": "parent"}
+GENDER_SYSTEM = ('For each name, one per line, say whether the person is a man or a woman. Reply with only a JSON '
+                 'object mapping each name exactly as given to "man" or "woman".')
 # Weighted draw, so friends are commoner than the rest.
 KINDS = ["friend", "friend", "coworker", "neighbor", "rival"]
 # How many residents must be on bad terms with someone for them to have that many people with a motive, and one
@@ -315,7 +320,7 @@ def stir_rivalries(villagers: list[Villager], rng: random.Random) -> None:
 
 
 class SeedMismatch(ValueError):
-    """The seed file is not a village this game can use: another size, or one from before Sleuth, outfits or genders."""
+    """The seed file is not a village this game can use: another size, or one from before Sleuth or outfits."""
 
 
 async def load_or_generate(
@@ -332,19 +337,37 @@ async def load_or_generate(
             raise SeedMismatch(f"{path} is a town from before Sleuth's; delete it")
         if any(not v.wardrobe for v in villagers):
             raise SeedMismatch(f"{path} is a town from before outfits; delete it")
-        if any("gender" not in v.traits for v in villagers):
-            raise SeedMismatch(f"{path} is a town from before genders; delete it")
         if len(villagers) != count:
             raise SeedMismatch(
                 f"{path} has {len(villagers)} residents but population is {count}; "
                 f"delete it or set SLEUTH_POPULATION={len(villagers)}"
             )
+        if any("gender" not in v.traits for v in villagers):
+            await give_genders(villagers, writer, rng)
+            write_seed(path, villagers)
         return villagers
     villagers = await generate_villagers(writer, count, rng)
     form_households(villagers, rng)
     assign_traits(villagers, rng)
     wire_relationships(villagers, rng)
+    write_seed(path, villagers)
+    return villagers
+
+
+def write_seed(path: str, villagers: list[Villager]) -> None:
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "w") as f:
         json.dump([asdict(v) for v in villagers], f, indent=2)
-    return villagers
+
+
+async def give_genders(villagers: list[Villager], writer: Writer, rng: random.Random) -> None:
+    """Give a town from before genders one for each resident, matching their name as Haiku reads it, else drawn."""
+    try:
+        said = extract_json(await writer.complete(GENDER_SYSTEM, "\n".join(v.name for v in villagers)))
+    except Exception:
+        log.exception("reading genders from names failed")
+        said = {}
+    said = said if isinstance(said, dict) else {}
+    for v in villagers:
+        gender = said.get(v.name)
+        v.traits["gender"] = gender if gender in TRAITS["gender"] else rng.choice(TRAITS["gender"])
