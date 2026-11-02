@@ -391,10 +391,11 @@ From the owner:
 - **Your show's listeners** replace points as the measure of progress, shown at the top of the case rail under "Your show".
 - **A held episode** brings listeners by tier: petty 100, serious 300, major 800 (*my call*). **A wrong one** loses 100, never below zero.
 - **Tiers follow listeners:** serious cases from 500, major from 1500 (*my call*, replacing `serious_at` and `major_at` points).
-- **Old saves** convert points to listeners at 100 each.
+- **Progress never goes backwards:** tiers and milestones follow the most listeners the show has ever had, so a wrong episode costs listeners but never takes away a tier or a milestone (*my call*).
+- **Old saves** are set aside by the save-version bump, as with every recent change, and the town is kept (*my call*).
 
 ### Credit for good detective work
-A held episode's reception calls out what the podcaster did well, each with bonus listeners (*my call: 50 each*):
+A held episode's reception calls out what the podcaster did well, each kind once per episode, with bonus listeners (*my call: 50 each*):
 - **Caught a mistake or a leftover:** the podcaster's notebook holds a false piece, and the episode cites the record that disproves it without citing the false piece. "Listeners loved how you caught Tess's mistake about the green raincoat."
 - **Saw through a cover story:** an accomplice's word is in the notebook, and the episode cites the record that breaks it. "Listeners loved how you broke Jo's alibi for Hal."
 - **Cleared an innocent liar:** the notebook holds a liar's false claim and the evidence or word that exposes it, and the episode names the real culprit. "Listeners loved that you didn't fall for Ivy's story."
@@ -407,17 +408,17 @@ A held episode with no credit gets a plain line ("A solid episode."). The recept
 - **Wrong episodes stay in it.** The archive is the podcaster's record in the town, mistakes included.
 
 ### Milestones the town feels
-The next milestone shows under the listener count with what it brings ("Next: 250 listeners. Record-keepers start sharing with you."). Reaching one is a moment: a line in the conversation area and a post on the neighborhood app (code-written, in-world).
+The next milestone shows under the listener count with what it brings ("Next: 250 listeners. Record-keepers start sharing with you."). Reaching one is a moment: a line in the conversation area for the podcaster, and a public post on the neighborhood app that names no one ("A local true-crime podcast just passed 1,000 listeners."), since podcasters are anonymous (*my call*).
 
 | Listeners | What changes (*my calls*) |
 |---|---|
-| 250 | **Record-keepers share:** pulling records no longer needs a keeper's trust. |
+| 250 | **Record-keepers share:** pulling records is never refused, even by a keeper who distrusts you. |
 | 500 | **Serious cases** come to you (today's tier). |
-| 1000 | **People open up:** witnesses who aren't cold toward you recall as if they trusted you. |
+| 1000 | **People open up:** witnesses whose regard for you isn't negative recall as if they trusted you. |
 | 1500 | **Major cases** come to you (today's tier). |
 | 2500 | **A local celebrity:** residents know your show, and say so when you talk to them. |
 
-- **Recognition in talk:** from 1000, residents' replies are told they know the podcaster's show, so they can react to it ("Oh, you're the one with the podcast!"). This colours answers only; it adds no case fact and volunteers nothing.
+- **Recognition in talk:** from 2500, residents' replies are told they know the podcaster's show, so they can react to it ("Oh, you're the one with the podcast!"). This colours answers only; it adds no case fact and volunteers nothing.
 
 ### Stages
 1. **Listeners and tiers:** listeners replace points; tiers by listeners; old saves convert; the rail shows "Your show", listeners and the next milestone.
