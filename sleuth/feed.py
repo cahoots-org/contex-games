@@ -176,9 +176,9 @@ class Feed:
         self.emit("episode", line, player=player, case_id=case_id, name=name, held=held, text=line, by=by, cited=cited,
                   verdict=verdict, note=note, listeners=listeners, reception=reception or [])
 
-    def on_show(self, show: dict, line: str, *, player: str) -> None:
-        """The podcaster's show after an episode, with what changed for them when their tier rose."""
-        self.emit("show", line, player=player, show=show, text=line)
+    def on_show(self, show: dict, *, player: str) -> None:
+        """The podcaster's show after an episode."""
+        self.emit("show", player=player, show=show)
 
     def on_milestone(self, at: int, line: str, *, player: str) -> None:
         """The podcaster's show passed an audience size that opens something up."""

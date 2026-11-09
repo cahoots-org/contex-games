@@ -135,16 +135,12 @@ KNOWN_KEPT = 4
 # The listeners a held episode brings, by the case's tier, and what a wrong one costs.
 LISTENERS = {"petty": 100, "serious": 300, "major": 800}
 WRONG_COST = 100
-# What each tier is called, and what rising to it means.
+# What each tier is called.
 LABELS = {"petty": "New podcaster", "serious": "Known in town", "major": "Town legend"}
-TIPS_UP = {"serious": "Bigger tips are coming in now: serious cases.",
-           "major": "The whole town is listening. The biggest cases come to you now."}
 # Peak audiences at which record-keepers share, witnesses open up and the town knows the show.
 SHARING_AT, OPEN_UP_AT, KNOWN_AT = 250, 1000, 2500
-# Audience sizes that open something up for the show, in order.
-MILESTONES = ((SHARING_AT, "Record-keepers start sharing with you."), (500, "Serious cases come to you."),
-              (OPEN_UP_AT, "People open up to you."), (1500, "Major cases come to you."),
-              (KNOWN_AT, "The town knows your show."))
+# Where the app posts that a podcast passed a milestone.
+MILESTONE_PLACE = "town hall"
 
 # What residents feel about a podcaster the whole town has heard of, for the writer.
 STARSTRUCK = "You know this podcaster's true-crime show, and you're a little starstruck."
@@ -277,9 +273,16 @@ class Player:
         self.case_id = case_id
         return None
 
+    @property
+    def milestones(self) -> list[tuple[int, str]]:
+        """Audience sizes that open something up for the show, in order."""
+        return sorted([(SHARING_AT, "Record-keepers start sharing with you."),
+                       (self.config.serious_at, "Serious cases come to you."), (OPEN_UP_AT, "People open up to you."),
+                       (self.config.major_at, "Major cases come to you."), (KNOWN_AT, "The town knows your show.")])
+
     def show_json(self) -> dict:
         """The show as the page sees it: listeners, tier and the next milestone."""
-        upcoming = next(({"at": at, "text": text} for at, text in MILESTONES if at > self.peak), None)
+        upcoming = next(({"at": at, "text": text} for at, text in self.milestones if at > self.peak), None)
         return {"listeners": self.listeners, "tier": self.tier, "label": LABELS[self.tier], "next": upcoming}
 
     def episodes_json(self) -> list[dict]:
@@ -292,23 +295,21 @@ class Player:
             return LISTENERS[crime.tier] + bonus
         return max(0, self.listeners - WRONG_COST) - self.listeners
 
-    def _rank(self, held: bool, crime: Crime, bonus: int = 0) -> None:
-        """Move the show's audience for an episode on the town's case, and tell the player."""
-        before = self.tier
-        self.listeners += self._change(held, crime, bonus)
+    def _rank(self, change: int) -> None:
+        """Move the show's audience by an episode's change, and tell the player."""
+        self.listeners += change
         peak = self.peak
         self.peak = max(self.peak, self.listeners)
-        self._milestones(peak, self.peak, crime.place)
-        tier = self.tier
-        line = TIPS_UP[tier] if tier != before and held else ""
-        self.feed.on_show(self.show_json(), line, player=self.id)
+        self._milestones(peak, self.peak)
+        self.feed.on_show(self.show_json(), player=self.id)
 
-    def _milestones(self, before: int, after: int, place: str) -> None:
+    def _milestones(self, before: int, after: int) -> None:
         """Tell the player each milestone their peak audience just passed, and post it to the town without naming them."""
-        for size, text in MILESTONES:
+        for size, text in self.milestones:
             if before < size <= after:
                 self.feed.on_milestone(size, f"{size:,} listeners. {text}", player=self.id)
-                post = Utterance("", "app", APP, place, f"A local true-crime podcast just passed {size:,} listeners.", None, "posted")
+                post = Utterance("", "app", APP, MILESTONE_PLACE,
+                                 f"A local true-crime podcast just passed {size:,} listeners.", None, "posted")
                 self.feed.on_post(post, None)
 
     @property
@@ -892,7 +893,7 @@ class Player:
         change = self._change(held, crime, bonus)
         self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids),
                              verdict=HELD if held else WRONG, note=note, listeners=change, reception=reception)
-        self._rank(held, crime, bonus)
+        self._rank(change)
         self.episodes.append({"case": crime.id, "title": crime_title(crime, self.town), "named": accused.name,
                               "held": held, "listeners": change, "reception": list(reception),
                               "day": self.game.day if self.game else 0})

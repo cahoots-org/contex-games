@@ -1545,14 +1545,26 @@ async def test_a_wrong_episode_costs_listeners_but_never_below_zero(monkeypatch)
 
 
 @pytest.mark.asyncio
-async def test_rising_to_a_tier_tells_the_player(monkeypatch):
+async def test_rising_to_a_tier_is_told_once_as_its_milestone(monkeypatch):
     player = await publish_on(monkeypatch, "serious", "v3", listeners=300, peak=300)
     [event] = [e for e in player.feed.recent if e.kind == "show"]
-    assert event.data["text"] == "Bigger tips are coming in now: serious cases."
-    assert event.data["show"]["label"] == "Known in town"
-    player = await publish_on(monkeypatch, "petty", "v3", listeners=500, peak=500)
-    [event] = [e for e in player.feed.recent if e.kind == "show"]
-    assert event.data["text"] == ""
+    assert event.line == "" and "text" not in event.data and event.data["show"]["label"] == "Known in town"
+    assert [e.data["text"] for e in milestone_lines(player)] == ["500 listeners. Serious cases come to you."]
+
+
+def test_the_milestones_follow_the_configured_tiers():
+    player, *_ = interviewing()
+    player.config = replace(player.config, serious_at=400, major_at=2000)
+    player.listeners = player.peak = 300
+    assert player.show_json()["next"] == {"at": 400, "text": "Serious cases come to you."}
+    player._rank(100)
+    assert [e.data["text"] for e in milestone_lines(player)] == ["400 listeners. Serious cases come to you."]
+    assert player.tier == "serious"
+    player.listeners = player.peak = 1600
+    assert player.show_json()["next"] == {"at": 2000, "text": "Major cases come to you."}
+    player._rank(400)
+    assert milestone_lines(player)[-1].data["text"] == "2,000 listeners. Major cases come to you."
+    assert player.tier == "major"
 
 
 @pytest.mark.asyncio
@@ -1915,9 +1927,9 @@ def milestone_lines(player):
 
 
 def test_crossing_a_milestone_tells_the_podcaster_and_posts_without_naming_them():
-    player, file, *_ = interviewing()
+    player, *_ = interviewing()
     player.listeners = player.peak = 200
-    player._rank(True, file.crime)
+    player._rank(100)
     [line] = milestone_lines(player)
     assert line.player == PID and line.data["text"] == "250 listeners. Record-keepers start sharing with you."
     [post] = [e for e in player.feed.recent if e.kind == "post" and e.data["app"]]
@@ -1926,26 +1938,26 @@ def test_crossing_a_milestone_tells_the_podcaster_and_posts_without_naming_them(
 
 
 def test_crossing_two_milestones_at_once_fires_both_in_order():
-    player, file, *_ = interviewing()
+    player, *_ = interviewing()
     player.listeners = player.peak = 200
-    player._rank(True, file.crime, 300)
+    player._rank(400)
     assert [e.data["text"][:3] for e in milestone_lines(player)] == ["250", "500"]
 
 
 def test_a_milestone_fires_once_even_after_falling_back_below_it():
-    player, file, *_ = interviewing()
+    player, *_ = interviewing()
     player.listeners = player.peak = 200
-    player._rank(True, file.crime)
-    player._rank(False, file.crime)
+    player._rank(100)
+    player._rank(-100)
     player.listeners = 240
-    player._rank(True, file.crime)
+    player._rank(100)
     assert len(milestone_lines(player)) == 1
 
 
 def test_another_podcaster_never_sees_the_milestone_line():
-    player, file, *_ = interviewing()
+    player, *_ = interviewing()
     player.listeners = player.peak = 200
-    player._rank(True, file.crime)
+    player._rank(100)
     [line] = milestone_lines(player)
     assert player.feed.sees(PID, line) and not player.feed.sees("p-2", line)
 
