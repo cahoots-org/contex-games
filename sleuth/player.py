@@ -16,6 +16,7 @@ from sleuth.credit import CREDIT_BONUS, SOLID, credits
 from sleuth.decide import warmth_words
 from sleuth.episode import MAX_CITED, holds, why_wrong
 from sleuth.faith import FAITH, GORE
+from sleuth.feed import APP
 from sleuth.game import Game
 from sleuth.interview import Route, exchanges, route
 from sleuth.lineage import Ids, Lineage
@@ -138,10 +139,15 @@ WRONG_COST = 100
 LABELS = {"petty": "New podcaster", "serious": "Known in town", "major": "Town legend"}
 TIPS_UP = {"serious": "Bigger tips are coming in now: serious cases.",
            "major": "The whole town is listening. The biggest cases come to you now."}
+# Peak audiences at which record-keepers share, witnesses open up and the town knows the show.
+SHARING_AT, OPEN_UP_AT, KNOWN_AT = 250, 1000, 2500
 # Audience sizes that open something up for the show, in order.
-MILESTONES = ((250, "Record-keepers start sharing with you."), (500, "Serious cases come to you."),
-              (1000, "People open up to you."), (1500, "Major cases come to you."),
-              (2500, "The town knows your show."))
+MILESTONES = ((SHARING_AT, "Record-keepers start sharing with you."), (500, "Serious cases come to you."),
+              (OPEN_UP_AT, "People open up to you."), (1500, "Major cases come to you."),
+              (KNOWN_AT, "The town knows your show."))
+
+# What residents feel about a podcaster the whole town has heard of, for the writer.
+STARSTRUCK = "You know this podcaster's true-crime show, and you're a little starstruck."
 
 
 def learned(entry: dict, town: Town) -> str:
@@ -290,10 +296,20 @@ class Player:
         """Move the show's audience for an episode on the town's case, and tell the player."""
         before = self.tier
         self.listeners += self._change(held, crime, bonus)
+        peak = self.peak
         self.peak = max(self.peak, self.listeners)
+        self._milestones(peak, self.peak, crime.place)
         tier = self.tier
         line = TIPS_UP[tier] if tier != before and held else ""
         self.feed.on_show(self.show_json(), line, player=self.id)
+
+    def _milestones(self, before: int, after: int, place: str) -> None:
+        """Tell the player each milestone their peak audience just passed, and post it to the town without naming them."""
+        for size, text in MILESTONES:
+            if before < size <= after:
+                self.feed.on_milestone(size, f"{size:,} listeners. {text}", player=self.id)
+                post = Utterance("", "app", APP, place, f"A local true-crime podcast just passed {size:,} listeners.", None, "posted")
+                self.feed.on_post(post, None)
 
     @property
     def practising(self) -> bool:
@@ -562,6 +578,8 @@ class Player:
                          if f.crime.culprit == vid and f.solved_by == self.id), None)
             notes.append(f"This podcaster exposed you for {self._deed(mine)}. You're cold with them." if mine
                          else f"Everyone knows you {what}. You're touchy about it.")
+        if self.peak >= KNOWN_AT:
+            notes.append(STARSTRUCK)
         return notes
 
     def _deed(self, crime: Crime) -> str:
@@ -681,7 +699,8 @@ class Player:
         """What the resident saw or found of the case; a trusting witness recalls more."""
         crime = file.crime
         records = [replace(r) for r in file.records.values() if r.kind in ("memory", "discovery") and r.holder == vid]
-        if self.engine.reputation.get(vid, self.id) >= self.config.trusted_at:
+        regard = self.engine.reputation.get(vid, self.id)
+        if regard >= self.config.trusted_at or (self.peak >= OPEN_UP_AT and regard >= 0):
             culprit = evident(crime, self.town)
             records = [recall_more(crime, r, culprit) if r.kind == "memory" else r for r in records]
         return records
@@ -774,7 +793,8 @@ class Player:
         file = self.current()
         if file is None:
             return "There's no open case."
-        if max((self.engine.reputation.get(vid, self.id) for vid in self._keepers()), default=0.0) < self.config.guarded_at:
+        guarded = max((self.engine.reputation.get(vid, self.id) for vid in self._keepers()), default=0.0) < self.config.guarded_at
+        if guarded and self.peak < SHARING_AT:
             return "No one who keeps the records here will share them with you."
         found = [replace(r) for r in file.records.values() if r.kind in ("clip", "log") and r.place == self.place]
         if not found:

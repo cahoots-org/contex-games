@@ -1165,3 +1165,8 @@ def test_heard_entries_are_marked_as_retold(game):
     assert 'const GROUP_NOTES = { Heard: "Retold. It may have changed along the way." };' in html
     draw = html[html.index("function drawNotebook()"):html.index("function entry(")]
     assert 'el("p", { className: "group-note", textContent: GROUP_NOTES[g] })' in draw and "sound" not in draw
+
+
+def test_the_page_tells_the_podcaster_of_a_milestone(game):
+    page = game.client.get("/").text
+    assert 'case "milestone":' in page

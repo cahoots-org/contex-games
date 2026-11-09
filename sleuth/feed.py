@@ -180,6 +180,10 @@ class Feed:
         """The podcaster's show after an episode, with what changed for them when their tier rose."""
         self.emit("show", line, player=player, show=show, text=line)
 
+    def on_milestone(self, at: int, line: str, *, player: str) -> None:
+        """The podcaster's show passed an audience size that opens something up."""
+        self.emit("milestone", line, player=player, at=at, text=line)
+
     def on_districts(self, levels: list[dict]) -> None:
         """Each district's crime and fear levels, trends and watch."""
         self.emit("districts", districts=levels)

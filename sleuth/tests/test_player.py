@@ -1908,3 +1908,73 @@ async def test_a_reply_that_fails_its_checks_gets_one_more_try_before_the_plain_
     writer.line = ["No idea, love.", "Still no idea."]
     await ask(player, "v2", "what_did_you_see")
     assert replies(player)[-1].startswith("I saw it myself.") and len(writer.calls) == 4
+
+
+def milestone_lines(player):
+    return [e for e in player.feed.recent if e.kind == "milestone"]
+
+
+def test_crossing_a_milestone_tells_the_podcaster_and_posts_without_naming_them():
+    player, file, *_ = interviewing()
+    player.listeners = player.peak = 200
+    player._rank(True, file.crime)
+    [line] = milestone_lines(player)
+    assert line.player == PID and line.data["text"] == "250 listeners. Record-keepers start sharing with you."
+    [post] = [e for e in player.feed.recent if e.kind == "post" and e.data["app"]]
+    assert post.player is None and post.data["text"] == "A local true-crime podcast just passed 250 listeners."
+    assert PID not in json.dumps(post.data)
+
+
+def test_crossing_two_milestones_at_once_fires_both_in_order():
+    player, file, *_ = interviewing()
+    player.listeners = player.peak = 200
+    player._rank(True, file.crime, 300)
+    assert [e.data["text"][:3] for e in milestone_lines(player)] == ["250", "500"]
+
+
+def test_a_milestone_fires_once_even_after_falling_back_below_it():
+    player, file, *_ = interviewing()
+    player.listeners = player.peak = 200
+    player._rank(True, file.crime)
+    player._rank(False, file.crime)
+    player.listeners = 240
+    player._rank(True, file.crime)
+    assert len(milestone_lines(player)) == 1
+
+
+def test_another_podcaster_never_sees_the_milestone_line():
+    player, file, *_ = interviewing()
+    player.listeners = player.peak = 200
+    player._rank(True, file.crime)
+    [line] = milestone_lines(player)
+    assert player.feed.sees(PID, line) and not player.feed.sees("p-2", line)
+
+
+def test_record_keepers_share_from_250_listeners():
+    player, file, engine, _ = interviewing()
+    place_record(file, "clip", "elm street", "r-11")
+    engine.reputation.nudge_all(PID, player.config.guarded_at - 0.1, ["v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8"])
+    assert player.pull() == "No one who keeps the records here will share them with you."
+    player.peak = 250
+    assert player.pull() is None and "r-11" in player.notebook
+
+
+def test_witnesses_open_up_from_1000_listeners_unless_they_dislike_you():
+    player, file, engine, _ = interviewing()
+    memory_of(file, player.ids)
+    [plain] = player._seen(file, "v2")
+    player.peak = 1000
+    [warm] = player._seen(file, "v2")
+    assert len(warm.traits) > len(plain.traits)
+    engine.reputation.nudge("v2", PID, -0.2)
+    [cold] = player._seen(file, "v2")
+    assert cold.traits == plain.traits
+
+
+def test_residents_know_the_show_from_2500_listeners():
+    player, *_ = interviewing()
+    star = "You know this podcaster's true-crime show, and you're a little starstruck."
+    player.peak = 2499
+    assert star not in player._notes("v2")
+    player.peak = 2500
+    assert star in player._notes("v2") and star in player._notes("v5")
