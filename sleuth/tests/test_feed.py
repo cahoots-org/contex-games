@@ -128,13 +128,14 @@ def test_only_its_author_sees_the_note_on_an_episode():
     assert "note" not in event.to_json("p-2")
 
 
-def test_only_its_author_sees_an_episodes_listeners_and_reception():
+def test_only_its_author_sees_an_episodes_archive_entry():
     feed, _ = make()
-    feed.on_episode("case-1", "Bert", True, by=PID, cited=2, verdict="It holds up.", listeners=150,
-                    reception=["A solid episode."])
+    entry = {"case": "case-1", "title": "Ada's bike", "named": "Bert", "held": True, "listeners": 150,
+             "reception": ["A solid episode."], "day": 1}
+    feed.on_episode("case-1", "Bert", True, by=PID, cited=2, verdict="It holds up.", episode=entry)
     event = feed.recent[-1]
-    assert (event.to_json(PID)["listeners"], event.to_json(PID)["reception"]) == (150, ["A solid episode."])
-    assert not {"listeners", "reception"} & event.to_json("p-2").keys()
+    assert event.to_json(PID)["episode"] == entry
+    assert not {"episode", "listeners", "reception"} & event.to_json("p-2").keys()
 
 
 def test_a_search_says_where_it_was():

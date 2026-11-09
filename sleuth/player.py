@@ -895,12 +895,12 @@ class Player:
         reception = credits(file, cited, self.notebook, self.town) if held else []
         bonus = CREDIT_BONUS * sum(line != SOLID for line in reception)
         change = self._change(held, crime, bonus)
+        episode = {"case": crime.id, "title": crime_title(crime, self.town), "named": accused.name, "held": held,
+                   "listeners": change, "reception": reception, "day": self.game.day if self.game else 0}
         self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids),
-                             verdict=HELD if held else WRONG, note=note, listeners=change, reception=reception)
+                             verdict=HELD if held else WRONG, note=note, episode=episode)
         self._rank(change)
-        self.episodes.append({"case": crime.id, "title": crime_title(crime, self.town), "named": accused.name,
-                              "held": held, "listeners": change, "reception": list(reception),
-                              "day": self.game.day if self.game else 0})
+        self.episodes.append(episode)
         if held:
             await self.engine.cases.on_held(self.engine, file, self.id)
         else:

@@ -1617,12 +1617,12 @@ async def test_each_published_episode_goes_in_the_archive(monkeypatch):
                      "named": player.town.get("v3").name, "held": True, "listeners": 300,
                      "reception": ["A solid episode."], "day": 0}
     [event] = [e for e in player.feed.recent if e.kind == "episode"]
-    assert event.data["reception"] == entry["reception"] and event.data["reception"] is not entry["reception"]
+    assert event.data["episode"] == entry
     player = await publish_on(monkeypatch, "petty", "v5", listeners=50)
     [entry] = player.episodes_json()
-    assert (entry["held"], entry["listeners"]) == (False, -50)
+    assert (entry["held"], entry["listeners"], entry["reception"]) == (False, -50, [])
     [event] = [e for e in player.feed.recent if e.kind == "episode"]
-    assert (event.data["listeners"], event.data["reception"]) == (-50, [])
+    assert event.data["episode"] == entry
 
 
 @pytest.mark.asyncio

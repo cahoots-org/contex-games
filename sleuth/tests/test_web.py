@@ -171,16 +171,25 @@ def test_the_page_is_never_served_from_cache_so_a_new_visitor_always_gets_a_run(
     assert game.client.get("/").headers["cache-control"] == "no-cache"
 
 
-def test_the_page_shows_why_an_episode_failed_beneath_its_verdict(game):
+def test_the_page_shows_why_an_episode_failed_and_how_it_landed_beneath_its_verdict(game):
     page = game.client.get("/").text
     episode = page[page.index('case "episode":'):page.index('case "post":')]
-    assert 'className: "note"' in episode and "${e.verdict}${e.note" in episode
+    assert "[e.note, ...(e.episode ? [listenerChange(e.episode.listeners), ...e.episode.reception] : [])]" in episode
+    assert 'className: "note"' in episode and "${e.verdict}${lines" in episode
+
+
+def test_the_archive_grows_from_the_episode_event_without_refetching_state(game):
+    page = game.client.get("/").text
+    episode = page[page.index('case "episode":'):page.index('case "post":')]
+    assert "setEpisodes([e.episode, ...episodes])" in episode
+    assert "refreshEpisodes" not in page
 
 
 def test_the_archive_shows_no_change_for_an_episode_that_moved_no_listeners(game):
     page = game.client.get("/").text
-    archive = page[page.index("function setEpisodes"):page.index("function refreshEpisodes")]
-    assert 'x.listeners === 0 ? "No change"' in archive
+    change = page[page.index("function listenerChange"):page.index("function setEpisodes")]
+    assert 'n === 0 ? "No change"' in change
+    assert "listenerChange(x.listeners)" in page[page.index("function setEpisodes"):]
 
 
 def test_the_header_shows_the_day_and_part_and_speaks_only_when_the_connection_is_lost(game):
@@ -1083,9 +1092,12 @@ def test_state_shows_the_players_show(game):
         "next": {"at": 2500, "text": "The town knows your show."}}
 
 
-def test_the_rail_shows_the_show(game):
+def test_the_show_heads_the_case_rail(game):
     page = game.client.get("/").text
-    assert "Your show" in page and 'id="show-listeners"' in page and 'id="show-next"' in page
+    desk = page[page.index('id="desk"'):page.index('id="convo"')]
+    assert desk.index('class="show"') < desk.index('id="case"')
+    assert "Your show" in desk and 'id="show-listeners"' in desk and 'id="show-next"' in desk
+    assert 'id="episodes-open"' in desk
 
 
 def test_state_lists_only_offered_cases(game):
@@ -1137,7 +1149,7 @@ def test_narrow_screens_keep_the_stage_and_slide_the_case_and_people_in_as_drawe
 
 def test_the_publish_composer_takes_over_the_stage(game):
     page = game.client.get("/").text
-    assert ".citing .stage, .citing .rail-foot { display: none; }" in page
+    assert ".citing .stage, .citing .rail-foot, .citing .show { display: none; }" in page
     assert ".citing .desk { grid-column: 1 / 3;" in page
     publish = page[page.index("function openPublish(on)"):page.index("function cited()")]
     assert 'if (drawers.matches) openDrawer($("desk"));' in publish
