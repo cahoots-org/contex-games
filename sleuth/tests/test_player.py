@@ -1597,6 +1597,36 @@ def test_listeners_and_peak_survive_a_save():
     assert (back.listeners, back.peak, back.tier) == (450, 700, "serious")
 
 
+@pytest.mark.asyncio
+async def test_each_published_episode_goes_in_the_archive(monkeypatch):
+    player = await publish_on(monkeypatch, "serious", "v3", listeners=50)
+    [entry] = player.episodes
+    assert entry == {"case": entry["case"], "title": "Dana Reyes's bike",
+                     "named": player.town.get("v3").name, "held": True, "listeners": 300, "reception": [],
+                     "day": 0}
+    player = await publish_on(monkeypatch, "petty", "v5", listeners=50)
+    [entry] = player.episodes_json()
+    assert (entry["held"], entry["listeners"]) == (False, -50)
+    [event] = [e for e in player.feed.recent if e.kind == "episode"]
+    assert (event.data["listeners"], event.data["reception"]) == (-50, [])
+
+
+@pytest.mark.asyncio
+async def test_the_practice_case_adds_nothing_to_the_archive():
+    player, *_ = practising()
+    ids = await solve(player)
+    assert await player.publish("t5", ids) is None
+    assert player.episodes == []
+
+
+@pytest.mark.asyncio
+async def test_the_archive_survives_a_save(monkeypatch):
+    player = await publish_on(monkeypatch, "petty", "v3")
+    back = Player(player.engine, player.town, player.lineage, Ids(), player.feed, player.config, player_id=PID)
+    back.restore(json.loads(json.dumps(player.to_state())))
+    assert back.episodes == player.episodes and back.episodes_json() == player.episodes_json()
+
+
 def two_tips(player, file):
     """A serious case beside the petty one, offered to a podcaster known in town."""
     file.crime.tier = "petty"

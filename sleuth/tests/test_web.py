@@ -94,6 +94,15 @@ def test_state_lists_villagers_and_replay(game):
     assert "NEED" not in game.client.get("/api/state").text
 
 
+def test_only_the_author_sees_their_archive(game):
+    game.player.episodes = [{"case": "c1", "title": "Ada's bike", "named": "Bert Cole", "held": True,
+                             "listeners": 100, "reception": [], "day": 1}]
+    assert game.client.get("/api/state").json()["episodes"] == game.player.episodes
+    other = game.join("someone-else")
+    as_owner(game.client, other.owner)
+    assert game.client.get("/api/state").json()["episodes"] == []
+
+
 def test_state_counts_each_conversation_and_names_where_records_are_kept(game):
     game.player.threads = {"v1": [{"question": "?", "line": "!", "records": []}] * 2}
     state = game.client.get("/api/state").json()

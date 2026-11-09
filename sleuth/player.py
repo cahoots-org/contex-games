@@ -8,7 +8,7 @@ from dataclasses import asdict, replace
 
 from sleuth.alibi import accomplice_word, claim, household_word
 from sleuth.case import (
-    WHEN, CRIMES, Crime, Record, clock_at, evident, motive_of, recall_more, record_json, resents, retime, told, when,
+    WHEN, CRIMES, Crime, Record, clock_at, crime_title, evident, motive_of, recall_more, record_json, resents, retime, told, when,
 )
 from sleuth.cases import CaseFile
 from sleuth.config import Config
@@ -205,6 +205,8 @@ class Player:
         # only rises, and sets the tier.
         self.listeners = 0
         self.peak = 0
+        # Each episode published on the town's cases, newest last.
+        self.episodes: list[dict] = []
         # The town's case the player chose to work, while it is offered.
         self.case_id: str | None = None
 
@@ -214,7 +216,7 @@ class Player:
             "id": self.id, "owner": self.owner, "created_at": self.created_at, "active_at": self._active_at,
             **self._progress(), "handoff": self.handoff, "town_run": self._town_run,
             "saved_photos": self.saved_photos, "listeners": self.listeners, "peak": self.peak,
-            "case_id": self.case_id,
+            "episodes": self.episodes, "case_id": self.case_id,
             "tutorial": self.engine.cases.to_state() if self.practising else None,
         }
 
@@ -225,6 +227,7 @@ class Player:
         self.handoff, self._town_run = state["handoff"], state["town_run"]
         self.saved_photos, self.case_id = state["saved_photos"], state["case_id"]
         self.listeners, self.peak = state["listeners"], state["peak"]
+        self.episodes = state["episodes"]
         active_at = state["active_at"]
         self._active_at = None if active_at is None else min(active_at, time.time() - self.config.idle_after_seconds)
         if state["tutorial"] is not None:
@@ -272,13 +275,20 @@ class Player:
         upcoming = next(({"at": at, "text": text} for at, text in MILESTONES if at > self.peak), None)
         return {"listeners": self.listeners, "tier": self.tier, "label": LABELS[self.tier], "next": upcoming}
 
+    def episodes_json(self) -> list[dict]:
+        """The player's published episodes, newest first."""
+        return self.episodes[::-1]
+
+    def _change(self, held: bool, crime: Crime, bonus: int = 0) -> int:
+        """How many listeners an episode on the town's case adds to the show, or takes from it."""
+        if held:
+            return LISTENERS[crime.tier] + bonus
+        return max(0, self.listeners - WRONG_COST) - self.listeners
+
     def _rank(self, held: bool, crime: Crime, bonus: int = 0) -> None:
         """Move the show's audience for an episode on the town's case, and tell the player."""
         before = self.tier
-        if held:
-            self.listeners += LISTENERS[crime.tier] + bonus
-        else:
-            self.listeners = max(0, self.listeners - WRONG_COST)
+        self.listeners += self._change(held, crime, bonus)
         self.peak = max(self.peak, self.listeners)
         tier = self.tier
         line = TIPS_UP[tier] if tier != before and held else ""
@@ -856,9 +866,13 @@ class Player:
                     self.feed.say(RIVAL, player=rival.id)
         cited = [self.notebook[i] for i in record_ids]
         note = "" if held else why_wrong(culprit_id, cited, self.notebook, self.town, file.records)
+        change, reception = self._change(held, crime), []
         self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids),
-                             verdict=HELD if held else WRONG, note=note)
+                             verdict=HELD if held else WRONG, note=note, listeners=change, reception=reception)
         self._rank(held, crime)
+        self.episodes.append({"case": crime.id, "title": crime_title(crime, self.town), "named": accused.name,
+                              "held": held, "listeners": change, "reception": reception,
+                              "day": self.game.day if self.game else 0})
         if held:
             await self.engine.cases.on_held(self.engine, file, self.id)
         else:

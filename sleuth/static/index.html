@@ -177,6 +177,10 @@ select, input[type="text"], input[type="search"] {
 .role.scene { margin-left: .1rem; background: var(--danger); color: var(--bg); }
 
 /* The district map: crime and fear as three pips each. */
+.episodes { list-style: none; margin: .75rem 0 0; padding: 0; font-size: .9rem; }
+.episodes li { padding: .6rem 0; border-top: 1px solid var(--rail); }
+.episodes p { margin: .15rem 0 0; }
+.episodes .empty { border-top: 0; color: var(--muted); }
 .districts { list-style: none; margin: .75rem 0 0; padding: 0; font-size: .9rem; color: var(--muted); }
 .districts li { display: grid; grid-template-columns: minmax(0, 1fr) 4rem 4rem; gap: 0 .75rem; padding: .5rem 0; border-top: 1px solid var(--rail); }
 .districts .head { border-top: 0; padding: 0 0 .2rem; font-size: .8rem; }
@@ -432,6 +436,13 @@ select, input[type="text"], input[type="search"] {
   </div>
   <ol class="districts" id="district-rows" aria-label="Crime and fear by district"></ol>
 </dialog>
+<dialog class="sheet" id="episodes-panel" aria-labelledby="episodes-title">
+  <div class="sheet-head">
+    <h2 id="episodes-title">Your episodes</h2>
+    <form method="dialog"><button class="linkish">Close</button></form>
+  </div>
+  <ol class="episodes" id="episode-rows" aria-label="Your episodes, newest first"></ol>
+</dialog>
 <div class="app" id="app">
   <header>
     <button type="button" class="tool drawer-open" id="case-open" aria-controls="desk" aria-expanded="false" aria-label="Case and notebook"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg></button>
@@ -484,9 +495,10 @@ select, input[type="text"], input[type="search"] {
     <div class="rail-foot">
       <button type="button" class="plain-button" id="publish-open" aria-expanded="false" aria-controls="publish" hidden>Publish an episode</button>
       <div class="show">
-        <h3>Your show</h3>
+        <h3 id="show-title">Your show</h3>
         <p id="show-listeners"></p>
         <p class="next" id="show-next"></p>
+        <button type="button" class="linkish" id="episodes-open" aria-haspopup="dialog" aria-controls="episodes-panel">Your episodes</button>
       </div>
     </div>
   </aside>
@@ -1417,7 +1429,10 @@ function render(e, fresh) {
       if (e.mine) {
         talk("loud", fresh, `You named ${e.name}, citing ${plural(e.cited, "record")}. ${e.verdict}`,
           e.note ? el("span", { className: "note" }, e.note) : null);
-        if (fresh) say("case-status", `You named ${e.name}. ${e.verdict}${e.note ? `\n${e.note}` : ""}`);
+        if (fresh) {
+          say("case-status", `You named ${e.name}. ${e.verdict}${e.note ? `\n${e.note}` : ""}`);
+          refreshEpisodes().catch(() => {});
+        }
       } else {
         talk("loud", fresh, e.text);
       }
@@ -1645,7 +1660,27 @@ function setShow(s) {
   $("show-listeners").textContent = `${s.listeners.toLocaleString("en-US")} ${s.listeners === 1 ? "listener" : "listeners"}`;
   $("show-next").textContent = s.next ? `Next: ${s.next.at.toLocaleString("en-US")} listeners. ${s.next.text}` : "";
   $("show-next").hidden = !s.next;
+  $("show-title").textContent = `Your show \u00b7 ${s.label}`;
 }
+
+function setEpisodes(list) {
+  $("episode-rows").replaceChildren(...(list.length ? list.map((x) => el("li", {},
+    el("b", { textContent: x.title }),
+    el("p", { textContent: `You named ${x.named}.` }),
+    el("p", { textContent: x.held ? "Held up" : "Didn't hold up" }),
+    el("p", { textContent: `${x.listeners < 0 ? "\u2212" : "+"}${Math.abs(x.listeners).toLocaleString("en-US")} ${Math.abs(x.listeners) === 1 ? "listener" : "listeners"}` }),
+    ...x.reception.map((line) => el("p", { textContent: line })))) : [el("li", {
+    className: "empty", textContent: "No episodes yet. Publish one when you've cracked a case.",
+  })]));
+}
+
+// The archive gains an entry when the player's own episode lands, so it is fetched again.
+async function refreshEpisodes() {
+  const res = await fetch("/api/state");
+  if (res.ok) setEpisodes((await res.json()).episodes);
+}
+
+$("episodes-open").addEventListener("click", () => $("episodes-panel").showModal());
 
 function setConn(state, text) {
   $("conn").dataset.state = state;
@@ -1705,6 +1740,7 @@ async function loadState() {
   here = state.place;
   setClock(state.time);
   setShow(state.show);
+  setEpisodes(state.episodes);
   setDistricts(state.districts);
   setResidents(state.villagers);
   // Photos older than the events replayed go below them; the rest land where their event is.
