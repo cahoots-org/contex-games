@@ -26,8 +26,8 @@ never adds to what it says.
 
 ## Playing
 
-**A case.** The town always has a petty case open, and a case of each bigger tier while someone playing has the
-standing for it: one open case per tier at most. At startup, on each part of the day, and the moment a case is solved
+**A case.** The town always has a petty case open, and a case of each bigger tier while someone playing has a
+show big enough for it: one open case per tier at most. At startup, on each part of the day, and the moment a case is solved
 or goes cold, each tier missing its case gets a crime staged in the part of the day just finished, opened in the same
 step. Its culprit is an offender of that tier; when nobody holds the tier, the offender below it who has got away with
 the most moves up, as long as someone is left below. A major case needs no major offender: when none is free, a
@@ -158,7 +158,7 @@ Walking still matters for the scene and the records: you search a place and pull
 
 **Pull records** at a place to copy the case's footage and logs there into your notebook. A place's records are
 kept by the residents who work there, or for a street by those who live on it; they're shared unless every keeper
-regards you below `guarded_at`.
+regards you below `guarded_at`, and always once your show has reached 250 listeners.
 
 **Search** the crime place, once per case, to find the one or two clues left there when the crime was staged.
 A receipt names no one: pull the grocery's records to see who paid at that time. The solvability check counts the
@@ -190,17 +190,40 @@ doesn't back it. One episode per podcaster per case.
   think less of you too (`reputation_accused_ties`). Once the case is closed, the accused remembers: they bring it
   up, hurt and short with you, and the people list tags them "you named them".
 
-**The show** is your podcast's audience, in the rail. A held episode on the town's case brings 100, 300 or 800
-listeners for a petty, serious or major case; a wrong one costs 100, never below 0. The practice case never moves it.
-Your tier comes from your peak audience, so losing listeners never takes a tier away: at `serious_at` you're "Known in
-town" and bigger tips start coming in; at `major_at` you're a "Town legend". The rail names the next milestone.
+**The show** is your podcast's audience, at the top of the case rail under "Your show". A held episode on the
+town's case brings 100, 300 or 800 listeners for a petty, serious or major case; a wrong one costs 100, never below 0.
+The practice case never moves it. Your tier and milestones follow your peak audience, the most listeners the show has
+ever had, so a wrong episode costs listeners but never takes away a tier or a milestone: below `serious_at` you're a
+"New podcaster", from it "Known in town" and offered serious cases, and from `major_at` a "Town legend" and offered
+major ones.
+
+**Credit.** A held episode's reception says what listeners loved, each kind at most once, and each line adds 50
+listeners: catching a false sighting or trace in your notebook by citing what disproves it and leaving it out,
+breaking an accomplice's alibi with what you cite, having a liar's story in your notebook along with what exposes it, and cracking
+a case with no witness but the victim. One with none is "A solid episode." It names only what you found.
+
+**Your episodes** opens from the show: every episode you've published, newest first, with the case, who you named,
+whether it held up, the listeners it brought or cost and its reception. Wrong ones stay in it. The practice case adds
+none.
+
+**Milestones.** The show names the next milestone under the listener count. Passing one tells you in the feed, and
+the app posts that "a local true-crime podcast" passed it, naming no one.
+
+| Peak listeners | What changes |
+|---|---|
+| 250 | Record-keepers always share their records with you, even ones who distrust you. |
+| `serious_at` (500) | Serious cases come to you. |
+| 1000 | People open up: a witness whose regard for you isn't negative recalls as if they trusted you. |
+| `major_at` (1500) | Major cases come to you. |
+| 2500 | The town knows your show: residents you talk to know it and may be a little starstruck, unless you wrongly accused or exposed them. |
 
 **Reputation** is each resident's regard for you, in [-1, 1], drifting back toward 0 by `reputation_decay` each part
-of the day. A resident below `guarded_at` won't talk to you or share the records they keep. A witness at or above
-`trusted_at` recalls one more of the culprit's traits in an interview, a fuller memory that goes in your notebook as
-a new entry.
+of the day. A resident below `guarded_at` won't talk to you, and until your show reaches 250 listeners won't share the
+records they keep. A witness at or above `trusted_at`, or from 1000 listeners any witness not below 0, recalls one
+more of the culprit's traits in an interview, a fuller memory that goes in your notebook as a new entry.
 
-Everything is done on one page, built around the case. On the left: the case with Publish (and, on a first case, its checklist),
+Everything is done on one page, built around the case. On the left: your show at the top, with its listeners, the next
+milestone and Your episodes; the case with Publish (and, on a first case, its checklist),
 which opens the form in place (choose a resident, tick notebook entries); the notebook grouped by kind (Seen, Clip,
 Logs, Said, Found, Heard, Photos), newest first; where you are, with Search here and Pull records when they apply and the
 places you can go; and at the foot, a small Districts map: each street with its crime and fear as three pips, an
