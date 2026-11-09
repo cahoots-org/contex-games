@@ -31,7 +31,7 @@ standing for it: one open case per tier at most. At startup, on each part of the
 or goes cold, each tier missing its case gets a crime staged in the part of the day just finished, opened in the same
 step. Its culprit is an offender of that tier; when nobody holds the tier, the offender below it who has got away with
 the most moves up, as long as someone is left below. A major case needs no major offender: when none is free, a
-serious one commits it and moves up, and with no serious one free either, a petty one is promoted first. You're offered every open case at or below your standing as a tip, listed under the case title,
+serious one commits it and moves up, and with no serious one free either, a petty one is promoted first. You're offered every open case at or below your show's tier as a tip, listed under the case title,
 and you work one at a time: the highest by default, or the one you pick. The case title and each tip say its tier:
 Petty, Serious or Major. Interviews, records, searches, photos and
 episodes all go to the case you're working. Crimes come from the catalog in `sleuth/case.py`. Petty ones: a stolen
@@ -190,10 +190,10 @@ doesn't back it. One episode per podcaster per case.
   think less of you too (`reputation_accused_ties`). Once the case is closed, the accused remembers: they bring it
   up, hurt and short with you, and the people list tags them "you named them".
 
-**Standing** is how far your podcast has come in this run, shown in the header. A held episode on the town's case
-adds 1, 2 or 3 points for a petty, serious or major case; a wrong one takes 1 away, never below 0. The practice case
-never moves it. At `serious_at` points you're "Known in town" and bigger tips start coming in; at `major_at` you're a
-"Town legend".
+**The show** is your podcast's audience, in the rail. A held episode on the town's case brings 100, 300 or 800
+listeners for a petty, serious or major case; a wrong one costs 100, never below 0. The practice case never moves it.
+Your tier comes from your peak audience, so losing listeners never takes a tier away: at `serious_at` you're "Known in
+town" and bigger tips start coming in; at `major_at` you're a "Town legend". The rail names the next milestone.
 
 **Reputation** is each resident's regard for you, in [-1, 1], drifting back toward 0 by `reputation_decay` each part
 of the day. A resident below `guarded_at` won't talk to you or share the records they keep. A witness at or above
@@ -314,8 +314,8 @@ Every field of `Config` can be set as `SLEUTH_<FIELD>`.
 | `SLEUTH_REFORM_CHANCE` | `0.3` | chance each morning after that an exposed offender reforms |
 | `SLEUTH_NEWCOMER_OFFENDER_CHANCE` | `0.3` | chance someone who moves in is an offender |
 | `SLEUTH_MAX_OFFENDERS` | `6` | most offenders that moving in can bring the set to |
-| `SLEUTH_SERIOUS_AT` | `3` | standing at which a podcaster is offered serious cases |
-| `SLEUTH_MAJOR_AT` | `6` | standing at which a podcaster is offered major cases |
+| `SLEUTH_SERIOUS_AT` | `500` | peak listeners at which a podcaster is offered serious cases |
+| `SLEUTH_MAJOR_AT` | `1500` | peak listeners at which a podcaster is offered major cases |
 | `SLEUTH_MAJOR_CASE_DAYS` | `6` | game days before an open major case goes cold |
 | `SLEUTH_MAJOR_EVERY_DAYS` | `3` | fewest game days between one major case opening and the next |
 | `SLEUTH_ACCOMPLICE_CHANCE` | `0.5` | chance a serious culprit has an accomplice who vouches for them |

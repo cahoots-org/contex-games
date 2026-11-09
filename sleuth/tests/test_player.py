@@ -1518,44 +1518,83 @@ async def no_arrest(engine, vid):
     """Stands in for an arrest, which needs a whole engine."""
 
 
+async def publish_on(monkeypatch, tier, culprit, listeners=0, peak=0):
+    """One episode on a case of the given tier from a podcaster with the given audience; returns the player."""
+    player, file, engine, _ = interviewing()
+    monkeypatch.setattr(engine.cases, "arrest", no_arrest)
+    file.crime.tier, player.listeners, player.peak = tier, listeners, peak
+    assert await player.publish(culprit, cite(player, file, memory_of(file, player.ids))) is None
+    return player
+
+
 @pytest.mark.asyncio
-async def test_held_episodes_raise_standing_by_their_tier_and_wrong_ones_lower_it(monkeypatch):
-    standing = 0
-    for tier, culprit, after in (("petty", "v3", 1), ("serious", "v3", 3), *[("petty", "v5", s) for s in (2, 1, 0, 0, 0, 0)]):
-        player, file, engine, _ = interviewing()
-        monkeypatch.setattr(engine.cases, "arrest", no_arrest)
-        file.crime.tier, player.standing = tier, standing
-        assert await player.publish(culprit, cite(player, file, memory_of(file, player.ids))) is None
-        standing = player.standing
-        assert standing == after
-        [event] = [e for e in player.feed.recent if e.kind == "standing"]
-        assert event.player == PID and (event.data["score"], event.data["tier"]) == (after, player.tier)
-        risen = tier == "serious"
-        assert event.data["text"] == ("Bigger tips are coming in now: serious cases." if risen else "")
-        assert event.data["label"] == ("Known in town" if risen else "New podcaster")
+async def test_a_held_episode_brings_listeners_by_tier(monkeypatch):
+    for tier, gained in (("petty", 100), ("serious", 300), ("major", 800)):
+        player = await publish_on(monkeypatch, tier, "v3", listeners=50)
+        assert player.listeners == 50 + gained and player.peak == player.listeners
+        [event] = [e for e in player.feed.recent if e.kind == "show"]
+        assert event.player == PID and event.data["show"] == player.show_json()
 
 
-def test_tier_follows_standing_thresholds():
+@pytest.mark.asyncio
+async def test_a_wrong_episode_costs_listeners_but_never_below_zero(monkeypatch):
+    player = await publish_on(monkeypatch, "petty", "v5", listeners=250, peak=250)
+    assert player.listeners == 150 and player.peak == 250
+    player = await publish_on(monkeypatch, "petty", "v5", listeners=40, peak=40)
+    assert player.listeners == 0
+
+
+@pytest.mark.asyncio
+async def test_rising_to_a_tier_tells_the_player(monkeypatch):
+    player = await publish_on(monkeypatch, "serious", "v3", listeners=300, peak=300)
+    [event] = [e for e in player.feed.recent if e.kind == "show"]
+    assert event.data["text"] == "Bigger tips are coming in now: serious cases."
+    assert event.data["show"]["label"] == "Known in town"
+    player = await publish_on(monkeypatch, "petty", "v3", listeners=500, peak=500)
+    [event] = [e for e in player.feed.recent if e.kind == "show"]
+    assert event.data["text"] == ""
+
+
+@pytest.mark.asyncio
+async def test_a_wrong_episode_never_takes_away_a_tier(monkeypatch):
+    player = await publish_on(monkeypatch, "petty", "v5", listeners=600, peak=600)
+    assert (player.listeners, player.tier) == (500, "serious")
+    player = await publish_on(monkeypatch, "petty", "v5", listeners=500, peak=600)
+    assert (player.listeners, player.peak, player.tier) == (400, 600, "serious")
+    assert player.show_json()["next"] == {"at": 1000, "text": "People open up to you."}
+
+
+def test_tier_follows_the_peak_thresholds():
     player = make("Ann")[0]
-    for standing, tier in ((0, "petty"), (2, "petty"), (3, "serious"), (5, "serious"), (6, "major"), (9, "major")):
-        player.standing = standing
+    for peak, tier in ((0, "petty"), (499, "petty"), (500, "serious"), (1499, "serious"), (1500, "major")):
+        player.peak = peak
         assert player.tier == tier
 
 
+def test_the_show_names_the_next_milestone():
+    player = make("Ann")[0]
+    assert player.show_json() == {"listeners": 0, "tier": "petty", "label": "New podcaster",
+                                  "next": {"at": 250, "text": "Record-keepers start sharing with you."}}
+    player.listeners = player.peak = 300
+    assert player.show_json()["next"] == {"at": 500, "text": "Serious cases come to you."}
+    player.listeners = player.peak = 2600
+    assert player.show_json() == {"listeners": 2600, "tier": "major", "label": "Town legend", "next": None}
+
+
 @pytest.mark.asyncio
-async def test_the_practice_case_never_moves_standing():
+async def test_the_practice_case_never_moves_the_show():
     player, *_ = practising()
     ids = await solve(player)
     assert await player.publish("t5", ids) is None
-    assert player.standing == 0 and not [e for e in player.feed.recent if e.kind == "standing"]
+    assert player.listeners == 0 and not [e for e in player.feed.recent if e.kind == "show"]
 
 
-def test_standing_round_trips_with_the_run():
+def test_listeners_and_peak_survive_a_save():
     player, town, _, engine, lineage = make("Bert")
-    player.standing = 4
+    player.listeners, player.peak = 450, 700
     back = Player(engine, town, lineage, Ids(), player.feed, player.config, player_id=PID)
     back.restore(json.loads(json.dumps(player.to_state())))
-    assert (back.standing, back.tier) == (4, "serious")
+    assert (back.listeners, back.peak, back.tier) == (450, 700, "serious")
 
 
 def two_tips(player, file):
@@ -1563,7 +1602,7 @@ def two_tips(player, file):
     file.crime.tier = "petty"
     big = culprit_file(player.engine.cases, "v5", "v7")
     big.crime.tier = "serious"
-    player.standing = player.config.serious_at
+    player.peak = player.config.serious_at
     return big
 
 
@@ -1585,7 +1624,7 @@ async def test_actions_follow_the_chosen_case():
 async def test_choosing_a_case_not_offered_is_refused():
     player, file, engine, _ = interviewing()
     big = two_tips(player, file)
-    player.standing = 0
+    player.peak = 0
     assert player.choose_case(big.crime.id) == "That case isn't one of your tips."
     assert player.choose_case("case-99") == "That case isn't one of your tips."
     assert player.current() is file and player.case_id is None
@@ -1609,7 +1648,7 @@ async def test_citing_the_accomplice_s_word_with_another_false_piece_sinks_the_e
     assert word.text == f"Jo Tran: Fay Okafor was with me on Oak Street {WHEN}." and not word.sound
     ids = cite(player, file, memory_of(file, player.ids), replace(word, id="r-91")) + [word.id]
     assert await player.publish("v3", ids) is None
-    assert file.state == "open" and player.standing == 0
+    assert file.state == "open" and player.listeners == 0
 
 
 @pytest.mark.asyncio
@@ -1628,7 +1667,7 @@ def a_death(player, file):
     file.crime.template, file.crime.item, file.crime.tier = "death", "", "major"
     file.motives = ["v5", "v7", "v8"]
     player.town.remove("v1")
-    player.standing = player.config.major_at
+    player.peak = player.config.major_at
 
 
 @pytest.mark.asyncio

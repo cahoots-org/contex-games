@@ -130,11 +130,17 @@ HELD = "It holds up. Case closed."
 RIVAL = "Another podcaster cracked the case first."
 # How many times a resident's looks are remembered.
 KNOWN_KEPT = 4
-# What a held episode adds to standing, by the case's tier, what each tier is called, and what rising to it means.
-TIER_POINTS = {"petty": 1, "serious": 2, "major": 3}
+# The listeners a held episode brings, by the case's tier, and what a wrong one costs.
+LISTENERS = {"petty": 100, "serious": 300, "major": 800}
+WRONG_COST = 100
+# What each tier is called, and what rising to it means.
 LABELS = {"petty": "New podcaster", "serious": "Known in town", "major": "Town legend"}
 TIPS_UP = {"serious": "Bigger tips are coming in now: serious cases.",
            "major": "The whole town is listening. The biggest cases come to you now."}
+# Audience sizes that open something up for the show, in order.
+MILESTONES = ((250, "Record-keepers start sharing with you."), (500, "Serious cases come to you."),
+              (1000, "People open up to you."), (1500, "Major cases come to you."),
+              (2500, "The town knows your show."))
 
 
 def learned(entry: dict, town: Town) -> str:
@@ -195,8 +201,10 @@ class Player:
         self._town_run: dict | None = None
         # The app's photos the player saved, oldest first.
         self.saved_photos: list[str] = []
-        # Points from the town's cases: held episodes add by tier, wrong ones take one away.
-        self.standing = 0
+        # The show's audience: held episodes on the town's cases bring listeners, wrong ones lose some. The peak
+        # only rises, and sets the tier.
+        self.listeners = 0
+        self.peak = 0
         # The town's case the player chose to work, while it is offered.
         self.case_id: str | None = None
 
@@ -205,7 +213,8 @@ class Player:
         return {
             "id": self.id, "owner": self.owner, "created_at": self.created_at, "active_at": self._active_at,
             **self._progress(), "handoff": self.handoff, "town_run": self._town_run,
-            "saved_photos": self.saved_photos, "standing": self.standing, "case_id": self.case_id,
+            "saved_photos": self.saved_photos, "listeners": self.listeners, "peak": self.peak,
+            "case_id": self.case_id,
             "tutorial": self.engine.cases.to_state() if self.practising else None,
         }
 
@@ -214,7 +223,8 @@ class Player:
         self.created_at = state["created_at"]
         self._resume(state)
         self.handoff, self._town_run = state["handoff"], state["town_run"]
-        self.saved_photos, self.standing, self.case_id = state["saved_photos"], state["standing"], state["case_id"]
+        self.saved_photos, self.case_id = state["saved_photos"], state["case_id"]
+        self.listeners, self.peak = state["listeners"], state["peak"]
         active_at = state["active_at"]
         self._active_at = None if active_at is None else min(active_at, time.time() - self.config.idle_after_seconds)
         if state["tutorial"] is not None:
@@ -234,10 +244,10 @@ class Player:
 
     @property
     def tier(self) -> str:
-        """The highest tier of case the player's standing has reached."""
-        if self.standing >= self.config.major_at:
+        """The highest tier of case the show's peak audience has reached."""
+        if self.peak >= self.config.major_at:
             return "major"
-        return "serious" if self.standing >= self.config.serious_at else "petty"
+        return "serious" if self.peak >= self.config.serious_at else "petty"
 
     def current(self) -> CaseFile | None:
         """The case the player is working: their private one, else the one they chose while offered, else the
@@ -246,7 +256,7 @@ class Player:
         return cases.for_player(self.id, self.tier, self.case_id) if cases else None
 
     def offered(self) -> list[CaseFile]:
-        """The town's open cases the player's standing fits."""
+        """The town's open cases the show's tier fits."""
         return self.engine.cases.offered(self.tier) if self.engine.cases else []
 
     def choose_case(self, case_id: str) -> str | None:
@@ -257,16 +267,22 @@ class Player:
         self.case_id = case_id
         return None
 
-    def standing_json(self) -> dict:
-        return {"score": self.standing, "tier": self.tier, "label": LABELS[self.tier]}
+    def show_json(self) -> dict:
+        """The show as the page sees it: listeners, tier and the next milestone."""
+        upcoming = next(({"at": at, "text": text} for at, text in MILESTONES if at > self.peak), None)
+        return {"listeners": self.listeners, "tier": self.tier, "label": LABELS[self.tier], "next": upcoming}
 
-    def _rank(self, held: bool, crime: Crime) -> None:
-        """Move standing for an episode on the town's case, and tell the player."""
+    def _rank(self, held: bool, crime: Crime, bonus: int = 0) -> None:
+        """Move the show's audience for an episode on the town's case, and tell the player."""
         before = self.tier
-        self.standing = self.standing + TIER_POINTS[crime.tier] if held else max(0, self.standing - 1)
+        if held:
+            self.listeners += LISTENERS[crime.tier] + bonus
+        else:
+            self.listeners = max(0, self.listeners - WRONG_COST)
+        self.peak = max(self.peak, self.listeners)
         tier = self.tier
         line = TIPS_UP[tier] if tier != before and held else ""
-        self.feed.on_standing(self.standing, tier, LABELS[tier], line, player=self.id)
+        self.feed.on_show(self.show_json(), line, player=self.id)
 
     @property
     def practising(self) -> bool:

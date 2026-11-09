@@ -88,7 +88,10 @@ h1 { flex: none; width: calc(var(--desk) - 2.1rem - 1px); font: 500 1.5rem/1.2 v
   background: var(--panel); border-top: 1px solid var(--rail);
 }
 .rail-foot .plain-button { width: 100%; min-height: 40px; }
-.standing { margin: .5rem 0 0; font-size: .8rem; color: var(--muted); }
+.show { margin: .5rem 0 0; font-size: .8rem; }
+.show h3 { margin: 0; font-size: .75rem; font-weight: 400; color: var(--muted); }
+.show p { margin: .1rem 0 0; }
+.show .next { color: var(--muted); }
 .tips { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: 0 0 .6rem; font-size: .8rem; }
 .tips [aria-pressed="true"] { font-weight: 600; }
 .case-text { margin: 0; font: .95rem/1.5 var(--serif); }
@@ -480,7 +483,11 @@ select, input[type="text"], input[type="search"] {
 
     <div class="rail-foot">
       <button type="button" class="plain-button" id="publish-open" aria-expanded="false" aria-controls="publish" hidden>Publish an episode</button>
-      <p class="standing" id="standing"></p>
+      <div class="show">
+        <h3>Your show</h3>
+        <p id="show-listeners"></p>
+        <p class="next" id="show-next"></p>
+      </div>
     </div>
   </aside>
 
@@ -557,8 +564,8 @@ let boot = null;
 let lastId = 0;
 // The open case the page shows, and how many questions the player has asked each resident.
 let caseNow = null;
-// The podcaster's standing: score, tier and what they are known as.
-let standing = { score: 0, tier: "petty", label: "" };
+// The podcaster's show: tier decides which tips are theirs.
+let show = { tier: "petty" };
 const TIERS = ["petty", "serious", "major"];
 let talked = {};
 let selected = null;
@@ -1378,8 +1385,8 @@ function render(e, fresh) {
       if (fresh) setDistricts(e.districts);
       break;
     case "case":
-      // A tip above the podcaster's standing isn't theirs; any other may change which cases they have.
-      if (TIERS.indexOf(e.case.tier) > TIERS.indexOf(standing.tier)) break;
+      // A tip above the show's tier isn't theirs; any other may change which cases they have.
+      if (TIERS.indexOf(e.case.tier) > TIERS.indexOf(show.tier)) break;
       if (fresh) retell().catch(() => {});
       break;
     case "case_closed":
@@ -1462,10 +1469,10 @@ function render(e, fresh) {
     case "system":
       talk("plain", fresh, e.text);
       break;
-    case "standing":
-      // Standing decides which cases are offered and worked, so the case is fetched again.
+    case "show":
+      // The show's tier decides which cases are offered and worked, so the case is fetched again.
       if (fresh) {
-        setStanding(e);
+        setShow(e.show);
         retell().catch(() => {});
       }
       if (e.text) talk("loud", fresh, e.text);
@@ -1633,9 +1640,11 @@ function setClock(t) {
   $("clock").textContent = `Day ${t.day} · ${capital(t.phase)}`;
 }
 
-function setStanding(s) {
-  standing = { score: s.score, tier: s.tier, label: s.label };
-  $("standing").textContent = `${s.label} · ${plural(s.score, "point")}`;
+function setShow(s) {
+  show = s;
+  $("show-listeners").textContent = `${s.listeners.toLocaleString("en-US")} ${s.listeners === 1 ? "listener" : "listeners"}`;
+  $("show-next").textContent = s.next ? `Next: ${s.next.at.toLocaleString("en-US")} listeners. ${s.next.text}` : "";
+  $("show-next").hidden = !s.next;
 }
 
 function setConn(state, text) {
@@ -1695,7 +1704,7 @@ async function loadState() {
   talked = state.talked;
   here = state.place;
   setClock(state.time);
-  setStanding(state.standing);
+  setShow(state.show);
   setDistricts(state.districts);
   setResidents(state.villagers);
   // Photos older than the events replayed go below them; the rest land where their event is.

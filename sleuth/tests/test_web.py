@@ -1058,10 +1058,19 @@ def test_the_people_list_marks_who_you_accused(game):
     assert other.person("v1")["accused"] is False and other.person("v2")["accused"] is False
 
 
-def test_state_shows_the_players_standing(game):
-    assert game.client.get("/api/state").json()["standing"] == {"score": 0, "tier": "petty", "label": "New podcaster"}
-    game.player.standing = 6
-    assert game.client.get("/api/state").json()["standing"] == {"score": 6, "tier": "major", "label": "Town legend"}
+def test_state_shows_the_players_show(game):
+    assert game.client.get("/api/state").json()["show"] == {
+        "listeners": 0, "tier": "petty", "label": "New podcaster",
+        "next": {"at": 250, "text": "Record-keepers start sharing with you."}}
+    game.player.listeners = game.player.peak = 1600
+    assert game.client.get("/api/state").json()["show"] == {
+        "listeners": 1600, "tier": "major", "label": "Town legend",
+        "next": {"at": 2500, "text": "The town knows your show."}}
+
+
+def test_the_rail_shows_the_show(game):
+    page = game.client.get("/").text
+    assert "Your show" in page and 'id="show-listeners"' in page and 'id="show-next"' in page
 
 
 def test_state_lists_only_offered_cases(game):
@@ -1069,14 +1078,14 @@ def test_state_lists_only_offered_cases(game):
     state = game.client.get("/api/state").json()
     assert [c["id"] for c in state["cases"]] == [petty.crime.id] and state["case"]["id"] == petty.crime.id
     assert state["case"]["tier"] == "petty"
-    game.player.standing = game.config.serious_at
+    game.player.peak = game.config.serious_at
     state = game.client.get("/api/state").json()
     assert [c["id"] for c in state["cases"]] == [big.crime.id, petty.crime.id] and state["case"]["id"] == big.crime.id
 
 
 def test_choose_case_endpoint(game):
     petty, big = open_case(game), open_case(game, tier="serious")
-    game.player.standing = game.config.serious_at
+    game.player.peak = game.config.serious_at
     assert game.client.get("/api/case").json()["case"]["id"] == big.crime.id
     res = game.client.post("/api/case/choose", json={"case_id": petty.crime.id})
     assert res.status_code == 200 and res.json() == {"ok": True}
