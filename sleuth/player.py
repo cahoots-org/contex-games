@@ -868,7 +868,7 @@ class Player:
         cited = [self.notebook[i] for i in record_ids]
         note = "" if held else why_wrong(culprit_id, cited, self.notebook, self.town, file.records)
         reception = credits(file, cited, self.notebook, self.town) if held else []
-        bonus = 0 if reception == [SOLID] else CREDIT_BONUS * len(reception)
+        bonus = CREDIT_BONUS * sum(line != SOLID for line in reception)
         change = self._change(held, crime, bonus)
         self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids),
                              verdict=HELD if held else WRONG, note=note, listeners=change, reception=reception)

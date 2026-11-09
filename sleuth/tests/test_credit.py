@@ -41,6 +41,12 @@ def test_breaking_the_accomplices_alibi_earns_credit():
         "Listeners loved how you broke Hal's alibi for Fay."]
 
 
+def test_an_alibi_statement_without_its_disproof_cited_earns_no_credit():
+    log = record("r-log", "log", sound=True, place="gym", who="v5")
+    word = record("r-word", "statement", "v5", disproof=log.id, who="v3")
+    assert credited(file_of(log, accomplice="v5"), [CLIP], word) == ["A solid episode."]
+
+
 def test_seeing_through_a_liars_story_earns_credit():
     claim = record("r-claim", "statement", "v6")
     exposed = record("r-out", "statement", "v7", sound=True, who="v6")
