@@ -1990,3 +1990,16 @@ def test_residents_know_the_show_from_2500_listeners():
     assert star not in player._notes("v2")
     player.peak = 2500
     assert star in player._notes("v2") and star in player._notes("v5")
+
+
+def test_a_resident_with_a_grievance_is_not_starstruck():
+    player, file, *_ = interviewing()
+    star = "You know this podcaster's true-crime show, and you're a little starstruck."
+    player.peak = 2500
+    file.state, file.named[PID] = "closed", "v5"
+    assert star not in player._notes("v5")
+    file.solved_by = PID
+    player.engine.cases.offenders.exposed["v3"] = "stole a bike"
+    assert star not in player._notes("v3")
+    player.engine.cases.offenders.exposed["v6"] = "stole a bike"
+    assert star in player._notes("v6")

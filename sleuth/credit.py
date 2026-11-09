@@ -22,6 +22,7 @@ def _liar(file: CaseFile, mine: list[Record], notebook: dict[str, Record]) -> st
         for r in mine:
             if r.kind == "statement" and r.holder == vid and r.who is None and not r.sound:
                 told = True
+                break
         if not told:
             continue
         exposer = secret["exposer"]

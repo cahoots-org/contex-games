@@ -304,7 +304,8 @@ class Player:
         self.feed.on_show(self.show_json(), player=self.id)
 
     def _milestones(self, before: int, after: int) -> None:
-        """Tell the player each milestone their peak audience just passed, and post it to the town without naming them."""
+        """Tell the player each milestone their peak audience just passed, and post it to the town without naming
+        them."""
         for size, text in self.milestones:
             if before < size <= after:
                 self.feed.on_milestone(size, f"{size:,} listeners. {text}", player=self.id)
@@ -574,12 +575,14 @@ class Player:
         """What the resident feels about this podcaster or about themselves, for the writer."""
         notes = [f"This podcaster publicly accused you of {self._deed(c)}, and you didn't do it. You're hurt and short "
                  "with them." for c in self._wrongly_named(vid)]
+        aggrieved = bool(notes)
         if what := self._exposed().get(vid):
             mine = next((f.crime for f in self.engine.cases.files.values()
                          if f.crime.culprit == vid and f.solved_by == self.id), None)
             notes.append(f"This podcaster exposed you for {self._deed(mine)}. You're cold with them." if mine
                          else f"Everyone knows you {what}. You're touchy about it.")
-        if self.peak >= KNOWN_AT:
+            aggrieved = aggrieved or mine is not None
+        if self.peak >= KNOWN_AT and not aggrieved:
             notes.append(STARSTRUCK)
         return notes
 
@@ -794,8 +797,9 @@ class Player:
         file = self.current()
         if file is None:
             return "There's no open case."
-        guarded = max((self.engine.reputation.get(vid, self.id) for vid in self._keepers()), default=0.0) < self.config.guarded_at
-        if guarded and self.peak < SHARING_AT:
+        regard = max((self.engine.reputation.get(vid, self.id) for vid in self._keepers()), default=0.0)
+        closed = regard < self.config.guarded_at
+        if closed and self.peak < SHARING_AT:
             return "No one who keeps the records here will share them with you."
         found = [replace(r) for r in file.records.values() if r.kind in ("clip", "log") and r.place == self.place]
         if not found:
