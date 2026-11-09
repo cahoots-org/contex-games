@@ -1668,7 +1668,7 @@ function setEpisodes(list) {
     el("b", { textContent: x.title }),
     el("p", { textContent: `You named ${x.named}.` }),
     el("p", { textContent: x.held ? "Held up" : "Didn't hold up" }),
-    el("p", { textContent: `${x.listeners < 0 ? "\u2212" : "+"}${Math.abs(x.listeners).toLocaleString("en-US")} ${Math.abs(x.listeners) === 1 ? "listener" : "listeners"}` }),
+    el("p", { textContent: x.listeners === 0 ? "No change" : `${x.listeners < 0 ? "\u2212" : "+"}${Math.abs(x.listeners).toLocaleString("en-US")} ${Math.abs(x.listeners) === 1 ? "listener" : "listeners"}` }),
     ...x.reception.map((line) => el("p", { textContent: line })))) : [el("li", {
     className: "empty", textContent: "No episodes yet. Publish one when you've cracked a case.",
   })]));

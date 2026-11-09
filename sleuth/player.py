@@ -12,6 +12,7 @@ from sleuth.case import (
 )
 from sleuth.cases import CaseFile
 from sleuth.config import Config
+from sleuth.credit import CREDIT_BONUS, SOLID, credits
 from sleuth.decide import warmth_words
 from sleuth.episode import MAX_CITED, holds, why_wrong
 from sleuth.faith import FAITH, GORE
@@ -866,12 +867,14 @@ class Player:
                     self.feed.say(RIVAL, player=rival.id)
         cited = [self.notebook[i] for i in record_ids]
         note = "" if held else why_wrong(culprit_id, cited, self.notebook, self.town, file.records)
-        change, reception = self._change(held, crime), []
+        reception = credits(file, cited, self.notebook, self.town) if held else []
+        bonus = 0 if reception == [SOLID] else CREDIT_BONUS * len(reception)
+        change = self._change(held, crime, bonus)
         self.feed.on_episode(crime.id, accused.name, held, by=self.id, cited=len(record_ids),
                              verdict=HELD if held else WRONG, note=note, listeners=change, reception=reception)
-        self._rank(held, crime)
+        self._rank(held, crime, bonus)
         self.episodes.append({"case": crime.id, "title": crime_title(crime, self.town), "named": accused.name,
-                              "held": held, "listeners": change, "reception": reception,
+                              "held": held, "listeners": change, "reception": list(reception),
                               "day": self.game.day if self.game else 0})
         if held:
             await self.engine.cases.on_held(self.engine, file, self.id)

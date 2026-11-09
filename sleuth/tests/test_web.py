@@ -177,6 +177,12 @@ def test_the_page_shows_why_an_episode_failed_beneath_its_verdict(game):
     assert 'className: "note"' in episode and "${e.verdict}${e.note" in episode
 
 
+def test_the_archive_shows_no_change_for_an_episode_that_moved_no_listeners(game):
+    page = game.client.get("/").text
+    archive = page[page.index("function setEpisodes"):page.index("function refreshEpisodes")]
+    assert 'x.listeners === 0 ? "No change"' in archive
+
+
 def test_the_header_shows_the_day_and_part_and_speaks_only_when_the_connection_is_lost(game):
     page = game.client.get("/").text
     header = page[page.index("<header>"):page.index("</header>")]

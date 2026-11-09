@@ -1602,13 +1602,35 @@ async def test_each_published_episode_goes_in_the_archive(monkeypatch):
     player = await publish_on(monkeypatch, "serious", "v3", listeners=50)
     [entry] = player.episodes
     assert entry == {"case": entry["case"], "title": "Dana Reyes's bike",
-                     "named": player.town.get("v3").name, "held": True, "listeners": 300, "reception": [],
-                     "day": 0}
+                     "named": player.town.get("v3").name, "held": True, "listeners": 300,
+                     "reception": ["A solid episode."], "day": 0}
+    [event] = [e for e in player.feed.recent if e.kind == "episode"]
+    assert event.data["reception"] == entry["reception"] and event.data["reception"] is not entry["reception"]
     player = await publish_on(monkeypatch, "petty", "v5", listeners=50)
     [entry] = player.episodes_json()
     assert (entry["held"], entry["listeners"]) == (False, -50)
     [event] = [e for e in player.feed.recent if e.kind == "episode"]
     assert (event.data["listeners"], event.data["reception"]) == (-50, [])
+
+
+@pytest.mark.asyncio
+async def test_credit_adds_bonus_listeners(monkeypatch):
+    player, file, engine, _ = interviewing()
+    monkeypatch.setattr(engine.cases, "arrest", no_arrest)
+    clip = Record(player.ids.next("r"), file.crime.id, "clip", "elm street", "11:40pm", "A tall figure.",
+                  traits={"height": "tall", "coat": "grey hoodie"})
+    fake = Record(player.ids.next("r"), file.crime.id, "memory", "elm street", "11:40pm", MEMORY, "v7",
+                  {"coat": "green raincoat"}, sound=False, disproof=clip.id)
+    claim = Record(player.ids.next("r"), file.crime.id, "statement", "elm street", "", "", "v6", sound=False)
+    exposed = Record(player.ids.next("r"), file.crime.id, "statement", "elm street", "", "", "v7", who="v6")
+    file.liars["v6"] = {"kind": "covering", "exposer": "v7"}
+    cite(player, file, memory_of(file, player.ids), fake, claim, exposed)
+    assert await player.publish("v3", cite(player, file, clip)) is None
+    assert player.listeners == 200
+    [entry] = player.episodes
+    assert entry["listeners"] == 200 and entry["reception"] == [
+        "Listeners loved how you caught Jo's sighting of someone in a green raincoat.",
+        "Listeners loved that you didn't fall for Ivy's story."]
 
 
 @pytest.mark.asyncio
