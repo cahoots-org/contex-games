@@ -359,14 +359,34 @@ async def test_load_or_generate_rejects_a_village_without_wardrobes(tmp_path):
         await load_or_generate(str(path), FreshBatches(1), 1, random.Random(1))
 
 
-@pytest.mark.asyncio
-async def test_load_or_generate_rejects_a_village_without_genders(tmp_path):
+def old_town(tmp_path, *names):
     path = tmp_path / "old.json"
     traits = {"height": "tall", "hair": "bald", "car": "bicycle"}
-    path.write_text(json.dumps([asdict(Villager("v001", "Ada", "miller", "calm", "", ["a", "b", "c"], {}, traits=traits,
-                                                wardrobe=["grey hoodie"]))]))
-    with pytest.raises(SeedMismatch, match="before genders"):
-        await load_or_generate(str(path), FreshBatches(1), 1, random.Random(1))
+    path.write_text(json.dumps([asdict(Villager(f"v{i:03d}", name, "miller", "calm", "", ["a", "b", "c"], {},
+                                                traits=dict(traits), wardrobe=["grey hoodie"]))
+                                for i, name in enumerate(names, 1)]))
+    return path
+
+
+@pytest.mark.asyncio
+async def test_a_town_from_before_genders_gets_them_from_its_names_and_is_kept(tmp_path):
+    path = old_town(tmp_path, "Ada Reyes", "Hal Burke")
+    writer = StubWriter('{"Ada Reyes": "woman", "Hal Burke": "man"}')
+    villagers = await load_or_generate(str(path), writer, 2, random.Random(1))
+    assert [(v.name, v.traits["gender"]) for v in villagers] == [("Ada Reyes", "woman"), ("Hal Burke", "man")]
+    assert all(v.traits["height"] == "tall" for v in villagers) and writer.calls == 1
+    saved = json.loads(path.read_text())
+    assert [v["traits"]["gender"] for v in saved] == ["woman", "man"]
+
+
+@pytest.mark.asyncio
+async def test_a_name_the_writer_gets_wrong_or_skips_still_gets_a_gender(tmp_path):
+    path = old_town(tmp_path, "Ada Reyes", "Hal Burke")
+    villagers = await load_or_generate(str(path), StubWriter('{"Ada Reyes": "robot"}'), 2, random.Random(1))
+    assert all(v.traits["gender"] in ("man", "woman") for v in villagers)
+    villagers = await load_or_generate(str(old_town(tmp_path, "Ada Reyes")), StubWriter("not json"), 1,
+                                       random.Random(1))
+    assert villagers[0].traits["gender"] in ("man", "woman")
 
 
 @pytest.mark.asyncio
