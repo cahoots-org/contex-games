@@ -82,9 +82,9 @@ class Config:
     max_offenders: int = 6
     # The chance a serious culprit has an accomplice who vouches for them.
     accomplice_chance: float = 0.5
-    # The standing at which a podcaster is offered serious cases, and major ones.
-    serious_at: int = 3
-    major_at: int = 6
+    # The peak audience at which a podcaster is offered serious cases, and major ones.
+    serious_at: int = 500
+    major_at: int = 1500
     # How far each district's crime, and its fear, fade each part of the day.
     district_crime_decay: float = 0.02
     district_fear_decay: float = 0.015

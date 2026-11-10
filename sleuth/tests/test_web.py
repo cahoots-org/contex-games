@@ -94,6 +94,15 @@ def test_state_lists_villagers_and_replay(game):
     assert "NEED" not in game.client.get("/api/state").text
 
 
+def test_only_the_author_sees_their_archive(game):
+    game.player.episodes = [{"case": "c1", "title": "Ada's bike", "named": "Bert Cole", "held": True,
+                             "listeners": 100, "reception": [], "day": 1}]
+    assert game.client.get("/api/state").json()["episodes"] == game.player.episodes
+    other = game.join("someone-else")
+    as_owner(game.client, other.owner)
+    assert game.client.get("/api/state").json()["episodes"] == []
+
+
 def test_state_counts_each_conversation_and_names_where_records_are_kept(game):
     game.player.threads = {"v1": [{"question": "?", "line": "!", "records": []}] * 2}
     state = game.client.get("/api/state").json()
@@ -162,10 +171,25 @@ def test_the_page_is_never_served_from_cache_so_a_new_visitor_always_gets_a_run(
     assert game.client.get("/").headers["cache-control"] == "no-cache"
 
 
-def test_the_page_shows_why_an_episode_failed_beneath_its_verdict(game):
+def test_the_page_shows_why_an_episode_failed_and_how_it_landed_beneath_its_verdict(game):
     page = game.client.get("/").text
     episode = page[page.index('case "episode":'):page.index('case "post":')]
-    assert 'className: "note"' in episode and "${e.verdict}${e.note" in episode
+    assert "[e.note, ...(e.episode ? [listenerChange(e.episode.listeners), ...e.episode.reception] : [])]" in episode
+    assert 'className: "note"' in episode and "${e.verdict}${lines" in episode
+
+
+def test_the_archive_grows_from_the_episode_event_without_refetching_state(game):
+    page = game.client.get("/").text
+    episode = page[page.index('case "episode":'):page.index('case "post":')]
+    assert "setEpisodes([e.episode, ...episodes])" in episode
+    assert "refreshEpisodes" not in page
+
+
+def test_the_archive_shows_no_change_for_an_episode_that_moved_no_listeners(game):
+    page = game.client.get("/").text
+    change = page[page.index("function listenerChange"):page.index("function setEpisodes")]
+    assert 'n === 0 ? "No change"' in change
+    assert "listenerChange(x.listeners)" in page[page.index("function setEpisodes"):]
 
 
 def test_the_header_shows_the_day_and_part_and_speaks_only_when_the_connection_is_lost(game):
@@ -1058,10 +1082,22 @@ def test_the_people_list_marks_who_you_accused(game):
     assert other.person("v1")["accused"] is False and other.person("v2")["accused"] is False
 
 
-def test_state_shows_the_players_standing(game):
-    assert game.client.get("/api/state").json()["standing"] == {"score": 0, "tier": "petty", "label": "New podcaster"}
-    game.player.standing = 6
-    assert game.client.get("/api/state").json()["standing"] == {"score": 6, "tier": "major", "label": "Town legend"}
+def test_state_shows_the_players_show(game):
+    assert game.client.get("/api/state").json()["show"] == {
+        "listeners": 0, "tier": "petty", "label": "New podcaster",
+        "next": {"at": 250, "text": "Record-keepers start sharing with you."}}
+    game.player.listeners = game.player.peak = 1600
+    assert game.client.get("/api/state").json()["show"] == {
+        "listeners": 1600, "tier": "major", "label": "Town legend",
+        "next": {"at": 2500, "text": "The town knows your show."}}
+
+
+def test_the_show_heads_the_case_rail(game):
+    page = game.client.get("/").text
+    desk = page[page.index('id="desk"'):page.index('id="convo"')]
+    assert desk.index('class="show"') < desk.index('id="case"')
+    assert "Your show" in desk and 'id="show-listeners"' in desk and 'id="show-next"' in desk
+    assert 'id="episodes-open"' in desk
 
 
 def test_state_lists_only_offered_cases(game):
@@ -1069,14 +1105,14 @@ def test_state_lists_only_offered_cases(game):
     state = game.client.get("/api/state").json()
     assert [c["id"] for c in state["cases"]] == [petty.crime.id] and state["case"]["id"] == petty.crime.id
     assert state["case"]["tier"] == "petty"
-    game.player.standing = game.config.serious_at
+    game.player.peak = game.config.serious_at
     state = game.client.get("/api/state").json()
     assert [c["id"] for c in state["cases"]] == [big.crime.id, petty.crime.id] and state["case"]["id"] == big.crime.id
 
 
 def test_choose_case_endpoint(game):
     petty, big = open_case(game), open_case(game, tier="serious")
-    game.player.standing = game.config.serious_at
+    game.player.peak = game.config.serious_at
     assert game.client.get("/api/case").json()["case"]["id"] == big.crime.id
     res = game.client.post("/api/case/choose", json={"case_id": petty.crime.id})
     assert res.status_code == 200 and res.json() == {"ok": True}
@@ -1113,7 +1149,7 @@ def test_narrow_screens_keep_the_stage_and_slide_the_case_and_people_in_as_drawe
 
 def test_the_publish_composer_takes_over_the_stage(game):
     page = game.client.get("/").text
-    assert ".citing .stage, .citing .rail-foot { display: none; }" in page
+    assert ".citing .stage, .citing .rail-foot, .citing .show { display: none; }" in page
     assert ".citing .desk { grid-column: 1 / 3;" in page
     publish = page[page.index("function openPublish(on)"):page.index("function cited()")]
     assert 'if (drawers.matches) openDrawer($("desk"));' in publish
@@ -1141,3 +1177,8 @@ def test_heard_entries_are_marked_as_retold(game):
     assert 'const GROUP_NOTES = { Heard: "Retold. It may have changed along the way." };' in html
     draw = html[html.index("function drawNotebook()"):html.index("function entry(")]
     assert 'el("p", { className: "group-note", textContent: GROUP_NOTES[g] })' in draw and "sound" not in draw
+
+
+def test_the_page_tells_the_podcaster_of_a_milestone(game):
+    page = game.client.get("/").text
+    assert 'case "milestone":' in page

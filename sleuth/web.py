@@ -172,7 +172,8 @@ def create_app(
             "resting": usage.resting(),
             "intro": player.owner not in players.onboarded and not player.threads and not player.notebook,
             "handoff": player.handoff,
-            "standing": player.standing_json(),
+            "show": player.show_json(),
+            "episodes": player.episodes_json(),
             "photos": [{**photo_json(p, player.town), "saved": p.id in player.saved_photos}
                        for p in player.engine.album.photos],
             "districts": cases.districts.levels(player.town) if (cases := player.engine.cases) and cases.districts else [],

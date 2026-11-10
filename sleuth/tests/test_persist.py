@@ -161,6 +161,7 @@ def test_a_save_is_written_whole_or_not_at_all(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("content", [None, "{not json", json.dumps({"version": 99, "session": SESSION}),
                                      json.dumps({"version": 38, "session": SESSION}),
+                                     json.dumps({"version": 41, "session": SESSION}),
                                      json.dumps({"version": persist.STATE_VERSION, "session": "other"}), "[]"])
 def test_a_save_that_cannot_be_used_is_logged_and_set_aside(tmp_path, caplog, monkeypatch, content):
     monkeypatch.setattr(time, "time", lambda: NOW)
